@@ -74,6 +74,16 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data('regexp' => 'regexp', 'string' => 'string')
+  def test_parse_rfc5452_with_priority(param)
+    @parser.configure('with_priority' => true, 'parser_type' => param, 'message_format' => 'rfc5424')
+    @parser.instance.parse('<30>1 2020-03-31T20:32:54Z myhostname 02abaf0687f5 10339 02abaf0687f5 - method=POST db=0.00') do |time, record|
+      assert_equal(event_time('2020-03-31T20:32:54Z', format: '%Y-%m-%dT%H:%M:%S%z'), time)
+      expected = { 'extradata' => '-', 'host' => 'myhostname', 'ident' => '02abaf0687f5', 'message' => 'method=POST db=0.00', 'msgid' => '02abaf0687f5', 'pid' => '10339', 'pri' => 30 }
+      assert_equal(expected, record)
+    end
+  end
+
+  data('regexp' => 'regexp', 'string' => 'string')
   def test_parse_with_empty_priority(param)
     @parser.configure('with_priority' => true, 'parser_type' => param)
     @parser.instance.parse('<>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
@@ -454,6 +464,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["pid"]
         assert_equal "-", record["msgid"]
         assert_equal "-", record["extradata"]
+        assert_equal 16, record["pri"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
       assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
