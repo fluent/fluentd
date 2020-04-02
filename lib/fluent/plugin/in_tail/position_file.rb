@@ -21,7 +21,6 @@ module Fluent::Plugin
     class PositionFile
       UNWATCHED_POSITION = 0xffffffffffffffff
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
-      POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
 
       def self.load(file, logger:)
         pf = new(file, logger: logger)
@@ -83,8 +82,8 @@ module Fluent::Plugin
         size = nil
 
         @file_mutex.synchronize do
-          last_modified = @file.mtime
           size = @file.size
+          last_modified = @file.mtime
         end
 
         entries = fetch_compacted_entries
@@ -93,7 +92,13 @@ module Fluent::Plugin
           if last_modified == @file.mtime && size == @file.size
             @file.pos = 0
             @file.truncate(0)
-            @file.write(entries.join)
+            @file.write(entries.values.map(&:to_entry_fmt).join)
+
+            entries.each do |path, val|
+              if (m = @map[path])
+                m.seek = val.seek
+              end
+            end
           else
             # skip
           end
@@ -104,7 +109,7 @@ module Fluent::Plugin
 
       def compact
         @file_mutex.synchronize do
-          entries = fetch_compacted_entries
+          entries = fetch_compacted_entries.values.map(&:to_entry_fmt)
 
           @file.pos = 0
           @file.truncate(0)
@@ -116,6 +121,7 @@ module Fluent::Plugin
         entries = {}
 
         @file.pos = 0
+        file_pos = 0
         @file.each_line do |line|
           m = POSITION_FILE_ENTRY_REGEX.match(line)
           if m.nil?
@@ -133,11 +139,20 @@ module Fluent::Plugin
               @logger.warn("#{path} already exists. use latest one: deleted #{entries[path]}") if @logger
             end
 
-            entries[path] = (POSITION_FILE_ENTRY_FORMAT % [path, pos, ino])
+            entries[path] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+            file_pos += line.size
           end
         end
 
-        entries.values
+        entries
+      end
+    end
+
+    Entry = Struct.new(:path, :pos, :ino, :seek) do
+      POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
+
+      def to_entry_fmt
+        POSITION_FILE_ENTRY_FORMAT % [path, pos, ino]
       end
     end
 
@@ -157,6 +172,8 @@ module Fluent::Plugin
         @pos = pos
         @inode = inode
       end
+
+      attr_writer :seek
 
       def update(ino, pos)
         @file_mutex.synchronize {
