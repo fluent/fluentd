@@ -1,5 +1,28 @@
 # v1.10
 
+## Release v1.10.1 - 2020/04/02
+
+### Enhancement
+
+* command: `--daemon` and `--no-supervisor` now work together
+  https://github.com/fluent/fluentd/pull/2912
+* Refactor code
+  https://github.com/fluent/fluentd/pull/2913
+
+### Bug fix
+
+* in_tail: `Fix pos_file_compaction_interval` parameter type
+  https://github.com/fluent/fluentd/pull/2921
+* in_tail: Fix seek position update after compaction
+  https://github.com/fluent/fluentd/pull/2922
+* parser_syslog: Fix regression in the `with_priority` and RFC5424 case
+  https://github.com/fluent/fluentd/pull/2923
+
+### Misc
+
+* Add document for security audit
+  https://github.com/fluent/fluentd/pull/2911
+
 ## Release v1.10.0 - 2020/03/24
 
 ### New feature
