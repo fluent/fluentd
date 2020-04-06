@@ -110,7 +110,7 @@ class HttpHelperTest < Test::Unit::TestCase
       end
 
       context.cert_store = cert_store
-      if !hostname && context.respond_to?(:verify_hostname=)
+      if !hostname
         context.verify_hostname = false # In test code, using hostname to be connected is very difficult
       end
 

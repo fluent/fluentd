@@ -145,7 +145,7 @@ module Fluent
           context.ciphers = ciphers
           context.verify_mode = OpenSSL::SSL::VERIFY_PEER
           context.cert_store = cert_store
-          context.verify_hostname = true if verify_fqdn && fqdn && context.respond_to?(:verify_hostname=)
+          context.verify_hostname = true if verify_fqdn && fqdn
           context.key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
 
           if cert_path
