@@ -9,7 +9,7 @@ rescue LoadError => _
 end
 
 unless skip
-  class HtttpHelperRouterTest < Test::Unit::TestCase
+  class HttpHelperRouterTest < Test::Unit::TestCase
     sub_test_case '#mount' do
       test 'mount with method and path' do
         router = Fluent::PluginHelper::HttpServer::Router.new

@@ -8,7 +8,7 @@ require 'uri'
 require 'openssl'
 require 'async'
 
-class HtttpHelperTest < Test::Unit::TestCase
+class HttpHelperTest < Test::Unit::TestCase
   PORT = unused_port
   NULL_LOGGER = Logger.new(nil)
   CERT_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/without_ca')
