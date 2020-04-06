@@ -99,7 +99,8 @@ class TestFluentdCommand < ::Test::Unit::TestCase
 
   def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10, env: {})
     matched = false
-    assert_error_msg = "matched correctly"
+    matched_wrongly = false
+    assert_error_msg = ""
     stdio_buf = ""
     begin
       execute_command(cmdline, TMP_DIR, env) do |pid, stdout|
@@ -129,13 +130,18 @@ class TestFluentdCommand < ::Test::Unit::TestCase
         end
       end
     rescue Timeout::Error
-      assert_error_msg = "execution timeout with command out:\n" + stdio_buf
+      assert_error_msg = "execution timeout"
     rescue => e
-      assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}\n" + stdio_buf
+      assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}"
+    else
+      assert_error_msg = "log doesn't match" unless matched
     end
-    assert matched, assert_error_msg
 
-    unless patterns_not_match.empty?
+    if patterns_not_match.empty?
+      assert_error_msg = build_message(assert_error_msg,
+                                       "<?>\nwas expected to include:\n<?>",
+                                       stdio_buf, pattern_list)
+    else
       lines = stdio_buf.split("\n")
       patterns_not_match.each do |ptn|
         matched_wrongly = if ptn.is_a? Regexp
@@ -143,9 +149,17 @@ class TestFluentdCommand < ::Test::Unit::TestCase
                           else
                             lines.any?{|line| line.include?(ptn) }
                           end
-        assert_false matched_wrongly, "pattern exists in logs wrongly:\n" + stdio_buf
+        if matched_wrongly
+          assert_error_msg << "\n" unless assert_error_msg.empty?
+          assert_error_msg << "pattern exists in logs wrongly: #{ptn}"
+        end
       end
+      assert_error_msg = build_message(assert_error_msg,
+                                       "<?>\nwas expected to include:\n<?>\nand not include:\n<?>",
+                                       stdio_buf, pattern_list, patterns_not_match)
     end
+
+    assert matched && !matched_wrongly, assert_error_msg
   end
 
   def assert_fluentd_fails_to_start(cmdline, *pattern_list, timeout: 10)
