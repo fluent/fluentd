@@ -858,7 +858,6 @@ CONF
       '-internal-encoding' => '--internal-encoding=utf-8',
     )
     test "-E option is set to RUBYOPT" do |opt|
-      omit "hard to run correctly on Windows. Need to debug." if Fluent.windows?
       conf = <<CONF
 <source>
   @type dummy
@@ -869,6 +868,7 @@ CONF
 </match>
 CONF
       conf_path = create_conf_file('rubyopt_test.conf', conf)
+      opt << " #{ENV['RUBYOPT']}" if ENV['RUBYOPT']
       assert_log_matches(
         create_cmdline(conf_path),
         *opt.split(' '),
