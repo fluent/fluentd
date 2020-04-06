@@ -146,8 +146,15 @@ module Fluent
           context.verify_mode = OpenSSL::SSL::VERIFY_PEER
           context.cert_store = cert_store
           context.verify_hostname = true if verify_fqdn && fqdn && context.respond_to?(:verify_hostname=)
-          context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path)) if cert_path
           context.key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
+
+          if cert_path
+            certs = socket_certificates_from_file(cert_path)
+            context.cert = certs.shift
+            unless certs.empty?
+              context.extra_chain_cert = certs
+            end
+          end
         end
         Fluent::TLS.set_version_to_context(context, version, min_version, max_version)
 
@@ -184,6 +191,17 @@ module Fluent
         else
           sock
         end
+      end
+
+      def socket_certificates_from_file(path)
+        data = File.read(path)
+        pattern = Regexp.compile('-+BEGIN CERTIFICATE-+\r?\n(?:[^-]*\r?\n)+-+END CERTIFICATE-+\r?\n?', Regexp::MULTILINE)
+        list = []
+        data.scan(pattern) { |match| list << OpenSSL::X509::Certificate.new(match) }
+        if list.length == 0
+          log.warn "cert_path does not contain a valid certificate"
+        end
+        list
       end
 
       def self.tls_verify_result_name(code)
