@@ -892,7 +892,7 @@ CONF
     end
 
     test 'invalid values are set to RUBYOPT' do
-      omit "hard to run correctly on Windows. Need to debug." if Fluent.windows?
+      omit "hard to run correctly because RUBYOPT=-r/path/to/bundler/setup is required on Windows while this test set invalid RUBYOPT" if Fluent.windows?
       conf = <<CONF
 <source>
   @type dummy
