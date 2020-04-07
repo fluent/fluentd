@@ -61,7 +61,7 @@ module Fluent::Plugin
           output.emit_events(tag, @copy_proc ? @copy_proc.call(es) : es)
         rescue => e
           if @ignore_errors[i]
-            log.error "ignore emit error", error: e
+            log.error "ignore emit error in #{output.plugin_id}", error: e
           else
             raise e
           end
