@@ -860,7 +860,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       context.verify_mode = OpenSSL::SSL::VERIFY_PEER
       context.cert_store = cert_store
-      if !hostname && context.respond_to?(:verify_hostname=)
+      if !hostname
         context.verify_hostname = false # In test code, using hostname to be connected is very difficult
       end
     else
