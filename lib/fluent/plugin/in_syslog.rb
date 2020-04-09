@@ -181,9 +181,9 @@ module Fluent::Plugin
           if octet_count_frame
             while idx = buffer.index(delimiter, pos)
               num = Integer(buffer[pos..idx])
-              pos = idx + num + 1
-              msg = buffer[idx + 1...pos]
-              if msg.size < num - 1
+              pos = idx + num + delimiter_size
+              msg = buffer[idx + delimiter_size...pos]
+              if msg.size < num - delimiter_size
                 pos = pos - num - num.to_s.size
                 break
               end
