@@ -375,7 +375,6 @@ class LogTest < Test::Unit::TestCase
 
       log.error message
       10.times { |i|
-        Timecop.return
         Timecop.freeze(@timestamp + i)
         log.error message
       }
@@ -394,7 +393,6 @@ class LogTest < Test::Unit::TestCase
 
       log.error message
       3.times { |i|
-        Timecop.return
         Timecop.freeze(@timestamp + i)
         log.error message
         log.error message
