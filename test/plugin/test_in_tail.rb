@@ -23,9 +23,6 @@ class TailInputTest < Test::Unit::TestCase
   def cleanup_directory(path)
     FileUtils.rm_rf(path, secure: true)
     if File.exist?(path)
-      # ensure files are closed for Windows, on which deleted files
-      # are still visible from filesystem
-      GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
       FileUtils.remove_entry_secure(path, true)
     end
     FileUtils.mkdir_p(path)
@@ -1065,9 +1062,6 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal expected_files, plugin.expand_paths.sort
     end
 
-    # For https://github.com/fluent/fluentd/issues/1455
-    # This test is fragile because test content depends on internal implementation.
-    # So if you modify in_tail internal, this test may break.
     def test_unwatched_files_should_be_removed
       config = config_element("", "", {
                                 "tag" => "tail",
@@ -1085,16 +1079,9 @@ class TailInputTest < Test::Unit::TestCase
 
       cleanup_directory(TMP_DIR)
       waiting(20) { sleep 0.1 until Dir.glob("#{TMP_DIR}/*.txt").size == 0 } # Ensure file is deleted on Windows
-      waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 0 }
+      waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size <= 0 }
 
-      # Previous implementation has an infinite watcher creation bug.
-      # Following code checks such unexpected bug by counting actual object allocation.
-      base_num = count_timer_object
-      2.times {
-        sleep 1
-        num = count_timer_object
-        assert_equal base_num, num
-      }
+      assert_equal 0, d.instance.instance_variable_get(:@tails).keys.size
 
       d.instance_shutdown
     end
