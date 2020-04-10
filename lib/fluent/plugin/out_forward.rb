@@ -684,7 +684,15 @@ module Fluent::Plugin
 
         case @sender.heartbeat_type
         when :transport
-          connect(dest_addr) do |_ri, _sock|
+          connect(dest_addr) do |sock, ri|
+            if ri.state != :established
+              establish_connection(sock, ri)
+
+              if ri.state != :established
+                raise ConnectionClosedError, "failed to establish connection with node #{@name}"
+              end
+            end
+
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
