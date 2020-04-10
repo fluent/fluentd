@@ -509,7 +509,7 @@ module Fluent
 
       if @ignore_repeated_log_interval
         if ignore_repeated_log?(:last_repeated_log, time, message)
-          return nil
+          return nil, nil
         else
           Thread.current[:last_repeated_log] = CachedLog.new(message, time)
         end
