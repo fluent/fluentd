@@ -1200,6 +1200,15 @@ EOL
       end
     end
 
+    test 'create timer of purging obsolete sockets' do
+      output_conf = CONFIG + %[keepalive true]
+      d = create_driver(output_conf)
+
+      mock(d.instance).timer_execute(:out_forward_heartbeat_request, 1).once
+      mock(d.instance).timer_execute(:out_forward_keep_alived_socket_watcher, 5).once
+      d.instance_start
+    end
+
     sub_test_case 'with require_ack_response' do
       test 'Create connection per send_data' do
         target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
