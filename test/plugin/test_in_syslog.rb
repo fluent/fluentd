@@ -375,7 +375,7 @@ EOS
       ]
       msgs.each { |msg|
         m = msg['msg']
-        msg['msg'] = "#{m.size + 1} #{m}"
+        msg['msg'] = "#{m.size} #{m}"
       }
       msgs
     end
