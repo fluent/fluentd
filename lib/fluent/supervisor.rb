@@ -882,7 +882,11 @@ module Fluent
     RUBY_ENCODING_OPTIONS_REGEX = %r{\A(-E|--encoding=|--internal-encoding=|--external-encoding=)}.freeze
 
     def build_spawn_command
-      fluentd_spawn_cmd = [ServerEngine.ruby_bin_path]
+      if ENV['TEST_RUBY_PATH']
+        fluentd_spawn_cmd = [ENV['TEST_RUBY_PATH']]
+      else
+        fluentd_spawn_cmd = [ServerEngine.ruby_bin_path]
+      end
 
       rubyopt = ENV['RUBYOPT']
       if rubyopt
@@ -897,10 +901,9 @@ module Fluent
 
       # Adding `-h` so that it can avoid ruby's command blocking
       # e.g. `ruby -Eascii-8bit:ascii-8bit` will block. but `ruby -Eascii-8bit:ascii-8bit -h` won't.
-      cmd = fluentd_spawn_cmd.join(' ')
-      _, e, s = Open3.capture3("#{cmd} -h")
+      _, e, s = Open3.capture3(*fluentd_spawn_cmd, "-h")
       if s.exitstatus != 0
-        $log.error('Invalid option is passed to RUBYOPT', command: cmd, error: e)
+        $log.error('Invalid option is passed to RUBYOPT', command: fluentd_spawn_cmd, error: e)
         exit s.exitstatus
       end
 

@@ -16,6 +16,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     FileUtils.mkdir_p(TMP_DIR)
     @supervisor_pid = nil
     @worker_pids = []
+    ENV["TEST_RUBY_PATH"] = nil
   end
 
   def process_exist?(pid)
@@ -98,7 +99,8 @@ class TestFluentdCommand < ::Test::Unit::TestCase
 
   def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10, env: {})
     matched = false
-    assert_error_msg = "matched correctly"
+    matched_wrongly = false
+    assert_error_msg = ""
     stdio_buf = ""
     begin
       execute_command(cmdline, TMP_DIR, env) do |pid, stdout|
@@ -128,13 +130,18 @@ class TestFluentdCommand < ::Test::Unit::TestCase
         end
       end
     rescue Timeout::Error
-      assert_error_msg = "execution timeout with command out:\n" + stdio_buf
+      assert_error_msg = "execution timeout"
     rescue => e
-      assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}\n" + stdio_buf
+      assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}"
+    else
+      assert_error_msg = "log doesn't match" unless matched
     end
-    assert matched, assert_error_msg
 
-    unless patterns_not_match.empty?
+    if patterns_not_match.empty?
+      assert_error_msg = build_message(assert_error_msg,
+                                       "<?>\nwas expected to include:\n<?>",
+                                       stdio_buf, pattern_list)
+    else
       lines = stdio_buf.split("\n")
       patterns_not_match.each do |ptn|
         matched_wrongly = if ptn.is_a? Regexp
@@ -142,9 +149,17 @@ class TestFluentdCommand < ::Test::Unit::TestCase
                           else
                             lines.any?{|line| line.include?(ptn) }
                           end
-        assert_false matched_wrongly, "pattern exists in logs wrongly:\n" + stdio_buf
+        if matched_wrongly
+          assert_error_msg << "\n" unless assert_error_msg.empty?
+          assert_error_msg << "pattern exists in logs wrongly: #{ptn}"
+        end
       end
+      assert_error_msg = build_message(assert_error_msg,
+                                       "<?>\nwas expected to include:\n<?>\nand not include:\n<?>",
+                                       stdio_buf, pattern_list, patterns_not_match)
     end
+
+    assert matched && !matched_wrongly, assert_error_msg
   end
 
   def assert_fluentd_fails_to_start(cmdline, *pattern_list, timeout: 10)
@@ -842,8 +857,7 @@ CONF
       '-external-encoding' => '--external-encoding=utf-8',
       '-internal-encoding' => '--internal-encoding=utf-8',
     )
-    test "-E option is set to RUBYOPT3" do |opt|
-      omit "hard to run correctly on Windows. Need to debug." if Fluent.windows?
+    test "-E option is set to RUBYOPT" do |opt|
       conf = <<CONF
 <source>
   @type dummy
@@ -854,6 +868,7 @@ CONF
 </match>
 CONF
       conf_path = create_conf_file('rubyopt_test.conf', conf)
+      opt << " #{ENV['RUBYOPT']}" if ENV['RUBYOPT']
       assert_log_matches(
         create_cmdline(conf_path),
         *opt.split(' '),
@@ -862,7 +877,7 @@ CONF
       )
     end
 
-        test "without RUBYOPT" do
+    test "without RUBYOPT" do
       conf = <<CONF
 <source>
   @type dummy
@@ -877,7 +892,7 @@ CONF
     end
 
     test 'invalid values are set to RUBYOPT' do
-      omit "hard to run correctly on Windows. Need to debug." if Fluent.windows?
+      omit "hard to run correctly because RUBYOPT=-r/path/to/bundler/setup is required on Windows while this test set invalid RUBYOPT" if Fluent.windows?
       conf = <<CONF
 <source>
   @type dummy
@@ -892,6 +907,38 @@ CONF
         create_cmdline(conf_path),
         'Invalid option is passed to RUBYOPT',
         env: { 'RUBYOPT' => 'a' },
+      )
+    end
+
+    # https://github.com/fluent/fluentd/issues/2915
+    test "ruby path contains spaces" do
+      conf = <<CONF
+<source>
+  @type dummy
+  tag dummy
+</source>
+<match>
+  @type null
+</match>
+CONF
+      ruby_path = ServerEngine.ruby_bin_path
+      tmp_ruby_path = File.join(TMP_DIR, "ruby with spaces")
+      if Fluent.windows?
+        tmp_ruby_path << ".bat"
+        File.open(tmp_ruby_path, "w") do |file|
+          file.write "#{ruby_path} %*"
+        end
+      else
+        FileUtils.ln_sf(ruby_path, tmp_ruby_path)
+      end
+      ENV["TEST_RUBY_PATH"] = tmp_ruby_path
+      cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
+      conf_path = create_conf_file('space_mixed_ruby_path_test.conf', conf)
+      args = ["bundle", "exec", tmp_ruby_path, cmd_path, "-c", conf_path]
+      assert_log_matches(
+        args,
+        'spawn command to main:',
+        '-Eascii-8bit:ascii-8bit'
       )
     end
 
