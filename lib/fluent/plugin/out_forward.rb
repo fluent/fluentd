@@ -324,7 +324,7 @@ module Fluent::Plugin
         end
       end
 
-      if @keepalive && @keepalive_timeout
+      if @keepalive
         timer_execute(:out_forward_keep_alived_socket_watcher, @keep_alive_watcher_interval, &method(:on_purge_obsolete_socks))
       end
     end
