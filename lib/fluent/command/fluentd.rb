@@ -336,7 +336,7 @@ else
   worker = Fluent::Supervisor.new(opts)
   worker.configure
 
-  if opts[:daemonize]
+  if opts[:daemonize] && opts[:standalone_worker]
     require 'fluent/daemonizer'
     args = ARGV.dup
     i = args.index('--daemon')
