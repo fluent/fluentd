@@ -1056,7 +1056,7 @@ EOL
         e = assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
-        assert_match(/Failed to establish connection/, e.message)
+        assert_match(/failed to establish connection/, e.message)
       end
     end
 
@@ -1092,7 +1092,7 @@ EOL
           d.instance_start
         end
 
-        assert_match(/Failed to establish connection/, e.message)
+        assert_match(/failed to establish connection/, e.message)
       end
     end
 

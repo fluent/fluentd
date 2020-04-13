@@ -578,12 +578,7 @@ module Fluent::Plugin
 
       def verify_connection
         connect do |sock, ri|
-          if ri.state != :established
-            establish_connection(sock, ri)
-            if ri.state != :established
-              raise "Failed to establish connection to #{@host}:#{@port}"
-            end
-          end
+          ensure_established_connection(sock, ri)
         end
       end
 
@@ -652,14 +647,7 @@ module Fluent::Plugin
       def send_data(tag, chunk)
         ack = @ack_handler && @ack_handler.create_ack(chunk.unique_id, self)
         connect(nil, ack: ack) do |sock, ri|
-          if ri.state != :established
-            establish_connection(sock, ri)
-
-            if ri.state != :established
-              raise ConnectionClosedError, "failed to establish connection with node #{@name}"
-            end
-          end
-
+          ensure_established_connection(sock, ri)
           send_data_actual(sock, tag, chunk)
         end
 
@@ -684,7 +672,9 @@ module Fluent::Plugin
 
         case @sender.heartbeat_type
         when :transport
-          connect(dest_addr) do |_ri, _sock|
+          connect(dest_addr) do |sock, ri|
+            ensure_established_connection(sock, ri)
+
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
@@ -775,6 +765,16 @@ module Fluent::Plugin
       end
 
       private
+
+      def ensure_established_connection(sock, request_info)
+        if request_info.state != :established
+          establish_connection(sock, request_info)
+
+          if request_info.state != :established
+            raise ConnectionClosedError, "failed to establish connection with node #{@name}"
+          end
+        end
+      end
 
       def connect(host = nil, ack: false, &block)
         @connection_manager.connect(host: host || resolved_host, port: port, hostname: @hostname, ack: ack, &block)
