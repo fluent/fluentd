@@ -235,7 +235,7 @@ module Fluent::Plugin
           return
         end
 
-        pri ||= record.delete('pri')
+        pri ||= record.delete('pri').to_i
         facility = FACILITY_MAP[pri >> 3]
         severity = SEVERITY_MAP[pri & 0b111]
 
