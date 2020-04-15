@@ -1,5 +1,37 @@
 # v1.10
 
+## Release v1.10.2 - 2020/04/15
+
+### Enhancement
+
+* out_copy: Add plugin_id to log message
+  https://github.com/fluent/fluentd/pull/2934
+* socket: Allow cert chains in mutual auth
+  https://github.com/fluent/fluentd/pull/2930
+* system: Add ignore_repeated_log_interval parameter
+  https://github.com/fluent/fluentd/pull/2937
+* windows: Allow to launch fluentd from whitespace included path
+  https://github.com/fluent/fluentd/pull/2920
+* Refactor code
+  https://github.com/fluent/fluentd/pull/2935
+  https://github.com/fluent/fluentd/pull/2936
+  https://github.com/fluent/fluentd/pull/2938
+  https://github.com/fluent/fluentd/pull/2939
+  https://github.com/fluent/fluentd/pull/2946
+
+### Bug fix
+
+* in_syslog: Fix octet-counting mode bug
+  https://github.com/fluent/fluentd/pull/2942
+* out_forward: Create timer for purging obsolete sockets when keepalive_timeout is not set
+  https://github.com/fluent/fluentd/pull/2943
+* out_forward: Need authentication when sending tcp heartbeat with keepalive
+  https://github.com/fluent/fluentd/pull/2945
+* command: Fix fluent-debug start failure
+  https://github.com/fluent/fluentd/pull/2948
+* command: Fix regression of supervisor's worker and `--daemon` combo
+  https://github.com/fluent/fluentd/pull/2950
+
 ## Release v1.10.1 - 2020/04/02
 
 ### Enhancement
