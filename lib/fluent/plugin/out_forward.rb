@@ -382,7 +382,12 @@ module Fluent::Plugin
           cert_logical_store_name: @tls_cert_logical_store_name,
           cert_use_enterprise_store: @tls_cert_use_enterprise_store,
 
-          linger_timeout: @send_timeout,
+          # Enabling SO_LINGER causes tcp port exhaustion on Windows.
+          # This is because dynamic ports are only 16384 (from 49152 to 65535) and
+          # expiring SO_LINGER enabled ports should wait 4 minutes
+          # where set by TcpTimeDelay. Its default value is 4 minutes.
+          # So, we should disable SO_LINGER on Windows to prevent flood of waiting ports.
+          linger_timeout: Fluent.windows? ? nil : @send_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
           connect_timeout: @connect_timeout,
