@@ -556,7 +556,7 @@ module Fluent
       end
 
       if dry_run
-        $log.info 'finsihed dry run mode'
+        $log.info 'finished dry run mode'
         exit 0
       else
         supervise
