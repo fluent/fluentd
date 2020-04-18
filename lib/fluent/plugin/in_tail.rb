@@ -136,7 +136,7 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "#{rc} are reserved words: #{@path_delimiter}"
       end
 
-      @paths = @path.split(@path_delimiter).map(&:strip)
+      @paths = @path.split(@path_delimiter).map(&:strip).uniq
       if @paths.empty?
         raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
       end
@@ -296,7 +296,7 @@ module Fluent::Plugin
                end
         path.include?('*') ? Dir.glob(path) : path
       }.flatten.uniq
-      paths - excluded
+      paths.uniq - excluded
     end
 
     # in_tail with '*' path doesn't check rotation file equality at refresh phase.
