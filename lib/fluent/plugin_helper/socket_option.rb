@@ -67,8 +67,8 @@ module Fluent
           end
         else
           if linger_timeout
-          optval = [1, linger_timeout.to_i].pack(FORMAT_STRUCT_LINGER)
-          socket_option_set_one(sock, :SO_LINGER, optval)
+            optval = [1, linger_timeout.to_i].pack(FORMAT_STRUCT_LINGER)
+            socket_option_set_one(sock, :SO_LINGER, optval)
           end
         end
         if recv_timeout
