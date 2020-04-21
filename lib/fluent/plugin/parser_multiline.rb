@@ -104,7 +104,7 @@ module Fluent
       end
 
       def firstline?(text)
-        @firstline_regex.match(text)
+        @firstline_regex.match?(text)
       end
 
       private
