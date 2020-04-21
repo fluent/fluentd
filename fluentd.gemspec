@@ -10,7 +10,7 @@ Gem::Specification.new do |gem|
   gem.summary       = %q{Fluentd event collector}
   gem.homepage      = "https://www.fluentd.org/"
 
-  gem.files         = `git ls-files`.split($\)
+  gem.files         = `find .|cut -c 3-|grep -E "bin|test|spec|features"`.split($\)
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.require_paths = ["lib"]
