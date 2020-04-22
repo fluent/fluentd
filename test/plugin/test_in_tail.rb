@@ -102,6 +102,12 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal ["tail.txt", "test2", "tmp,dev"], d.instance.paths
     end
 
+    test "multi paths with same path configured twice" do
+      c = config_element("ROOT", "", { "path" => "test1.txt,test2.txt,test1.txt", "tag" => "t1", "path_delimiter" => "," })
+      d = create_driver(c + PARSE_SINGLE_LINE_CONFIG, false)
+      assert_equal ["test2.txt","test1.txt"].sort, d.instance.paths.sort
+    end
+
     test "multi paths with invaid path_delimiter" do
       c = config_element("ROOT", "", { "path" => "tail.txt|test2|tmp,dev", "tag" => "t1", "path_delimiter" => "*" })
       assert_raise(Fluent::ConfigError) do
@@ -1020,6 +1026,17 @@ class TailInputTest < Test::Unit::TestCase
       exclude_config = EX_CONFIG + config_element("", "", { "exclude_path" => %Q(["#{EX_PATHS.last}"]) })
       plugin = create_driver(exclude_config, false).instance
       assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
+    end
+
+    def test_expand_paths_with_duplicate_configuration
+      expanded_paths = [
+        'test/plugin/data/log/foo/bar.log',
+        'test/plugin/data/log/test.log'
+      ]
+      duplicate_config = EX_CONFIG.dup
+      duplicate_config["path"]="test/plugin/data/log/**/*.log, test/plugin/data/log/**/*.log"
+      plugin = create_driver(EX_CONFIG, false).instance
+      assert_equal expanded_paths, plugin.expand_paths.sort
     end
 
     def test_expand_paths_with_timezone
