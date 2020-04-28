@@ -37,6 +37,8 @@ module Fluent::Plugin
     config_param :proxy, :string, default: ENV['HTTP_PROXY'] || ENV['http_proxy']
     desc 'Content-Type for HTTP request'
     config_param :content_type, :string, default: nil
+    desc 'JSON array data format for HTTP request body'
+    config_param :json_array, :bool, default: false
     desc 'Additional headers for HTTP request'
     config_param :headers, :hash, default: nil
 
@@ -100,6 +102,13 @@ module Fluent::Plugin
       @proxy_uri = URI.parse(@proxy) if @proxy
       @formatter = formatter_create
       @content_type = setup_content_type unless @content_type
+
+      if @json_array
+        if @formatter_configs.first[:@type] != "json"
+            raise Fluent::ConfigError, "json_array option could be used with json formatter only"
+        end
+        define_singleton_method(:format, method(:format_json_array))
+      end
     end
 
     def multi_workers_ready?
@@ -112,6 +121,10 @@ module Fluent::Plugin
 
     def format(tag, time, record)
       @formatter.format(tag, time, record)
+    end
+
+    def format_json_array(tag, time, record)
+      @formatter.format(tag, time, record).strip() << ","
     end
 
     def write(chunk)
@@ -128,7 +141,7 @@ module Fluent::Plugin
     def setup_content_type
       case @formatter_configs.first[:@type]
       when 'json'
-        'application/x-ndjson'
+        @json_array ? 'application/json' : 'application/x-ndjson'
       when 'csv'
         'text/csv'
       when 'tsv', 'ltsv'
@@ -202,7 +215,7 @@ module Fluent::Plugin
         req.basic_auth(@auth.username, @auth.password)
       end
       set_headers(req)
-      req.body = chunk.read
+      req.body = @json_array ? "[#{chunk.read[0...-1]}]" : chunk.read
       req
     end
 
