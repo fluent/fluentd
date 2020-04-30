@@ -4,9 +4,6 @@ require 'fluent/plugin_helper/service_discovery'
 require 'fluent/plugin/output'
 
 class ServiceDiscoveryHelper < Test::Unit::TestCase
-  PORT = unused_port
-  NULL_LOGGER = Logger.new(nil)
-
   class Dummy < Fluent::Plugin::TestBase
     helpers :service_discovery
 
@@ -40,7 +37,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
 
     d.service_discovery_create_manager(
       :service_discovery_helper_test,
-      configurations: [{ type: :static, conf:  config_element('root', '', {}, [config_element('service', '', { 'host' => '127.0.0.1', 'port' => '1234' })]) }],
+      configurations: [{ type: :static, conf: config_element('root', '', {}, [config_element('service', '', { 'host' => '127.0.0.1', 'port' => '1234' })]) }],
     )
 
     assert_true !!d.discovery_manager
