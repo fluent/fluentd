@@ -43,6 +43,13 @@ module Fluent
         super
       end
 
+      %i[after_start stop before_shutdown shutdown after_shutdown close terminate].each do |mth|
+        define_method(mth) do
+          @discovery_manager&.__send__(mth)
+          super()
+        end
+      end
+
       private
 
       # @param title [Symbol] the thread name. this value should be unique.

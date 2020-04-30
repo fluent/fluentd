@@ -60,6 +60,14 @@ module Fluent
           end
         end
 
+        %i[after_start stop before_shutdown shutdown after_shutdown close terminate].each do |mth|
+          define_method(mth) do
+            @discoveries.each do |d|
+              d.__send__(mth)
+            end
+          end
+        end
+
         def run_once
           # Don't care race in this loop intentionally
           s = @queue.size
