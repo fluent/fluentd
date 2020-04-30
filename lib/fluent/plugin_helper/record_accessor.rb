@@ -41,9 +41,11 @@ module Fluent
             else
               mcall = method(:call_dig)
               mdelete = method(:delete_nest)
+              mset = method(:set_nest)
               singleton_class.module_eval do
                 define_method(:call, mcall)
                 define_method(:delete, mdelete)
+                define_method(:set, mset)
               end
             end
           end
@@ -71,6 +73,18 @@ module Fluent
               target.delete(@last_key)
             end
           end
+        rescue
+          nil
+        end
+
+        def set(r, v)
+          r[@keys] = v
+        end
+
+        # set_nest doesn't create intermediate object. If key doesn't exist, no effect.
+        # See also: https://bugs.ruby-lang.org/issues/11747
+        def set_nest(r, v)
+          r.dig(*@dig_keys)&.[]=(@last_key, v)
         rescue
           nil
         end
