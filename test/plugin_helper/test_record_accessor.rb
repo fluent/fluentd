@@ -232,6 +232,7 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       assert_nothing_raised do
         accessor.set(r, "unknown field")
       end
+      assert_equal({'key1' => [{'key3' => "value"}]}, r)
     end
   end
 end
