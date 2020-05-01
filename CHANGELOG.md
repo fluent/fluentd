@@ -1,5 +1,27 @@
 # v1.10
 
+## Release v1.10.3 - 2020/05/01
+
+### Enhancement
+
+* record_accessor: Add `set` method
+  https://github.com/fluent/fluentd/pull/2977
+* config: Ruby DSL format is deprecated
+  https://github.com/fluent/fluentd/pull/2958
+* Refactor code
+  https://github.com/fluent/fluentd/pull/2961
+  https://github.com/fluent/fluentd/pull/2962
+  https://github.com/fluent/fluentd/pull/2965
+  https://github.com/fluent/fluentd/pull/2966
+  https://github.com/fluent/fluentd/pull/2978
+
+### Bug fix
+
+* out_forward: Disable `linger_timeout` setting on Windows
+  https://github.com/fluent/fluentd/pull/2959
+* out_forward: Fix warning of service discovery manager when fluentd stops
+  https://github.com/fluent/fluentd/pull/2974
+
 ## Release v1.10.2 - 2020/04/15
 
 ### Enhancement
