@@ -59,7 +59,7 @@
 
 ### New feature
 
-* sd plugin: Add RSV record plugin
+* sd plugin: Add SRV record plugin
   https://github.com/fluent/fluentd/pull/2876
 
 ### Enhancement
