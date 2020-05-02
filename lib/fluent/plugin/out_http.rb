@@ -124,7 +124,7 @@ module Fluent::Plugin
     end
 
     def format_json_array(tag, time, record)
-      @formatter.format(tag, time, record).strip() << ","
+      @formatter.format(tag, time, record) << ","
     end
 
     def write(chunk)
