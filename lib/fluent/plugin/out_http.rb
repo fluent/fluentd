@@ -215,7 +215,7 @@ module Fluent::Plugin
         req.basic_auth(@auth.username, @auth.password)
       end
       set_headers(req)
-      req.body = @json_array ? "[#{chunk.read[0...-1]}]" : chunk.read
+      req.body = @json_array ? "[#{chunk.read.chop!}]" : chunk.read
       req
     end
 
