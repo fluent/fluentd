@@ -105,7 +105,7 @@ module Fluent::Plugin
 
       if @json_array
         if @formatter_configs.first[:@type] != "json"
-            raise Fluent::ConfigError, "json_array option could be used with json formatter only"
+          raise Fluent::ConfigError, "json_array option could be used with json formatter only"
         end
         define_singleton_method(:format, method(:format_json_array))
       end
