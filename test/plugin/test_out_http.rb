@@ -80,6 +80,8 @@ class HTTPOutputTest < Test::Unit::TestCase
         req.body.each_line { |l|
           data << JSON.parse(l)
         }
+      when 'application/json'
+        data = JSON.parse(req.body)
       when 'text/plain'
         # Use single_value in this test
         req.body.each_line { |line|
@@ -181,6 +183,19 @@ class HTTPOutputTest < Test::Unit::TestCase
     assert_not_match(/Status code 503 is going to be removed/, d.instance.log.out.logs.join)
   end
 
+  # Check if an exception is raised on not JSON format use
+  data('not_json' => 'msgpack')
+  def test_configure_with_json_array_err(format_type)
+    assert_raise(Fluent::ConfigError) do
+      create_driver(config + %[
+        json_array true
+        <format>
+          @type #{format_type}
+        </format>
+      ])
+    end
+  end
+
   data('json' => ['json', 'application/x-ndjson'],
        'ltsv' => ['ltsv', 'text/tab-separated-values'],
        'msgpack' => ['msgpack', 'application/x-msgpack'],
@@ -192,6 +207,14 @@ class HTTPOutputTest < Test::Unit::TestCase
         @type #{format_type}
       </format>
     ])
+    assert_equal content_type, d.instance.content_type
+  end
+
+  # Check that json_array setting sets content_type = application/json
+  data('json' => 'application/json')
+  def test_configure_content_type_json_array(content_type)
+    d = create_driver(config + "json_array true")
+
     assert_equal content_type, d.instance.content_type
   end
 
@@ -207,6 +230,21 @@ class HTTPOutputTest < Test::Unit::TestCase
     result = @@result
     assert_equal method.upcase, result.method
     assert_equal 'application/x-ndjson', result.content_type
+    assert_equal test_events, result.data
+    assert_not_empty result.headers
+  end
+
+  # Check that JSON at HTTP request body is valid
+  def test_write_with_json_array_setting
+    d = create_driver(config + "json_array true")
+    d.run(default_tag: 'test.http') do
+      test_events.each { |event|
+        d.feed(event)
+      }
+    end
+
+    result = @@result
+    assert_equal 'application/json', result.content_type
     assert_equal test_events, result.data
     assert_not_empty result.headers
   end
