@@ -41,7 +41,7 @@ module Fluent
 
       attr_accessor :tag
 
-      def emit(record, time=Engine.now)
+      def emit(record, time=EventTime.now)
         es = OneEventStream.new(time, record)
         @instance.emit_events(@tag, es)
       end
@@ -62,7 +62,7 @@ module Fluent
 
       attr_accessor :tag
 
-      def emit(record, time=Engine.now)
+      def emit(record, time=EventTime.now)
         @entries << [time, record]
         self
       end
@@ -110,7 +110,7 @@ module Fluent
 
       attr_accessor :tag
 
-      def emit(record, time=Engine.now)
+      def emit(record, time=EventTime.now)
         @entries << [time, record]
         self
       end

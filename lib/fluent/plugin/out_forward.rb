@@ -709,7 +709,7 @@ module Fluent::Plugin
           @resolved_host ||= resolve_dns!
 
         else
-          now = Fluent::Engine.now
+          now = Fluent::EventTime.now
           rh = @resolved_host
           if !rh || now - @resolved_time >= @sender.expire_dns_cache
             rh = @resolved_host = resolve_dns!

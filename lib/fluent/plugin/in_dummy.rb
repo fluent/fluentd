@@ -105,10 +105,10 @@ module Fluent::Plugin
       begin
         if @size > 1
           num.times do
-            router.emit_array(@tag, Array.new(@size) { [Fluent::Engine.now, generate] })
+            router.emit_array(@tag, Array.new(@size) { [Fluent::EventTime.now, generate] })
           end
         else
-          num.times { router.emit(@tag, Fluent::Engine.now, generate) }
+          num.times { router.emit(@tag, Fluent::EventTime.now, generate) }
         end
       rescue => _
         # ignore all errors not to stop emits by emit errors

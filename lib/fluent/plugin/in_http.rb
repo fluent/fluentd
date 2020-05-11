@@ -176,9 +176,9 @@ module Fluent::Plugin
         end
         time = if param_time = params['time']
                  param_time = param_time.to_f
-                 param_time.zero? ? Fluent::Engine.now : @float_time_parser.parse(param_time)
+                 param_time.zero? ? Fluent::EventTime.now : @float_time_parser.parse(param_time)
                else
-                 record_time.nil? ? Fluent::Engine.now : record_time
+                 record_time.nil? ? Fluent::EventTime.now : record_time
                end
       rescue
         return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]

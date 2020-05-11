@@ -95,7 +95,7 @@ module Fluent
           record = e[1]
           next if record.nil?
           time = e[0]
-          time = (now ||= Engine.now) if time.to_i == 0
+          time = (now ||= EventTime.now) if time.to_i == 0
           es.add(time, record)
         }
         router.emit_stream(tag, es)
@@ -106,7 +106,7 @@ module Fluent
         return if record.nil?
 
         time = msg[1]
-        time = Engine.now if time.to_i == 0
+        time = EventTime.now if time.to_i == 0
         router.emit(tag, time, record)
       end
     end
