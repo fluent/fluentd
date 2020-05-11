@@ -593,7 +593,10 @@ module Fluent
 
       main_process do
         create_socket_manager if @standalone_worker
-        ServerEngine::Privilege.change(@chuser, @chgroup) if @standalone_worker
+        if @standalone_worker
+          ServerEngine::Privilege.change(@chuser, @chgroup)
+          File.umask(0)
+        end
         MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
         Fluent::Engine.init(@system_config)
         Fluent::Engine.run_configure(@conf)
