@@ -49,9 +49,55 @@ class LoadBalancerTest < Test::Unit::TestCase
       end
     end
 
+    test 'call like round robin without weight=0 node' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      n1 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1)
+      n2 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1)
+      n3 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 0)
+
+      lb.rebuild_weight_array([n1, n2, n3])
+
+      lb.select_healthy_node do |node|
+        # to handle random choice
+        if node == n1
+          lb.select_healthy_node do |node|
+            assert_equal(node, n2)
+          end
+
+          lb.select_healthy_node do |node|
+            assert_equal(node, n1)
+          end
+
+          lb.select_healthy_node do |node|
+            assert_equal(node, n2)
+          end
+        else
+          lb.select_healthy_node do |node|
+            assert_equal(node, n1)
+          end
+
+          lb.select_healthy_node do |node|
+            assert_equal(node, n2)
+          end
+
+          lb.select_healthy_node do |node|
+            assert_equal(node, n1)
+          end
+        end
+      end
+    end
+
     test 'raise an error if all node are unavialble' do
       lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
       lb.rebuild_weight_array([flexmock('node', :'standby?' => false, :'available?' => false, weight: 1)])
+      assert_raise(Fluent::Plugin::ForwardOutput::NoNodesAvailable) do
+        lb.select_healthy_node
+      end
+    end
+
+    test 'it regards weight=0 node as unavialble' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      lb.rebuild_weight_array([flexmock('node', :'standby?' => false, :'available?' => true, weight: 0)])
       assert_raise(Fluent::Plugin::ForwardOutput::NoNodesAvailable) do
         lb.select_healthy_node
       end
