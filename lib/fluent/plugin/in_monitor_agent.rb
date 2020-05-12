@@ -223,7 +223,7 @@ module Fluent::Plugin
         opts = {with_config: false, with_retry: false}
         timer_execute(:in_monitor_agent_emit, @emit_interval, repeat: true) {
           es = Fluent::MultiEventStream.new
-          now = Fluent::Engine.now
+          now = Fluent::EventTime.now
           plugins_info_all(opts).each { |record|
             es.add(now, record)
           }

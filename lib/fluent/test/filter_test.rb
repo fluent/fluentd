@@ -30,12 +30,12 @@ module Fluent
       attr_reader :filtered
       attr_accessor :tag
 
-      def emit(record, time = Engine.now)
+      def emit(record, time = EventTime.now)
         emit_with_tag(@tag, record, time)
       end
       alias_method :filter, :emit
 
-      def emit_with_tag(tag, record, time = Engine.now)
+      def emit_with_tag(tag, record, time = EventTime.now)
         @events[tag] ||= MultiEventStream.new
         @events[tag].add(time, record)
       end

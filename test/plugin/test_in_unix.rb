@@ -11,14 +11,13 @@ module StreamInputTest
     d = create_driver
 
     time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
-    Fluent::Engine.now = time
 
     d.expect_emit "tag1", time, {"a"=>1}
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
       d.expected_emits.each {|tag,_time,record|
-        send_data Fluent::MessagePackFactory.msgpack_packer.write([tag, 0, record]).to_s
+        send_data Fluent::MessagePackFactory.msgpack_packer.write([tag, _time, record]).to_s
       }
     end
   end
