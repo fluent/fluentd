@@ -56,7 +56,7 @@ module Fluent::Plugin
       end
 
       def rebuild_weight_array(nodes)
-        standby_nodes, regular_nodes = nodes.partition {|n|
+        standby_nodes, regular_nodes = nodes.select { |e| e.weight > 0 }.partition {|n|
           n.standby?
         }
 
