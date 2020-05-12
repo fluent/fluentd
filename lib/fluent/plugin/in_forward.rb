@@ -381,6 +381,12 @@ module Fluent::Plugin
       if @source_address_key && @source_hostname_key
         address = conn.remote_addr
         hostname = conn.remote_host
+        if address.ascii_only?
+          address.force_encoding(Encoding::US_ASCII)
+        end
+        if hostname.ascii_only?
+          hostname.force_encoding(Encoding::US_ASCII)
+        end
         es.each { |time, record|
           record[@source_address_key] = address
           record[@source_hostname_key] = hostname
@@ -388,12 +394,18 @@ module Fluent::Plugin
         }
       elsif @source_address_key
         address = conn.remote_addr
+        if address.ascii_only?
+          address.force_encoding(Encoding::US_ASCII)
+        end
         es.each { |time, record|
           record[@source_address_key] = address
           new_es.add(time, record)
         }
       elsif @source_hostname_key
         hostname = conn.remote_host
+        if hostname.ascii_only?
+          hostname.force_encoding(Encoding::US_ASCII)
+        end
         es.each { |time, record|
           record[@source_hostname_key] = hostname
           new_es.add(time, record)
