@@ -1,5 +1,21 @@
 # v1.10
 
+## Release v1.10.4 - 2020/05/12
+
+### Enhancement
+
+* out_http: Support single json array payload
+  https://github.com/fluent/fluentd/pull/2973
+* Refactoring
+  https://github.com/fluent/fluentd/pull/2988
+
+### Bug fix
+
+* supervisor: Call `File.umask(0)` for standalone worker
+  https://github.com/fluent/fluentd/pull/2987
+* out_forward: Fix ZeroDivisionError issue with `weight 0`
+  https://github.com/fluent/fluentd/pull/2989
+
 ## Release v1.10.3 - 2020/05/01
 
 ### Enhancement
