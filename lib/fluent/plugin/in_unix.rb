@@ -98,7 +98,11 @@ module Fluent::Plugin
     #   3: object record
     # }
     def on_message(msg)
-      # TODO format error
+      unless msg.is_a?(Array)
+        log.warn "incoming data is broken:", msg: msg
+        return
+      end
+
       tag = @tag || (msg[0].to_s)
       entries = msg[1]
 
@@ -131,7 +135,7 @@ module Fluent::Plugin
 
     def convert_time(time)
       case
-      when time == 0
+      when time.nil? || (time == 0)
         Fluent::EventTime.now
       when time === Fluent::EventTime
         time

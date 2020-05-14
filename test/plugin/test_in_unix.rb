@@ -50,13 +50,13 @@ class UnixInputTest < Test::Unit::TestCase
 
     time = Fluent::EventTime.now
     records = [
-      ["tag1", time, {"a" => 1}],
-      ["tag2", time, {"a" => 2}],
+      ["tag1", 0, {"a" => 1}],
+      ["tag2", nil, {"a" => 2}],
     ]
 
     @d.run(expect_records: records.length, timeout: 5) do
       records.each {|tag, _time, record|
-        send_data packer.write([tag, 0, record]).to_s
+        send_data packer.write([tag, _time, record]).to_s
       }
     end
 
@@ -141,5 +141,21 @@ class UnixInputTest < Test::Unit::TestCase
     end
 
     assert_equal(records, @d.events)
+  end
+
+  data('string chunk' => 'broken string',
+       'integer chunk' => 10)
+  def test_broken_message(data)
+    @d = create_driver
+    @d.run(shutdown: false, timeout: 5) do
+      @d.instance.__send__(:on_message, data)
+    end
+
+    assert_equal 0, @d.events.size
+
+    logs = @d.instance.log.logs
+    assert_equal 1, logs.select { |line|
+      line =~ / \[warn\]: incoming data is broken: msg=#{data.inspect}/
+    }.size, "should not accept broken chunk"
   end
 end unless Fluent.windows?
