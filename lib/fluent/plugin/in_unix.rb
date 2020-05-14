@@ -66,6 +66,7 @@ module Fluent::Plugin
 
     def listen
       if File.exist?(@path)
+        log.warn "Found existing '#{@path}'. Remove this file for in_unix plugin"
         File.unlink(@path)
       end
       FileUtils.mkdir_p(File.dirname(@path))
