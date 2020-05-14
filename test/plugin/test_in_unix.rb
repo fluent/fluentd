@@ -143,6 +143,26 @@ class UnixInputTest < Test::Unit::TestCase
     assert_equal(records, @d.events)
   end
 
+  def test_message_with_tag
+    @d = create_driver(CONFIG + "tag new_tag")
+
+    time = Fluent::EventTime.now
+    records = [
+      ["tag1", time, {"a" => 1}],
+      ["tag2", time, {"a" => 2}],
+    ]
+
+    @d.run(expect_records: records.length, timeout: 5) do
+      records.each {|tag, _time, record|
+        send_data packer.write([tag, _time, record]).to_s
+      }
+    end
+
+    @d.events.each { |event|
+      assert_equal("new_tag", event[0])
+    }
+  end
+
   data('string chunk' => 'broken string',
        'integer chunk' => 10)
   def test_broken_message(data)
