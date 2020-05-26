@@ -22,9 +22,14 @@ class GCStatInputTest < Test::Unit::TestCase
     assert_equal("t1", d.instance.tag)
   end
 
-  def test_emit
+  def setup_gc_stat
     stat = GC.stat
     stub(GC).stat { stat }
+    stat
+  end
+
+  def test_emit
+    stat = setup_gc_stat
 
     d = create_driver
     d.run(expect_emits: 2)
@@ -33,6 +38,24 @@ class GCStatInputTest < Test::Unit::TestCase
     assert(events.length > 0)
     events.each_index {|i|
       assert_equal(stat, events[i][2])
+      assert(events[i][1].is_a?(Fluent::EventTime))
+    }
+  end
+
+  def test_emit_with_use_symbol_keys_false
+    stat = setup_gc_stat
+    result = {}
+    stat.each_pair { |k, v|
+      result[k.to_s] = v
+    }
+
+    d = create_driver(CONFIG + "use_symbol_keys false")
+    d.run(expect_emits: 2)
+
+    events = d.events
+    assert(events.length > 0)
+    events.each_index {|i|
+      assert_equal(result, events[i][2])
       assert(events[i][1].is_a?(Fluent::EventTime))
     }
   end

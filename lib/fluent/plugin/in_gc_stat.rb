@@ -24,13 +24,22 @@ module Fluent::Plugin
 
     def initialize
       super
+      @key_map = nil
     end
 
     config_param :emit_interval, :time, default: 60
+    config_param :use_symbol_keys, :bool, default: true
     config_param :tag, :string
 
     def configure(conf)
       super
+
+      unless @use_symbol_keys
+        @key_map = {}
+        GC.stat.each_key { |key|
+          @key_map[key] = key.to_s
+        }
+      end
     end
 
     def multi_workers_ready?
@@ -50,6 +59,13 @@ module Fluent::Plugin
     def on_timer
       now = Fluent::EventTime.now
       record = GC.stat
+      unless @use_symbol_keys
+        new_record = {}
+        record.each_pair { |k, v|
+          new_record[@key_map[k]] = v
+        }
+        record = new_record
+      end
       router.emit(@tag, now, record)
     end
   end
