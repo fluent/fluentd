@@ -65,6 +65,7 @@ module Fluent
         @mutex = Mutex.new
         @space_count = nil
         @space_count_rfc5424 = nil
+        @skip_space_count = false
       end
 
       def configure(conf)
@@ -106,6 +107,10 @@ module Fluent
         @space_count_rfc5424 = @rfc5424_time_format.squeeze(' ').count(' ') + 1
         @time_parser = time_parser_create
         @time_parser_rfc5424_without_subseconds = time_parser_create(format: "%Y-%m-%dT%H:%M:%S%z")
+
+        if ['%b %d %H:%M:%S', '%b %d %H:%M:%S.%N'].include?(@time_format)
+          @skip_space_count = true
+        end
       end
 
       # this method is for tests
@@ -264,20 +269,35 @@ module Fluent
           end
         end
 
-        # header part
-        time_size = 15 # skip Mmm dd hh:mm:ss
-        time_end = text[cursor + time_size]
-        if time_end == SPLIT_CHAR
-          time_str = text.slice(cursor, time_size)
-          cursor += 16 # time + ' '
-        elsif time_end == '.'.freeze
-          # support subsecond time
-          i = text.index(SPLIT_CHAR, time_size)
-          time_str = text.slice(cursor, i - cursor)
-          cursor = i + 1
+        if @skip_space_count
+          # header part
+          time_size = 15 # skip Mmm dd hh:mm:ss
+          time_end = text[cursor + time_size]
+          if time_end == SPLIT_CHAR
+            time_str = text.slice(cursor, time_size)
+            cursor += 16 # time + ' '
+          elsif time_end == '.'.freeze
+            # support subsecond time
+            i = text.index(SPLIT_CHAR, time_size)
+            time_str = text.slice(cursor, i - cursor)
+            cursor = i + 1
+          else
+            yield nil, nil
+            return
+          end
         else
-          yield nil, nil
-          return
+          i = cursor - 1
+          sq = false
+          @space_count.times do
+            while text[i + 1] == ' '.freeze
+              sq = true
+              i += 1
+            end
+            i = text.index(' '.freeze, i + 1)
+          end
+
+          time_str = sq ? text.slice(idx, i - cursor).squeeze(' '.freeze) : text.slice(cursor, i - cursor)
+          cursor = i + 1
         end
 
         i = text.index(SPLIT_CHAR, cursor)
