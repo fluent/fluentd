@@ -152,6 +152,8 @@ module Fluent
         end
       end
 
+      SPLIT_CHAR = ' '.freeze
+
       def parse_rfc3164_regex(text, &block)
         idx = 0
         record = {}
@@ -170,15 +172,15 @@ module Fluent
         i = idx - 1
         sq = false
         @space_count.times do
-          while text[i + 1] == ' '.freeze
+          while text[i + 1] == SPLIT_CHAR
             sq = true
             i += 1
           end
 
-          i = text.index(' '.freeze, i + 1)
+          i = text.index(SPLIT_CHAR, i + 1)
         end
 
-        time_str = sq ? text.slice(idx, i - idx).squeeze(' ') : text.slice(idx, i - idx)
+        time_str = sq ? text.slice(idx, i - idx).squeeze(SPLIT_CHAR) : text.slice(idx, i - idx)
         time = @mutex.synchronize { @time_parser.parse(time_str) }
         if @keep_time_key
           record['time'] = time_str
@@ -204,15 +206,15 @@ module Fluent
         i = idx - 1
         sq = false
         @space_count_rfc5424.times {
-          while text[i + 1] == ' '.freeze
+          while text[i + 1] == SPLIT_CHAR
             sq = true
             i += 1
           end
 
-          i = text.index(' '.freeze, i + 1)
+          i = text.index(SPLIT_CHAR, i + 1)
         }
 
-        time_str = sq ? text.slice(idx, i - idx).squeeze(' '.freeze) : text.slice(idx, i - idx)
+        time_str = sq ? text.slice(idx, i - idx).squeeze(SPLIT_CHAR) : text.slice(idx, i - idx)
         time = @mutex.synchronize do
           begin
             @time_parser.parse(time_str)
@@ -262,8 +264,6 @@ module Fluent
         yield time, record
       end
 
-      SPLIT_CHAR = ' '.freeze
-
       def parse_rfc3164(text, &block)
         pri = nil
         cursor = 0
@@ -302,14 +302,14 @@ module Fluent
           i = cursor - 1
           sq = false
           @space_count.times do
-            while text[i + 1] == ' '.freeze
+            while text[i + 1] == SPLIT_CHAR
               sq = true
               i += 1
             end
-            i = text.index(' '.freeze, i + 1)
+            i = text.index(SPLIT_CHAR, i + 1)
           end
 
-          time_str = sq ? text.slice(idx, i - cursor).squeeze(' '.freeze) : text.slice(cursor, i - cursor)
+          time_str = sq ? text.slice(idx, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
           cursor = i + 1
         end
 
@@ -472,7 +472,7 @@ module Fluent
 
         # message part
         if cursor != text.bytesize
-          msg = text[cursor + 1..-1]
+          msg = text.slice(cursor + 1, text.bytesize)
           msg.chomp!
           record['message'] = msg
         end
