@@ -66,6 +66,7 @@ module Fluent
         @space_count = nil
         @space_count_rfc5424 = nil
         @skip_space_count = false
+        @skip_space_count_rfc5424 = false
       end
 
       def configure(conf)
@@ -88,11 +89,18 @@ module Fluent
                     end
                     RFC3164_WITHOUT_TIME_AND_PRI_REGEXP
                   when :rfc5424
-                    class << self
-                      alias_method :parse, :parse_rfc5424_regex
+                    if @regexp_parser
+                      class << self
+                        alias_method :parse, :parse_rfc5424_regex
+                      end
+                    else
+                      class << self
+                        alias_method :parse, :parse_rfc5424
+                      end
                     end
                     @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
                     @support_rfc5424_without_subseconds = true
+                    @skip_space_count_rfc5424 = @time_format.count(' ').zero?
                     RFC5424_WITHOUT_TIME_AND_PRI_REGEXP
                   when :auto
                     class << self
@@ -100,6 +108,7 @@ module Fluent
                     end
                     @time_parser_rfc3164 = time_parser_create(format: @time_format)
                     @time_parser_rfc5424 = time_parser_create(format: @rfc5424_time_format)
+                    @skip_space_count_rfc5424 = @rfc5424_time_format.count(' ').zero?
                     nil
                   end
 
@@ -127,7 +136,11 @@ module Fluent
           @regexp = RFC5424_WITHOUT_TIME_AND_PRI_REGEXP
           @time_parser = @time_parser_rfc5424
           @support_rfc5424_without_subseconds = true
-          parse_rfc5424_regex(text, &block)
+          if @regexp_parser
+            parse_rfc5424_regex(text, &block)
+          else
+            parse_rfc5424(text, &block)
+          end
         else
           @regexp = RFC3164_WITHOUT_TIME_AND_PRI_REGEXP
           @time_parser = @time_parser_rfc3164
@@ -346,6 +359,133 @@ module Fluent
         record['message'] = msg
 
         time = @time_parser.parse(time_str)
+        record['time'] = time_str if @keep_time_key
+
+        yield time, record
+      end
+
+      NILVALUE = '-'.freeze
+
+      def parse_rfc5424(text, &block)
+        pri = nil
+        cursor = 0
+        if @with_priority
+          if text.start_with?('<'.freeze)
+            i = text.index('>'.freeze, 1)
+            if i < 2
+              yield nil, nil
+              return
+            end
+            pri = text.slice(1, i - 1).to_i
+            i = text.index(SPLIT_CHAR, i)
+            cursor = i + 1
+          else
+            yield nil, nil
+            return
+          end
+        end
+
+        # timestamp part
+        if @skip_space_count_rfc5424
+          i = text.index(SPLIT_CHAR, cursor)
+          time_str = text.slice(cursor, i - cursor)
+          cursor = i + 1
+        else
+          i = cursor - 1
+          sq = false
+          @space_count.times do
+            while text[i + 1] == SPLIT_CHAR
+              sq = true
+              i += 1
+            end
+            i = text.index(SPLIT_CHAR, i + 1)
+          end
+
+          time_str = sq ? text.slice(idx, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
+          cursor = i + 1
+        end
+
+        # Repeat same code for the performance
+
+        # host part
+        i = text.index(SPLIT_CHAR, cursor)
+        unless i
+          yield nil, nil
+          return
+        end
+        slice_size = i - cursor
+        host = text.slice(cursor, slice_size)
+        cursor += slice_size + 1
+
+        # ident part
+        i = text.index(SPLIT_CHAR, cursor)
+        unless i
+          yield nil, nil
+          return
+        end
+        slice_size = i - cursor
+        ident = text.slice(cursor, slice_size)
+        cursor += slice_size + 1
+
+        # pid part
+        i = text.index(SPLIT_CHAR, cursor)
+        unless i
+          yield nil, nil
+          return
+        end
+        slice_size = i - cursor
+        pid = text.slice(cursor, slice_size)
+        cursor += slice_size + 1
+
+        # msgid part
+        i = text.index(SPLIT_CHAR, cursor)
+        unless i
+          yield nil, nil
+          return
+        end
+        slice_size = i - cursor
+        msgid = text.slice(cursor, slice_size)
+        cursor += slice_size + 1
+
+        record = {'host' => host, 'ident' => ident, 'pid' => pid, 'msgid' => msgid}
+        record['pri'] = pri if pri
+
+        # extradata part
+        ed_start = text[cursor]
+        if ed_start == NILVALUE
+          record['extradata'] = NILVALUE
+          cursor += 1
+        else
+          start = cursor
+          i = text.index('] '.freeze, cursor)
+          extradata = if i
+                        diff = i + 1 - start # calculate ']' position
+                        cursor += diff
+                        text.slice(start, diff)
+                      else  # No message part case
+                        cursor = text.bytesize
+                        text.slice(start, cursor)
+                      end
+          extradata.tr!("\\".freeze, ''.freeze)
+          record['extradata'] = extradata
+        end
+
+        # message part
+        if cursor != text.bytesize
+          msg = text[cursor + 1..-1]
+          msg.chomp!
+          record['message'] = msg
+        end
+
+        time = begin
+                 @time_parser.parse(time_str)
+               rescue Fluent::TimeParser::TimeParseError => e
+                 if @support_rfc5424_without_subseconds
+                   @time_parser_rfc5424_without_subseconds.parse(time_str)
+                 else
+                   raise
+                 end
+               end
         record['time'] = time_str if @keep_time_key
 
         yield time, record
