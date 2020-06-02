@@ -199,11 +199,13 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   class TestRFC5424Regexp < self
-    def test_parse_with_rfc5424_message
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_message(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -216,11 +218,13 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
-    def test_parse_with_rfc5424_message_trailing_eol
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_message_trailing_eol(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = "<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!\n"
       @parser.instance.parse(text) do |time, record|
@@ -233,11 +237,13 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
-    def test_parse_with_rfc5424_multiline_message
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_multiline_message(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = "<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi,\nfrom\nFluentd!"
       @parser.instance.parse(text) do |time, record|
@@ -250,10 +256,12 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
-    def test_parse_with_rfc5424_message_and_without_priority
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_message_and_without_priority(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
+                        'parser_type' => param
                         )
       text = '2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -266,10 +274,12 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
-    def test_parse_with_rfc5424_empty_message_and_without_priority
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_empty_message_and_without_priority(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
+                        'parser_type' => param
                         )
       text = '2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - -'
       @parser.instance.parse(text) do |time, record|
@@ -282,10 +292,12 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
-    def test_parse_with_rfc5424_message_without_time_format
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_message_without_time_format(param)
       @parser.configure(
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -297,10 +309,12 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
-    def test_parse_with_rfc5424_message_with_priority_and_pid
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_message_with_priority_and_pid(param)
       @parser.configure(
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<28>1 2018-09-26T15:54:26.620412+09:00 machine minissdpd 1298 - -  peer 192.168.0.5:50123 is not from a LAN'
       @parser.instance.parse(text) do |time, record|
@@ -312,11 +326,13 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
-    def test_parse_with_rfc5424_structured_message
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_structured_message(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] [Hi] from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -329,11 +345,13 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
-    def test_parse_with_rfc5424_multiple_structured_message
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_multiple_structured_message(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"][exampleSDID@20224 class="high"] Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -346,11 +364,13 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
-    def test_parse_with_rfc5424_message_includes_right_bracket
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_message_includes_right_bracket(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] [Hi] from Fluentd]!'
       @parser.instance.parse(text) do |time, record|
@@ -363,11 +383,13 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
-    def test_parse_with_rfc5424_empty_message
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_empty_message(param)
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"]'
       @parser.instance.parse(text) do |time, record|
@@ -380,10 +402,35 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
-    def test_parse_with_rfc5424_message_without_subseconds
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_space_empty_message(param)
       @parser.configure(
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
+                        )
+      text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] '
+      @parser.instance.parse(text) do |time, record|
+        if param == 'string'
+          assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
+          assert_equal "11111", record["pid"]
+          assert_equal "ID24224", record["msgid"]
+          assert_equal "[exampleSDID@20224 iut=\"3\" eventSource=\"Application\" eventID=\"11211\"]",
+                       record["extradata"]
+          assert_equal '', record["message"]
+        else
+          assert_nil time
+          assert_nil record
+        end
+      end
+    end
+
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_message_without_subseconds(param)
+      @parser.configure(
+                        'message_format' => 'rfc5424',
+                        'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<16>1 2017-02-06T13:14:15Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -395,10 +442,12 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
-    def test_parse_with_rfc5424_message_both_timestamp
+    data('regexp' => 'regexp', 'string' => 'string')
+    def test_parse_with_rfc5424_message_both_timestamp(param)
       @parser.configure(
                         'message_format' => 'rfc5424',
                         'with_priority' => true,
+                        'parser_type' => param
                         )
       text = '<16>1 2017-02-06T13:14:15Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
