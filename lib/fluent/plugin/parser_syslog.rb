@@ -132,7 +132,7 @@ module Fluent
       end
 
       def parse_auto(text, &block)
-        if REGEXP_DETECT_RFC5424.match(text)
+        if REGEXP_DETECT_RFC5424.match?(text)
           @regexp = RFC5424_WITHOUT_TIME_AND_PRI_REGEXP
           @time_parser = @time_parser_rfc5424
           @support_rfc5424_without_subseconds = true
