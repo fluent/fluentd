@@ -63,18 +63,22 @@ module Fluent
       def initialize
         super
         @mutex = Mutex.new
-        @space_count = nil
+        @regexp = nil
+        @regexp3164 = nil
+        @regexp5424 = nil
+        @regexp_parser = nil
+        @time_parser_rfc3164 = nil
+        @time_parser_rfc5424 = nil
+        @space_count_rfc3164 = nil
         @space_count_rfc5424 = nil
-        @skip_space_count = false
+        @skip_space_count_rfc3164 = false
         @skip_space_count_rfc5424 = false
+        @time_parser_rfc5424_without_subseconds = nil
       end
 
       def configure(conf)
         super
 
-        @time_parser_rfc3164 = @time_parser_rfc5424 = nil
-        @time_parser_rfc5424_without_subseconds = nil
-        @support_rfc5424_without_subseconds = false
         @regexp_parser = @parser_type == :regexp
         @regexp = case @message_format
                   when :rfc3164
@@ -87,6 +91,7 @@ module Fluent
                         alias_method :parse, :parse_rfc3164
                       end
                     end
+                    setup_time_parser_3164(@time_format)
                     RFC3164_WITHOUT_TIME_AND_PRI_REGEXP
                   when :rfc5424
                     if @regexp_parser
@@ -99,27 +104,36 @@ module Fluent
                       end
                     end
                     @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
-                    @support_rfc5424_without_subseconds = true
-                    @skip_space_count_rfc5424 = @time_format.count(' ').zero?
+                    setup_time_parser_5424(@time_format)
                     RFC5424_WITHOUT_TIME_AND_PRI_REGEXP
                   when :auto
                     class << self
                       alias_method :parse, :parse_auto
                     end
-                    @time_parser_rfc3164 = time_parser_create(format: @time_format)
-                    @time_parser_rfc5424 = time_parser_create(format: @rfc5424_time_format)
-                    @skip_space_count_rfc5424 = @rfc5424_time_format.count(' ').zero?
+                    setup_time_parser_3164(@time_format)
+                    setup_time_parser_5424(@rfc5424_time_format)
                     nil
                   end
 
-        @space_count = @time_format.squeeze(' ').count(' ') + 1
-        @space_count_rfc5424 = @rfc5424_time_format.squeeze(' ').count(' ') + 1
-        @time_parser = time_parser_create
-        @time_parser_rfc5424_without_subseconds = time_parser_create(format: "%Y-%m-%dT%H:%M:%S%z")
-
-        if ['%b %d %H:%M:%S', '%b %d %H:%M:%S.%N'].include?(@time_format)
-          @skip_space_count = true
+        if @regexp_parser
+          @regexp3164 = RFC3164_WITHOUT_TIME_AND_PRI_REGEXP
+          @regexp5424 = RFC5424_WITHOUT_TIME_AND_PRI_REGEXP
         end
+      end
+
+      def setup_time_parser_3164(time_fmt)
+        @time_parser_rfc3164 = time_parser_create(format: time_fmt)
+        if ['%b %d %H:%M:%S', '%b %d %H:%M:%S.%N'].include?(time_fmt)
+          @skip_space_count_rfc3164 = true
+        end
+        @space_count_rfc3164 = time_fmt.squeeze(' ').count(' ') + 1
+      end
+
+      def setup_time_parser_5424(time_fmt)
+        @time_parser_rfc5424 = time_parser_create(format: time_fmt)
+        @time_parser_rfc5424_without_subseconds = time_parser_create(format: "%Y-%m-%dT%H:%M:%S%z")
+        @skip_space_count_rfc5424 = time_fmt.count(' ').zero?
+        @space_count_rfc5424 = time_fmt.squeeze(' ').count(' ') + 1
       end
 
       # this method is for tests
@@ -132,18 +146,13 @@ module Fluent
       end
 
       def parse_auto(text, &block)
-        if REGEXP_DETECT_RFC5424.match(text)
-          @regexp = RFC5424_WITHOUT_TIME_AND_PRI_REGEXP
-          @time_parser = @time_parser_rfc5424
-          @support_rfc5424_without_subseconds = true
+        if REGEXP_DETECT_RFC5424.match?(text)
           if @regexp_parser
             parse_rfc5424_regex(text, &block)
           else
             parse_rfc5424(text, &block)
           end
         else
-          @regexp = RFC3164_WITHOUT_TIME_AND_PRI_REGEXP
-          @time_parser = @time_parser_rfc3164
           if @regexp_parser
             parse_rfc3164_regex(text, &block)
           else
@@ -151,6 +160,8 @@ module Fluent
           end
         end
       end
+
+      SPLIT_CHAR = ' '.freeze
 
       def parse_rfc3164_regex(text, &block)
         idx = 0
@@ -169,22 +180,22 @@ module Fluent
 
         i = idx - 1
         sq = false
-        @space_count.times do
-          while text[i + 1] == ' '.freeze
+        @space_count_rfc3164.times do
+          while text[i + 1] == SPLIT_CHAR
             sq = true
             i += 1
           end
 
-          i = text.index(' '.freeze, i + 1)
+          i = text.index(SPLIT_CHAR, i + 1)
         end
 
-        time_str = sq ? text.slice(idx, i - idx).squeeze(' ') : text.slice(idx, i - idx)
-        time = @mutex.synchronize { @time_parser.parse(time_str) }
+        time_str = sq ? text.slice(idx, i - idx).squeeze(SPLIT_CHAR) : text.slice(idx, i - idx)
+        time = @mutex.synchronize { @time_parser_rfc3164.parse(time_str) }
         if @keep_time_key
           record['time'] = time_str
         end
 
-        parse_plain(time, text, i + 1, record, RFC3164_CAPTURES, &block)
+        parse_plain(@regexp3164, time, text, i + 1, record, RFC3164_CAPTURES, &block)
       end
 
       def parse_rfc5424_regex(text, &block)
@@ -204,40 +215,36 @@ module Fluent
         i = idx - 1
         sq = false
         @space_count_rfc5424.times {
-          while text[i + 1] == ' '.freeze
+          while text[i + 1] == SPLIT_CHAR
             sq = true
             i += 1
           end
 
-          i = text.index(' '.freeze, i + 1)
+          i = text.index(SPLIT_CHAR, i + 1)
         }
 
-        time_str = sq ? text.slice(idx, i - idx).squeeze(' '.freeze) : text.slice(idx, i - idx)
+        time_str = sq ? text.slice(idx, i - idx).squeeze(SPLIT_CHAR) : text.slice(idx, i - idx)
         time = @mutex.synchronize do
           begin
-            @time_parser.parse(time_str)
+            @time_parser_rfc5424.parse(time_str)
           rescue Fluent::TimeParser::TimeParseError => e
-            if @support_rfc5424_without_subseconds
-              log.trace(e)
-              @time_parser_rfc5424_without_subseconds.parse(time_str)
-            else
-              raise
-            end
+            log.trace(e)
+            @time_parser_rfc5424_without_subseconds.parse(time_str)
           end
         end
 
         if @keep_time_key
           record['time'] = time_str
         end
-        parse_plain(time, text, i + 1, record, RFC5424_CAPTURES, &block)
+        parse_plain(@regexp5424, time, text, i + 1, record, RFC5424_CAPTURES, &block)
       end
 
       # @param time [EventTime]
       # @param idx [Integer] note: this argument is needed to avoid string creation
       # @param record [Hash]
       # @param capture_list [Array] for performance
-      def parse_plain(time, text, idx, record, capture_list, &block)
-        m = @regexp.match(text, idx)
+      def parse_plain(re, time, text, idx, record, capture_list, &block)
+        m = re.match(text, idx)
         if m.nil?
           yield nil, nil
           return
@@ -262,8 +269,6 @@ module Fluent
         yield time, record
       end
 
-      SPLIT_CHAR = ' '.freeze
-
       def parse_rfc3164(text, &block)
         pri = nil
         cursor = 0
@@ -282,7 +287,7 @@ module Fluent
           end
         end
 
-        if @skip_space_count
+        if @skip_space_count_rfc3164
           # header part
           time_size = 15 # skip Mmm dd hh:mm:ss
           time_end = text[cursor + time_size]
@@ -301,15 +306,15 @@ module Fluent
         else
           i = cursor - 1
           sq = false
-          @space_count.times do
-            while text[i + 1] == ' '.freeze
+          @space_count_rfc3164.times do
+            while text[i + 1] == SPLIT_CHAR
               sq = true
               i += 1
             end
-            i = text.index(' '.freeze, i + 1)
+            i = text.index(SPLIT_CHAR, i + 1)
           end
 
-          time_str = sq ? text.slice(idx, i - cursor).squeeze(' '.freeze) : text.slice(cursor, i - cursor)
+          time_str = sq ? text.slice(idx, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
           cursor = i + 1
         end
 
@@ -358,7 +363,7 @@ module Fluent
         msg.chomp!
         record['message'] = msg
 
-        time = @time_parser.parse(time_str)
+        time = @time_parser_rfc3164.parse(time_str)
         record['time'] = time_str if @keep_time_key
 
         yield time, record
@@ -393,7 +398,7 @@ module Fluent
         else
           i = cursor - 1
           sq = false
-          @space_count.times do
+          @space_count_rfc5424.times do
             while text[i + 1] == SPLIT_CHAR
               sq = true
               i += 1
@@ -472,19 +477,15 @@ module Fluent
 
         # message part
         if cursor != text.bytesize
-          msg = text[cursor + 1..-1]
+          msg = text.slice(cursor + 1, text.bytesize)
           msg.chomp!
           record['message'] = msg
         end
 
         time = begin
-                 @time_parser.parse(time_str)
+                 @time_parser_rfc5424.parse(time_str)
                rescue Fluent::TimeParser::TimeParseError => e
-                 if @support_rfc5424_without_subseconds
-                   @time_parser_rfc5424_without_subseconds.parse(time_str)
-                 else
-                   raise
-                 end
+                 @time_parser_rfc5424_without_subseconds.parse(time_str)
                end
         record['time'] = time_str if @keep_time_key
 
