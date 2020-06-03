@@ -133,10 +133,10 @@ module Fluent::Plugin
     end
 
     def convert_time(time)
-      case
-      when time.nil? || (time == 0)
+      case time
+      when nil, 0
         Fluent::EventTime.now
-      when time === Fluent::EventTime
+      when Fluent::EventTime
         time
       else
         Fluent::EventTime.from_time(Time.at(time))
