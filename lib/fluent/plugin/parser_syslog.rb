@@ -73,7 +73,6 @@ module Fluent
         @space_count_rfc5424 = nil
         @skip_space_count_rfc3164 = false
         @skip_space_count_rfc5424 = false
-        @support_rfc5424_without_subseconds = false
         @time_parser_rfc5424_without_subseconds = nil
       end
 
@@ -135,7 +134,6 @@ module Fluent
         @time_parser_rfc5424_without_subseconds = time_parser_create(format: "%Y-%m-%dT%H:%M:%S%z")
         @skip_space_count_rfc5424 = time_fmt.count(' ').zero?
         @space_count_rfc5424 = time_fmt.squeeze(' ').count(' ') + 1
-        @support_rfc5424_without_subseconds = true
       end
 
       # this method is for tests
@@ -149,7 +147,6 @@ module Fluent
 
       def parse_auto(text, &block)
         if REGEXP_DETECT_RFC5424.match?(text)
-          @support_rfc5424_without_subseconds = true
           if @regexp_parser
             parse_rfc5424_regex(text, &block)
           else
@@ -231,12 +228,8 @@ module Fluent
           begin
             @time_parser_rfc5424.parse(time_str)
           rescue Fluent::TimeParser::TimeParseError => e
-            if @support_rfc5424_without_subseconds
-              log.trace(e)
-              @time_parser_rfc5424_without_subseconds.parse(time_str)
-            else
-              raise
-            end
+            log.trace(e)
+            @time_parser_rfc5424_without_subseconds.parse(time_str)
           end
         end
 
@@ -492,11 +485,7 @@ module Fluent
         time = begin
                  @time_parser_rfc5424.parse(time_str)
                rescue Fluent::TimeParser::TimeParseError => e
-                 if @support_rfc5424_without_subseconds
-                   @time_parser_rfc5424_without_subseconds.parse(time_str)
-                 else
-                   raise
-                 end
+                 @time_parser_rfc5424_without_subseconds.parse(time_str)
                end
         record['time'] = time_str if @keep_time_key
 
