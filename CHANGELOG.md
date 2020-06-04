@@ -1,3 +1,26 @@
+# v1.11
+
+## Release v1.11.0 - 2020/06/04
+
+### New feature
+
+* in_unix: Use v1 API
+  https://github.com/fluent/fluentd/pull/2992
+
+### Enhancement
+
+* parser_syslog: Support any `time_format` for RFC3164 string parser
+  https://github.com/fluent/fluentd/pull/2988
+* parser_syslog: Add new parser for RFC5424
+  https://github.com/fluent/fluentd/pull/3015
+* Refactoring code
+  https://github.com/fluent/fluentd/pull/3019
+
+### Bug fix
+
+* in_gc_stat: Add `use_symbol_keys` parameter to emit string key record
+  https://github.com/fluent/fluentd/pull/3008
+
 # v1.10
 
 ## Release v1.10.4 - 2020/05/12
