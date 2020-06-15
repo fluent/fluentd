@@ -60,6 +60,8 @@ module Fluent::Plugin
     config_param :respond_with_empty_img, :bool, default: false
     desc 'Respond status code with 204.'
     config_param :use_204_response, :bool, default: false
+    desc 'Dump error log or not'
+    config_param :dump_error_log, :bool, default: true
 
     config_section :parse do
       config_set_default :@type, 'in_http'
@@ -180,8 +182,11 @@ module Fluent::Plugin
                else
                  record_time.nil? ? Fluent::EventTime.now : record_time
                end
-      rescue
-        return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
+      rescue => e
+        if @dump_error_log
+          log.error "failed to process request", error: e
+        end
+        return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{e}\n"]
       end
 
       # TODO server error
@@ -218,8 +223,11 @@ module Fluent::Plugin
         else
           router.emit(tag, time, record)
         end
-      rescue
-        return ["500 Internal Server Error", {'Content-Type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
+      rescue => e
+        if @dump_error_log
+          log.error "failed to emit data", error: e
+        end
+        return ["500 Internal Server Error", {'Content-Type'=>'text/plain'}, "500 Internal Server Error\n#{e}\n"]
       end
 
       if @respond_with_empty_img
