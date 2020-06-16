@@ -271,9 +271,9 @@ module Fluent::Plugin
                 end
               else
                 if is_file
-                  unless @ignore_list.include?(path)
+                  unless @ignore_list.include?(p)
                     log.warn "#{p} unreadable. It is excluded and would be examined next time."
-                    @ignore_list << path if @ignore_repeated_permission_error
+                    @ignore_list << p if @ignore_repeated_permission_error
                   end
                 end
                 false
