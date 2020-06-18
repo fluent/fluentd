@@ -818,5 +818,20 @@ class ChildProcessTest < Test::Unit::TestCase
       end
       assert File.exist?(@temp_path)
     end
+
+    test 'execute child process writing data to stdout which is unread' do
+      callback_called = false
+      exit_status = nil
+      prog = "echo writing to stdout"
+      callback = ->(status){ exit_status = status; callback_called = true }
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        @d.child_process_execute(:out_exec_process, prog, stderr: :connect, immediate: true, parallel: true, mode: [], wait_timeout: 1, on_exit_callback: callback)
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      end
+      assert callback_called
+      assert exit_status
+      assert exit_status.success?
+      assert_equal 0, exit_status.exitstatus
+    end
   end
 end
