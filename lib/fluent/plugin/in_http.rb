@@ -189,10 +189,10 @@ module Fluent::Plugin
         return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{e}\n"]
       end
 
-      # TODO server error
-      begin
-        # Support batched requests
-        if record.is_a?(Array)
+      mes = nil
+      # Support batched requests
+      if record.is_a?(Array)
+        begin
           mes = Fluent::MultiEventStream.new
           record.each do |single_record|
             if @add_http_headers
@@ -219,6 +219,18 @@ module Fluent::Plugin
 
             mes.add(single_time, single_record)
           end
+        rescue => e
+          if @dump_error_log
+            p e.backtrace
+            log.error "failed to process batch request", error: e
+          end
+          return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{e}\n"]
+        end
+      end
+
+      # TODO server error
+      begin
+        if mes
           router.emit_stream(tag, mes)
         else
           router.emit(tag, time, record)
