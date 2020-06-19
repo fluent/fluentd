@@ -87,12 +87,29 @@ module Fluent::Plugin
 
     EVENT_RECORD_PARAMETER = '_event_record'
 
+    def initialize
+      super
+
+      @km = nil
+      @format_name = nil
+      @parser_time_key = nil
+
+      # default parsers
+      @parser_msgpack = nil
+      @parser_json = nil
+      @default_time_parser = nil
+      @default_keep_time_key = nil
+      @float_time_parser = nil
+
+      # <parse> configured parser
+      @custom_parser = nil
+    end
+
     def configure(conf)
       compat_parameters_convert(conf, :parser)
 
       super
 
-      @parser = nil
       m = if @parser_configs.first['@type'] == 'in_http'
             @parser_msgpack = parser_create(usage: 'parser_in_http_msgpack', type: 'msgpack')
             @parser_msgpack.time_key = nil
@@ -108,9 +125,9 @@ module Fluent::Plugin
             @default_keep_time_key = default_parser.keep_time_key
             method(:parse_params_default)
           else
-            @parser = parser_create
+            @custom_parser = parser_create
             @format_name = @parser_configs.first['@type']
-            @parser_time_key = @parser.time_key
+            @parser_time_key = @custom_parser.time_key
             method(:parse_params_with_parser)
           end
       self.singleton_class.module_eval do
@@ -202,9 +219,9 @@ module Fluent::Plugin
             if param_time = params['time']
               param_time = param_time.to_f
               single_time = param_time.zero? ? Fluent::EventTime.now : @float_time_parser.parse(param_time)
-            elsif @parser
-              single_time = @parser.parse_time(single_record)
-              single_time, single_record = @parser.convert_values(single_time, single_record)
+            elsif @custom_parser
+              single_time = @custom_parser.parse_time(single_record)
+              single_time, single_record = @custom_parser.convert_values(single_time, single_record)
             else
               single_time = if t = @default_keep_time_key ? single_record[@parser_time_key] : single_record.delete(@parser_time_key)
                               if @default_time_parser
@@ -307,7 +324,7 @@ module Fluent::Plugin
 
     def parse_params_with_parser(params)
       if content = params[EVENT_RECORD_PARAMETER]
-        @parser.parse(content) { |time, record|
+        @custom_parser.parse(content) { |time, record|
           raise "Received event is not #{@format_name}: #{content}" if record.nil?
           return time, record
         }
