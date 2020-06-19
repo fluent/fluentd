@@ -190,16 +190,7 @@ module Fluent::Plugin
         if record.is_a?(Array)
           mes = Fluent::MultiEventStream.new
           record.each do |single_record|
-            if @add_http_headers
-              params.each_pair { |k,v|
-                if k.start_with?("HTTP_")
-                  single_record[k] = v
-                end
-              }
-            end
-            if @add_remote_addr
-              single_record['REMOTE_ADDR'] = params['REMOTE_ADDR']
-            end
+            add_params_to_record(single_record, params)
 
             if param_time = params['time']
               param_time = param_time.to_f
@@ -222,16 +213,7 @@ module Fluent::Plugin
             mes.add(single_time, single_record)
           end
         else
-          if @add_http_headers
-            params.each_pair { |k,v|
-              if k.start_with?("HTTP_")
-                record[k] = v
-              end
-            }
-          end
-          if @add_remote_addr
-            record['REMOTE_ADDR'] = params['REMOTE_ADDR']
-          end
+          add_params_to_record(record, params)
 
           time = if param_time = params['time']
                    param_time = param_time.to_f
@@ -324,6 +306,20 @@ module Fluent::Plugin
         }
       else
         raise "'#{EVENT_RECORD_PARAMETER}' parameter is required"
+      end
+    end
+
+    def add_params_to_record(record, params)
+      if @add_http_headers
+        params.each_pair { |k, v|
+          if k.start_with?("HTTP_".freeze)
+            record[k] = v
+          end
+        }
+      end
+
+      if @add_remote_addr
+        record['REMOTE_ADDR'] = params['REMOTE_ADDR']
       end
     end
 
