@@ -412,7 +412,7 @@ module Fluent::Plugin
           end
         }
         if expect
-          if expect == '100-continue'
+          if expect == '100-continue'.freeze
             if !size || size < @body_size_limit
               send_response_nobody("100 Continue", {})
             else
@@ -434,17 +434,20 @@ module Fluent::Plugin
         @body << chunk
       end
 
+      RES_200_STATUS = "200 OK".freeze
+      RES_403_STATUS = "403 Forbidden".freeze
+
       # Web browsers can send an OPTIONS request before performing POST
       # to check if cross-origin requests are supported.
       def handle_options_request
         # Is CORS enabled in the first place?
         if @cors_allow_origins.nil?
-          return send_response_and_close("403 Forbidden", {}, "")
+          return send_response_and_close(RES_403_STATUS, {}, "")
         end
 
         # in_http does not support HTTP methods except POST
         if @access_control_request_method != 'POST'
-          return send_response_and_close("403 Forbidden", {}, "")
+          return send_response_and_close(RES_403_STATUS, {}, "")
         end
 
         header = {
@@ -455,19 +458,19 @@ module Fluent::Plugin
         # Check the origin and send back a CORS response
         if @cors_allow_origins.include?('*')
           header["Access-Control-Allow-Origin"] = "*"
-          send_response_and_close("200 OK", header, "")
+          send_response_and_close(RES_200_STATUS, header, "")
         elsif include_cors_allow_origin
           header["Access-Control-Allow-Origin"] = @origin
-          send_response_and_close("200 OK", header, "")
+          send_response_and_close(RES_200_STATUS, header, "")
         else
-          send_response_and_close("403 Forbidden", {}, "")
+          send_response_and_close(RES_403_STATUS, {}, "")
         end
       end
 
       def on_message_complete
         return if closing?
 
-        if @parser.http_method == 'OPTIONS'
+        if @parser.http_method == 'OPTIONS'.freeze
           return handle_options_request()
         end
 
@@ -477,7 +480,7 @@ module Fluent::Plugin
         # restrictions and white listed origins through @cors_allow_origins.
         unless @cors_allow_origins.nil?
           unless @cors_allow_origins.include?('*') or include_cors_allow_origin
-            send_response_and_close("403 Forbidden", {'Connection' => 'close'}, "")
+            send_response_and_close(RES_403_STATUS, {'Connection' => 'close'}, "")
             return
           end
         end
@@ -487,14 +490,14 @@ module Fluent::Plugin
         # Decode payload according to the "Content-Encoding" header.
         # For now, we only support 'gzip' and 'deflate'.
         begin
-          if @content_encoding == 'gzip'
+          if @content_encoding == 'gzip'.freeze
             @body = Zlib::GzipReader.new(StringIO.new(@body)).read
-          elsif @content_encoding == 'deflate'
+          elsif @content_encoding == 'deflate'.freeze
             @body = Zlib::Inflate.inflate(@body)
           end
         rescue
           @log.warn 'fails to decode payload', error: $!.to_s
-          send_response_and_close("400 Bad Request", {}, "")
+          send_response_and_close(RES_400_STATUS, {}, "")
           return
         end
 
@@ -533,7 +536,7 @@ module Fluent::Plugin
         end
 
         if @keep_alive
-          header['Connection'] = 'Keep-Alive'
+          header['Connection'] = 'Keep-Alive'.freeze
           send_response(code, header, body)
         else
           send_response_and_close(code, header, body)
@@ -559,13 +562,13 @@ module Fluent::Plugin
 
       def send_response(code, header, body)
         header['Content-Length'] ||= body.bytesize
-        header['Content-Type'] ||= 'text/plain'
+        header['Content-Type'] ||= 'text/plain'.freeze
 
         data = %[HTTP/1.1 #{code}\r\n]
         header.each_pair {|k,v|
           data << "#{k}: #{v}\r\n"
         }
-        data << "\r\n"
+        data << "\r\n".freeze
         @io.write(data)
 
         @io.write(body)
@@ -576,7 +579,7 @@ module Fluent::Plugin
         header.each_pair {|k,v|
           data << "#{k}: #{v}\r\n"
         }
-        data << "\r\n"
+        data << "\r\n".freeze
         @io.write(data)
       end
 
