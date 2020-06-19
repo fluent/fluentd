@@ -116,6 +116,36 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[1][1]
   end
 
+  data('json' => ['json', :to_json],
+       'msgpack' => ['msgpack', :to_msgpack])
+  def test_default_with_time_format(data)
+    param, method_name = data
+    d = create_driver(CONFIG + %[
+      <parse>
+        keep_time_key
+        time_format %iso8601
+      </parse>
+    ])
+
+    time = event_time("2020-06-10T01:14:27+00:00")
+    events = [
+      ["tag1", time, {"a" => 1, "time" => '2020-06-10T01:14:27+00:00'}],
+      ["tag2", time, {"a" => 2, "time" => '2020-06-10T01:14:27+00:00'}],
+    ]
+    res_codes = []
+
+    d.run(expect_records: 2) do
+      events.each do |tag, t, record|
+        res = post("/#{tag}", {param => record.__send__(method_name)})
+        res_codes << res.code
+      end
+    end
+    assert_equal ["200", "200"], res_codes
+    assert_equal events, d.events
+    assert_equal_event_time time, d.events[0][1]
+    assert_equal_event_time time, d.events[1][1]
+  end
+
   def test_multi_json
     d = create_driver
     time = event_time("2011-01-02 13:14:15 UTC")
@@ -159,6 +189,33 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal events, d.events
     assert_instance_of Fluent::EventTime, d.events[0][1]
     assert_instance_of Fluent::EventTime, d.events[1][1]
+    assert_equal_event_time time, d.events[0][1]
+    assert_equal_event_time time, d.events[1][1]
+  end
+
+  data('json' => ['json', :to_json],
+       'msgpack' => ['msgpack', :to_msgpack])
+  def test_default_multi_with_time_format(data)
+    param, method_name = data
+    d = create_driver(CONFIG + %[
+      <parse>
+        keep_time_key
+        time_format %iso8601
+      </parse>
+    ])
+    time = event_time("2020-06-10T01:14:27+00:00")
+    events = [
+      ["tag1", time, {'a' => 1, 'time' => "2020-06-10T01:14:27+00:00"}],
+      ["tag1", time, {'a' => 2, 'time' => "2020-06-10T01:14:27+00:00"}],
+    ]
+    tag = "tag1"
+    res_codes = []
+    d.run(expect_records: 2, timeout: 5) do
+      res = post("/#{tag}", {param => events.map { |e| e[2] }.__send__(method_name)})
+      res_codes << res.code
+    end
+    assert_equal ["200"], res_codes
+    assert_equal events, d.events
     assert_equal_event_time time, d.events[0][1]
     assert_equal_event_time time, d.events[1][1]
   end

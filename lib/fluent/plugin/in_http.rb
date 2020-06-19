@@ -27,9 +27,27 @@ require 'json'
 module Fluent::Plugin
   class InHttpParser < Parser
     Fluent::Plugin.register_parser('in_http', self)
+
+    config_set_default :time_key, 'time'
+
+    def configure(conf)
+      super
+
+      # if no time parser related parameters, use in_http's time convert rule
+      @time_parser = if conf.has_key?('time_type') || conf.has_key?('time_format')
+                       time_parser_create
+                     else
+                       nil
+                     end
+    end
+
     def parse(text)
       # this plugin is dummy implementation not to raise error
       yield nil, nil
+    end
+
+    def get_time_parser
+      @time_parser
     end
   end
 
@@ -74,17 +92,20 @@ module Fluent::Plugin
 
       super
 
+      @parser = nil
       m = if @parser_configs.first['@type'] == 'in_http'
             @parser_msgpack = parser_create(usage: 'parser_in_http_msgpack', type: 'msgpack')
+            @parser_msgpack.time_key = nil
             @parser_msgpack.estimate_current_event = false
             @parser_json = parser_create(usage: 'parser_in_http_json', type: 'json')
+            @parser_json.time_key = nil
             @parser_json.estimate_current_event = false
+
+            default_parser = parser_create(usage: '')
             @format_name = 'default'
-            @parser_time_key = if parser_config = conf.elements('parse').first
-                                 parser_config['time_key'] || 'time'
-                               else
-                                 'time'
-                               end
+            @parser_time_key = default_parser.time_key
+            @default_time_parser = default_parser.get_time_parser
+            @default_keep_time_key = default_parser.keep_time_key
             method(:parse_params_default)
           else
             @parser = parser_create
@@ -180,7 +201,23 @@ module Fluent::Plugin
                  param_time = param_time.to_f
                  param_time.zero? ? Fluent::EventTime.now : @float_time_parser.parse(param_time)
                else
-                 record_time.nil? ? Fluent::EventTime.now : record_time
+                 if record_time.nil?
+                   if !record.is_a?(Array)
+                     if t = @default_keep_time_key ? record[@parser_time_key] : record.delete(@parser_time_key)
+                       if @default_time_parser
+                         @default_time_parser.parse(t)
+                       else
+                         Fluent::EventTime.from_time(Time.at(t))
+                       end
+                     else
+                       Fluent::EventTime.now
+                     end
+                   else
+                     Fluent::EventTime.now
+                   end
+                 else
+                   record_time
+                 end
                end
       rescue => e
         if @dump_error_log
@@ -206,12 +243,16 @@ module Fluent::Plugin
               single_record['REMOTE_ADDR'] = params['REMOTE_ADDR']
             end
 
-            if defined? @parser
+            if @parser
               single_time = @parser.parse_time(single_record)
               single_time, single_record = @parser.convert_values(single_time, single_record)
             else
-              single_time = if t = single_record.delete(@parser_time_key)
-                              Fluent::EventTime.from_time(Time.at(t))
+              single_time = if t = @default_keep_time_key ? single_record[@parser_time_key] : single_record.delete(@parser_time_key)
+                              if @default_time_parser
+                                @default_time_parser.parse(t)
+                              else
+                                Fluent::EventTime.from_time(Time.at(t))
+                              end
                             else
                               time
                             end
@@ -221,7 +262,6 @@ module Fluent::Plugin
           end
         rescue => e
           if @dump_error_log
-            p e.backtrace
             log.error "failed to process batch request", error: e
           end
           return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{e}\n"]
