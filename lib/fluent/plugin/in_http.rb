@@ -520,7 +520,7 @@ module Fluent::Plugin
         params.merge!(@env)
         @env.clear
 
-        code, header, body = *@callback.call(path_info, params)
+        code, header, body = @callback.call(path_info, params)
         body = body.to_s
         header = header.dup if header.frozen?
 
