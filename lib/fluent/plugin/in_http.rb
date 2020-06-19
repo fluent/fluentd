@@ -185,51 +185,9 @@ module Fluent::Plugin
           end
         end
 
-        unless record.is_a?(Array)
-          if @add_http_headers
-            params.each_pair { |k,v|
-              if k.start_with?("HTTP_")
-                record[k] = v
-              end
-            }
-          end
-          if @add_remote_addr
-            record['REMOTE_ADDR'] = params['REMOTE_ADDR']
-          end
-        end
-        time = if param_time = params['time']
-                 param_time = param_time.to_f
-                 param_time.zero? ? Fluent::EventTime.now : @float_time_parser.parse(param_time)
-               else
-                 if record_time.nil?
-                   if !record.is_a?(Array)
-                     if t = @default_keep_time_key ? record[@parser_time_key] : record.delete(@parser_time_key)
-                       if @default_time_parser
-                         @default_time_parser.parse(t)
-                       else
-                         Fluent::EventTime.from_time(Time.at(t))
-                       end
-                     else
-                       Fluent::EventTime.now
-                     end
-                   else
-                     Fluent::EventTime.now
-                   end
-                 else
-                   record_time
-                 end
-               end
-      rescue => e
-        if @dump_error_log
-          log.error "failed to process request", error: e
-        end
-        return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{e}\n"]
-      end
-
-      mes = nil
-      # Support batched requests
-      if record.is_a?(Array)
-        begin
+        mes = nil
+        # Support batched requests
+        if record.is_a?(Array)
           mes = Fluent::MultiEventStream.new
           record.each do |single_record|
             if @add_http_headers
@@ -243,7 +201,10 @@ module Fluent::Plugin
               single_record['REMOTE_ADDR'] = params['REMOTE_ADDR']
             end
 
-            if @parser
+            if param_time = params['time']
+              param_time = param_time.to_f
+              single_time = param_time.zero? ? Fluent::EventTime.now : @float_time_parser.parse(param_time)
+            elsif @parser
               single_time = @parser.parse_time(single_record)
               single_time, single_record = @parser.convert_values(single_time, single_record)
             else
@@ -254,18 +215,48 @@ module Fluent::Plugin
                                 Fluent::EventTime.from_time(Time.at(t))
                               end
                             else
-                              time
+                              Fluent::EventTime.now
                             end
             end
 
             mes.add(single_time, single_record)
           end
-        rescue => e
-          if @dump_error_log
-            log.error "failed to process batch request", error: e
+        else
+          if @add_http_headers
+            params.each_pair { |k,v|
+              if k.start_with?("HTTP_")
+                record[k] = v
+              end
+            }
           end
-          return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{e}\n"]
+          if @add_remote_addr
+            record['REMOTE_ADDR'] = params['REMOTE_ADDR']
+          end
+
+          time = if param_time = params['time']
+                   param_time = param_time.to_f
+                   param_time.zero? ? Fluent::EventTime.now : @float_time_parser.parse(param_time)
+                 else
+                   if record_time.nil?
+                     if t = @default_keep_time_key ? record[@parser_time_key] : record.delete(@parser_time_key)
+                       if @default_time_parser
+                         @default_time_parser.parse(t)
+                       else
+                         Fluent::EventTime.from_time(Time.at(t))
+                       end
+                     else
+                       Fluent::EventTime.now
+                     end
+                   else
+                     record_time
+                   end
+                 end
         end
+      rescue => e
+        if @dump_error_log
+          log.error "failed to process request", error: e
+        end
+        return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{e}\n"]
       end
 
       # TODO server error
