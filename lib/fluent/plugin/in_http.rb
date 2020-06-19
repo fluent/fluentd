@@ -165,6 +165,13 @@ module Fluent::Plugin
       super
     end
 
+    RES_TEXT_HEADER = {'Content-Type' => 'text/plain'}.freeze
+    RESPONSE_200 = ["200 OK".freeze, RES_TEXT_HEADER, "".freeze].freeze
+    RESPONSE_204 = ["204 No Content".freeze, {}.freeze].freeze
+    RESPONSE_IMG = ["200 OK".freeze, {'Content-Type'=>'image/gif; charset=utf-8'}.freeze, EMPTY_GIF_IMAGE].freeze
+    RES_400_STATUS = "400 Bad Request".freeze
+    RES_500_STATUS = "500 Internal Server Error".freeze
+
     def on_request(path_info, params)
       begin
         path = path_info[1..-1]  # remove /
@@ -175,12 +182,12 @@ module Fluent::Plugin
         if record.nil?
           log.debug { "incoming event is invalid: path=#{path_info} params=#{params.to_json}" }
           if @respond_with_empty_img
-            return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
+            return RESPONSE_IMG
           else
             if @use_204_response
-              return  ["204 No Content", {}]
+              return RESPONSE_204
             else
-              return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+              return RESPONSE_200
             end
           end
         end
@@ -238,7 +245,7 @@ module Fluent::Plugin
         if @dump_error_log
           log.error "failed to process request", error: e
         end
-        return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{e}\n"]
+        return [RES_400_STATUS, RES_TEXT_HEADER, "400 Bad Request\n#{e}\n"]
       end
 
       # TODO server error
@@ -252,16 +259,16 @@ module Fluent::Plugin
         if @dump_error_log
           log.error "failed to emit data", error: e
         end
-        return ["500 Internal Server Error", {'Content-Type'=>'text/plain'}, "500 Internal Server Error\n#{e}\n"]
+        return [RES_500_STATUS, RES_TEXT_HEADER, "500 Internal Server Error\n#{e}\n"]
       end
 
       if @respond_with_empty_img
-        return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
+        return RESPONSE_IMG
       else
         if @use_204_response
-          return  ["204 No Content", {}]
+          return RESPONSE_204
         else
-          return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+          return RESPONSE_200
         end
       end
     end
@@ -515,6 +522,7 @@ module Fluent::Plugin
 
         code, header, body = *@callback.call(path_info, params)
         body = body.to_s
+        header = header.dup if header.frozen?
 
         unless @cors_allow_origins.nil?
           if @cors_allow_origins.include?('*')
