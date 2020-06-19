@@ -223,15 +223,7 @@ module Fluent::Plugin
               single_time = @custom_parser.parse_time(single_record)
               single_time, single_record = @custom_parser.convert_values(single_time, single_record)
             else
-              single_time = if t = @default_keep_time_key ? single_record[@parser_time_key] : single_record.delete(@parser_time_key)
-                              if @default_time_parser
-                                @default_time_parser.parse(t)
-                              else
-                                Fluent::EventTime.from_time(Time.at(t))
-                              end
-                            else
-                              Fluent::EventTime.now
-                            end
+              single_time = convert_time_field(single_record)
             end
 
             mes.add(single_time, single_record)
@@ -244,15 +236,7 @@ module Fluent::Plugin
                    param_time.zero? ? Fluent::EventTime.now : @float_time_parser.parse(param_time)
                  else
                    if record_time.nil?
-                     if t = @default_keep_time_key ? record[@parser_time_key] : record.delete(@parser_time_key)
-                       if @default_time_parser
-                         @default_time_parser.parse(t)
-                       else
-                         Fluent::EventTime.from_time(Time.at(t))
-                       end
-                     else
-                       Fluent::EventTime.now
-                     end
+                     convert_time_field(record)
                    else
                      record_time
                    end
@@ -344,6 +328,18 @@ module Fluent::Plugin
 
       if @add_remote_addr
         record['REMOTE_ADDR'] = params['REMOTE_ADDR']
+      end
+    end
+
+    def convert_time_field(record)
+      if t = @default_keep_time_key ? record[@parser_time_key] : record.delete(@parser_time_key)
+        if @default_time_parser
+          @default_time_parser.parse(t)
+        else
+          Fluent::EventTime.from_time(Time.at(t))
+        end
+      else
+        Fluent::EventTime.now
       end
     end
 
