@@ -10,7 +10,7 @@
 ### Enhancement
 
 * parser_syslog: Support any `time_format` for RFC3164 string parser
-  https://github.com/fluent/fluentd/pull/2988
+  https://github.com/fluent/fluentd/pull/3014
 * parser_syslog: Add new parser for RFC5424
   https://github.com/fluent/fluentd/pull/3015
 * Refactoring code
