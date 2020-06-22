@@ -259,6 +259,9 @@ module Fluent
 
         if !mode.include?(:stderr) && !mode.include?(:read_with_stderr)
           spawn_opts[:err] = IO::NULL if stderr == :discard
+          if !mode.include?(:read) && !mode.include?(:read_with_stderr)
+            spawn_opts[:out] = IO::NULL
+          end
           writeio, readio, wait_thread = *Open3.popen2(*spawn_args, spawn_opts)
         elsif mode.include?(:read_with_stderr)
           writeio, readio, wait_thread = *Open3.popen2e(*spawn_args, spawn_opts)
@@ -275,8 +278,6 @@ module Fluent
         if mode.include?(:read) || mode.include?(:read_with_stderr)
           readio.set_encoding(external_encoding, internal_encoding, **encoding_options)
           readio_in_use = true
-        else
-          readio.reopen(IO::NULL) if readio
         end
         if mode.include?(:stderr)
           stderrio.set_encoding(external_encoding, internal_encoding, **encoding_options)
