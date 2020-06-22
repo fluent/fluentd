@@ -1,5 +1,23 @@
 # v1.11
 
+## Release v1.11.1 - 2020/06/22
+
+### Enhancement
+
+* in_http: Add `dump_error_log` parameter
+  https://github.com/fluent/fluentd/pull/3035
+* in_http: Improve time field handling
+  https://github.com/fluent/fluentd/pull/3046
+* Refactoring code
+  https://github.com/fluent/fluentd/pull/3047
+
+### Bug fix
+
+* in_tail: Use actual path instead of based pattern for ignore list
+  https://github.com/fluent/fluentd/pull/3042
+* child_process helper: Fix child process failure due to SIGPIPE if the command uses stdout
+  https://github.com/fluent/fluentd/pull/3044
+
 ## Release v1.11.0 - 2020/06/04
 
 ### New feature
