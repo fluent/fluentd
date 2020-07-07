@@ -804,7 +804,7 @@ module Fluent
             Fluent::Engine.reload_config(conf)
           end
         rescue => e
-          # it is guranteed that config file is valid by supervisor side. but it's not atomic becuase of using signals to commnicate between worker and super
+          # it is guaranteed that config file is valid by supervisor side. but it's not atomic because of using signals to commnicate between worker and super
           # So need this rescue code
           $log.error("failed to reload config: #{e}")
           next
