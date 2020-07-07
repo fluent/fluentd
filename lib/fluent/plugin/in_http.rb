@@ -72,7 +72,7 @@ module Fluent::Plugin
     desc 'Add REMOTE_ADDR header to the record.'
     config_param :add_remote_addr, :bool, default: false
     config_param :blocking_timeout, :time, default: 0.5
-    desc 'Set a white list of domains that can do CORS (Cross-Origin Resource Sharing)'
+    desc 'Set a allow list of domains that can do CORS (Cross-Origin Resource Sharing)'
     config_param :cors_allow_origins, :array, default: nil
     desc 'Respond with empty gif image of 1x1 pixel.'
     config_param :respond_with_empty_img, :bool, default: false
@@ -490,7 +490,7 @@ module Fluent::Plugin
         # CORS check
         # ==========
         # For every incoming request, we check if we have some CORS
-        # restrictions and white listed origins through @cors_allow_origins.
+        # restrictions and allow listed origins through @cors_allow_origins.
         unless @cors_allow_origins.nil?
           unless @cors_allow_origins.include?('*') or include_cors_allow_origin
             send_response_and_close(RES_403_STATUS, {'Connection' => 'close'}, "")
