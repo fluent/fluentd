@@ -6,7 +6,7 @@ require 'fluent/plugin/out_forward'
 require 'fluent/plugin/out_stdout'
 require 'fluent/plugin/out_exec'
 require 'fluent/plugin/in_forward'
-require 'fluent/plugin/in_dummy'
+require 'fluent/plugin/in_sample'
 require 'fluent/plugin/filter_grep'
 require 'fluent/plugin/filter_stdout'
 require 'fluent/plugin/filter_parser'
@@ -74,7 +74,7 @@ class StaticConfigAnalysisTest < ::Test::Unit::TestCase
       c = Fluent::Config.parse(conf_data, '(test)', '(test_dir)', true)
       ret = Fluent::StaticConfigAnalysis.call(c)
       assert_equal [Fluent::Plugin::ExecOutput, Fluent::Plugin::StdoutOutput, Fluent::Plugin::ForwardOutput], ret.outputs.map(&:plugin).map(&:class)
-      assert_equal [Fluent::Plugin::DummyInput, Fluent::Plugin::ForwardInput], ret.inputs.map(&:plugin).map(&:class)
+      assert_equal [Fluent::Plugin::SampleInput, Fluent::Plugin::ForwardInput], ret.inputs.map(&:plugin).map(&:class)
       assert_equal [Fluent::Plugin::ParserFilter, Fluent::Plugin::StdoutFilter, Fluent::Plugin::GrepFilter], ret.filters.map(&:plugin).map(&:class)
       assert_equal 1, ret.labels.size
       assert_equal '@test', ret.labels[0].name
