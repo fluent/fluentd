@@ -105,7 +105,7 @@ class MatchTest < Test::Unit::TestCase
     assert_glob_match('/a/', 'a')
     assert_glob_not_match('/a/', 'abc')
     assert_glob_match('/a.*/', 'abc')
-    assert_glob_not_match('/a.*/', 'abc')
+    assert_glob_not_match('/b.*/', 'abc')
     assert_glob_match('/a\..*/', 'a.b.c')
     assert_glob_not_match('/(?!a)\..*/', 'a.b.c')
     assert_glob_not_match('/a\..*/', 'b.b.c')
