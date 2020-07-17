@@ -33,9 +33,9 @@ module Fluent
 
   class GlobMatchPattern < MatchPattern
     def initialize(pat)
-      if pat[0,1] == "/"
-        if pat[pat.length - 1,1] == "/"
-          @regex = Regexp.new("\\A"+pat[1, pat.length-2]+"\\Z")
+      if pat.start_with?('/')
+        if pat.end_with?('/')
+          @regex = Regexp.new("\\A"+pat[1..-2]+"\\Z")
           return
         else
           raise Fluent::ConfigError,  "invalid match - regex"
