@@ -101,6 +101,17 @@ class MatchTest < Test::Unit::TestCase
     assert_or_not_match('a.b.** a.c', 'a.c.d')
   end
 
+  def test_regex_pattern
+    assert_glob_match('/a/', 'a')
+    assert_glob_not_match('/a/', 'abc')
+    assert_glob_match('/a.*/', 'abc')
+    assert_glob_not_match('/b.*/', 'abc')
+    assert_glob_match('/a\..*/', 'a.b.c')
+    assert_glob_not_match('/(?!a\.).*/', 'a.b.c')
+    assert_glob_not_match('/a\..*/', 'b.b.c')
+    assert_glob_match('/(?!a\.).*/', 'b.b.c')
+  end
+
   #def test_character_class
   #  assert_match('[a]', 'a')
   #  assert_match('[ab]', 'a')
