@@ -604,7 +604,11 @@ module Fluent
 
             if chunk_size_over?(chunk)
               if format && empty_chunk
-                log.warn "chunk bytes limit exceeds for an emitted event stream: #{adding_bytesize}bytes"
+                if chunk.bytesize > @chunk_limit_size
+                  log.warn "chunk bytes limit exceeds for an emitted event stream: #{adding_bytesize}bytes"
+                else
+                  log.warn "chunk size limit exceeds for an emitted event stream: #{chunk.size}records"
+                end
               end
               chunk.rollback
 
