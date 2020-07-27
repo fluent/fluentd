@@ -15,4 +15,11 @@ class CertOptionPluginHelperTest < Test::Unit::TestCase
     certs = d.cert_option_certificates_from_file("test/plugin_helper/data/cert/cert-with-CRLF.pem")
     assert_equal(1, certs.length)
   end
+
+  test 'raise an error for broken certificates_from_file file' do
+    d = Dummy.new
+    assert_raise Fluent::ConfigError do
+      certs = d.cert_option_certificates_from_file("test/plugin_helper/data/cert/empty.pem")
+    end
+  end
 end

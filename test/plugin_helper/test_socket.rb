@@ -128,4 +128,12 @@ class SocketHelperTest < Test::Unit::TestCase
       client.close
     end
   end
+
+  test 'with empty cert file' do
+    cert_path = File.expand_path(File.dirname(__FILE__) + '/data/cert/empty.pem')
+
+    assert_raise Fluent::ConfigError do
+      SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', PORT, cert_path: cert_path)
+    end
+  end
 end

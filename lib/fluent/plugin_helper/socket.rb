@@ -199,7 +199,7 @@ module Fluent
         list = []
         data.scan(pattern) { |match| list << OpenSSL::X509::Certificate.new(match) }
         if list.length == 0
-          log.warn "cert_path does not contain a valid certificate"
+          raise Fluent::ConfigError, "cert_path does not contain a valid certificate"
         end
         list
       end
