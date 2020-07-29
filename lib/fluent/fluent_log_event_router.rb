@@ -33,7 +33,7 @@ module Fluent
   end
 
   # This class is for handling fluentd's inner log
-  # e.g. <label @FLUNT_LOG> section and <match fluent.**> section
+  # e.g. <label @FLUENT_LOG> section and <match fluent.**> section
   class FluentLogEventRouter < NullFluentLogEventRouter
     # @param root_agent [Fluent::RootAgent]
     def self.build(root_agent)
