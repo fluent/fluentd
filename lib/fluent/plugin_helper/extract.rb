@@ -55,7 +55,7 @@ module Fluent
           config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :float
 
           Fluent::TimeMixin::TIME_PARAMETERS.each do |name, type, opts|
-            config_param name, type, opts
+            config_param(name, type, **opts)
           end
         end
       end

@@ -240,10 +240,10 @@ module Fluent
       end
 
       SERVER_TRANSPORT_PARAMS = [
-        :protocol, :version, :ciphers, :insecure,
+        :protocol, :version, :min_version, :max_version, :ciphers, :insecure,
         :ca_path, :cert_path, :private_key_path, :private_key_passphrase, :client_cert_auth,
         :ca_cert_path, :ca_private_key_path, :ca_private_key_passphrase,
-        :generate_private_key_length,
+        :cert_verifier, :generate_private_key_length,
         :generate_cert_country, :generate_cert_state, :generate_cert_state,
         :generate_cert_locality, :generate_cert_common_name,
         :generate_cert_expiration, :generate_cert_digest,
@@ -260,18 +260,13 @@ module Fluent
       end
 
       module ServerTransportParams
-        TLS_DEFAULT_VERSION = :'TLSv1_2'
-        TLS_SUPPORTED_VERSIONS = [:'TLSv1_1', :'TLSv1_2']
-        ### follow httpclient configuration by nahi
-        # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
-        CIPHERS_DEFAULT = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
-
         include Fluent::Configurable
         config_section :transport, required: false, multi: false, init: true, param_name: :transport_config do
           config_argument :protocol, :enum, list: [:tcp, :tls], default: :tcp
-          config_param :version, :enum, list: TLS_SUPPORTED_VERSIONS, default: TLS_DEFAULT_VERSION
-
-          config_param :ciphers, :string, default: CIPHERS_DEFAULT
+          config_param :version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: Fluent::TLS::DEFAULT_VERSION
+          config_param :min_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: nil
+          config_param :max_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: nil
+          config_param :ciphers, :string, default: Fluent::TLS::CIPHERS_DEFAULT
           config_param :insecure, :bool, default: false
 
           # Cert signed by public CA
@@ -285,6 +280,8 @@ module Fluent
           config_param :ca_cert_path, :string, default: nil
           config_param :ca_private_key_path, :string, default: nil
           config_param :ca_private_key_passphrase, :string, default: nil, secret: true
+
+          config_param :cert_verifier, :string, default: nil
 
           # Options for generating certs by private CA certs or self-signed
           config_param :generate_private_key_length, :integer, default: 2048
@@ -355,7 +352,11 @@ module Fluent
         sock = if shared
                  server_socket_manager_client.listen_tcp(bind, port)
                else
-                 TCPServer.new(bind, port) # this method call can create sockets for AF_INET6
+                 # TCPServer.new doesn't set IPV6_V6ONLY flag, so use Addrinfo class instead.
+                 # backlog will be set by the caller, we don't need to set backlog here
+                 tsock = Addrinfo.tcp(bind, port).listen
+                 tsock.autoclose = false
+                 TCPServer.for_fd(tsock.fileno)
                end
         # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
@@ -366,10 +367,10 @@ module Fluent
         sock = if shared
                  server_socket_manager_client.listen_udp(bind, port)
                else
-                 family = IPAddr.new(IPSocket.getaddress(bind)).ipv4? ? ::Socket::AF_INET : ::Socket::AF_INET6
-                 usock = UDPSocket.new(family)
-                 usock.bind(bind, port)
-                 usock
+                 # UDPSocket.new doesn't set IPV6_V6ONLY flag, so use Addrinfo class instead.
+                 usock = Addrinfo.udp(bind, port).bind
+                 usock.autoclose = false
+                 UDPSocket.for_fd(usock.fileno)
                end
         # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
@@ -689,26 +690,11 @@ module Fluent
             end
           end
 
-          if RUBY_VERSION.to_f >= 2.3
-            NONBLOCK_ARG = {exception: false}
-            def try_handshake
-              @_handler_socket.accept_nonblock(NONBLOCK_ARG)
-            end
-          else
-            def try_handshake
-              @_handler_socket.accept_nonblock
-            rescue IO::WaitReadable
-              :wait_readable
-            rescue IO::WaitWritable
-              :wait_writable
-            end
-          end
-
           def try_tls_accept
             return true if @_handler_accepted
 
             begin
-              result = try_handshake # this method call actually try to do handshake via TLS
+              result = @_handler_socket.accept_nonblock(exception: false) # this method call actually try to do handshake via TLS
               if result == :wait_readable || result == :wait_writable
                 # retry accept_nonblock: there aren't enough data in underlying socket buffer
               else
@@ -722,8 +708,12 @@ module Fluent
 
                 return true
               end
-            rescue Errno::EPIPE, Errno::ECONNRESET, OpenSSL::SSL::SSLError => e
+            rescue Errno::EPIPE, Errno::ECONNRESET, Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH => e
               @log.trace "unexpected error before accepting TLS connection", error: e
+              close rescue nil
+            rescue OpenSSL::SSL::SSLError => e
+              # Use same log level as on_readable
+              @log.warn "unexpected error before accepting TLS connection by OpenSSL", error: e
               close rescue nil
             end
 

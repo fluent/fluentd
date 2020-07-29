@@ -4,6 +4,12 @@ require 'fluent/plugin/compressable'
 class CompressableTest < Test::Unit::TestCase
   include Fluent::Plugin::Compressable
 
+  def compress_assert_equal(expected, actual)
+    e = Zlib::GzipReader.new(StringIO.new(expected)).read
+    a = Zlib::GzipReader.new(StringIO.new(actual)).read
+    assert_equal(e, a)
+  end
+
   sub_test_case '#compress' do
     setup do
       @src = 'text data for compressing' * 5
@@ -18,8 +24,7 @@ class CompressableTest < Test::Unit::TestCase
     test 'write compressed data to IO with output_io option' do
       io = StringIO.new
       compress(@src, output_io: io)
-      waiting(10){ sleep 0.1 until @gzipped_src == io.string }
-      assert_equal @gzipped_src, io.string
+      compress_assert_equal @gzipped_src, io.string
     end
   end
 
@@ -36,7 +41,6 @@ class CompressableTest < Test::Unit::TestCase
     test 'write decompressed data to IO with output_io option' do
       io = StringIO.new
       decompress(@gzipped_src, output_io: io)
-      waiting(10){ sleep 0.1 until @src == io.string }
       assert_equal @src, io.string
     end
 
@@ -58,7 +62,6 @@ class CompressableTest < Test::Unit::TestCase
       output_io = StringIO.new
 
       decompress(input_io: input_io, output_io: output_io)
-      waiting(10){ sleep 0.1 until @src == output_io.string }
       assert_equal @src, output_io.string
     end
 

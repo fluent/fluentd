@@ -30,6 +30,13 @@ module ConfigurableSpec
     config_set_default :opt1, :baz
   end
 
+  class Base1Nil < Base1
+    config_set_default :name1, nil
+    config_set_default :name2, nil
+    config_set_default :opt1, nil
+    config_param :name5, :string, default: nil
+  end
+
   class Base2 < Base1
     config_set_default :name2, "base2"
     config_set_default :name4, "base2"
@@ -152,7 +159,7 @@ module ConfigurableSpec
     config_param :arrayvalue, :array
   end
 
-  class Example1
+  class ExampleWithAlias
     include Fluent::Configurable
 
     config_param :name, :string, alias: :fullname
@@ -166,22 +173,7 @@ module ConfigurableSpec
     end
   end
 
-  class Example3
-    include Fluent::Configurable
-
-    config_param :age, :integer, default: 10
-
-    config_section :appendix, required: true, multi: false, final: true do
-      config_param :type, :string
-      config_param :name, :string, default: "x"
-    end
-
-    def get_all
-      [@name, @detail]
-    end
-  end
-
-  class Example5
+  class ExampleWithSecret
     include Fluent::Configurable
 
     config_param :normal_param, :string
@@ -193,15 +185,46 @@ module ConfigurableSpec
     end
   end
 
-  class Example6
+  class ExampleWithDefaultHashAndArray
     include Fluent::Configurable
     config_param :obj1, :hash, default: {}
     config_param :obj2, :array, default: []
   end
 
-  class Example7
+  class ExampleWithSkipAccessor
     include Fluent::Configurable
     config_param :name, :string, default: 'example7', skip_accessor: true
+  end
+
+  class ExampleWithCustomSection
+    include Fluent::Configurable
+    config_param :name_param, :string
+    config_section :normal_section  do
+      config_param :normal_section_param, :string
+    end
+
+    class CustomSection
+      include Fluent::Configurable
+      config_param :custom_section_param, :string
+    end
+
+    class AnotherElement
+      include Fluent::Configurable
+    end
+
+    def configure(conf)
+      super
+      conf.elements.each do |e|
+        next if e.name != 'custom_section'
+        CustomSection.new.configure(e)
+      end
+    end
+  end
+
+  class ExampleWithIntFloat
+    include Fluent::Configurable
+    config_param :int1, :integer
+    config_param :float1, :float
   end
 
   module Overwrite
@@ -564,12 +587,12 @@ module Fluent::Config
 
         sub_test_case 'default values should be duplicated before touched in plugin code' do
           test 'default object should be dupped for cases configured twice' do
-            x6a = ConfigurableSpec::Example6.new
+            x6a = ConfigurableSpec::ExampleWithDefaultHashAndArray.new
             assert_nothing_raised { x6a.configure(config_element("")) }
             assert_equal({}, x6a.obj1)
             assert_equal([], x6a.obj2)
 
-            x6b = ConfigurableSpec::Example6.new
+            x6b = ConfigurableSpec::ExampleWithDefaultHashAndArray.new
             assert_nothing_raised { x6b.configure(config_element("")) }
             assert_equal({}, x6b.obj1)
             assert_equal([], x6b.obj2)
@@ -577,7 +600,7 @@ module Fluent::Config
             assert { x6a.obj1.object_id != x6b.obj1.object_id }
             assert { x6a.obj2.object_id != x6b.obj2.object_id }
 
-            x6c = ConfigurableSpec::Example6.new
+            x6c = ConfigurableSpec::ExampleWithDefaultHashAndArray.new
             assert_nothing_raised { x6c.configure(config_element("")) }
             assert_equal({}, x6c.obj1)
             assert_equal([], x6c.obj2)
@@ -592,7 +615,69 @@ module Fluent::Config
             assert_equal([], x6a.obj2)
           end
         end
+
+        test 'strict value type' do
+          default = config_element("", "", {"int1" => "1", "float1" => ""})
+
+          c = ConfigurableSpec::ExampleWithIntFloat.new
+          assert_nothing_raised { c.configure(default) }
+          assert_raise(Fluent::ConfigError) { c.configure(default, true) }
+        end
       end
+
+        test 'set nil for a parameter which has no default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => nil, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name1' parameter is required but nil is specified")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set nil for a parameter which has non-nil default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => nil, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name3' parameter is required but nil is specified")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set nil for a parameter whose default value is nil' do
+          obj = ConfigurableSpec::Base1Nil.new
+          conf = config_element("", "", {"name5" => nil})
+          obj.configure(conf)
+          assert_nil obj.name5
+        end
+
+        test 'set nil for parameters whose default values are overwritten by nil' do
+          obj = ConfigurableSpec::Base1Nil.new
+          conf = config_element("", "", {"name1" => nil, "name2" => nil, "opt1" => nil})
+          obj.configure(conf)
+          assert_nil obj.name1
+          assert_nil obj.name2
+          assert_nil obj.opt1
+        end
+
+        test 'set :default' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => :default, "name5" => "t5", "opt3" => "a"})
+          obj.configure(conf)
+          assert_equal "base1", obj.name3
+        end
+
+        test 'set :default for a parameter which has no default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => :default, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name1' doesn't have default value")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set :default for a parameter which has an overwritten default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => "t3", "name4" => :default, "name5" => "t5", "opt3" => "a"})
+          obj.configure(conf)
+          assert_equal "base2", obj.name4
+        end
     end
 
     sub_test_case 'class defined with config_section' do
@@ -1184,7 +1269,7 @@ module Fluent::Config
     sub_test_case 'class defined with config_param/config_section having :alias' do
       sub_test_case '#initialize' do
         test 'does not create methods for alias' do
-          ex1 = ConfigurableSpec::Example1.new
+          ex1 = ConfigurableSpec::ExampleWithAlias.new
           assert_nothing_raised { ex1.name }
           assert_raise(NoMethodError) { ex1.fullname }
           assert_nothing_raised { ex1.bool }
@@ -1196,7 +1281,7 @@ module Fluent::Config
 
       sub_test_case '#configure' do
         test 'provides accessible data for alias attribute keys' do
-          ex1 = ConfigurableSpec::Example1.new
+          ex1 = ConfigurableSpec::ExampleWithAlias.new
           conf = config_element('ROOT', '', {
                                   "fullname" => "foo bar",
                                   "bool" => false
@@ -1288,7 +1373,7 @@ module Fluent::Config
                                  'secret_param' => 'secret'
                                },
                                [config_element('section', '', {'normal_param2' => 'normal', 'secret_param2' => 'secret'} )])
-        @example = ConfigurableSpec::Example5.new
+        @example = ConfigurableSpec::ExampleWithSecret.new
         @example.configure(@conf)
       end
 
@@ -1311,20 +1396,6 @@ module Fluent::Config
         }
       end
 
-      test 'get plugin name when found unknown section' do
-        @conf = config_element('ROOT', '',
-                               {
-                                 'normal_param' => 'normal',
-                                 'secret_param' => 'secret'
-                               },
-                               [config_element('unknown', '', {'normal_param2' => 'normal', 'secret_param2' => 'secret'} )])
-        @example = ConfigurableSpec::Example5.new
-        @example.configure(@conf)
-        @conf.elements.each { |e|
-          assert_equal(['ROOT', nil], e.unused_in)
-        }
-      end
-
       def assert_secret_param(key, value)
         case key
         when 'normal_param', 'normal_param2'
@@ -1335,9 +1406,51 @@ module Fluent::Config
       end
     end
 
+    sub_test_case 'unused section' do
+      test 'get plugin name when found unknown section' do
+        conf = config_element('ROOT', '',
+                              {
+                                'name_param' => 'name',
+                              },
+                              [config_element('unknown', '', {'name_param' => 'normal'} )])
+        example = ConfigurableSpec::ExampleWithCustomSection.new
+        example.configure(conf)
+        conf.elements.each { |e|
+          assert_equal(['ROOT', nil], e.unused_in)
+        }
+      end
+
+      test 'get an empty array when the section is defined without using config_section' do
+        conf = config_element('ROOT', '',
+                              {
+                                'name_param' => 'name',
+                              },
+                              [config_element('custom_section', '', {'custom_section_param' => 'custom'} )])
+        example = ConfigurableSpec::ExampleWithCustomSection.new
+        example.configure(conf)
+        conf.elements.each { |e|
+          assert_equal([], e.unused_in)
+        }
+      end
+
+      test 'get an empty array when the configuration is used in another element without any sections' do
+        conf = config_element('ROOT', '',
+                              {
+                                'name_param' => 'name',
+                              },
+                              [config_element('normal_section', '', {'normal_section_param' => 'normal'} )])
+        example = ConfigurableSpec::ExampleWithCustomSection.new
+        example.configure(conf)
+        ConfigurableSpec::ExampleWithCustomSection::AnotherElement.new.configure(conf)
+        conf.elements.each { |e|
+          assert_equal([], e.unused_in)
+        }
+      end
+    end
+
     sub_test_case ':skip_accessor option' do
       test 'it does not create accessor methods for parameters' do
-        @example = ConfigurableSpec::Example7.new
+        @example = ConfigurableSpec::ExampleWithSkipAccessor.new
         @example.configure(config_element('ROOT'))
         assert_equal 'example7', @example.instance_variable_get(:@name)
         assert_raise NoMethodError.new("undefined method `name' for #{@example}") do
@@ -1586,6 +1699,85 @@ module Fluent::Config
 
         assert_equal 1, c.subsection.size
         assert_equal 'foo', c.subsection.first.param0
+      end
+    end
+
+    sub_test_case '#config_argument' do
+      test 'with strict_config_value' do
+        class TestClass01
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass01.new
+        subsection = config_element('subsection', "hoge", { })
+        assert_raise(Fluent::ConfigError.new('param1: invalid value for Integer(): "hoge"')) do
+          c.configure(config_element('root', '', {}, [subsection]), true)
+        end
+      end
+
+      test 'with nil' do
+        class TestClass02
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass02.new
+        subsection = config_element('subsection', nil, { })
+        assert_raise(Fluent::ConfigError.new("'<subsection ARG>' section requires argument, in section subsection")) do
+          c.configure(config_element('root', '', {}, [subsection]))
+        end
+      end
+
+      test 'with nil for an argument whose default value is nil' do
+        class TestClass03
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer, default: nil
+          end
+        end
+
+        c = TestClass03.new
+        subsection = config_element('subsection', nil, { })
+        c.configure(config_element('root', '', {}, [subsection]))
+
+        assert_equal 1, c.subsection.size
+        assert_equal nil, c.subsection.first.param1
+      end
+
+      test 'with :default' do
+        class TestClass04
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer, default: 3
+          end
+        end
+
+        c = TestClass04.new
+        subsection = config_element('subsection', :default, { })
+        c.configure(config_element('root', '', {}, [subsection]))
+
+        assert_equal 1, c.subsection.size
+        assert_equal 3, c.subsection.first.param1
+      end
+
+      test 'with :default for an argument which does not have default value' do
+        class TestClass05
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass05.new
+        subsection = config_element('subsection', :default, { })
+        assert_raise(Fluent::ConfigError.new("'param1' doesn\'t have default value")) do
+          c.configure(config_element('root', '', {}, [subsection]))
+        end
       end
     end
   end

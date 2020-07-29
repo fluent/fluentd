@@ -101,13 +101,11 @@ rescue
   usage $!.to_s
 end
 
-
 require 'thread'
-require 'monitor'
 require 'socket'
 require 'yajl'
 require 'msgpack'
-
+require 'fluent/ext_monitor_require'
 
 class Writer
   include MonitorMixin
@@ -315,7 +313,7 @@ when 'msgpack'
   require 'fluent/engine'
 
   begin
-    u = Fluent::Engine.msgpack_factory.unpacker($stdin)
+    u = Fluent::MessagePackFactory.msgpack_unpacker($stdin)
     u.each {|record|
       w.write(record)
     }
@@ -340,4 +338,3 @@ else
   $stderr.puts "Unknown format '#{format}'"
   exit 1
 end
-

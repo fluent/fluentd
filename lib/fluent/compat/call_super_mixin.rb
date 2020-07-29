@@ -55,6 +55,15 @@ module Fluent
         end
       end
 
+      def stop
+        klass = self.class
+        @@_super_start.delete(klass)
+        @@_super_before_shutdown.delete(klass)
+        @@_super_shutdown.delete(klass)
+
+        super
+      end
+
       def shutdown
         super
         unless self.shutdown?

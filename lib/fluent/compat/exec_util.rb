@@ -85,7 +85,7 @@ module Fluent
 
       class MessagePackParser < Parser
         def call(io)
-          @u = Fluent::Engine.msgpack_factory.unpacker(io)
+          @u = Fluent::MessagePackFactory.msgpack_unpacker(io)
           begin
             @u.each(&@on_message)
           rescue EOFError

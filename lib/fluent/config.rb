@@ -20,6 +20,25 @@ require 'fluent/configurable'
 
 module Fluent
   module Config
+    # @param config_path [String] config file path
+    # @param encoding [String] encoding of config file
+    # @param additional_config [String] config which is added to last of config body
+    # @param use_v1_config [Bool] config is formatted with v1 or not
+    # @return [Fluent::Config]
+    def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true)
+      config_fname = File.basename(config_path)
+      config_basedir = File.dirname(config_path)
+      config_data = File.open(config_path, "r:#{encoding}:utf-8") do |f|
+        s = f.read
+        if additional_config
+          c = additional_config.gsub("\\n", "\n")
+          s += "\n#{c}"
+        end
+        s
+      end
+      Fluent::Config.parse(config_data, config_fname, config_basedir, use_v1_config)
+    end
+
     def self.parse(str, fname, basepath = Dir.pwd, v1_config = nil, syntax: :v1)
       parser = if fname =~ /\.rb$/ || syntax == :ruby
                  :ruby
@@ -43,6 +62,7 @@ module Fluent
         Parser.parse(str, fname, basepath)
       when :ruby
         require 'fluent/config/dsl'
+        $log.warn("Ruby DSL configuration format is deprecated. Please use original configuration format. https://docs.fluentd.org/configuration/config-file")
         Config::DSL::Parser.parse(str, File.join(basepath, fname))
       else
         raise "[BUG] unknown configuration parser specification:'#{parser}'"

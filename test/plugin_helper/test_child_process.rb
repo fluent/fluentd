@@ -124,6 +124,43 @@ class ChildProcessTest < Test::Unit::TestCase
     assert_equal expected, ary
   end
 
+  test 'can execute external command at just once, which can handle both of read and write. Ignore stderr message/no block' do
+    m = Mutex.new
+    ary = []
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      # lots of stderr message should not be blocked and message should not be printed in test.
+      cmd = "ruby -e 'while !STDIN.eof? && line = STDIN.readline; STDERR.puts line.chomp * 1000; STDOUT.puts line.chomp; STDOUT.flush rescue nil; end'"
+      @d.child_process_execute(:t2_and_ignore_stderr, cmd, mode: [:write, :read]) do |writeio, readio|
+        m.lock
+        ran = true
+
+        [[1,2],[3,4],[5,6]].each do |i,j|
+          writeio.write "my data#{i}\n"
+          writeio.write "my data#{j}\n"
+          writeio.flush
+        end
+        writeio.close
+
+        while line = readio.readline
+          ary << line
+        end
+        m.unlock
+      end
+      begin
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
+        m.lock
+      rescue
+      ensure
+        m.unlock
+      end
+    end
+
+    assert_equal [], @d.log.out.logs
+    expected = (1..6).map{|i| "my data#{i}\n" }
+    assert_equal expected, ary
+  end
+
   test 'can execute external command at just once, which can handle all of read, write and stderr' do
     m = Mutex.new
     ary1 = []
@@ -195,30 +232,26 @@ class ChildProcessTest < Test::Unit::TestCase
   end
 
   test 'can execute external command at just once, which runs forever' do
-    m = Mutex.new
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      args = ["-e", "while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush; end"]
+      args = ["-e", "while sleep 0.1; puts 1; STDOUT.flush; end"]
       @d.child_process_execute(:t3, "ruby", arguments: args, mode: [:read]) do |io|
-        m.lock
-        ran = true
         begin
           while @d.child_process_running? && line = io.readline
+            ran ||= true
             ary << line
           end
         rescue
           # ignore
-        ensure
-          m.unlock
         end
       end
-      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
-      sleep TEST_WAIT_INTERVAL_FOR_LOOP * 10
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until ran
+      sleep 1
+
       @d.stop # nothing occurs
       @d.shutdown
-
-      assert{ ary.size > 5 }
+      assert { ary.size >= 4 }
 
       @d.close
 
@@ -235,7 +268,7 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
+      @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep 0.1; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
         m.lock
         ran = true
         begin
@@ -253,17 +286,19 @@ class ChildProcessTest < Test::Unit::TestCase
       assert_equal [], @d.log.out.logs
 
       @d.stop # nothing occurs
-      sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
-      lines1 = ary.size
-      assert{ lines1 > 1 }
+      lines1 = nil
+      waiting(TEST_WAIT_INTERVAL_FOR_LOOP * 3) do
+        lines1 = ary.size
+        lines1 > 1
+      end
 
       pid = @d._child_process_processes.keys.first
-
+      # default value 10 is too long for test
+      @d.instance_eval { @_child_process_exit_timeout = 1 }
       @d.shutdown
-      sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
+      sleep TEST_WAIT_INTERVAL_FOR_LOOP
       lines2 = ary.size
-      assert{ lines2 > lines1 }
-
+      assert { lines2 > lines1 }
       @d.close
 
       assert_nil((Process.waitpid(pid, Process::WNOHANG) rescue nil))
@@ -281,12 +316,12 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command many times, which finishes immediately' do
     ary = []
-    arguments = ["-e", "3.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 0.5 * 3
+    arguments = ["-e", "puts 'okay'; STDOUT.flush rescue nil"]
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 5, mode: [:read]) do |io|
+      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 1, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 13 # 5sec * 2 + 3sec
+      sleep 2.5 # 2sec(second invocation) + 0.5sec
       assert_equal [], @d.log.out.logs
       @d.stop
       assert_equal [], @d.log.out.logs
@@ -297,13 +332,12 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command many times, with leading once executed immediately' do
     ary = []
-    arguments = ["-e", "3.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"]
+    arguments = ["-e", "puts 'okay'; STDOUT.flush rescue nil"]
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t6, "ruby", arguments: arguments, interval: 5, immediate: true, mode: [:read]) do |io|
+      @d.child_process_execute(:t6, "ruby", arguments: arguments, interval: 1, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 8 # 5sec * 1 + 3sec
-              # but expected lines are same with test above
+      sleep 1.5 # 2sec(second invocation) + 0.5sec
       @d.stop; @d.shutdown; @d.close; @d.terminate
       assert_equal 2, ary.size
       assert_equal [], @d.log.out.logs
@@ -312,7 +346,7 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'does not execute long running external command in parallel in default' do
     ary = []
-    arguments = ["-e", "10.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 0.5 * 10
+    arguments = ["-e", "10.times{ sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 5 sec
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       assert_equal [], @d.log.out.logs
       @d.log.out.singleton_class.module_eval do
@@ -322,13 +356,13 @@ class ChildProcessTest < Test::Unit::TestCase
         }
       end
 
-      @d.child_process_execute(:t7, "ruby", arguments: arguments, interval: 2, immediate: true, mode: [:read]) do |io|
+      @d.child_process_execute(:t7, "ruby", arguments: arguments, interval: 1, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 4
+      sleep 2
       assert_equal 1, @d._child_process_processes.size
       @d.stop
-      warn_msg = '[warn]: previous child process is still running. skipped. title=:t7 command="ruby" arguments=["-e", "10.times{ puts \'okay\'; STDOUT.flush rescue nil; sleep 0.5 }"] interval=2 parallel=false' + "\n"
+      warn_msg = '[warn]: previous child process is still running. skipped. title=:t7 command="ruby" arguments=["-e", "10.times{ sleep 0.5 }"] interval=1 parallel=false' + "\n"
       logs = @d.log.out.logs
       assert{ logs.first.end_with?(warn_msg) }
       assert{ logs.all?{|line| line.end_with?(warn_msg) } }
@@ -339,14 +373,14 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute long running external command in parallel if specified' do
     ary = []
-    arguments = ["-e", "10.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 0.5 * 10 sec
+    arguments = ["-e", "10.times{  puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 5 sec
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       @d.child_process_execute(:t8, "ruby", arguments: arguments, interval: 1, immediate: true, parallel: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 4
+      sleep 2
       processes = @d._child_process_processes.size
-      assert{ processes >= 3 && processes <= 5 }
+      assert { processes >= 2 && processes <= 4 }
       @d.stop; @d.shutdown; @d.close; @d.terminate
       assert_equal [], @d.log.out.logs
     end
@@ -625,14 +659,14 @@ class ChildProcessTest < Test::Unit::TestCase
       block_exits = false
       callback_called = false
       exit_status = nil
-      args = ['-e', 'sleep ARGV[0].to_i; puts "yay"; File.unlink ARGV[1]', '1', @temp_path]
+      args = ['-e', 'puts "yay"; File.unlink ARGV[0]', @temp_path]
       cb = ->(status){ exit_status = status; callback_called = true }
 
       str = nil
-
       pid = nil
       @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
-        pid = @d.instance_eval{ child_process_id }
+        assert !callback_called # ensure yet to be called
+        pid = @d.instance_eval { child_process_id }
         str = readio.read.chomp
         block_exits = true
       end
@@ -660,16 +694,11 @@ class ChildProcessTest < Test::Unit::TestCase
       cb = ->(status){ exit_status = status; callback_called = true }
 
       str = nil
-
       pid = nil
       @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
-        pid = @d.instance_eval{ child_process_id }
-        sleep 10 # to run child process correctly
+        pid = @d.instance_eval { child_process_id }
+        sleep 1
         Process.kill(:QUIT, pid)
-        sleep 1
-        Process.kill(:QUIT, pid) rescue nil # once more to send kill
-        sleep 1
-        Process.kill(:QUIT, pid) rescue nil # just like sync
         str = readio.read.chomp rescue nil # empty string before EOF
         block_exits = true
       end
@@ -680,29 +709,28 @@ class ChildProcessTest < Test::Unit::TestCase
       assert callback_called
       assert exit_status
 
-      # This test sometimes fails on TravisCI
-      #    with [nil, 11] # SIGSEGV
-      # or with [1, nil]  # ???
-      assert_equal [nil, 3, true, ""], [exit_status.exitstatus, exit_status.termsig, File.exist?(@temp_path), str] # SIGQUIT
-      # SIGSEGV looks a kind of BUG of ruby...
+      assert_equal nil, exit_status.exitstatus
+      assert_equal 3, exit_status.termsig
+      assert File.exist?(@temp_path)
+      assert_equal '', str
     end
 
     test 'calls on_exit_callback for each process exits for interval call using on_exit_callback' do
       read_data_list = []
       exit_status_list = []
 
-      args = ['-e', 'puts "yay"', '1']
+      args = ['-e', 'puts "yay"']
       cb = ->(status){ exit_status_list << status }
 
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-        @d.child_process_execute(:st1, "ruby", arguments: args, immediate: true, interval: 2, mode: [:read], on_exit_callback: cb) do |readio|
+        @d.child_process_execute(:st1, "ruby", arguments: args, immediate: true, interval: 1, mode: [:read], on_exit_callback: cb) do |readio|
           read_data_list << readio.read.chomp
         end
-        sleep 10
+        sleep 2
       end
 
-      assert{ read_data_list.size >= 3 }
-      assert{ exit_status_list.size >= 3 }
+      assert { read_data_list.size >= 2 }
+      assert { exit_status_list.size >= 2 }
     end
 
     test 'waits lasting child process until wait_timeout if block is not specified' do
@@ -710,11 +738,11 @@ class ChildProcessTest < Test::Unit::TestCase
 
       callback_called = false
       exit_status = nil
-      args = ['-e', 'sleep ARGV[0].to_i; File.unlink ARGV[1]', '1', @temp_path]
+      args = ['-e', 'File.unlink ARGV[0]', @temp_path]
       cb = ->(status){ exit_status = status; callback_called = true }
 
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-        @d.child_process_execute(:t17, "ruby", arguments: args, on_exit_callback: cb, wait_timeout: 5)
+        @d.child_process_execute(:t17, "ruby", arguments: args, on_exit_callback: cb, wait_timeout: 2)
         sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
       end
 
@@ -729,7 +757,7 @@ class ChildProcessTest < Test::Unit::TestCase
 
       callback_called = false
       exit_status = nil
-      args = ['-e', 'sleep ARGV[0].to_i; File.unlink ARGV[1]', '3', @temp_path]
+      args = ['-e', 'File.unlink ARGV[0]', @temp_path]
       cb = ->(status){ exit_status = status; callback_called = true }
 
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
@@ -754,7 +782,7 @@ class ChildProcessTest < Test::Unit::TestCase
       cb = ->(status){ exit_status = status; callback_called = true }
 
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-        @d.child_process_execute(:t17, "ruby", arguments: args, on_exit_callback: cb, wait_timeout: 3)
+        @d.child_process_execute(:t17, "ruby", arguments: args, on_exit_callback: cb, wait_timeout: 1)
         sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
       end
 
@@ -776,8 +804,8 @@ class ChildProcessTest < Test::Unit::TestCase
       cb = ->(status){ exit_status = status; callback_called = true }
 
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-        @d.child_process_execute(:t17, "ruby", arguments: args, mode: nil, on_exit_callback: cb, wait_timeout: 3) do
-          sleep 3
+        @d.child_process_execute(:t17, "ruby", arguments: args, mode: nil, on_exit_callback: cb, wait_timeout: 1) do
+          sleep 1
         end
         sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
       end
@@ -789,6 +817,21 @@ class ChildProcessTest < Test::Unit::TestCase
         assert_equal 9, exit_status.termsig # SIGKILL
       end
       assert File.exist?(@temp_path)
+    end
+
+    test 'execute child process writing data to stdout which is unread' do
+      callback_called = false
+      exit_status = nil
+      prog = "echo writing to stdout"
+      callback = ->(status){ exit_status = status; callback_called = true }
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        @d.child_process_execute(:out_exec_process, prog, stderr: :connect, immediate: true, parallel: true, mode: [], wait_timeout: 1, on_exit_callback: callback)
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      end
+      assert callback_called
+      assert exit_status
+      assert exit_status.success?
+      assert_equal 0, exit_status.exitstatus
     end
   end
 end

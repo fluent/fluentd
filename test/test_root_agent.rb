@@ -170,7 +170,6 @@ EOC
 
       error_label = ra.labels['@ERROR']
       assert_kind_of Fluent::Plugin::NullOutput, error_label.outputs.first
-      assert_kind_of RootAgent::RootAgentProxyWithoutErrorCollector, error_label.root_agent
     end
   end
 
@@ -710,7 +709,7 @@ EOC
       end
     end
 
-    test 'raises configuration error for worker id collisions on multi workers syntax when multi avaliable worker_ids are left' do
+    test 'raises configuration error for worker id collisions on multi workers syntax when multi available worker_ids are left' do
       errmsg = "specified worker_id<1> collisions is detected on <worker> directive. Available worker id(s): [2, 3]"
       assert_raise Fluent::ConfigError.new(errmsg) do
         conf = <<-EOC
@@ -853,7 +852,6 @@ EOC
 
       error_label = ra.labels['@ERROR']
       assert_kind_of Fluent::Plugin::NullOutput, error_label.outputs.first
-      assert_kind_of RootAgent::RootAgentProxyWithoutErrorCollector, error_label.root_agent
     end
 
     test 'with plugins but for another worker' do

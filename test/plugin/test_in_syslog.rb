@@ -163,6 +163,21 @@ EOS
     compare_test_result(d.events, tests)
   end
 
+  def test_emit_rfc5452
+    d = create_driver([CONFIG, "facility_key pri\n<parse>\n message_format rfc5424\nwith_priority true\n</parse>"].join("\n"))
+    msg = '<1>1 2017-02-06T13:14:15.003Z myhostname 02abaf0687f5 10339 02abaf0687f5 - method=POST db=0.00'
+
+    d.run(expect_emits: 1, timeout: 2) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      u.send(msg, 0)
+    end
+
+    tag, _, event = d.events[0]
+    assert_equal('syslog.kern.alert', tag)
+    assert_equal('kern', event['pri'])
+  end
+
   def test_msg_size_with_same_tcp_connection
     d = create_driver([CONFIG, "<transport tcp> \n</transport>"].join("\n"))
     tests = create_test_case
@@ -217,11 +232,15 @@ EOS
     compare_test_result(d.events, tests, {host: host})
   end
 
-  def test_msg_size_with_priority_key
-    d = create_driver([CONFIG, 'priority_key priority'].join("\n"))
+  data(
+    severity_key: 'severity_key',
+    priority_key: 'priority_key',
+  )
+  def test_msg_size_with_severity_key(param_name)
+    d = create_driver([CONFIG, "#{param_name} severity"].join("\n"))
     tests = create_test_case
 
-    priority = 'info'
+    severity = 'info'
     d.run(expect_emits: 2) do
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
@@ -231,7 +250,7 @@ EOS
     end
 
     assert(d.events.size > 0)
-    compare_test_result(d.events, tests, {priority: priority})
+    compare_test_result(d.events, tests, {severity: severity})
   end
 
   def test_msg_size_with_facility_key
@@ -311,7 +330,7 @@ EOS
       assert_equal(options[:host], events[i][2]['source_host']) if options[:host]
       assert_equal(options[:address], events[i][2]['source_address']) if options[:address]
       assert_equal(options[:hostname], events[i][2]['source_hostname']) if options[:hostname]
-      assert_equal(options[:priority], events[i][2]['priority']) if options[:priority]
+      assert_equal(options[:severity], events[i][2]['severity']) if options[:severity]
       assert_equal(options[:facility], events[i][2]['facility']) if options[:facility]
     }
   end
@@ -356,7 +375,7 @@ EOS
       ]
       msgs.each { |msg|
         m = msg['msg']
-        msg['msg'] = "#{m.size + 1} #{m}"
+        msg['msg'] = "#{m.size} #{m}"
       }
       msgs
     end

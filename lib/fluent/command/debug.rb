@@ -61,6 +61,7 @@ else
 end
 
 require 'fluent/log'
+require 'fluent/env'
 require 'fluent/engine'
 require 'fluent/system_config'
 require 'serverengine'

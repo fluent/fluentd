@@ -28,7 +28,7 @@ class ExecInputTest < Test::Unit::TestCase
 
   TSV_CONFIG = %[
     command ruby #{SCRIPT_PATH} "#{TEST_TIME}" 0
-    run_interval 1s
+    run_interval 0.3
     <parse>
       @type tsv
       keys time, tag, k1
@@ -43,7 +43,7 @@ class ExecInputTest < Test::Unit::TestCase
 
   JSON_CONFIG = %[
     command ruby #{SCRIPT_PATH} #{TEST_UNIX_TIME.to_i} 1
-    run_interval 1s
+    run_interval 0.3
     <parse>
       @type json
     </parse>
@@ -56,7 +56,7 @@ class ExecInputTest < Test::Unit::TestCase
 
   MSGPACK_CONFIG = %[
     command ruby #{SCRIPT_PATH} #{TEST_UNIX_TIME.to_i} 2
-    run_interval 1s
+    run_interval 0.3
     <parse>
       @type msgpack
     </parse>
@@ -70,7 +70,7 @@ class ExecInputTest < Test::Unit::TestCase
   # here document for not de-quoting backslashes
   REGEXP_CONFIG = %[
     command ruby #{SCRIPT_PATH} "#{TEST_TIME}" 3
-    run_interval 1s
+    run_interval 0.3
     tag regex_tag
 ] + <<'EOC'
     <parse>
@@ -143,7 +143,7 @@ EOC
       time_key time
       tag_key tag
       time_format %Y-%m-%d %H:%M:%S
-      run_interval 1s
+      run_interval 0.3
   ]
 
   JSON_CONFIG_COMPAT = %[
@@ -151,7 +151,7 @@ EOC
       format json
       tag_key tag
       time_key time
-      run_interval 1s
+      run_interval 0.3
   ]
 
   MSGPACK_CONFIG_COMPAT = %[
@@ -159,14 +159,14 @@ EOC
       format msgpack
       tag_key tagger
       time_key datetime
-      run_interval 1s
+      run_interval 0.3
   ]
 
   REGEXP_CONFIG_COMPAT = %[
       command ruby #{SCRIPT_PATH} "#{TEST_TIME}" 3
       format /(?<time>[^\\\]]*) (?<message>[^ ]*)/
       tag regex_tag
-      run_interval 1s
+      run_interval 0.3
   ]
 
   sub_test_case 'with traditional configuration' do
@@ -235,7 +235,7 @@ EOC
     d.run(expect_emits: 2, timeout: 10)
 
     assert{ d.events.length > 0 }
-    d.events.each_with_index {|event, i|
+    d.events.each {|event|
       assert_equal_event_time(time, event[1])
       assert_equal [tag, time, record], event
     }

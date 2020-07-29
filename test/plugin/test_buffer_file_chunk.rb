@@ -21,13 +21,32 @@ class BufferFileChunkTest < Test::Unit::TestCase
     Timecop.return
   end
 
-  Metadata = Struct.new(:timekey, :tag, :variables)
+  Metadata = Fluent::Plugin::Buffer::Metadata
+
   def gen_metadata(timekey: nil, tag: nil, variables: nil)
     Metadata.new(timekey, tag, variables)
   end
 
   def read_metadata_file(path)
-    File.open(path, 'rb'){|f| MessagePack.unpack(f.read, symbolize_keys: true) }
+    File.open(path, 'rb') do |f|
+      chunk = f.read
+      if chunk.size <= 6 # size of BUFFER_HEADER (2) + size of data(4)
+        return nil
+      end
+
+      data = nil
+      if chunk.slice(0, 2) == Fluent::Plugin::Buffer::FileChunk::BUFFER_HEADER
+        size = chunk.slice(2, 4).unpack('N').first
+        if size
+          data = MessagePack.unpack(chunk.slice(6, size), symbolize_keys: true)
+        end
+      else
+        # old type
+        data = MessagePack.unpack(chunk, symbolize_keys: true)
+      end
+
+      data
+    end
   end
 
   def gen_path(path)
@@ -121,10 +140,10 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal gen_chunk_path('b', @c.unique_id), @c.path
 
       assert File.exist?(gen_chunk_path('b', @c.unique_id))
-      assert{ File.stat(gen_chunk_path('b', @c.unique_id)).mode.to_s(8).end_with?(@klass.const_get('FILE_PERMISSION').to_s(8)) }
+      assert{ File.stat(gen_chunk_path('b', @c.unique_id)).mode.to_s(8).end_with?(Fluent::DEFAULT_FILE_PERMISSION.to_s(8)) }
 
       assert File.exist?(gen_chunk_path('b', @c.unique_id) + '.meta')
-      assert{ File.stat(gen_chunk_path('b', @c.unique_id) + '.meta').mode.to_s(8).end_with?(@klass.const_get('FILE_PERMISSION').to_s(8)) }
+      assert{ File.stat(gen_chunk_path('b', @c.unique_id) + '.meta').mode.to_s(8).end_with?(Fluent::DEFAULT_FILE_PERMISSION.to_s(8)) }
 
       assert_equal :unstaged, @c.state
       assert @c.empty?
@@ -342,7 +361,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal content, File.open(@c.path, 'rb'){|f| f.read }
 
       stored_meta = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: unique_id,
         s: size,
         c: created_at.to_i,
@@ -398,17 +417,6 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal d4.to_json + "\n", lines[3]
     end
 
-    test 'can refer system config for file permission' do
-      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
-
-      chunk_path = File.join(@chunkdir, 'testperm.*.log')
-      Fluent::SystemConfig.overwrite_system_config("file_permission" => "600") do
-        c = Fluent::Plugin::Buffer::FileChunk.new(gen_metadata, chunk_path, :create)
-        assert{ File.stat(c.path).mode.to_s(8).end_with?('600') }
-        assert{ File.stat(c.path + '.meta').mode.to_s(8).end_with?('600') }
-      end
-    end
-
     test '#write_metadata tries to store metadata on file' do
       d1 = {"f1" => 'v1', "f2" => 'v2', "f3" => 'v3'}
       d2 = {"f1" => 'vv1', "f2" => 'vv2', "f3" => 'vv3'}
@@ -417,7 +425,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.commit
 
       expected = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: @c.unique_id,
         s: @c.size,
         c: @c.created_at.to_i,
@@ -435,7 +443,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.write_metadata
 
       expected = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: @c.unique_id,
         s: @c.size,
         c: @c.created_at.to_i,
@@ -446,7 +454,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.commit
 
       expected = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: @c.unique_id,
         s: @c.size,
         c: @c.created_at.to_i,
@@ -466,7 +474,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal content, File.open(@c.path, 'rb'){|f| f.read }
 
       stored_meta = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: unique_id,
         s: size,
         c: created_at.to_i,
@@ -475,6 +483,24 @@ class BufferFileChunkTest < Test::Unit::TestCase
 
       assert_equal stored_meta, read_metadata_file(@c.path + '.meta')
     end
+  end
+
+  test 'ensure to remove metadata file if #write_metadata raise an error because of disk full' do
+    chunk_path = File.join(@chunkdir, 'test.*.log')
+    stub(Fluent::UniqueId).hex(anything) { 'id' } # to fix chunk id
+
+    any_instance_of(Fluent::Plugin::Buffer::FileChunk) do |klass|
+      stub(klass).write_metadata(anything) do |v|
+        raise 'disk full'
+      end
+    end
+
+    err = assert_raise(Fluent::Plugin::Buffer::BufferOverflowError) do
+      Fluent::Plugin::Buffer::FileChunk.new(gen_metadata, chunk_path, :create)
+    end
+
+    assert_false File.exist?(File.join(@chunkdir, 'test.bid.log.meta'))
+    assert_match(/create buffer metadata/, err.message)
   end
 
   sub_test_case 'chunk with file for staged chunk' do
@@ -493,7 +519,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       end
 
       @metadata = {
-        timekey: nil, tag: 'testing', variables: {k: "x"},
+        timekey: nil, tag: 'testing', variables: {k: "x"}, seq: 0,
         id: @chunk_id,
         s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
@@ -566,7 +592,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.append([d5s])
 
       metadata = {
-        timekey: nil, tag: 'testing', variables: {k: "x"},
+        timekey: nil, tag: 'testing', variables: {k: "x"}, seq: 0,
         id: @chunk_id,
         s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
@@ -577,7 +603,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.write_metadata
 
       metadata = {
-        timekey: nil, tag: 'testing', variables: {k: "x"},
+        timekey: nil, tag: 'testing', variables: {k: "x"}, seq: 0,
         id: @chunk_id,
         s: 5,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
@@ -646,7 +672,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @dummy_timekey = Time.parse('2016-04-07 17:40:00 +0900').to_i
 
       @metadata = {
-        timekey: @dummy_timekey, tag: 'testing', variables: {k: "x"},
+        timekey: @dummy_timekey, tag: 'testing', variables: {k: "x"}, seq: 0,
         id: @chunk_id,
         s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
@@ -837,6 +863,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal @gzipped_src, c.read(compressed: :gzip)
 
       io = StringIO.new
+      io.set_encoding(Encoding::ASCII_8BIT)
       c.write_to(io, compressed: :gzip)
       assert_equal @gzipped_src, io.string
     end

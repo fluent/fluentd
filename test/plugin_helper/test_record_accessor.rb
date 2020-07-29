@@ -141,7 +141,7 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
 
     data("missing ']'" => "$['key1'",
          "missing array index with dot" => "$.hello[]",
-         "missing array index with braket" => "$['hello'][]",
+         "missing array index with bracket" => "$['hello'][]",
          "whitespace char included key in dot notation" => "$.key[0].ke y",
          "more chars" => "$.key1[0]foo",
          "empty keys with dot" => "$.",
@@ -192,6 +192,47 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       assert_nothing_raised do
         assert_nil accessor.delete(r)
       end
+    end
+  end
+
+  sub_test_case 'Fluent::PluginHelper::RecordAccessor::Accessor#set' do
+    setup do
+      @d = Dummy.new
+    end
+
+    data('normal' => 'key1',
+         'space' => 'ke y2',
+         'dot key' => 'this.is.key3')
+    test 'set top key' do |param|
+      r = {'key1' => 'v1', 'ke y2' => 'v2', 'this.is.key3' => 'v3'}
+      accessor = @d.record_accessor_create(param)
+      accessor.set(r, "test")
+      assert_equal "test", r[param]
+    end
+
+    test "set top key using bracket style" do
+      r = {'key1' => 'v1', 'ke y2' => 'v2', 'this.is.key3' => 'v3'}
+      accessor = @d.record_accessor_create('$["this.is.key3"]')
+      accessor.set(r, "test")
+      assert_equal "test", r["this.is.key3"]
+    end
+
+    data('bracket' => "$['key1'][0]['ke y2']",
+         'bracket w/ double quotes' => '$["key1"][0]["ke y2"]')
+    test "set nested keys ['key1', 0, 'ke y2']" do |param|
+      r = {'key1' => [{'ke y2' => "value"}]}
+      accessor = @d.record_accessor_create(param)
+      accessor.set(r, "nested_message")
+      assert_equal "nested_message", r['key1'][0]['ke y2']
+    end
+
+    test "don't raise an error when unexpected record is coming" do
+      r = {'key1' => [{'key3' => "value"}]}
+      accessor = @d.record_accessor_create("$['key1']['key2']['key3']")
+      assert_nothing_raised do
+        accessor.set(r, "unknown field")
+      end
+      assert_equal({'key1' => [{'key3' => "value"}]}, r)
     end
   end
 end

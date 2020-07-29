@@ -256,7 +256,7 @@ module Fluent::Plugin
             serializer = :to_json.to_proc
             feeder = ->(d){ parser << d }
           else # msgpack
-            parser = Fluent::Engine.msgpack_factory.unpacker
+            parser = Fluent::MessagePackFactory.msgpack_unpacker
             serializer = :to_msgpack.to_proc
             feeder = ->(d){
               parser.feed_each(d){|obj|
@@ -327,7 +327,7 @@ module Fluent::Plugin
                  record = e[1]
                  next if record.nil?
                  time = e[0]
-                 time = Fluent::Engine.now if time.nil? || time.to_i == 0 # `to_i == 0` for empty EventTime
+                 time = Fluent::EventTime.now if time.nil? || time.to_i == 0 # `to_i == 0` for empty EventTime
                  es.add(time, record)
                }
                es
@@ -347,7 +347,7 @@ module Fluent::Plugin
           return msg[3] # retry never succeeded so return ack and drop incoming event.
         end
         return if record.nil?
-        time = Fluent::Engine.now if time.to_i == 0
+        time = Fluent::EventTime.now if time.to_i == 0
         if @enable_field_injection
           record[@source_address_key] = conn.remote_addr if @source_address_key
           record[@source_hostname_key] = conn.remote_host if @source_hostname_key

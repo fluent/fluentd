@@ -17,7 +17,11 @@
 require 'socket'
 require 'ipaddr'
 require 'openssl'
+if Fluent.windows?
+  require 'certstore'
+end
 
+require 'fluent/tls'
 require_relative 'socket_option'
 
 module Fluent
@@ -29,12 +33,6 @@ module Fluent
       # terminate: [-]
 
       include Fluent::PluginHelper::SocketOption
-
-      TLS_DEFAULT_VERSION = :'TLSv1_2'
-      TLS_SUPPORTED_VERSIONS = [:'TLSv1_1', :'TLSv1_2']
-      ### follow httpclient configuration by nahi
-      # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
-      CIPHERS_DEFAULT = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
 
       attr_reader :_sockets # for tests
 
@@ -94,14 +92,16 @@ module Fluent
 
       def socket_create_tls(
           host, port,
-          version: TLS_DEFAULT_VERSION, ciphers: CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
+          version: Fluent::TLS::DEFAULT_VERSION, min_version: nil, max_version: nil, ciphers: Fluent::TLS::CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
           enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil,
-          cert_path: nil, private_key_path: nil, private_key_passphrase: nil, **kwargs, &block)
+          cert_path: nil, private_key_path: nil, private_key_passphrase: nil,
+          cert_thumbprint: nil, cert_logical_store_name: nil, cert_use_enterprise_store: true,
+          **kwargs, &block)
 
         host_is_ipaddress = IPAddr.new(host) rescue false
         fqdn ||= host unless host_is_ipaddress
 
-        context = OpenSSL::SSL::SSLContext.new(version)
+        context = OpenSSL::SSL::SSLContext.new
 
         if insecure
           log.trace "setting TLS verify_mode NONE"
@@ -113,6 +113,14 @@ module Fluent
           end
           begin
             if enable_system_cert_store
+              if Fluent.windows? && cert_logical_store_name
+                log.trace "loading Windows system certificate store"
+                loader = Certstore::OpenSSL::Loader.new(log, cert_store, cert_logical_store_name,
+                                                        enterprise: cert_use_enterprise_store)
+                loader.load_cert_store
+                cert_store = loader.cert_store
+                context.cert = loader.get_certificate(cert_thumbprint) if cert_thumbprint
+              end
               log.trace "loading system default certificate store"
               cert_store.set_default_paths
             end
@@ -137,10 +145,18 @@ module Fluent
           context.ciphers = ciphers
           context.verify_mode = OpenSSL::SSL::VERIFY_PEER
           context.cert_store = cert_store
-          context.verify_hostname = true if verify_fqdn && fqdn && context.respond_to?(:verify_hostname=)
-          context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path)) if cert_path
+          context.verify_hostname = verify_fqdn && fqdn
           context.key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
+
+          if cert_path
+            certs = socket_certificates_from_file(cert_path)
+            context.cert = certs.shift
+            unless certs.empty?
+              context.extra_chain_cert = certs
+            end
+          end
         end
+        Fluent::TLS.set_version_to_context(context, version, min_version, max_version)
 
         tcpsock = socket_create_tcp(host, port, **kwargs)
         sock = WrappedSocket::TLS.new(tcpsock, context)
@@ -175,6 +191,17 @@ module Fluent
         else
           sock
         end
+      end
+
+      def socket_certificates_from_file(path)
+        data = File.read(path)
+        pattern = Regexp.compile('-+BEGIN CERTIFICATE-+\r?\n(?:[^-]*\r?\n)+-+END CERTIFICATE-+\r?\n?', Regexp::MULTILINE)
+        list = []
+        data.scan(pattern) { |match| list << OpenSSL::X509::Certificate.new(match) }
+        if list.length == 0
+          raise Fluent::ConfigError, "cert_path does not contain a valid certificate"
+        end
+        list
       end
 
       def self.tls_verify_result_name(code)

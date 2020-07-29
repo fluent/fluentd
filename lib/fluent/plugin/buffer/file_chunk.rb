@@ -24,6 +24,8 @@ module Fluent
       class FileChunk < Chunk
         class FileChunkError < StandardError; end
 
+        BUFFER_HEADER = "\xc1\x00".force_encoding(Encoding::ASCII_8BIT).freeze
+
         ### buffer path user specified : /path/to/directory/user_specified_prefix.*.log
         ### buffer chunk path          : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log
         ### buffer chunk metadata path : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log.meta
@@ -35,15 +37,11 @@ module Fluent
         # path_prefix: path prefix string, ended with '.'
         # path_suffix: path suffix string, like '.log' (or any other user specified)
 
-        include SystemConfig::Mixin
-        include MessagePackFactory::Mixin
-
-        FILE_PERMISSION = 0644
-
         attr_reader :path, :permission
 
-        def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION, compress: :text)
+        def initialize(metadata, path, mode, perm: nil, compress: :text)
           super(metadata, compress: compress)
+          perm ||= Fluent::DEFAULT_FILE_PERMISSION
           @permission = perm.is_a?(String) ? perm.to_i(8) : perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @meta = nil
@@ -74,7 +72,8 @@ module Fluent
           @size += @adding_size
           @bytesize += @adding_bytes
           @adding_bytes = @adding_size = 0
-          @modified_at = Time.now
+          @modified_at = Fluent::Clock.real_now
+          @modified_at_object = nil
 
           true
         end
@@ -214,42 +213,49 @@ module Fluent
         end
 
         def restore_metadata(bindata)
-          data = msgpack_unpacker(symbolize_keys: true).feed(bindata).read rescue {}
+          data = restore_metadata_with_new_format(bindata)
 
-          now = Time.now
+          unless data
+            # old type of restore
+            data = Fluent::MessagePackFactory.msgpack_unpacker(symbolize_keys: true).feed(bindata).read rescue {}
+          end
+
+          now = Fluent::Clock.real_now
 
           @unique_id = data[:id] || self.class.unique_id_from_path(@path) || @unique_id
           @size = data[:s] || 0
-          @created_at = Time.at(data.fetch(:c, now.to_i))
-          @modified_at = Time.at(data.fetch(:m, now.to_i))
+          @created_at = data.fetch(:c, now.to_i)
+          @modified_at = data.fetch(:m, now.to_i)
 
           @metadata.timekey = data[:timekey]
           @metadata.tag = data[:tag]
           @metadata.variables = data[:variables]
+          @metadata.seq = data[:seq] || 0
         end
 
         def restore_metadata_partially(chunk)
           @unique_id = self.class.unique_id_from_path(chunk.path) || @unique_id
           @size = 0
-          @created_at = chunk.ctime # birthtime isn't supported on Windows (and Travis?)
-          @modified_at = chunk.mtime
+          @created_at = chunk.ctime.to_i # birthtime isn't supported on Windows (and Travis?)
+          @modified_at = chunk.mtime.to_i
 
           @metadata.timekey = nil
           @metadata.tag = nil
           @metadata.variables = nil
+          @metadata.seq = 0
         end
 
         def write_metadata(update: true)
           data = @metadata.to_h.merge({
               id: @unique_id,
               s: (update ? @size + @adding_size : @size),
-              c: @created_at.to_i,
-              m: (update ? Time.now : @modified_at).to_i,
+              c: @created_at,
+              m: (update ? Fluent::Clock.real_now : @modified_at),
           })
-          bin = msgpack_packer.pack(data).to_s
+          bin = Fluent::MessagePackFactory.thread_local_msgpack_packer.pack(data).full_pack
+          size = [bin.bytesize].pack('N')
           @meta.seek(0, IO::SEEK_SET)
-          @meta.write(bin)
-          @meta.truncate(bin.bytesize)
+          @meta.write(BUFFER_HEADER + size + bin)
         end
 
         def file_rename(file, old_path, new_path, callback=nil)
@@ -292,6 +298,13 @@ module Fluent
             # This case is easier than enqueued!. Just removing pre-create buffer file
             @chunk.close rescue nil
             File.unlink(@path) rescue nil
+
+            if @meta
+              # ensure to unlink when #write_metadata fails
+              @meta.close rescue nil
+              File.unlink(@meta_path) rescue nil
+            end
+
             # Same as @chunk case. See above
             raise BufferOverflowError, "can't create buffer metadata for #{path}. Stop creating buffer files: error = #{e}"
           end
@@ -376,6 +389,23 @@ module Fluent
             restore_metadata_partially(@chunk)
           end
           @state = :queued
+        end
+
+        private
+
+        def restore_metadata_with_new_format(chunk)
+          if chunk.size <= 6 # size of BUFFER_HEADER (2) + size of data size(4)
+            return nil
+          end
+
+          if chunk.slice(0, 2) == BUFFER_HEADER
+            size = chunk.slice(2, 4).unpack('N').first
+            if size
+              return Fluent::MessagePackFactory.msgpack_unpacker(symbolize_keys: true).feed(chunk.slice(6, size)).read rescue nil
+            end
+          end
+
+          nil
         end
       end
     end

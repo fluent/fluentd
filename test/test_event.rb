@@ -74,7 +74,7 @@ module EventTest
 
     test 'to_msgpack_stream' do
       stream = @es.to_msgpack_stream
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @time, time
         assert_equal @record, record
       }
@@ -82,7 +82,7 @@ module EventTest
 
     test 'to_msgpack_stream with time_int argument' do
       stream = @es.to_msgpack_stream(time_int: true)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @time.to_i, time
         assert_equal @record, record
       }
@@ -90,7 +90,7 @@ module EventTest
 
     test 'to_compressed_msgpack_stream' do
       stream = @es.to_compressed_msgpack_stream
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(decompress(stream)) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(decompress(stream)) { |time, record|
         assert_equal @time, time
         assert_equal @record, record
       }
@@ -98,7 +98,7 @@ module EventTest
 
     test 'to_compressed_msgpack_stream with time_int argument' do
       stream = @es.to_compressed_msgpack_stream(time_int: true)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(decompress(stream)) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(decompress(stream)) { |time, record|
         assert_equal @time.to_i, time
         assert_equal @record, record
       }
@@ -174,7 +174,7 @@ module EventTest
     test 'to_msgpack_stream' do
       i = 0
       stream = @es.to_msgpack_stream
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -185,7 +185,7 @@ module EventTest
       i = 0
       compressed_stream = @es.to_compressed_msgpack_stream
       stream = decompress(compressed_stream)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -196,7 +196,7 @@ module EventTest
       i = 0
       compressed_stream = @es.to_compressed_msgpack_stream(time_int: true)
       stream = decompress(compressed_stream)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i].to_i, time
         assert_equal @records[i], record
         i += 1
@@ -276,7 +276,7 @@ module EventTest
     test 'to_msgpack_stream' do
       i = 0
       stream = @es.to_msgpack_stream
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -287,7 +287,7 @@ module EventTest
       i = 0
       compressed_stream = @es.to_compressed_msgpack_stream
       stream = decompress(compressed_stream)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -298,7 +298,7 @@ module EventTest
       i = 0
       compressed_stream = @es.to_compressed_msgpack_stream(time_int: true)
       stream = decompress(compressed_stream)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i].to_i, time
         assert_equal @records[i], record
         i += 1
@@ -312,7 +312,7 @@ module EventTest
     include Fluent::Plugin::Compressable
 
     def setup
-      pk = Fluent::Engine.msgpack_factory.packer
+      pk = Fluent::MessagePackFactory.msgpack_packer
       time = Engine.now
       @times = [Fluent::EventTime.new(time.sec), Fluent::EventTime.new(time.sec + 1)]
       @records = [{'k' => 'v1', 'n' => 1}, {'k' => 'v2', 'n' => 2}]
@@ -384,7 +384,7 @@ module EventTest
     test 'to_msgpack_stream' do
       i = 0
       stream = @es.to_msgpack_stream
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -395,7 +395,7 @@ module EventTest
       i = 0
       compressed_stream = @es.to_compressed_msgpack_stream
       stream = decompress(compressed_stream)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -490,7 +490,7 @@ module EventTest
       stream = nil
       ensure_data_is_decompressed { stream = @es.to_msgpack_stream }
 
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -505,7 +505,7 @@ module EventTest
       assert_equal @entries, @es.instance_variable_get(:@data)
 
       stream = decompress(compressed_stream)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1

@@ -17,6 +17,7 @@
 require 'net/http'
 require 'uri'
 require 'openssl'
+require 'fluent/tls'
 require 'fluent/plugin/output'
 require 'fluent/plugin_helper/socket'
 
@@ -36,6 +37,8 @@ module Fluent::Plugin
     config_param :proxy, :string, default: ENV['HTTP_PROXY'] || ENV['http_proxy']
     desc 'Content-Type for HTTP request'
     config_param :content_type, :string, default: nil
+    desc 'JSON array data format for HTTP request body'
+    config_param :json_array, :bool, default: false
     desc 'Additional headers for HTTP request'
     config_param :headers, :hash, default: nil
 
@@ -57,14 +60,14 @@ module Fluent::Plugin
     desc 'The verify mode of TLS'
     config_param :tls_verify_mode, :enum, list: [:none, :peer], default: :peer
     desc 'The default version of TLS'
-    config_param :tls_version, :enum, list: Fluent::PluginHelper::Socket::TLS_SUPPORTED_VERSIONS, default: Fluent::PluginHelper::Socket::TLS_DEFAULT_VERSION
+    config_param :tls_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: Fluent::TLS::DEFAULT_VERSION
     desc 'The cipher configuration of TLS'
-    config_param :tls_ciphers, :string, default: Fluent::PluginHelper::Socket::CIPHERS_DEFAULT
+    config_param :tls_ciphers, :string, default: Fluent::TLS::CIPHERS_DEFAULT
 
     desc 'Raise UnrecoverableError when the response is non success, 4xx/5xx'
     config_param :error_response_as_unrecoverable, :bool, default: true
     desc 'The list of retryable response code'
-    config_param :retryable_response_codes, :array, value_type: :integer, default: [503]
+    config_param :retryable_response_codes, :array, value_type: :integer, default: nil
 
     config_section :format do
       config_set_default :@type, 'json'
@@ -90,10 +93,22 @@ module Fluent::Plugin
     def configure(conf)
       super
 
+      if @retryable_response_codes.nil?
+        log.warn('Status code 503 is going to be removed from default `retryable_response_codes` from fluentd v2. Please add it by yourself if you wish')
+        @retryable_response_codes = [503]
+      end
+
       @http_opt = setup_http_option
       @proxy_uri = URI.parse(@proxy) if @proxy
       @formatter = formatter_create
       @content_type = setup_content_type unless @content_type
+
+      if @json_array
+        if @formatter_configs.first[:@type] != "json"
+          raise Fluent::ConfigError, "json_array option could be used with json formatter only"
+        end
+        define_singleton_method(:format, method(:format_json_array))
+      end
     end
 
     def multi_workers_ready?
@@ -106,6 +121,10 @@ module Fluent::Plugin
 
     def format(tag, time, record)
       @formatter.format(tag, time, record)
+    end
+
+    def format_json_array(tag, time, record)
+      @formatter.format(tag, time, record) << ","
     end
 
     def write(chunk)
@@ -122,7 +141,7 @@ module Fluent::Plugin
     def setup_content_type
       case @formatter_configs.first[:@type]
       when 'json'
-        'application/x-ndjson'
+        @json_array ? 'application/json' : 'application/x-ndjson'
       when 'csv'
         'text/csv'
       when 'tsv', 'ltsv'
@@ -172,7 +191,7 @@ module Fluent::Plugin
     end
 
     def parse_endpoint(chunk)
-      endpoint = extract_placeholders(@endpoint, chunk)    
+      endpoint = extract_placeholders(@endpoint, chunk)
       URI.parse(endpoint)
     end
 
@@ -196,7 +215,7 @@ module Fluent::Plugin
         req.basic_auth(@auth.username, @auth.password)
       end
       set_headers(req)
-      req.body = chunk.read
+      req.body = @json_array ? "[#{chunk.read.chop!}]" : chunk.read
       req
     end
 
@@ -212,9 +231,9 @@ module Fluent::Plugin
             end
 
       if res.is_a?(Net::HTTPSuccess)
-        log.debug { "#{res.code} #{res.message}#{res.body}" }
+        log.debug { "#{res.code} #{res.message.rstrip}#{res.body.lstrip}" }
       else
-        msg = "#{res.code} #{res.message}#{res.body}"
+        msg = "#{res.code} #{res.message.rstrip} #{res.body.lstrip}"
 
         if @retryable_response_codes.include?(res.code.to_i)
           raise RetryableResponse, msg

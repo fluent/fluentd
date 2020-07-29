@@ -17,14 +17,16 @@
 require 'openssl'
 require 'socket'
 
-# this module is only for Socket/Server plugin helpers
+require 'fluent/tls'
+
+# this module is only for Socket/Server/HttpServer plugin helpers
 module Fluent
   module PluginHelper
     module CertOption
       def cert_option_create_context(version, insecure, ciphers, conf)
         cert, key, extra = cert_option_server_validate!(conf)
 
-        ctx = OpenSSL::SSL::SSLContext.new(version)
+        ctx = OpenSSL::SSL::SSLContext.new
         unless insecure
           # inject OpenSSL::SSL::SSLContext::DEFAULT_PARAMS
           # https://bugs.ruby-lang.org/issues/9424
@@ -34,7 +36,7 @@ module Fluent
         end
 
         if conf.client_cert_auth
-            ctx.verify_mode = OpenSSL::SSL::VERIFY_PEER | OpenSSL::SSL::VERIFY_FAIL_IF_NO_PEER_CERT
+          ctx.verify_mode = OpenSSL::SSL::VERIFY_PEER | OpenSSL::SSL::VERIFY_FAIL_IF_NO_PEER_CERT
         end
 
         ctx.ca_file = conf.ca_path
@@ -43,6 +45,17 @@ module Fluent
         if extra && !extra.empty?
           ctx.extra_chain_cert = extra
         end
+        if conf.cert_verifier
+          sandbox = Class.new
+          ctx.verify_callback = if File.exist?(conf.cert_verifier)
+                                  verifier = File.read(conf.cert_verifier)
+                                  sandbox.instance_eval(verifier, File.basename(conf.cert_verifier))
+                                else
+                                  sandbox.instance_eval(conf.cert_verifier)
+                                end
+        end
+
+        Fluent::TLS.set_version_to_context(ctx, version, conf.min_version, conf.max_version)
 
         ctx
       end
@@ -168,9 +181,12 @@ module Fluent
 
       def cert_option_certificates_from_file(path)
         data = File.read(path)
-        pattern = Regexp.compile('-+BEGIN CERTIFICATE-+\n(?:[^-]*\n)+-+END CERTIFICATE-+\n?', Regexp::MULTILINE)
+        pattern = Regexp.compile('-+BEGIN CERTIFICATE-+\r?\n(?:[^-]*\r?\n)+-+END CERTIFICATE-+\r?\n?', Regexp::MULTILINE)
         list = []
         data.scan(pattern){|match| list << OpenSSL::X509::Certificate.new(match) }
+        if list.length == 0
+          raise Fluent::ConfigError, "cert_path does not contain a valid certificate"
+        end
         list
       end
     end

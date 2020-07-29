@@ -1,7 +1,6 @@
 ---
 name:  Bug Report
 about: Create a report to help us improve. If you have questions about Fluentd and plugins, please direct these to https://groups.google.com/forum/#!forum/fluentd
-labels: 'bug'
 
 ---
 
@@ -21,6 +20,8 @@ Check [CONTRIBUTING guideline](https://github.com/fluent/fluentd/blob/master/CON
 - Fluentd or td-agent version: `fluentd --version` or `td-agent --version`
 - Operating system: `cat /etc/os-release`
 - Kernel version: `uname -r`
+
+If you hit the problem with older fluentd version, try latest version first.
 
 **Your Configuration**
 

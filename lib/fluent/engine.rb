@@ -22,46 +22,37 @@ require 'fluent/root_agent'
 require 'fluent/time'
 require 'fluent/system_config'
 require 'fluent/plugin'
+require 'fluent/fluent_log_event_router'
+require 'fluent/static_config_analysis'
 
 module Fluent
   class EngineClass
+    # For compat. remove it in fluentd v2
     include Fluent::MessagePackFactory::Mixin
 
     def initialize
       @root_agent = nil
-      @default_loop = nil
       @engine_stopped = false
       @_worker_id = nil
 
-      @log_event_router = nil
-      @log_emit_thread = nil
-      @log_event_loop_stop = false
-      @log_event_loop_graceful_stop = false
-      @log_event_queue = []
       @log_event_verbose = false
-
       @suppress_config_dump = false
+      @without_source = false
 
+      @fluent_log_event_router = nil
       @system_config = SystemConfig.new
 
-      @dry_run_mode = false
+      @supervisor_mode = false
     end
 
     MAINLOOP_SLEEP_INTERVAL = 0.3
 
-    MATCH_CACHE_SIZE = 1024
-    LOG_EMIT_INTERVAL = 0.1
+    attr_reader :root_agent, :system_config, :supervisor_mode
 
-    attr_reader :root_agent
-    attr_reader :matches, :sources
-    attr_reader :system_config
-
-    attr_accessor :dry_run_mode
-
-    def init(system_config)
+    def init(system_config, supervisor_mode: false)
       @system_config = system_config
+      @supervisor_mode = supervisor_mode
 
-      suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
 
@@ -69,18 +60,11 @@ module Fluent
 
       @root_agent = RootAgent.new(log: log, system_config: @system_config)
 
-      MessagePackFactory.init
-
       self
     end
 
     def log
       $log
-    end
-
-    def suppress_interval(interval_time)
-      @suppress_emit_error_log_interval = interval_time
-      @next_emit_error_log_time = Time.now.to_i
     end
 
     def parse_config(io, fname, basepath = Dir.pwd, v1_config = false)
@@ -92,73 +76,39 @@ module Fluent
       end
     end
 
-    def run_configure(conf)
+    def run_configure(conf, dry_run: false)
       configure(conf)
-      conf.check_not_fetched { |key, e|
+      conf.check_not_fetched do |key, e|
         parent_name, plugin_name = e.unused_in
-        if parent_name
-          message = if plugin_name
-                      "section <#{e.name}> is not used in <#{parent_name}> of #{plugin_name} plugin"
-                    else
-                      "section <#{e.name}> is not used in <#{parent_name}>"
-                    end
-          if e.for_every_workers?
-            $log.warn :worker0, message
-          elsif e.for_this_worker?
-            $log.warn message
-          end
-          next
+        message = if parent_name && plugin_name
+                    "section <#{e.name}> is not used in <#{parent_name}> of #{plugin_name} plugin"
+                  elsif parent_name
+                    "section <#{e.name}> is not used in <#{parent_name}>"
+                  elsif e.name != 'system' && !(@without_source && e.name == 'source')
+                    "parameter '#{key}' in #{e.to_s.strip} is not used."
+                  else
+                    nil
+                  end
+        next if message.nil?
+
+        if dry_run && @supervisor_mode
+          $log.warn :supervisor, message
+        elsif e.for_every_workers?
+          $log.warn :worker0, message
+        elsif e.for_this_worker?
+          $log.warn message
         end
-        unless e.name == 'system'
-          unless @without_source && e.name == 'source'
-            message = "parameter '#{key}' in #{e.to_s.strip} is not used."
-            if e.for_every_workers?
-              $log.warn :worker0, message
-            elsif e.for_this_worker?
-              $log.warn message
-            end
-          end
-        end
-      }
+      end
     end
 
     def configure(conf)
-      # plugins / configuration dumps
-      Gem::Specification.find_all.select{|x| x.name =~ /^fluent(d|-(plugin|mixin)-.*)$/}.each do |spec|
-        $log.info :worker0, "gem '#{spec.name}' version '#{spec.version}'"
-      end
-
       @root_agent.configure(conf)
 
-      begin
-        log_event_agent = @root_agent.find_label(Fluent::Log::LOG_EVENT_LABEL)
-        log_event_router = log_event_agent.event_router
+      @fluent_log_event_router = FluentLogEventRouter.build(@root_agent)
 
-        # suppress mismatched tags only for <label @FLUENT_LOG> label.
-        # it's not suppressed in default event router for non-log-event events
-        log_event_router.suppress_missing_match!
-
-        @log_event_router = log_event_router
-
-        unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
-        unless unmatched_tags.empty?
-          $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
-        end
-      rescue ArgumentError # ArgumentError "#{label_name} label not found"
-        # use default event router if <label @FLUENT_LOG> is missing in configuration
-        log_event_router = @root_agent.event_router
-
-        if Fluent::Log.event_tags.any?{|t| log_event_router.match?(t) }
-          @log_event_router = log_event_router
-
-          unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
-          unless unmatched_tags.empty?
-            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
-          end
-        end
+      if @fluent_log_event_router.emittable?
+        $log.enable_event(true)
       end
-
-      $log.enable_event(true) if @log_event_router
 
       unless @suppress_config_dump
         $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
@@ -166,6 +116,7 @@ module Fluent
     end
 
     def add_plugin_dir(dir)
+      $log.warn('Deprecated method: this method is going to be deleted. Use Fluent::Plugin.add_plugin_dir')
       Plugin.add_plugin_dir(dir)
     end
 
@@ -190,39 +141,12 @@ module Fluent
       Fluent::EventTime.now
     end
 
-    def log_event_loop
-      $log.disable_events(Thread.current)
-
-      while sleep(LOG_EMIT_INTERVAL)
-        break if @log_event_loop_stop
-        break if @log_event_loop_graceful_stop && @log_event_queue.empty?
-        next if @log_event_queue.empty?
-
-        # NOTE: thead-safe of slice! depends on GVL
-        events = @log_event_queue.slice!(0..-1)
-        next if events.empty?
-
-        events.each {|tag,time,record|
-          begin
-            @log_event_router.emit(tag, time, record)
-          rescue => e
-            # This $log.error doesn't emit log events, because of `$log.disable_events(Thread.current)` above
-            $log.error "failed to emit fluentd's log event", tag: tag, event: record, error: e
-          end
-        }
-      end
-    end
-
     def run
       begin
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
-        if @log_event_router
-          $log.enable_event(true)
-          @log_emit_thread = Thread.new(&method(:log_event_loop))
-          @log_emit_thread.abort_on_exception = true
-        end
+        @fluent_log_event_router.start
 
         $log.info "fluentd worker is now running", worker: worker_id
         sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
@@ -234,21 +158,47 @@ module Fluent
         raise
       end
 
-      unless @log_event_verbose
-        $log.enable_event(false)
-        if @log_emit_thread
-          # to make sure to emit all log events into router, before shutting down
-          @log_event_loop_graceful_stop = true
-          @log_emit_thread.join
-          @log_emit_thread = nil
+      stop_phase(@root_agent)
+    end
+
+    # @param conf [Fluent::Config]
+    # @param supervisor [Bool]
+    # @reutrn nil
+    def reload_config(conf, supervisor: false)
+      # configure first to reduce down time while restarting
+      new_agent = RootAgent.new(log: log, system_config: @system_config)
+      ret = Fluent::StaticConfigAnalysis.call(conf, workers: system_config.workers)
+
+      ret.all_plugins.each do |plugin|
+        if plugin.respond_to?(:reloadable_plugin?) && !plugin.reloadable_plugin?
+          raise Fluent::ConfigError, "Unreloadable plugin plugin: #{Fluent::Plugin.lookup_type_from_class(plugin.class)}, plugin_id: #{plugin.plugin_id}, class_name: #{plugin.class})"
         end
       end
-      $log.info "shutting down fluentd worker", worker: worker_id
-      shutdown
-      if @log_emit_thread
-        @log_event_loop_stop = true
-        @log_emit_thread.join
+
+      # Assign @root_agent to new root_agent
+      # for https://github.com/fluent/fluentd/blob/fcef949ce40472547fde295ddd2cfe297e1eddd6/lib/fluent/plugin_helper/event_emitter.rb#L50
+      old_agent, @root_agent = @root_agent, new_agent
+      begin
+        @root_agent.configure(conf)
+      rescue
+        @root_agent = old_agent
+        raise
       end
+
+      unless @suppress_config_dump
+        $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
+      end
+
+      # supervisor doesn't handle actual data. so the following code is unnecessary.
+      if supervisor
+        old_agent.shutdown      # to close thread created in #configure
+        return
+      end
+
+      stop_phase(old_agent)
+
+      $log.info 'restart fluentd worker', worker: worker_id
+      start_phase(new_agent)
     end
 
     def stop
@@ -257,11 +207,14 @@ module Fluent
     end
 
     def push_log_event(tag, time, record)
-      return if @log_emit_thread.nil?
-      @log_event_queue.push([tag, time, record])
+      @fluent_log_event_router.emit_event([tag, time, record])
     end
 
     def worker_id
+      if @supervisor_mode
+        return -1
+      end
+
       return @_worker_id if @_worker_id
       # if ENV doesn't have SERVERENGINE_WORKER_ID, it is a worker under --no-supervisor or in tests
       # so it's (almost) a single worker, worker_id=0
@@ -270,12 +223,29 @@ module Fluent
     end
 
     private
-    def start
+
+    def stop_phase(root_agent)
+      unless @log_event_verbose
+        $log.enable_event(false)
+        @fluent_log_event_router.graceful_stop
+      end
+      $log.info 'shutting down fluentd worker', worker: worker_id
+      root_agent.shutdown
+
+      @fluent_log_event_router.stop
+    end
+
+    def start_phase(root_agent)
+      @fluent_log_event_router = FluentLogEventRouter.build(root_agent)
+      if @fluent_log_event_router.emittable?
+        $log.enable_event(true)
+      end
+
       @root_agent.start
     end
 
-    def shutdown
-      @root_agent.shutdown
+    def start
+      @root_agent.start
     end
   end
 

@@ -112,6 +112,7 @@ module Fluent
       @optional_attrs = nil
 
       @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
+      @ignore_repeated_log_interval = opts[:ignore_repeated_log_interval]
 
       @process_type = opts[:process_type] # :supervisor, :worker0, :workers Or :standalone
       @process_type ||= :standalone # to keep behavior of existing code
@@ -139,7 +140,8 @@ module Fluent
       dl_opts = {}
       dl_opts[:log_level] = @level - 1
       logger = ServerEngine::DaemonLogger.new(@out, dl_opts)
-      clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace, process_type: @process_type, worker_id: @worker_id)
+      clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace, process_type: @process_type,
+                             worker_id: @worker_id, ignore_repeated_log_interval: @ignore_repeated_log_interval)
       clone.format = @format
       clone.time_format = @time_format
       clone.log_event_enabled = @log_event_enabled
@@ -149,7 +151,7 @@ module Fluent
 
     attr_reader :format
     attr_reader :time_format
-    attr_accessor :log_event_enabled
+    attr_accessor :log_event_enabled, :ignore_repeated_log_interval
     attr_accessor :out
     attr_accessor :level
     attr_accessor :optional_header, :optional_attrs
@@ -278,6 +280,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:trace, args)
+      return if time.nil?
       puts [@color_trace, @formatter.call(type, time, LEVEL_TRACE, msg), @color_reset].join
     rescue
       # logger should not raise an exception. This rescue prevents unexpected behaviour.
@@ -299,6 +302,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:debug, args)
+      return if time.nil?
       puts [@color_debug, @formatter.call(type, time, LEVEL_DEBUG, msg), @color_reset].join
     rescue
     end
@@ -319,6 +323,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:info, args)
+      return if time.nil?
       puts [@color_info, @formatter.call(type, time, LEVEL_INFO, msg), @color_reset].join
     rescue
     end
@@ -339,6 +344,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:warn, args)
+      return if time.nil?
       puts [@color_warn, @formatter.call(type, time, LEVEL_WARN, msg), @color_reset].join
     rescue
     end
@@ -359,6 +365,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:error, args)
+      return if time.nil?
       puts [@color_error, @formatter.call(type, time, LEVEL_ERROR, msg), @color_reset].join
     rescue
     end
@@ -379,6 +386,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:fatal, args)
+      return if time.nil?
       puts [@color_fatal, @formatter.call(type, time, LEVEL_FATAL, msg), @color_reset].join
     rescue
     end
@@ -412,6 +420,20 @@ module Fluent
       @out.reset if @out.respond_to?(:reset)
     end
 
+    CachedLog = Struct.new(:msg, :time)
+
+    def ignore_repeated_log?(key, time, message)
+      cached_log = Thread.current[key]
+      return false if cached_log.nil?
+      (cached_log.msg == message) && (time - cached_log.time <= @ignore_repeated_log_interval)
+    end
+
+    def suppress_stacktrace?(backtrace)
+      cached_log = Thread.current[:last_repeated_stacktrace]
+      return false if cached_log.nil?
+      cached_log.msg == backtrace
+    end
+
     def dump_stacktrace(type, backtrace, level)
       return if @level > level
 
@@ -419,13 +441,16 @@ module Fluent
 
       if @format == :text
         line = caller_line(type, time, 5, level)
-        if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
+        if @ignore_repeated_log_interval && ignore_repeated_log?(:last_repeated_stacktrace, time, backtrace)
+          return
+        elsif @suppress_repeated_stacktrace && suppress_stacktrace?(backtrace)
           puts ["  ", line, 'suppressed same stacktrace'].join
+          Thread.current[:last_repeated_stacktrace] = CachedLog.new(backtrace, time) if @ignore_repeated_log_interval
         else
           backtrace.each { |msg|
             puts ["  ", line, msg].join
           }
-          Thread.current[:last_repeated_stacktrace] = backtrace if @suppress_repeated_stacktrace
+          Thread.current[:last_repeated_stacktrace] = CachedLog.new(backtrace, time) if @suppress_repeated_stacktrace
         end
       else
         r = {
@@ -436,11 +461,14 @@ module Fluent
           r['worker_id'] = wid
         end
 
-        if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
+        if @ignore_repeated_log_interval && ignore_repeated_log?(:last_repeated_stacktrace, time, backtrace)
+          return
+        elsif @suppress_repeated_stacktrace && suppress_stacktrace?(backtrace)
           r['message'] = 'suppressed same stacktrace'
+          Thread.current[:last_repeated_stacktrace] = CachedLog.new(backtrace, time) if @ignore_repeated_log_interval
         else
           r['message'] = backtrace.join("\n")
-          Thread.current[:last_repeated_stacktrace] = backtrace if @suppress_repeated_stacktrace
+          Thread.current[:last_repeated_stacktrace] = CachedLog.new(backtrace, time) if @suppress_repeated_stacktrace
         end
 
         puts Yajl.dump(r)
@@ -478,6 +506,14 @@ module Fluent
           message << " #{k}=#{v.inspect}"
         end
       }
+
+      if @ignore_repeated_log_interval
+        if ignore_repeated_log?(:last_repeated_log, time, message)
+          return nil, nil
+        else
+          Thread.current[:last_repeated_log] = CachedLog.new(message, time)
+        end
+      end
 
       if @log_event_enabled && !@threads_exclude_events.include?(Thread.current)
         record = map.dup
@@ -529,6 +565,9 @@ module Fluent
       @depth_offset = 2
       if logger.instance_variable_defined?(:@suppress_repeated_stacktrace)
         @suppress_repeated_stacktrace = logger.instance_variable_get(:@suppress_repeated_stacktrace)
+      end
+      if logger.instance_variable_defined?(:@ignore_repeated_log_interval)
+        @ignore_repeated_log_interval = logger.instance_variable_get(:@ignore_repeated_log_interval)
       end
 
       self.format = @logger.format
@@ -606,7 +645,7 @@ module Fluent
     end
   end
 
-  # This class delegetes some methods which are used in `Fluent::Logger` to a instance variable(`dev`) in `Logger::LogDevice` class
+  # This class delegates some methods which are used in `Fluent::Logger` to a instance variable(`dev`) in `Logger::LogDevice` class
   # https://github.com/ruby/ruby/blob/7b2d47132ff8ee950b0f978ab772dee868d9f1b0/lib/logger.rb#L661
   class LogDeviceIO < ::Logger::LogDevice
     def flush

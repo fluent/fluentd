@@ -24,8 +24,32 @@ module Fluent
 
       desc 'Specify regexp pattern for start line of multiple lines'
       config_param :format_firstline, :string, default: nil
+      desc 'Enable an option returning line as unmatched_line'
+      config_param :unmatched_lines, :string, default: nil
 
       FORMAT_MAX_NUM = 20
+
+      class MultilineRegexpParser < Fluent::Plugin::RegexpParser
+        def parse(text)
+          m = @expression.match(text)
+          unless m
+            yield nil, nil
+            return m
+          end
+
+          r = {}
+          m.names.each do |name|
+            if (value = m[name])
+              r[name] = value
+            end
+          end
+
+          time, record = convert_values(parse_time(r), r)
+
+          yield(time, record)
+          m
+        end
+      end
 
       def configure(conf)
         super
@@ -37,7 +61,7 @@ module Fluent
             raise "No named captures"
           end
           regexp_conf = Fluent::Config::Element.new("", "", { "expression" => "/#{formats}/m" }, [])
-          @parser = Fluent::Plugin::RegexpParser.new
+          @parser = Fluent::Plugin::MultilineParser::MultilineRegexpParser.new
           @parser.configure(conf + regexp_conf)
         rescue => e
           raise Fluent::ConfigError, "Invalid regexp '#{formats}': #{e}"
@@ -50,7 +74,29 @@ module Fluent
       end
 
       def parse(text, &block)
-        @parser.call(text, &block)
+        loop do
+          m =
+            if @unmatched_lines
+              @parser.call(text) do |time, record|
+                if time && record
+                  yield(time, record)
+                else
+                  yield(Fluent::EventTime.now, { 'unmatched_line' => text })
+                end
+              end
+            else
+              @parser.call(text, &block)
+            end
+
+          return if m.nil?
+
+          text = m.post_match
+          if text.start_with?("\n")
+            text = text[1..-1]
+          end
+
+          return if text.empty?
+        end
       end
 
       def has_firstline?
@@ -58,7 +104,7 @@ module Fluent
       end
 
       def firstline?(text)
-        @firstline_regex.match(text)
+        @firstline_regex.match?(text)
       end
 
       private

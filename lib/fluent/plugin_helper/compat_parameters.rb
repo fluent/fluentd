@@ -194,7 +194,9 @@ module Fluent
           hash['time_type'] = 'unixtime'
         end
         if conf.has_key?('localtime') || conf.has_key?('utc')
-          if conf.has_key?('localtime') && conf.has_key?('utc')
+          utc = to_bool(conf['utc'])
+          localtime = to_bool(conf['localtime'])
+          if conf.has_key?('localtime') && conf.has_key?('utc') && !(localtime ^ utc)
             raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
           elsif conf.has_key?('localtime')
             hash['localtime'] = Fluent::Config.bool_value(conf['localtime'])
@@ -215,6 +217,14 @@ module Fluent
         conf.elements << e
 
         conf
+      end
+
+      def to_bool(v)
+        if  v.is_a?(FalseClass) || v == 'false' || v.nil?
+          false
+        else
+          true
+        end
       end
 
       def compat_parameters_extract(conf)

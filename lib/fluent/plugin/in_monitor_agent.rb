@@ -64,7 +64,8 @@ module Fluent::Plugin
       def config_ltsv(_req)
         obj = {
           'pid' => Process.pid,
-          'ppid' => Process.ppid
+          'ppid' => Process.ppid,
+          'version' => Fluent::VERSION,
         }.merge(@agent.fluentd_opts)
 
         render_ltsv([obj])
@@ -73,7 +74,8 @@ module Fluent::Plugin
       def config_json(req)
         obj = {
           'pid' => Process.pid,
-          'ppid' => Process.ppid
+          'ppid' => Process.ppid,
+          'version' => Fluent::VERSION,
         }.merge(@agent.fluentd_opts)
         opts = build_option(req)
 
@@ -208,7 +210,7 @@ module Fluent::Plugin
 
       log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins for worker#{fluentd_worker_id}"
       api_handler = APIHandler.new(self)
-      create_http_server(:in_monitor_http_server_helper, addr: @bind, port: @port, logger: log, default_app: NotFoundJson) do |serv|
+      http_server_create_http_server(:in_monitor_http_server_helper, addr: @bind, port: @port, logger: log, default_app: NotFoundJson) do |serv|
         serv.get('/api/plugins') { |req| api_handler.plugins_ltsv(req) }
         serv.get('/api/plugins.json') { |req| api_handler.plugins_json(req) }
         serv.get('/api/config') { |req| api_handler.config_ltsv(req) }
@@ -221,7 +223,7 @@ module Fluent::Plugin
         opts = {with_config: false, with_retry: false}
         timer_execute(:in_monitor_agent_emit, @emit_interval, repeat: true) {
           es = Fluent::MultiEventStream.new
-          now = Fluent::Engine.now
+          now = Fluent::EventTime.now
           plugins_info_all(opts).each { |record|
             es.add(now, record)
           }

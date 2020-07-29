@@ -40,7 +40,7 @@ class NullOutputTest < Test::Unit::TestCase
       assert_equal [], d.instance.chunk_keys
     end
 
-    test 'writes standard formattted chunks' do
+    test 'writes standard formatted chunks' do
       d = create_driver(config_element("ROOT", "", {}, [config_element("buffer")]))
       t = event_time("2016-05-23 00:22:13 -0800")
       d.run(default_tag: 'test', flush: true) do

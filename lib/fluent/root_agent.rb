@@ -89,7 +89,7 @@ module Fluent
               raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
             end
             available_worker_ids.delete(target_worker_id) if available_worker_ids.include?(target_worker_id)
-            if used_worker_ids.include?(target_worker_id) && !Fluent::Engine.dry_run_mode
+            if used_worker_ids.include?(target_worker_id)
               raise Fluent::ConfigError, "specified worker_id<#{worker_id}> collisions is detected on <worker> directive. Available worker id(s): #{available_worker_ids}"
             end
             used_worker_ids << target_worker_id
@@ -100,9 +100,6 @@ module Fluent
               end
             end
 
-            # On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
-            target_worker_ids = [0] if Fluent::Engine.dry_run_mode
-
             unless target_worker_ids.empty?
               e.set_target_worker_ids(target_worker_ids.uniq)
             end
@@ -112,9 +109,6 @@ module Fluent
           if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
             raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
           end
-
-          ## On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
-          target_worker_id = 0 if Fluent::Engine.dry_run_mode
 
           e.elements.each do |elem|
             unless ['source', 'match', 'filter', 'label'].include?(elem.name)
@@ -132,7 +126,9 @@ module Fluent
       # initialize <label> elements before configuring all plugins to avoid 'label not found' in input, filter and output.
       label_configs = {}
       conf.elements(name: 'label').each { |e|
-        next if e.for_another_worker?
+        if !Fluent::Engine.supervisor_mode && e.for_another_worker?
+          next
+        end
         name = e.arg
         raise ConfigError, "Missing symbol argument on <label> directive" if name.empty?
 
@@ -154,7 +150,9 @@ module Fluent
         log.info :worker0, "'--without-source' is applied. Ignore <source> sections"
       else
         conf.elements(name: 'source').each { |e|
-          next if e.for_another_worker?
+          if !Fluent::Engine.supervisor_mode && e.for_another_worker?
+            next
+          end
           type = e['@type']
           raise ConfigError, "Missing '@type' parameter on <source> directive" unless type
           add_source(type, e)
@@ -165,7 +163,6 @@ module Fluent
     def setup_error_label(e)
       error_label = add_label(ERROR_LABEL)
       error_label.configure(e)
-      error_label.root_agent = RootAgentProxyWithoutErrorCollector.new(self)
       @error_collector = error_label.event_router
     end
 
@@ -201,7 +198,7 @@ module Fluent
     def start
       lifecycle(desc: true) do |i| # instance
         i.start unless i.started?
-        # Input#start sometimes emits lots of evetns with in_tail/`read_from_head true` case
+        # Input#start sometimes emits lots of events with in_tail/`read_from_head true` case
         # and it causes deadlock for small buffer/queue output. To avoid such problem,
         # buffer related output threads should be run before `Input#start`.
         # This is why after_start should be called immediately after start call.
@@ -240,7 +237,7 @@ module Fluent
         lifecycle do |instance, kind|
           begin
             log.debug "calling #{method} on #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-            instance.send(method) unless instance.send(checker)
+            instance.__send__(method) unless instance.__send__(checker)
           rescue Exception => e
             log.warn "unexpected error while calling #{method} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
             log.warn_backtrace
@@ -270,17 +267,17 @@ module Fluent
                 operation = "preparing shutdown" # for logging
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
                 begin
-                  instance.send(:before_shutdown) unless instance.send(:before_shutdown?)
+                  instance.__send__(:before_shutdown) unless instance.__send__(:before_shutdown?)
                 rescue Exception => e
                   log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
                   log.warn_backtrace
                 end
                 operation = "shutting down"
                 log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-                instance.send(:shutdown) unless instance.send(:shutdown?)
+                instance.__send__(:shutdown) unless instance.__send__(:shutdown?)
               else
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-                instance.send(method) unless instance.send(checker)
+                instance.__send__(method) unless instance.__send__(checker)
               end
             rescue Exception => e
               log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
@@ -363,35 +360,6 @@ module Fluent
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
         end
         raise error
-      end
-    end
-
-    # <label @ERROR> element use RootAgent wrapped by # this RootAgentProxyWithoutErrorCollector.
-    # So that those elements don't send cause infinite loop.
-    class RootAgentProxyWithoutErrorCollector < SimpleDelegator
-      def initialize(root_agent)
-        super
-
-        @suppress_emit_error_log_interval = 0
-        @next_emit_error_log_time = nil
-
-        interval_time = root_agent.instance_variable_get(:@suppress_emit_error_log_interval)
-        suppress_interval(interval_time) unless interval_time.zero?
-      end
-
-      def emit_error_event(tag, time, record, error)
-        error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time, record: record}
-        log.warn "dump an error event in @ERROR:", error_info
-      end
-
-      def handle_emits_error(tag, es, e)
-        now = EventTime.now.to_i
-        if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
-          log.warn "emit transaction failed in @ERROR:", error: e, tag: tag
-          log.warn_backtrace
-          @next_emit_error_log_time = now + @suppress_emit_error_log_interval
-        end
-        raise e
       end
     end
   end

@@ -895,17 +895,25 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
 
       @i.flush_thread_wakeup
       waiting(4){ Thread.pass until @i.write_count > 0 }
+      waiting(4) do
+        state = @i.instance_variable_get(:@output_flush_threads).first
+        state.thread.status == 'sleep'
+      end
 
-      assert{ @i.write_count > 0 }
-      assert{ @i.num_errors > 0 }
+      assert(@i.write_count > 0)
+      assert(@i.num_errors > 0)
 
       now = @i.next_flush_time
       Timecop.freeze( now )
       @i.flush_thread_wakeup
       waiting(4){ Thread.pass until @i.write_count > 1 }
+      waiting(4) do
+        state = @i.instance_variable_get(:@output_flush_threads).first
+        state.thread.status == 'sleep'
+      end
 
-      assert{ @i.write_count > 1 }
-      assert{ @i.num_errors > 1 }
+      assert(@i.write_count > 1)
+      assert(@i.num_errors > 1)
     end
   end
 end

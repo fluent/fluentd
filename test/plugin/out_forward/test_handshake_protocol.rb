@@ -16,7 +16,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake.invoke(sock, ri, ['HELO', {}])
 
       assert_equal(ri.state, :pingpong)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(sock.string) do |ping|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(sock.string) do |ping|
         assert_equal(ping.size, 6)
         assert_equal(ping[0], 'PING')
         assert_equal(ping[1], hostname)
@@ -38,7 +38,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake.invoke(sock, ri, ['HELO', { 'auth' => 'auth' }])
 
       assert_equal(ri.state, :pingpong)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(sock.string) do |ping|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(sock.string) do |ping|
         assert_equal(ping.size, 6)
         assert_equal(ping[0], 'PING')
         assert_equal(ping[1], hostname)
@@ -81,6 +81,15 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       assert_equal(ri.state, :established)
     end
 
+    test 'raises an error when password and username are nil if auth exists' do
+      handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: 'hostname', shared_key: 'shared_key', password: nil, username: nil)
+      ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:helo)
+
+      assert_raise(Fluent::Plugin::ForwardOutput::PingpongError.new('username and password are required')) do
+        handshake.invoke('', ri, ['HELO', { 'auth' => 'auth' }])
+      end
+    end
+
     data(
       lack_of_elem: ['PONG', true, '', 'client_hostname'],
       wrong_message: ['WRONG_PONG', true, '', 'client_hostname', '40a3c5943cc6256e0c5dcf176e97db3826b0909698c330dc8e53d15af63efb47e030d113130255dd6e7ced5176d2999cc2e02a44852d45152503af317b73b33f'],
@@ -89,7 +98,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       wrong_key: ['PONG', true, '', 'hostname', 'wrong_key'],
     )
     test 'raises an error when message is' do |msg|
-      handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: 'hostname', shared_key: 'shared_key', password: nil, username: nil)
+      handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: 'hostname', shared_key: 'shared_key', password: '', username: '')
       handshake.instance_variable_set(:@shared_key_salt, 'ce1897b0d3dbd76b90d7fb96010dcac3') # to fix salt
 
       ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:pingpong, '', '')

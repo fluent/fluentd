@@ -30,92 +30,6 @@ class SupervisorTest < ::Test::Unit::TestCase
     File.open(path, "w") {|f| f.write data }
   end
 
-  def test_initialize
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
-    opts.each { |k, v|
-      assert_equal v, sv.instance_variable_get("@#{k}")
-    }
-  end
-
-  def test_read_config
-    create_info_dummy_logger
-
-    tmp_dir = "#{TMP_DIR}/dir/test_read_config.conf"
-    conf_str = %[
-<source>
-  @type forward
-  @id forward_input
-</source>
-<match debug.**>
-  @type stdout
-  @id stdout_output
-</match>
-]
-    write_config tmp_dir, conf_str
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
-
-    use_v1_config = {}
-    use_v1_config['use_v1_config'] = true
-
-    sv.instance_variable_set(:@config_path, tmp_dir)
-    sv.instance_variable_set(:@use_v1_config, use_v1_config)
-    sv.send(:read_config)
-
-    conf = sv.instance_variable_get(:@conf)
-
-    elem = conf.elements.find { |e| e.name == 'source' }
-    assert_equal "forward", elem['@type']
-    assert_equal "forward_input", elem['@id']
-
-    elem = conf.elements.find { |e| e.name == 'match' }
-    assert_equal "debug.**", elem.arg
-    assert_equal "stdout", elem['@type']
-    assert_equal "stdout_output", elem['@id']
-
-    $log.out.reset
-  end
-
-  def test_read_config_with_multibyte_string
-    tmp_path = "#{TMP_DIR}/dir/test_multibyte_config.conf"
-    conf_str = %[
-<source>
-  @type forward
-  @id forward_input
-  @label @INPUT
-</source>
-<label @INPUT>
-  <filter>
-    @type record_transformer
-    <record>
-      message こんにちは. ${record["name"]} has made a order of ${record["item"]} just now.
-    </record>
-  </filter>
-  <match>
-    @type stdout
-  </match>
-</label>
-]
-    FileUtils.mkdir_p(File.dirname(tmp_path))
-    File.open(tmp_path, "w:utf-8") {|file| file.write(conf_str) }
-
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
-
-    use_v1_config = {}
-    use_v1_config['use_v1_config'] = true
-
-    sv.instance_variable_set(:@config_path, tmp_path)
-    sv.instance_variable_set(:@use_v1_config, use_v1_config)
-    sv.send(:read_config)
-
-    conf = sv.instance_variable_get(:@conf)
-    label = conf.elements.detect {|e| e.name == "label" }
-    filter = label.elements.detect {|e| e.name == "filter" }
-    record_transformer = filter.elements.detect {|e| e.name = "record_transformer" }
-    assert_equal(Encoding::UTF_8, record_transformer["message"].encoding)
-  end
 
   def test_system_config
     opts = Fluent::Supervisor.default_options
@@ -148,9 +62,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 </system>
     EOC
     conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
-    sv.instance_variable_set(:@conf, conf)
-    sv.send(:set_system_config)
-    sys_conf = sv.instance_variable_get(:@system_config)
+    sys_conf = sv.__send__(:build_system_config, conf)
 
     assert_equal '127.0.0.1:24445', sys_conf.rpc_endpoint
     assert_equal true, sys_conf.suppress_repeated_stacktrace
@@ -229,9 +141,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   </system>
     EOC
     conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
-    sv.instance_variable_set(:@conf, conf)
-    sv.send(:set_system_config)
-    sys_conf = sv.instance_variable_get(:@system_config)
+    sys_conf = sv.__send__(:build_system_config, conf)
 
     server = DummyServer.new
     server.rpc_endpoint = sys_conf.rpc_endpoint
@@ -251,7 +161,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
-    $log.out.reset
+    $log.out.reset if $log.out.is_a?(Fluent::Test::DummyLogDevice)
   end
 
   def test_load_config
@@ -266,6 +176,9 @@ class SupervisorTest < ::Test::Unit::TestCase
   log_level debug
 </system>
 ]
+    now = Time.now
+    Timecop.freeze(now)
+
     write_config tmp_dir, conf_info_str
 
     params = {}
@@ -298,7 +211,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_nil pre_config_mtime
     assert_nil pre_loadtime
 
-    sleep 5
+    Timecop.freeze(now + 5)
 
     # third call after 5 seconds(don't reuse config)
     se_config = load_config_proc.call
@@ -318,6 +231,35 @@ class SupervisorTest < ::Test::Unit::TestCase
     # fifth call after changed conf file(don't reuse config)
     se_config = load_config_proc.call
     assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
+  ensure
+    Timecop.return
+  end
+
+  def test_load_config_for_logger
+    tmp_dir = "#{TMP_DIR}/dir/test_load_config_log.conf"
+    conf_info_str = %[
+<system>
+  <log>
+    format json
+    time_format %FT%T.%L%z
+  </log>
+</system>
+]
+    write_config tmp_dir, conf_info_str
+    params = {
+      'use_v1_config' => true,
+      'conf_encoding' => 'utf8',
+      'log_level' => Fluent::Log::LEVEL_INFO,
+      'log_path' => 'test/tmp/supervisor/log',
+
+      'workers' => 1,
+      'log_format' => :json,
+      'log_time_format' => '%FT%T.%L%z',
+    }
+
+    r = Fluent::Supervisor.load_config(tmp_dir, params)
+    assert_equal :json, r[:logger].format
+    assert_equal '%FT%T.%L%z', r[:logger].time_format
   end
 
   def test_load_config_for_daemonize
@@ -332,6 +274,10 @@ class SupervisorTest < ::Test::Unit::TestCase
   log_level debug
 </system>
 ]
+
+    now = Time.now
+    Timecop.freeze(now)
+
     write_config tmp_dir, conf_info_str
 
     params = {}
@@ -365,9 +311,9 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_nil pre_config_mtime
     assert_nil pre_loadtime
 
-    sleep 5
+    Timecop.freeze(now + 5)
 
-    # third call after 5 seconds(don't reuse config)
+    # third call after 6 seconds(don't reuse config)
     se_config = load_config_proc.call
     pre_config_mtime = se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
     pre_loadtime = se_config[:windows_daemon_cmdline][5]['pre_loadtime']
@@ -385,46 +331,8 @@ class SupervisorTest < ::Test::Unit::TestCase
     # fifth call after changed conf file(don't reuse config)
     se_config = load_config_proc.call
     assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
-  end
-
-  def test_load_config_with_multibyte_string
-    tmp_path = "#{TMP_DIR}/dir/test_multibyte_config.conf"
-    conf_str = %[
-<source>
-  @type forward
-  @id forward_input
-  @label @INPUT
-</source>
-<label @INPUT>
-  <filter>
-    @type record_transformer
-    <record>
-      message こんにちは. ${record["name"]} has made a order of ${record["item"]} just now.
-    </record>
-  </filter>
-  <match>
-    @type stdout
-  </match>
-</label>
-]
-    FileUtils.mkdir_p(File.dirname(tmp_path))
-    File.open(tmp_path, "w:utf-8") {|file| file.write(conf_str) }
-
-    params = {}
-    params['workers'] = 1
-    params['use_v1_config'] = true
-    params['log_path'] = 'test/tmp/supervisor/log'
-    params['suppress_repeated_stacktrace'] = true
-    params['log_level'] = Fluent::Log::LEVEL_INFO
-    params['conf_encoding'] = 'utf-8'
-    load_config_proc =  Proc.new { Fluent::Supervisor.load_config(tmp_path, params) }
-
-    se_config = load_config_proc.call
-    conf = se_config[:fluentd_conf]
-    label = conf.elements.detect {|e| e.name == "label" }
-    filter = label.elements.detect {|e| e.name == "filter" }
-    record_transformer = filter.elements.detect {|e| e.name = "record_transformer" }
-    assert_equal(Encoding::UTF_8, record_transformer["message"].encoding)
+  ensure
+    Timecop.return
   end
 
   def test_logger
@@ -461,6 +369,34 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal Fluent::LogDeviceIO, $log.out.class
     assert_equal rotate_age, $log.out.instance_variable_get(:@shift_age)
     assert_equal 10, $log.out.instance_variable_get(:@shift_size)
+  end
+
+  def test_inline_config
+    omit 'this feature is deprecated. see https://github.com/fluent/fluentd/issues/2711'
+
+    opts = Fluent::Supervisor.default_options
+    opts[:inline_config] = '-'
+    sv = Fluent::Supervisor.new(opts)
+    assert_equal '-', sv.instance_variable_get(:@inline_config)
+
+    inline_config = '<match *>\n@type stdout\n</match>'
+    stub(STDIN).read { inline_config }
+    stub(Fluent::Config).build                                # to skip
+    stub(sv).build_system_config { Fluent::SystemConfig.new } # to skip
+
+    sv.configure
+    assert_equal inline_config, sv.instance_variable_get(:@inline_config)
+  end
+
+  def test_log_level_affects
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+
+    c = Fluent::Config::Element.new('system', '', { 'log_level' => 'error' }, [])
+    stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }
+
+    sv.configure
+    assert_equal Fluent::Log::LEVEL_ERROR, $log.level
   end
 
   def create_debug_dummy_logger

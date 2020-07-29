@@ -185,7 +185,6 @@ class BufferTest < Test::Unit::TestCase
       assert_equal([], plugin.queue)
       assert_equal({}, plugin.dequeued)
       assert_equal({}, plugin.queued_num)
-      assert_equal([], plugin.metadata_list)
 
       assert_equal 0, plugin.stage_size
       assert_equal 0, plugin.queue_size
@@ -207,7 +206,6 @@ class BufferTest < Test::Unit::TestCase
       assert_equal 203, @p.queue_size
 
       # staged, queued
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
       assert_equal 1, @p.queued_num[@dm0]
       assert_equal 2, @p.queued_num[@dm1]
     end
@@ -240,44 +238,9 @@ class BufferTest < Test::Unit::TestCase
       assert_nil @p.queue
       assert_nil @p.dequeued
       assert_nil @p.queued_num
-      assert_nil @p.instance_eval{ @metadata_list } # #metadata_list does #dup for @metadata_list
       assert_equal 0, @p.stage_size
       assert_equal 0, @p.queue_size
       assert_equal [], @p.timekeys
-    end
-
-    test '#metadata_list returns list of metadata on stage or in queue' do
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-    end
-
-    test '#new_metadata creates metadata instance without inserting metadata_list' do
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-      _m = @p.new_metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-    end
-
-    test '#add_metadata adds unknown metadata into list, or return known metadata if already exists' do
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-
-      m = @p.new_metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
-      _mx = @p.add_metadata(m)
-      assert_equal [@dm2,@dm3,@dm0,@dm1,m], @p.metadata_list
-      assert_equal m.object_id, m.object_id
-
-      my = @p.add_metadata(@dm1)
-      assert_equal [@dm2,@dm3,@dm0,@dm1,m], @p.metadata_list
-      assert_equal @dm1, my
-      assert{ @dm1.object_id != my.object_id } # 'my' is an object created in #resume
-    end
-
-    test '#metadata is utility method to create-add-and-return metadata' do
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-
-      m1 = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
-      assert_equal [@dm2,@dm3,@dm0,@dm1,m1], @p.metadata_list
-      m2 = @p.metadata(timekey: @dm3.timekey)
-      assert_equal [@dm2,@dm3,@dm0,@dm1,m1], @p.metadata_list
-      assert_equal @dm3, m2
     end
 
     test '#queued_records returns total number of size in all chunks in queue' do
@@ -430,7 +393,6 @@ class BufferTest < Test::Unit::TestCase
     test '#purge_chunk removes a chunk specified by argument id from dequeued chunks' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
 
       m0 = @p.dequeue_chunk
       m1 = @p.dequeue_chunk
@@ -447,13 +409,11 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm0,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
     end
 
-    test '#purge_chunk removes an argument metadata from metadata_list if no chunks exist on stage or in queue' do
+    test '#purge_chunk removes an argument metadata if no chunks exist on stage or in queue' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
 
       m0 = @p.dequeue_chunk
 
@@ -467,13 +427,11 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm1], @p.metadata_list
     end
 
     test '#takeback_chunk returns false if specified chunk_id is already purged' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
 
       m0 = @p.dequeue_chunk
 
@@ -487,13 +445,11 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm1], @p.metadata_list
 
       assert !@p.takeback_chunk(m0.unique_id)
 
       assert_equal [@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm1], @p.metadata_list
     end
 
     test '#clear_queue! removes all chunks in queue, but leaves staged chunks' do
@@ -575,7 +531,7 @@ class BufferTest < Test::Unit::TestCase
       assert !@p.timekeys.include?(timekey)
 
       prev_stage_size = @p.stage_size
-      
+
       m = @p.metadata(timekey: timekey)
 
       @p.write({m => ["x" * 256, "y" * 256, "z" * 256]})
@@ -695,7 +651,7 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3], @p.stage.keys
-      
+
       timekey = Time.parse('2016-04-11 16:40:00 +0000').to_i
       assert !@p.timekeys.include?(timekey)
 
@@ -718,7 +674,7 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
       assert_equal 1, @p.stage[m].append_count
-      
+
       assert @p.timekeys.include?(timekey)
     end
 
@@ -944,11 +900,27 @@ class BufferTest < Test::Unit::TestCase
       es = Fluent::ArrayEventStream.new([ [event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * (128 - 22)}] ] * 45000)
       @p.write({@dm0 => es}, format: @format)
 
+      # metadata whose seq is 4 is created, but overwrite with original metadata(seq=0) for next use of this chunk https://github.com/fluent/fluentd/blob/9d113029d4550ce576d8825bfa9612aa3e55bff0/lib/fluent/plugin/buffer.rb#L357
       assert_equal [@dm0], @p.stage.keys
       assert_equal 5400, @p.stage[@dm0].size
-      assert_equal [@dm0,@dm0,@dm0,@dm0,@dm0], @p.queue.map(&:metadata)
+      assert_equal [@dm0, @dm0, @dm0, @dm0, @dm0], @p.queue.map(&:metadata)
       assert_equal [5000, 9900, 9900, 9900, 9900], @p.queue.map(&:size) # splits: 45000 / 100 => 450 * ...
       # 9900 * 4 + 5400 == 45000
+    end
+
+    test '#dequeue_chunk succeeds when chunk is splited' do
+      assert_equal [@dm0], @p.stage.keys
+      assert_equal [], @p.queue.map(&:metadata)
+
+      assert_equal 1_280_000, @p.chunk_limit_size
+
+      es = Fluent::ArrayEventStream.new([ [event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * (128 - 22)}] ] * 45000)
+      @p.write({@dm0 => es}, format: @format)
+      @p.enqueue_all(true)
+
+      dequeued_chunks = 6.times.map { |e| @p.dequeue_chunk } # splits: 45000 / 100 => 450 * ...
+      assert_equal [5000, 9900, 9900, 9900, 9900, 5400], dequeued_chunks.map(&:size)
+      assert_equal [@dm0, @dm0, @dm0, @dm0, @dm0, @dm0], dequeued_chunks.map(&:metadata)
     end
 
     test '#write raises BufferChunkOverflowError if a record is biggar than chunk limit size' do
@@ -1034,7 +1006,7 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm0], @p.stage.keys
       assert_equal 900, @p.stage[@dm0].size
-      assert_equal [@dm0,@dm0,@dm0,@dm0,@dm0], @p.queue.map(&:metadata)
+      assert_equal [@dm0, @dm0, @dm0, @dm0, @dm0], @p.queue.map(&:metadata)
       assert_equal [9500, 9900, 9900, 9900, 9900], @p.queue.map(&:size) # splits: 45000 / 100 => 450 * ...
       ##### 900 + 9500 + 9900 * 4 == 5000 + 45000
     end
@@ -1228,6 +1200,26 @@ class BufferTest < Test::Unit::TestCase
     test 'create decompressable chunk' do
       chunk = @p.generate_chunk(create_metadata)
       assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::Decompressable)
+    end
+  end
+
+  sub_test_case '#statistics' do
+    setup do
+      @p = create_buffer({ "total_limit_size" => 1024 })
+      dm = create_metadata(Time.parse('2020-03-13 16:00:00 +0000').to_i, nil, nil)
+
+      (class << @p; self; end).module_eval do
+        define_method(:resume) {
+          queued = [create_chunk(dm, ["a" * (1024 - 102)]).enqueued!]
+          return {}, queued
+        }
+      end
+
+      @p.start
+    end
+
+    test 'returns available_buffer_space_ratios' do
+      assert_equal 10.0, @p.statistics['buffer']['available_buffer_space_ratios']
     end
   end
 end

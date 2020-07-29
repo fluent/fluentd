@@ -362,55 +362,56 @@ module Fluent::Config
     # port from test_config.rb
     sub_test_case '@include parsing' do
       TMP_DIR = File.dirname(__FILE__) + "/tmp/v1_config#{ENV['TEST_ENV_NUMBER']}"
+      TMP_DIR_WITH_SPACES = File.dirname(__FILE__) + "/tmp/folder with spaces/v1_config#{ENV['TEST_ENV_NUMBER']}"
 
       def write_config(path, data)
         FileUtils.mkdir_p(File.dirname(path))
         File.open(path, "w") { |f| f.write data }
       end
 
-      def prepare_config
-        write_config "#{TMP_DIR}/config_test_1.conf", %[
+      def prepare_config(tmp_dir)
+        write_config "#{tmp_dir}/config_test_1.conf", %[
         k1 root_config
         include dir/config_test_2.conf  #
-        @include #{TMP_DIR}/config_test_4.conf
-        include file://#{TMP_DIR}/config_test_5.conf
+        @include #{tmp_dir}/config_test_4.conf
+        include file://#{tmp_dir}/config_test_5.conf
         @include config.d/*.conf
       ]
-        write_config "#{TMP_DIR}/dir/config_test_2.conf", %[
+        write_config "#{tmp_dir}/dir/config_test_2.conf", %[
         k2 relative_path_include
         @include ../config_test_3.conf
       ]
-        write_config "#{TMP_DIR}/config_test_3.conf", %[
+        write_config "#{tmp_dir}/config_test_3.conf", %[
         k3 relative_include_in_included_file
       ]
-        write_config "#{TMP_DIR}/config_test_4.conf", %[
+        write_config "#{tmp_dir}/config_test_4.conf", %[
         k4 absolute_path_include
       ]
-        write_config "#{TMP_DIR}/config_test_5.conf", %[
+        write_config "#{tmp_dir}/config_test_5.conf", %[
         k5 uri_include
       ]
-        write_config "#{TMP_DIR}/config.d/config_test_6.conf", %[
+        write_config "#{tmp_dir}/config.d/config_test_6.conf", %[
         k6 wildcard_include_1
         <elem1 name>
           include normal_parameter
         </elem1>
       ]
-        write_config "#{TMP_DIR}/config.d/config_test_7.conf", %[
+        write_config "#{tmp_dir}/config.d/config_test_7.conf", %[
         k7 wildcard_include_2
       ]
-        write_config "#{TMP_DIR}/config.d/config_test_8.conf", %[
+        write_config "#{tmp_dir}/config.d/config_test_8.conf", %[
         <elem2 name>
           @include ../dir/config_test_9.conf
         </elem2>
       ]
-        write_config "#{TMP_DIR}/dir/config_test_9.conf", %[
+        write_config "#{tmp_dir}/dir/config_test_9.conf", %[
         k9 embedded
         <elem3 name>
           nested nested_value
           include hoge
         </elem3>
       ]
-        write_config "#{TMP_DIR}/config.d/00_config_test_8.conf", %[
+        write_config "#{tmp_dir}/config.d/00_config_test_8.conf", %[
         k8 wildcard_include_3
         <elem4 name>
           include normal_parameter
@@ -418,9 +419,11 @@ module Fluent::Config
       ]
       end
 
-      test 'parses @include / include correctly' do
-        prepare_config
-        c = read_config("#{TMP_DIR}/config_test_1.conf")
+      data("TMP_DIR without spaces" => TMP_DIR,
+           "TMP_DIR with spaces" => TMP_DIR_WITH_SPACES)
+      test 'parses @include / include correctly' do |data|
+        prepare_config(data)
+        c = read_config("#{data}/config_test_1.conf")
         assert_equal('root_config', c['k1'])
         assert_equal('relative_path_include', c['k2'])
         assert_equal('relative_include_in_included_file', c['k3'])

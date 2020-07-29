@@ -18,8 +18,8 @@ require 'fluent/plugin/buffer'
 require 'fluent/plugin/compressable'
 require 'fluent/unique_id'
 require 'fluent/event'
+require 'fluent/ext_monitor_require'
 
-require 'monitor'
 require 'tempfile'
 require 'zlib'
 
@@ -57,13 +57,31 @@ module Fluent
           @state = :unstaged
 
           @size = 0
-          @created_at = Time.now
-          @modified_at = Time.now
+          @created_at = Fluent::Clock.real_now
+          @modified_at = Fluent::Clock.real_now
 
           extend Decompressable if compress == :gzip
         end
 
-        attr_reader :unique_id, :metadata, :created_at, :modified_at, :state
+        attr_reader :unique_id, :metadata, :state
+
+        def raw_create_at
+          @created_at
+        end
+
+        def raw_modified_at
+          @modified_at
+        end
+
+        # for compatibility
+        def created_at
+          @created_at_object ||= Time.at(@created_at)
+        end
+
+        # for compatibility
+        def modified_at
+          @modified_at_object ||= Time.at(@modified_at)
+        end
 
         # data is array of formatted record string
         def append(data, **kwargs)
@@ -184,11 +202,11 @@ module Fluent
             if kwargs[:compressed] == :gzip
               super
             else
-              super(kwargs) do |chunk_io|
+              super(**kwargs) do |chunk_io|
                 output_io = if chunk_io.is_a?(StringIO)
                               StringIO.new
                             else
-                              Tempfile.new('decompressed-data')
+                              Tempfile.new('decompressed-data').binmode
                             end
                 decompress(input_io: chunk_io, output_io: output_io)
                 output_io.seek(0, IO::SEEK_SET)

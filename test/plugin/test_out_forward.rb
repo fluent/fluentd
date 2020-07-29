@@ -39,7 +39,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def create_driver(conf=CONFIG)
     Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
-      attr_reader :sent_chunk_ids, :ack_handler
+      attr_reader :sent_chunk_ids, :ack_handler, :discovery_manager
 
       def initialize
         super
@@ -183,6 +183,128 @@ EOL
     @d = d = create_driver(conf)
     # In the plugin, tls_ca_cert_path is used for both cases
     assert_equal([dummy_cert_path], d.instance.tls_ca_cert_path)
+  end
+
+  sub_test_case "certstore loading parameters for Windows" do
+    test 'certstore related config parameters' do
+      omit "certstore related values raise error on not Windows" if Fluent.windows?
+      conf = %[
+        send_timeout 5
+        transport tls
+        tls_cert_logical_store_name Root
+        tls_cert_thumbprint a909502dd82ae41433e6f83886b00d4277a32a7b
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+
+      assert_raise(Fluent::ConfigError) do
+        create_driver(conf)
+      end
+    end
+
+    test 'cert_logical_store_name and tls_cert_thumbprint default values' do
+      conf = %[
+        send_timeout 5
+        transport tls
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+
+      @d = d = create_driver(conf)
+      assert_nil d.instance.tls_cert_logical_store_name
+      assert_nil d.instance.tls_cert_thumbprint
+    end
+
+    data('CA cert'     => 'tls_ca_cert_path',
+         'non CA cert' => 'tls_cert_path')
+    test 'specify tls_cert_logical_store_name and tls_cert_path should raise error' do |param|
+      omit "Loading CertStore feature works only Windows" unless Fluent.windows?
+      dummy_cert_path = File.join(TMP_DIR, "dummy_cert.pem")
+      FileUtils.touch(dummy_cert_path)
+      conf = %[
+        send_timeout 5
+        transport tls
+        #{param} #{dummy_cert_path}
+        tls_cert_logical_store_name Root
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+
+      assert_raise(Fluent::ConfigError) do
+        create_driver(conf)
+      end
+    end
+
+    test 'configure cert_logical_store_name and tls_cert_thumbprint' do
+      omit "Loading CertStore feature works only Windows" unless Fluent.windows?
+      conf = %[
+        send_timeout 5
+        transport tls
+        tls_cert_logical_store_name Root
+        tls_cert_thumbprint a909502dd82ae41433e6f83886b00d4277a32a7b
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+
+      @d = d = create_driver(conf)
+      assert_equal "Root", d.instance.tls_cert_logical_store_name
+      assert_equal "a909502dd82ae41433e6f83886b00d4277a32a7b", d.instance.tls_cert_thumbprint
+    end
+  end
+
+  test 'server is an abbreviation of static type of service_discovery' do
+    @d = d = create_driver(%[
+<server>
+  host 127.0.0.1
+  port 1234
+</server>
+
+<service_discovery>
+  @type static
+
+  <service>
+    host 127.0.0.1
+    port 1235
+  </service>
+</service_discovery>
+    ])
+
+    assert_equal 2, d.instance.discovery_manager.services.size
+    assert_equal '127.0.0.1', d.instance.discovery_manager.services[0].host
+    assert_equal 1234, d.instance.discovery_manager.services[0].port
+    assert_equal '127.0.0.1', d.instance.discovery_manager.services[1].host
+    assert_equal 1235, d.instance.discovery_manager.services[1].port
+  end
+
+  test 'pass username and password as empty string to HandshakeProtocol' do
+    config_path = File.join(TMP_DIR, "sd_file.conf")
+    File.open(config_path, 'w') do |file|
+      file.write(%[
+- 'host': 127.0.0.1
+  'port': 1234
+  'weight': 1
+])
+    end
+
+    mock(Fluent::Plugin::ForwardOutput::HandshakeProtocol).new(log: anything, hostname: nil, shared_key: anything, password: '', username: '')
+    @d = d = create_driver(%[
+<service_discovery>
+  @type file
+  path #{config_path}
+</service_discovery>
+    ])
+
+    assert_equal 1, d.instance.discovery_manager.services.size
+    assert_equal '127.0.0.1', d.instance.discovery_manager.services[0].host
+    assert_equal 1234, d.instance.discovery_manager.services[0].port
   end
 
   test 'compress_default_value' do
@@ -572,7 +694,7 @@ EOL
 
     @d = d = create_driver(CONFIG + %[
       require_ack_response true
-      ack_response_timeout 5s
+      ack_response_timeout 1s
       <buffer tag>
         flush_mode immediate
         retry_type periodic
@@ -600,7 +722,7 @@ EOL
       end
     end
 
-    assert_equal (5 + 2), delayed_commit_timeout_value
+    assert_equal (1 + 2), delayed_commit_timeout_value
 
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
@@ -870,6 +992,26 @@ EOL
     end
   end
 
+  test 'when out_forward has @id' do
+    # cancel https://github.com/fluent/fluentd/blob/077508ac817b7637307434d0c978d7cdc3d1c534/lib/fluent/plugin_id.rb#L43-L53
+    # it always return true in test
+    mock.proxy(Fluent::Plugin).new_sd(:static, anything) { |v|
+      stub(v).plugin_id_for_test? { false }
+    }.once
+
+    output = Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
+      def plugin_id_for_test?
+        false
+      end
+    }
+
+    assert_nothing_raised do
+      output.configure(CONFIG + %[
+        @id unique_out_forward
+      ])
+    end
+  end
+
   sub_test_case 'verify_connection_at_startup' do
     test 'nodes are not available' do
       @d = d = create_driver(CONFIG + %[
@@ -878,7 +1020,11 @@ EOL
       e = assert_raise Fluent::UnrecoverableError do
         d.instance_start
       end
-      assert_match(/Connection refused/, e.message)
+      if Fluent.windows?
+        assert_match(/No connection could be made because the target machine actively refused it/, e.message)
+      else
+        assert_match(/Connection refused/, e.message)
+      end
 
       d.instance_shutdown
     end
@@ -910,7 +1056,7 @@ EOL
         e = assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
-        assert_match(/Failed to establish connection/, e.message)
+        assert_match(/failed to establish connection/, e.message)
       end
     end
 
@@ -946,7 +1092,7 @@ EOL
           d.instance_start
         end
 
-        assert_match(/Failed to establish connection/, e.message)
+        assert_match(/failed to establish connection/, e.message)
       end
     end
 
@@ -1052,6 +1198,15 @@ EOL
       ensure
         d.instance_shutdown
       end
+    end
+
+    test 'create timer of purging obsolete sockets' do
+      output_conf = CONFIG + %[keepalive true]
+      d = create_driver(output_conf)
+
+      mock(d.instance).timer_execute(:out_forward_heartbeat_request, 1).once
+      mock(d.instance).timer_execute(:out_forward_keep_alived_socket_watcher, 5).once
+      d.instance_start
     end
 
     sub_test_case 'with require_ack_response' do

@@ -303,7 +303,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(
       'server_create tcp' => [:server_create, :tcp, {}],
-      'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
+      # Disable udp test because the behaviour of SO_REUSEXXX option is different betweeen BSD, Linux and others...
+      # Need to find good way for testing on local, CI service and others.
+      #'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
       'server_create tls' => [:server_create, :tls, {tls_options: {insecure: true}}],
       # 'server_create unix' => [:server_create, :unix, {}],
       'server_create_connection tcp' => [:server_create, :tcp, {}],
@@ -538,6 +540,19 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       assert_equal ["yayfoo\n", "yayfoo\n", "yayfoo\n"], lines
       assert_equal ["closed", "closed", "closed"], callback_results
     end
+
+    test 'can listen IPv4 / IPv6 together' do
+      omit "IPv6 unavailable here" unless ipv6_enabled?
+
+      assert_nothing_raised do
+        @d.server_create_tcp(:s_ipv4, PORT, bind: '0.0.0.0', shared: false) do |data, conn|
+          # ...
+        end
+        @d.server_create_tcp(:s_ipv6, PORT, bind: '::', shared: false) do |data, conn|
+          # ...
+        end
+      end
+    end
   end
 
   sub_test_case '#server_create_udp' do
@@ -738,6 +753,19 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       assert_equal 1, errors.size
       assert_equal "BUG: this event is disabled for udp: close", errors.first.message
     end
+
+    test 'can bind IPv4 / IPv6 together' do
+      omit "IPv6 unavailable here" unless ipv6_enabled?
+
+      assert_nothing_raised do
+        @d.server_create_udp(:s_ipv4_udp, PORT, bind: '0.0.0.0', shared: false, max_bytes: 128) do |data, sock|
+          # ...
+        end
+        @d.server_create_udp(:s_ipv6_udp, PORT, bind: '::', shared: false, max_bytes: 128) do |data, sock|
+          # ...
+        end
+      end
+    end
   end
 
   module CertUtil
@@ -818,7 +846,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     File.chmod(0600, cert_path, private_key_path)
   end
 
-  def open_tls_session(addr, port, verify: true, cert_path: nil, selfsigned: true, hostname: nil)
+  def open_tls_session(addr, port, version: Fluent::TLS::DEFAULT_VERSION, verify: true, cert_path: nil, selfsigned: true, hostname: nil)
     context = OpenSSL::SSL::SSLContext.new
     context.set_params({})
     if verify
@@ -832,12 +860,13 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       context.verify_mode = OpenSSL::SSL::VERIFY_PEER
       context.cert_store = cert_store
-      if !hostname && context.respond_to?(:verify_hostname=)
+      if !hostname
         context.verify_hostname = false # In test code, using hostname to be connected is very difficult
       end
     else
       context.verify_mode = OpenSSL::SSL::VERIFY_NONE
     end
+    Fluent::TLS.set_version_to_context(context, version, nil, nil)
 
     sock = OpenSSL::SSL::SSLSocket.new(TCPSocket.new(addr, port), context)
     sock.hostname = hostname if hostname && sock.respond_to?(:hostname)
@@ -880,7 +909,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         # insecure
         tls_options = {
           protocol: :tls,
-          version: 'TLSv1_2',
+          version: :'TLSv1_2',
           ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
           insecure: true,
           generate_private_key_length: 2048,
@@ -924,7 +953,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         tls_options = {
           protocol: :tls,
-          version: 'TLSv1_2',
+          version: :'TLSv1_2',
           ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
           insecure: false,
           cert_path: cert_path,
@@ -958,7 +987,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         tls_options = {
           protocol: :tls,
-          version: 'TLSv1_2',
+          version: :'TLSv1_2',
           ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
           insecure: false,
           ca_cert_path: ca_cert_path,
@@ -998,7 +1027,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         tls_options = {
           protocol: :tls,
-          version: 'TLSv1_2',
+          version: :'TLSv1_2',
           ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
           insecure: false,
           cert_path: cert_path,
@@ -1028,7 +1057,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         tls_options = {
           protocol: :tls,
-          version: 'TLSv1_2',
+          version: :'TLSv1_2',
           ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
           insecure: false,
           cert_path: cert_path,
@@ -1225,7 +1254,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
       @tls_options = {
         protocol: :tls,
-        version: 'TLSv1_2',
+        version: :'TLSv1_2',
         ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
         insecure: false,
         cert_path: @cert_path,
@@ -1425,6 +1454,35 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       waiting(10){ sleep 0.1 until lines.size == 3 && callback_results.size == 3 }
       assert_equal ["yayfoo\n", "yayfoo\n", "yayfoo\n"], lines
       assert_equal ["closed", "closed", "closed"], callback_results
+    end
+
+    sub_test_case 'TLS version connection check' do
+      test "can't connect with different TLS version" do
+        @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
+        end
+        assert_raise(OpenSSL::SSL::SSLError, Errno::ECONNRESET) {
+          open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: :'TLS1_1') do |sock|
+          end
+        }
+      end
+
+      test "can specify multiple TLS versions by min_version/max_version" do
+        omit "min_version=/max_version= is not supported" unless Fluent::TLS::MIN_MAX_AVAILABLE
+
+        opts = @tls_options.merge(min_version: :'TLS1_1', max_version: :'TLSv1_2')
+        @d.server_create_tls(:s, PORT, tls_options: opts) do |data, conn|
+        end
+        assert_raise(OpenSSL::SSL::SSLError, Errno::ECONNRESET) {
+          open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: :'TLS1') do |sock|
+          end
+        }
+        [:'TLS1_1', :'TLS1_2'].each { |ver|
+          assert_nothing_raised {
+            open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: ver) do |sock|
+            end
+          }
+        }
+      end
     end
   end
 
@@ -1710,5 +1768,4 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       # pend "not implemented yet"
     end
   end
-
 end

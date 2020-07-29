@@ -12,6 +12,8 @@ require_relative '../test_plugin_classes'
 class MonitorAgentInputTest < Test::Unit::TestCase
   include FuzzyAssert
 
+  CONFIG_DIR = File.expand_path('../tmp/in_monitor_agent', __dir__)
+
   def setup
     Fluent::Test.setup
   end
@@ -160,9 +162,20 @@ EOC
     test "fluentd opts" do
       d = create_driver
       opts = Fluent::Supervisor.default_options
-      Fluent::Supervisor.new(opts)
+
+      filepath = nil
+      begin
+        FileUtils.mkdir_p(CONFIG_DIR)
+        filepath = File.expand_path('fluentd.conf', CONFIG_DIR)
+        FileUtils.touch(filepath)
+        s = Fluent::Supervisor.new(opts.merge(config_path: filepath))
+        s.configure
+      ensure
+        FileUtils.rm_r(CONFIG_DIR) rescue _
+      end
+
       expected_opts = {
-        "config_path" => "/etc/fluent/fluent.conf",
+        "config_path" => filepath,
         "pid_file"    => nil,
         "plugin_dirs" => ["/etc/fluent/plugin"],
         "log_path"    => nil,
@@ -279,11 +292,25 @@ EOC
   </match>
 </label>
 EOC
-      @ra = Fluent::RootAgent.new(log: $log)
-      stub(Fluent::Engine).root_agent { @ra }
-      @ra = configure_ra(@ra, conf)
-      # store Supervisor instance to avoid collected by GC
-      @supervisor = Fluent::Supervisor.new(Fluent::Supervisor.default_options)
+
+
+      begin
+        @ra = Fluent::RootAgent.new(log: $log)
+        stub(Fluent::Engine).root_agent { @ra }
+        @ra = configure_ra(@ra, conf)
+        # store Supervisor instance to avoid collected by GC
+
+        FileUtils.mkdir_p(CONFIG_DIR)
+        @filepath = File.expand_path('fluentd.conf', CONFIG_DIR)
+        File.open(@filepath, 'w') do |v|
+          v.puts(conf)
+        end
+
+        @supervisor = Fluent::Supervisor.new(Fluent::Supervisor.default_options.merge(config_path: @filepath))
+        @supervisor.configure
+      ensure
+        FileUtils.rm_r(CONFIG_DIR) rescue _
+      end
     end
 
     test "/api/plugins" do
@@ -469,8 +496,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   tag monitor
 ")
       d.instance.start
-      expected_response_regex = /pid:\d+\tppid:\d+\tconfig_path:\/etc\/fluent\/fluent.conf\tpid_file:\tplugin_dirs:\/etc\/fluent\/plugin\tlog_path:/
-
+      expected_response_regex = %r{pid:\d+\tppid:\d+\tversion:#{Fluent::VERSION}\tconfig_path:#{@filepath}\tpid_file:\tplugin_dirs:/etc/fluent/plugin\tlog_path:}
       assert_match(expected_response_regex,
                    get("http://127.0.0.1:#{@port}/api/config").body)
     end
@@ -484,10 +510,11 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
 ")
       d.instance.start
       res = JSON.parse(get("http://127.0.0.1:#{@port}/api/config.json").body)
-      assert_equal("/etc/fluent/fluent.conf", res["config_path"])
+      assert_equal(@filepath, res["config_path"])
       assert_nil(res["pid_file"])
       assert_equal(["/etc/fluent/plugin"], res["plugin_dirs"])
       assert_nil(res["log_path"])
+      assert_equal(Fluent::VERSION, res["version"])
     end
 
     test "/api/config.json?debug=1" do

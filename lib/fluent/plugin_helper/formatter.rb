@@ -103,7 +103,7 @@ module Fluent
       def formatter_operate(method_name, &block)
         @_formatters.each_pair do |usage, formatter|
           begin
-            formatter.send(method_name)
+            formatter.__send__(method_name)
             block.call(formatter) if block_given?
           rescue => e
             log.error "unexpected error while #{method_name}", usage: usage, formatter: formatter, error: e

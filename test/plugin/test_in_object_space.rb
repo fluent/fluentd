@@ -27,7 +27,7 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
   end
 
   TESTCONFIG = %[
-    emit_interval 1
+    emit_interval 0.2
     tag t1
     top 2
   ]
@@ -38,7 +38,7 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
-    assert_equal 1, d.instance.emit_interval
+    assert_equal 0.2, d.instance.emit_interval
     assert_equal "t1", d.instance.tag
     assert_equal 2, d.instance.top
   end
@@ -46,11 +46,7 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
   def test_emit
     d = create_driver
 
-    d.run do
-      waiting(10, d.instance) do
-        sleep 0.5 until d.events.size > 3
-      end
-    end
+    d.run(expect_emits: 3)
 
     emits = d.events
     assert{ emits.length > 0 }

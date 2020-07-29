@@ -138,7 +138,7 @@ module Fluent
         @_storages.each_pair do |usage, s|
           begin
             block.call(s) if block_given?
-            s.storage.send(method_name)
+            s.storage.__send__(method_name)
           rescue => e
             log.error "unexpected error while #{method_name}", usage: usage, storage: s.storage, error: e
           end

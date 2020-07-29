@@ -5,7 +5,7 @@ require 'timecop'
 
 class SocketCacheTest < Test::Unit::TestCase
   sub_test_case 'checkout_or' do
-    test 'when gived key does not exist' do
+    test 'when given key does not exist' do
       c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
       sock = mock!.open { 'socket' }.subject
       assert_equal('socket', c.checkout_or('key') { sock.open })
@@ -23,7 +23,7 @@ class SocketCacheTest < Test::Unit::TestCase
 
     test 'when given key exists but used by other' do
       c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
-      assert_equal(@sock, c.checkout_or('key') { @sock })
+      assert_equal('sock', c.checkout_or('key') { 'sock' })
 
       new_sock = 'new sock'
       sock = mock!.open { new_sock }.subject
@@ -32,11 +32,21 @@ class SocketCacheTest < Test::Unit::TestCase
 
     test "when given key's value was expired" do
       c = Fluent::Plugin::ForwardOutput::SocketCache.new(0, $log)
-      assert_equal(@sock, c.checkout_or('key') { @sock })
+      assert_equal('sock', c.checkout_or('key') { 'sock' })
 
       new_sock = 'new sock'
       sock = mock!.open { new_sock }.subject
       assert_equal(new_sock, c.checkout_or('key') { sock.open })
+    end
+
+    test 'reuse same hash object after calling purge_obsolete_socks' do
+      c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
+      c.checkout_or('key') { 'socket' }
+      c.purge_obsolete_socks
+
+      assert_nothing_raised(NoMethodError) do
+        c.checkout_or('key') { 'new socket' }
+      end
     end
   end
 

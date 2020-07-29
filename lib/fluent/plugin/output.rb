@@ -18,15 +18,16 @@ require 'fluent/error'
 require 'fluent/plugin/base'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin_helper/record_accessor'
+require 'fluent/msgpack_factory'
 require 'fluent/log'
 require 'fluent/plugin_id'
 require 'fluent/plugin_helper'
 require 'fluent/timezone'
 require 'fluent/unique_id'
 require 'fluent/clock'
+require 'fluent/ext_monitor_require'
 
 require 'time'
-require 'monitor'
 
 module Fluent
   module Plugin
@@ -39,7 +40,7 @@ module Fluent
       helpers_internal :thread, :retry_state
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
-      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@$a-zA-Z0-9]+\}/
+      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{([-_.@$a-zA-Z0-9]+)\}/
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[-?\d+\])?)\}/
       CHUNK_ID_PLACEHOLDER_PATTERN = /\$\{chunk_id\}/
 
@@ -309,6 +310,9 @@ module Fluent
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
             @timekey_zone = @buffer_config.timekey_use_utc ? '+0000' : @buffer_config.timekey_zone
             @timekey = @buffer_config.timekey
+            if @timekey <= 0
+              raise Fluent::ConfigError, "timekey should be greater than 0. current timekey: #{@timekey}"
+            end
             @timekey_use_utc = @buffer_config.timekey_use_utc
             @offset = Fluent::Timezone.utc_offset(@timekey_zone)
             @calculate_offset = @offset.respond_to?(:call) ? @offset : nil
@@ -383,7 +387,7 @@ module Fluent
           @secondary.acts_as_secondary(self)
           @secondary.configure(secondary_conf)
           if (self.class != @secondary.class) && (@custom_format || @secondary.implement?(:custom_format))
-            log.warn "secondary type should be same with primary one", primary: self.class.to_s, secondary: @secondary.class.to_s
+            log.warn "Use different plugin for secondary. Check the plugin works with primary like secondary_file", primary: self.class.to_s, secondary: @secondary.class.to_s
           end
         else
           @secondary = nil
@@ -703,7 +707,7 @@ module Fluent
       end
 
       def get_placeholders_keys(str)
-        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map{|ph| ph[2..-2]}.reject{|s| (s == "tag") || (s == 'chunk_id') }.sort
+        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map(&:first).reject{|s| (s == "tag") || (s == 'chunk_id') }.sort
       end
 
       # TODO: optimize this code
@@ -755,11 +759,19 @@ module Fluent
             @chunk_keys.each do |key|
               hash["${#{key}}"] = metadata.variables[key.to_sym]
             end
-            rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN, hash)
+
+            rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN) do |matched|
+              hash.fetch(matched) do
+                log.warn "chunk key placeholder '#{matched[2..-2]}' not replaced. template:#{str}"
+                ''
+              end
+            end
           end
+
           if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
             log.warn "chunk key placeholder '#{$1}' not replaced. template:#{str}"
           end
+
           rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
             if chunk_passed
               dump_unique_id_hex(chunk.unique_id)
@@ -794,7 +806,7 @@ module Fluent
         @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           execute_chunking(tag, es, enqueue: (@flush_mode == :immediate))
-          if !@retry && @buffer.queued?
+          if !@retry && @buffer.queued?(nil, optimistic: true)
             submit_flush_once
           end
         rescue
@@ -857,15 +869,8 @@ module Fluent
       def chunk_for_test(tag, time, record)
         require 'fluent/plugin/buffer/memory_chunk'
 
-        m = metadata_for_test(tag, time, record)
-        Fluent::Plugin::Buffer::MemoryChunk.new(m)
-      end
-
-      def metadata_for_test(tag, time, record)
-        raise "BUG: #metadata_for_test is available only when no actual metadata exists" unless @buffer.metadata_list.empty?
         m = metadata(tag, time, record)
-        @buffer.metadata_list_clear!
-        m
+        Fluent::Plugin::Buffer::MemoryChunk.new(m)
       end
 
       def execute_chunking(tag, es, enqueue: false)
@@ -919,10 +924,10 @@ module Fluent
         end
       end
 
-      FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream }
-      FORMAT_COMPRESSED_MSGPACK_STREAM = ->(e){ e.to_compressed_msgpack_stream }
-      FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true) }
-      FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_compressed_msgpack_stream(time_int: true) }
+      FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream(packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_COMPRESSED_MSGPACK_STREAM = ->(e){ e.to_compressed_msgpack_stream(packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true, packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_compressed_msgpack_stream(time_int: true, packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
 
       def generate_format_proc
         if @buffer && @buffer.compress == :gzip
@@ -944,7 +949,7 @@ module Fluent
       def handle_stream_with_custom_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
-        es.each do |time, record|
+        es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
           meta = metadata(tag, time, record)
           meta_and_data[meta] ||= []
           res = format(tag, time, record)
@@ -964,7 +969,7 @@ module Fluent
         format_proc = generate_format_proc
         meta_and_data = {}
         records = 0
-        es.each do |time, record|
+        es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
           meta = metadata(tag, time, record)
           meta_and_data[meta] ||= MultiEventStream.new
           meta_and_data[meta].add(time, record)
@@ -984,7 +989,7 @@ module Fluent
         if @custom_format
           records = 0
           data = []
-          es.each do |time, record|
+          es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
             res = format(tag, time, record)
             if res
               data << res
@@ -1086,7 +1091,7 @@ module Fluent
         end
       end
 
-      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError, MessagePack::UnpackError]
+      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError, MessagePack::UnpackError, EncodingError]
 
       def try_flush
         chunk = @buffer.dequeue_chunk
@@ -1198,7 +1203,7 @@ module Fluent
           backup_dir = File.dirname(backup_file)
 
           log.warn "bad chunk is moved to #{backup_file}"
-          FileUtils.mkdir_p(backup_dir) unless Dir.exist?(backup_dir)
+          FileUtils.mkdir_p(backup_dir, mode: system_config.dir_permission || 0755) unless Dir.exist?(backup_dir)
           File.open(backup_file, 'ab', system_config.file_permission || 0644) { |f|
             chunk.write_to(f)
           }
@@ -1376,7 +1381,7 @@ module Fluent
                 # This block should be done by integer values.
                 # If both of flush_interval & flush_thread_interval are 1s, expected actual flush timing is 1.5s.
                 # If we use integered values for this comparison, expected actual flush timing is 1.0s.
-                @buffer.enqueue_all{ |metadata, chunk| chunk.created_at.to_i + flush_interval <= now_int }
+                @buffer.enqueue_all{ |metadata, chunk| chunk.raw_create_at + flush_interval <= now_int }
               end
 
               if @chunk_key_time

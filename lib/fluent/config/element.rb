@@ -31,7 +31,7 @@ module Fluent
         @unused = unused || attrs.keys
         @v1_config = false
         @corresponding_proxies = [] # some plugins use flat parameters, e.g. in_http doesn't provide <format> section for parser.
-        @unused_in = false # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
+        @unused_in = nil # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
 
         # it's global logger, not plugin logger: deprecated message should be global warning, not plugin level.
         @logger = defined?($log) ? $log : nil
@@ -110,13 +110,13 @@ module Fluent
       end
 
       def has_key?(key)
-        @unused_in = false # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in check_not_fetched.
+        @unused_in = [] # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in check_not_fetched.
         @unused.delete(key)
         super
       end
 
       def [](key)
-        @unused_in = false # ditto
+        @unused_in = [] # ditto
         @unused.delete(key)
 
         if RESERVED_PARAMETERS.include?(key) && !has_key?(key) && has_key?(RESERVED_PARAMETERS_COMPAT[key])
@@ -142,7 +142,7 @@ module Fluent
         indent = "  " * nest
         nindent = "  " * (nest + 1)
         out = ""
-        if @arg.empty?
+        if @arg.nil? || @arg.empty?
           out << "#{indent}<#{@name}>\n"
         else
           out << "#{indent}<#{@name} #{@arg}>\n"
@@ -194,23 +194,36 @@ module Fluent
         opts[:type]
       end
 
+      def default_value(key)
+        return nil if @corresponding_proxies.empty?
+
+        param_key = key.to_sym
+        proxy = @corresponding_proxies.detect do |_proxy|
+          _proxy.params.has_key?(param_key)
+        end
+        return nil unless proxy
+        proxy.defaults[param_key]
+      end
+
       def dump_value(k, v, nindent)
-        if secret_param?(k)
-          "#{nindent}#{k} xxxxxx\n"
+        return "#{nindent}#{k} xxxxxx\n" if secret_param?(k)
+        return "#{nindent}#{k} #{v}\n" unless @v1_config
+
+        # for v1 config
+        if v.nil?
+          "#{nindent}#{k} \n"
+        elsif v == :default
+          "#{nindent}#{k} #{default_value(k)}\n"
         else
-          if @v1_config
-            case param_type(k)
-            when :string
-              "#{nindent}#{k} \"#{self.class.unescape_parameter(v)}\"\n"
-            when :enum, :integer, :float, :size, :bool, :time
-              "#{nindent}#{k} #{v}\n"
-            when :hash, :array
-              "#{nindent}#{k} #{v}\n"
-            else
-              # Unknown type
-              "#{nindent}#{k} #{v}\n"
-            end
+          case param_type(k)
+          when :string
+            "#{nindent}#{k} \"#{self.class.unescape_parameter(v)}\"\n"
+          when :enum, :integer, :float, :size, :bool, :time
+            "#{nindent}#{k} #{v}\n"
+          when :hash, :array
+            "#{nindent}#{k} #{v}\n"
           else
+            # Unknown type
             "#{nindent}#{k} #{v}\n"
           end
         end

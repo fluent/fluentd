@@ -24,15 +24,17 @@ module Fluent
     SYSTEM_CONFIG_PARAMETERS = [
       :workers, :root_dir, :log_level,
       :suppress_repeated_stacktrace, :emit_error_log_interval, :suppress_config_dump,
-      :log_event_verbose,
+      :log_event_verbose, :ignore_repeated_log_interval,
       :without_source, :rpc_endpoint, :enable_get_dump, :process_name,
       :file_permission, :dir_permission, :counter_server, :counter_client,
+      :strict_config_value, :enable_msgpack_time_support
     ]
 
     config_param :workers,   :integer, default: 1
     config_param :root_dir,  :string, default: nil
-    config_param :log_level, :enum, list: [:trace, :debug, :info, :warn, :error, :fatal], default: nil
+    config_param :log_level, :enum, list: [:trace, :debug, :info, :warn, :error, :fatal], default: 'info'
     config_param :suppress_repeated_stacktrace, :bool, default: nil
+    config_param :ignore_repeated_log_interval, :time, default: nil
     config_param :emit_error_log_interval,      :time, default: nil
     config_param :suppress_config_dump, :bool, default: nil
     config_param :log_event_verbose,    :bool, default: nil
@@ -40,6 +42,8 @@ module Fluent
     config_param :rpc_endpoint,    :string, default: nil
     config_param :enable_get_dump, :bool, default: nil
     config_param :process_name,    :string, default: nil
+    config_param :strict_config_value, :bool, default: nil
+    config_param :enable_msgpack_time_support, :bool, default: nil
     config_param :file_permission, default: nil do |v|
       v.to_i(8)
     end
@@ -73,12 +77,12 @@ module Fluent
       config_param :timeout, :time, default: nil
     end
 
-    def self.create(conf)
+    def self.create(conf, strict_config_value=false)
       systems = conf.elements(name: 'system')
       return SystemConfig.new if systems.empty?
       raise Fluent::ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1
 
-      SystemConfig.new(systems.first)
+      SystemConfig.new(systems.first, strict_config_value)
     end
 
     def self.blank_system_config
@@ -95,14 +99,26 @@ module Fluent
       end
     end
 
-    def initialize(conf=nil)
+    def initialize(conf=nil, strict_config_value=false)
       super()
       conf ||= SystemConfig.blank_system_config
-      configure(conf)
+      configure(conf, strict_config_value)
     end
 
-    def configure(conf)
-      super
+    def configure(conf, strict_config_value=false)
+      strict = strict_config_value
+      if !strict && conf && conf.has_key?("strict_config_value")
+        strict = Fluent::Config.bool_value(conf["strict_config_value"])
+      end
+
+      begin
+        super(conf, strict)
+      rescue ConfigError => e
+        $log.error "config error in:\n#{conf}"
+        $log.error 'config error', error: e
+        $log.debug_backtrace
+        exit!(1)
+      end
 
       @log_level = Log.str_to_level(@log_level.to_s) if @log_level
     end
@@ -115,52 +131,12 @@ module Fluent
       s
     end
 
-    def attach(supervisor)
-      system = self
-      supervisor.instance_eval {
-        SYSTEM_CONFIG_PARAMETERS.each do |param|
-          case param
-          when :rpc_endpoint, :enable_get_dump, :process_name, :file_permission, :dir_permission, :counter_server, :counter_client
-            next # doesn't exist in command line options
-          when :emit_error_log_interval
-            system.emit_error_log_interval = @suppress_interval if @suppress_interval
-          when :log_level
-            ll_value = instance_variable_get("@log_level")
-            # info level can't be specified via command line option.
-            # log_level is info here, it is default value and <system>'s log_level should be applied if exists.
-            if ll_value != Fluent::Log::LEVEL_INFO
-              system.log_level = ll_value
-            end
-          else
-            next unless instance_variable_defined?("@#{param}")
-            supervisor_value = instance_variable_get("@#{param}")
-            next if supervisor_value.nil? # it's not configured by command line options
-
-            system.send("#{param}=", supervisor_value)
-          end
+    def overwrite_variables(**opt)
+      SYSTEM_CONFIG_PARAMETERS.each do |param|
+        if opt.key?(param) && !opt[param].nil? && instance_variable_defined?("@#{param}")
+          instance_variable_set("@#{param}", opt[param])
         end
-      }
-    end
-
-    def apply(supervisor)
-      system = self
-      supervisor.instance_eval {
-        SYSTEM_CONFIG_PARAMETERS.each do |param|
-          param_value = system.__send__(param)
-          next if param_value.nil?
-
-          case param
-          when :log_level
-            @log.level = @log_level = param_value
-          when :emit_error_log_interval
-            @suppress_interval = param_value
-          else
-            instance_variable_set("@#{param}", param_value)
-          end
-        end
-        #@counter_server = system.counter_server unless system.counter_server.nil?
-        #@counter_client = system.counter_client unless system.counter_client.nil?
-      }
+      end
     end
 
     module Mixin
@@ -179,7 +155,7 @@ module Fluent
           @_system_config = (defined?($_system_config) && $_system_config ? $_system_config : Fluent::Engine.system_config).dup
         end
         opts.each_pair do |key, value|
-          @_system_config.send(:"#{key.to_s}=", value)
+          @_system_config.__send__(:"#{key.to_s}=", value)
         end
       end
     end

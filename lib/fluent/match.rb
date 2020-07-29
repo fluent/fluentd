@@ -33,6 +33,15 @@ module Fluent
 
   class GlobMatchPattern < MatchPattern
     def initialize(pat)
+      if pat.start_with?('/')
+        if pat.end_with?('/')
+          @regex = Regexp.new("\\A"+pat[1..-2]+"\\Z")
+          return
+        else
+          raise Fluent::ConfigError,  "invalid match - regex"
+        end
+      end
+
       stack = []
       regex = ['']
       escape = false
@@ -125,7 +134,7 @@ module Fluent
     end
 
     def match(str)
-      @regex.match(str) != nil
+      @regex.match?(str)
     end
   end
 

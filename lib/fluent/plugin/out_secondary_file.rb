@@ -23,8 +23,6 @@ module Fluent::Plugin
   class SecondaryFileOutput < Output
     Fluent::Plugin.register_output("secondary_file", self)
 
-    FILE_PERMISSION = 0644
-    DIR_PERMISSION = 0755
     PLACEHOLDER_REGEX = /\${(tag(\[\d+\])?|[\w.@-]+)}/
 
     desc "The directory path of the output file."
@@ -61,8 +59,8 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "out_secondary_file: `#{@directory}` should be writable"
       end
 
-      @dir_perm = system_config.dir_permission || DIR_PERMISSION
-      @file_perm = system_config.file_permission || FILE_PERMISSION
+      @dir_perm = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
+      @file_perm = system_config.file_permission || Fluent::DEFAULT_FILE_PERMISSION
     end
 
     def multi_workers_ready?
