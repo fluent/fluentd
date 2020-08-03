@@ -1233,6 +1233,40 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         waiting(10){ sleep 0.1 until received.bytesize == 8 }
         assert_equal "yay\nfoo\n", received
       end
+
+      test 'set ciphers' do
+        cert_path = File.join(@server_cert_dir, "cert.pem")
+        private_key_path = File.join(@certs_dir, "server.key.pem")
+        create_server_pair_signed_by_self(cert_path, private_key_path, nil)
+        tls_options = {
+          protocol: :tls,
+          version: :TLSv1_2,
+          ciphers: 'SHA256',
+          insecure: false,
+          cert_path: cert_path,
+          private_key_path: private_key_path,
+        }
+        conf = @d.server_create_transport_section_object(tls_options)
+        ctx = @d.cert_option_create_context(conf.version, conf.insecure, conf.ciphers, conf)
+        matched = false
+        ctx.ciphers.each do |cipher|
+          cipher_name, tls_version = cipher
+          # OpenSSL 1.0.2: "TLSv1/SSLv3"
+          # OpenSSL 1.1.1: "TLSv1.2"
+          if tls_version == "TLSv1/SSLv3" || tls_version == "TLSv1.2"
+            matched = true
+            unless cipher_name.match(/#{conf.ciphers}/)
+              matched = false
+              break
+            end
+          end
+        end
+
+        error_msg = build_message("Unexpected ciphers for #{conf.version}",
+                                  "<?>\nwas expected to include only <?> ciphers for #{conf.version}",
+                                  ctx.ciphers, conf.ciphers)
+        assert(matched, error_msg)
+      end
     end
   end
 
