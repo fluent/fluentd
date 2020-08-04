@@ -1,5 +1,27 @@
 # v1.11
 
+## Release v1.11.2 - 2020/08/04
+
+### Enhancement
+
+* `in_dummy` renamed to `in_sample`
+  https://github.com/fluent/fluentd/pull/3065
+* Allow regular expression in filter/match directive
+  https://github.com/fluent/fluentd/pull/3071
+* Refactoring code
+  https://github.com/fluent/fluentd/pull/3051
+
+### Bug fix
+
+* buffer: Fix log message for `chunk_limit_records` case
+  https://github.com/fluent/fluentd/pull/3079
+* buffer: Fix timekey optimization for non-windows platform
+  https://github.com/fluent/fluentd/pull/3092
+* cert: Raise an error for broken certificate file
+  https://github.com/fluent/fluentd/pull/3086
+* cert: Set TLS ciphers list correcty on older OpenSSL
+  https://github.com/fluent/fluentd/pull/3093
+
 ## Release v1.11.1 - 2020/06/22
 
 ### Enhancement
