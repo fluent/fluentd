@@ -27,13 +27,9 @@ module Fluent
         cert, key, extra = cert_option_server_validate!(conf)
 
         ctx = OpenSSL::SSL::SSLContext.new
-        unless insecure
-          # inject OpenSSL::SSL::SSLContext::DEFAULT_PARAMS
-          # https://bugs.ruby-lang.org/issues/9424
-          ctx.set_params({})
-
-          ctx.ciphers = ciphers
-        end
+        # inject OpenSSL::SSL::SSLContext::DEFAULT_PARAMS
+        # https://bugs.ruby-lang.org/issues/9424
+        ctx.set_params({}) unless insecure
 
         if conf.client_cert_auth
           ctx.verify_mode = OpenSSL::SSL::VERIFY_PEER | OpenSSL::SSL::VERIFY_FAIL_IF_NO_PEER_CERT
@@ -56,6 +52,7 @@ module Fluent
         end
 
         Fluent::TLS.set_version_to_context(ctx, version, conf.min_version, conf.max_version)
+        ctx.ciphers = ciphers unless insecure
 
         ctx
       end
