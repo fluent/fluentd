@@ -148,8 +148,6 @@ module Fluent
         # Actually this overhead is very small but this class is generated *per chunk* (and used in hash object).
         # This means that this class is one of the most called object in Fluentd.
         # See https://github.com/fluent/fluentd/pull/2560
-        # Note that Integer#hash returns stable value.
-        # So, we can use this feature to enable this optimization in **all platform**.
         def hash
           timekey.hash
         end
