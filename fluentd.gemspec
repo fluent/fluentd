@@ -32,11 +32,11 @@ Gem::Specification.new do |gem|
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
   gem.platform = fake_platform unless fake_platform.empty?
   if /mswin|mingw/ =~ fake_platform || (/mswin|mingw/ =~ RUBY_PLATFORM && fake_platform.empty?)
-    gem.add_runtime_dependency("win32-service", ["~> 0.8.3"])
-    gem.add_runtime_dependency("win32-ipc", ["~> 0.6.1"])
-    gem.add_runtime_dependency("win32-event", ["~> 0.6.1"])
-    gem.add_runtime_dependency("windows-pr", ["~> 1.2.5"])
-    gem.add_runtime_dependency("certstore_c", ["~> 0.1.2"])
+    gem.add_runtime_dependency("win32-service", ["~> 2.1.5"])
+    gem.add_runtime_dependency("win32-ipc", ["~> 0.7.0"])
+    gem.add_runtime_dependency("win32-event", ["~> 0.6.3"])
+    gem.add_runtime_dependency("windows-pr", ["~> 1.2.6"])
+    gem.add_runtime_dependency("certstore_c", ["~> 0.1.7"])
   end
 
   gem.add_development_dependency("rake", ["~> 13.0"])
