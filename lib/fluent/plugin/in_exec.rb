@@ -25,6 +25,8 @@ module Fluent::Plugin
 
     desc 'The command (program) to execute.'
     config_param :command, :string
+    desc 'Specify connect mode to executed process'
+    config_param :connect_mode, :enum, list: [:read, :read_with_stderr], default: :read
 
     config_section :parse do
       config_set_default :@type, 'tsv'
@@ -72,9 +74,9 @@ module Fluent::Plugin
       super
 
       if @run_interval
-        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [:read], &method(:run))
+        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [@connect_mode], &method(:run))
       else
-        child_process_execute(:exec_input, @command, immediate: true, mode: [:read], &method(:run))
+        child_process_execute(:exec_input, @command, immediate: true, mode: [@connect_mode], &method(:run))
       end
     end
 
