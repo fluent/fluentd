@@ -71,8 +71,11 @@ module Fluent
       end
 
       def parse(text)
-        r = @load_proc.call(text)
-        time, record = convert_values(parse_time(r), r)
+        record = @load_proc.call(text)
+        time = parse_time(record)
+        if @execute_convert_values
+          time, record = convert_values(time, record)
+        end
         yield time, record
       rescue @error_class, EncodingError # EncodingError is for oj 3.x or later
         yield nil, nil
