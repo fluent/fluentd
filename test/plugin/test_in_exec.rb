@@ -240,4 +240,22 @@ EOC
       assert_equal [tag, time, record], event
     }
   end
+
+  test 'emit error message with read_with_stderr' do
+    d = create_driver %[
+      tag test
+      command ruby #{File.join(File.dirname(SCRIPT_PATH), 'foo_bar_baz_no_existence.rb')}
+      connect_mode read_with_stderr
+      <parse>
+        @type none
+      </parse>
+    ]
+    d.run(expect_records: 1, timeout: 10)
+
+    assert{ d.events.length > 0 }
+    d.events.each do |event|
+      assert_equal 'test', event[0]
+      assert_match /LoadError/, event[2]['message']
+    end
+  end
 end
