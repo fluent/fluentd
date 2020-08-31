@@ -470,8 +470,10 @@ module Fluent
 
       def update_timekeys
         synchronize do
-          @timekeys = (@stage.values + @queue).each_with_object({}) do |chunk, keys|
-            if chunk && chunk.metadata && chunk.metadata.timekey
+          chunks = @stage.values
+          chunks.concat(@queue)
+          @timekeys = chunks.each_with_object({}) do |chunk, keys|
+            if chunk.metadata && chunk.metadata.timekey
               t = chunk.metadata.timekey
               keys[t] = keys.fetch(t, 0) + 1
             end
