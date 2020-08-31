@@ -543,6 +543,8 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
 
+      @p.update_timekeys
+
       assert @p.timekeys.include?(timekey)
     end
 
@@ -674,6 +676,8 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
       assert_equal 1, @p.stage[m].append_count
+
+      @p.update_timekeys
 
       assert @p.timekeys.include?(timekey)
     end
