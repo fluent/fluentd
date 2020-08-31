@@ -273,8 +273,9 @@ module Fluent
         Metadata.new(timekey, tag, variables)
       end
 
+      # Keep this method for existing code
       def metadata(timekey: nil, tag: nil, variables: nil)
-        meta = Metadata.new(timekey, tag, variables)
+        Metadata.new(timekey, tag, variables)
       end
 
       def timekeys
@@ -794,11 +795,11 @@ module Fluent
           'total_queued_size' => stage_size + queue_size,
         }
 
-        if (m = timekeys.min)
+        tkeys = timekeys
+        if (m = tkeys.min)
           stats['oldest_timekey'] = m
         end
-
-        if (m = timekeys.max)
+        if (m = tkeys.max)
           stats['newest_timekey'] = m
         end
 
