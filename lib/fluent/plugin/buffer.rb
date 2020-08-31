@@ -192,6 +192,7 @@ module Fluent
 
         @stage_size = @queue_size = 0
         @timekeys = Hash.new(0)
+        @enable_update_timekeys = false
         @mutex = Mutex.new
       end
 
@@ -205,6 +206,10 @@ module Fluent
         unless @queue_limit_length.nil?
           @total_limit_size = @chunk_limit_size * @queue_limit_length
         end
+      end
+
+      def enable_update_timekeys
+        @enable_update_timekeys = true
       end
 
       def start
@@ -477,7 +482,7 @@ module Fluent
       # At flush_at_shutdown, all staged chunks should be enqueued for buffer flush. Set true to force_enqueue for it.
       def enqueue_all(force_enqueue = false)
         log.on_trace { log.trace "enqueueing all chunks in buffer", instance: self.object_id }
-        update_timekeys
+        update_timekeys if @enable_update_timekeys
 
         if block_given?
           synchronize{ @stage.keys }.each do |metadata|
