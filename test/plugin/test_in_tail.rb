@@ -1403,6 +1403,9 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_tail_path_with_multiline_with_multiple_paths
+      if ENV["APPVEYOR"] && Fluent.windows?
+        omit "This testcase is unstable on AppVeyor."
+      end
       files = ["#{TMP_DIR}/tail1.txt", "#{TMP_DIR}/tail2.txt"]
       files.each { |file| File.open(file, "wb") { |f| } }
 
