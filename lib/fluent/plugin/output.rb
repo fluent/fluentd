@@ -340,6 +340,7 @@ module Fluent
           buffer_conf = conf.elements(name: 'buffer').first || Fluent::Config::Element.new('buffer', '', {}, [])
           @buffer = Plugin.new_buffer(buffer_type, parent: self)
           @buffer.configure(buffer_conf)
+          @buffer.enable_update_timekeys if @chunk_key_time
 
           @flush_at_shutdown = @buffer_config.flush_at_shutdown
           if @flush_at_shutdown.nil?
