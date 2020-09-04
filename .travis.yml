@@ -23,6 +23,8 @@ matrix:
       os: linux
     - rvm: ruby-head
       os: linux
+    - rvm: truffleruby-head
+      os: linux
     - rvm: ruby-head
       os: linux-ppc64le
     - rvm: 2.4.6
