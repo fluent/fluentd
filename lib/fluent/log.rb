@@ -113,6 +113,7 @@ module Fluent
 
       @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
       @ignore_repeated_log_interval = opts[:ignore_repeated_log_interval]
+      @ignore_same_log_interval = opts[:ignore_same_log_interval]
 
       @process_type = opts[:process_type] # :supervisor, :worker0, :workers Or :standalone
       @process_type ||= :standalone # to keep behavior of existing code
@@ -141,7 +142,8 @@ module Fluent
       dl_opts[:log_level] = @level - 1
       logger = ServerEngine::DaemonLogger.new(@out, dl_opts)
       clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace, process_type: @process_type,
-                             worker_id: @worker_id, ignore_repeated_log_interval: @ignore_repeated_log_interval)
+                             worker_id: @worker_id, ignore_repeated_log_interval: @ignore_repeated_log_interval,
+                             ignore_same_log_interval: @ignore_same_log_interval)
       clone.format = @format
       clone.time_format = @time_format
       clone.log_event_enabled = @log_event_enabled
@@ -151,7 +153,7 @@ module Fluent
 
     attr_reader :format
     attr_reader :time_format
-    attr_accessor :log_event_enabled, :ignore_repeated_log_interval
+    attr_accessor :log_event_enabled, :ignore_repeated_log_interval, :ignore_same_log_interval
     attr_accessor :out
     attr_accessor :level
     attr_accessor :optional_header, :optional_attrs
@@ -428,6 +430,27 @@ module Fluent
       (cached_log.msg == message) && (time - cached_log.time <= @ignore_repeated_log_interval)
     end
 
+    def ignore_same_log?(time, message)
+      cached_log = Thread.current[:last_same_log]
+      if cached_log.nil?
+        Thread.current[:last_same_log] = {message => time}
+        return false
+      end
+
+      prev_time = cached_log[message]
+      if prev_time
+        if (time - prev_time) <= @ignore_same_log_interval
+          true
+        else
+          cached_log[message] = time
+          false
+        end
+      else
+        cached_log[message] = time
+        false
+      end
+    end
+
     def suppress_stacktrace?(backtrace)
       cached_log = Thread.current[:last_repeated_stacktrace]
       return false if cached_log.nil?
@@ -507,7 +530,11 @@ module Fluent
         end
       }
 
-      if @ignore_repeated_log_interval
+      if @ignore_same_log_interval
+        if ignore_same_log?(time, message)
+          return nil, nil
+        end
+      elsif @ignore_repeated_log_interval
         if ignore_repeated_log?(:last_repeated_log, time, message)
           return nil, nil
         else
@@ -568,6 +595,9 @@ module Fluent
       end
       if logger.instance_variable_defined?(:@ignore_repeated_log_interval)
         @ignore_repeated_log_interval = logger.instance_variable_get(:@ignore_repeated_log_interval)
+      end
+      if logger.instance_variable_defined?(:@ignore_same_log_interval)
+        @ignore_same_log_interval = logger.instance_variable_get(:@ignore_same_log_interval)
       end
 
       self.format = @logger.format

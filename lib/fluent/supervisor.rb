@@ -302,6 +302,7 @@ module Fluent
       log_level = params['log_level']
       suppress_repeated_stacktrace = params['suppress_repeated_stacktrace']
       ignore_repeated_log_interval = params['ignore_repeated_log_interval']
+      ignore_same_log_interval = params['ignore_same_log_interval']
 
       log_path = params['log_path']
       chuser = params['chuser']
@@ -309,7 +310,8 @@ module Fluent
       log_rotate_age = params['log_rotate_age']
       log_rotate_size = params['log_rotate_size']
 
-      log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace, ignore_repeated_log_interval: ignore_repeated_log_interval}
+      log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace, ignore_repeated_log_interval: ignore_repeated_log_interval,
+                  ignore_same_log_interval: ignore_same_log_interval}
       logger_initializer = Supervisor::LoggerInitializer.new(
         log_path, log_level, chuser, chgroup, log_opts,
         log_rotate_age: log_rotate_age,
@@ -347,6 +349,7 @@ module Fluent
         chumask: 0,
         suppress_repeated_stacktrace: suppress_repeated_stacktrace,
         ignore_repeated_log_interval: ignore_repeated_log_interval,
+        ignore_same_log_interval: ignore_same_log_interval,
         daemonize: daemonize,
         rpc_endpoint: params['rpc_endpoint'],
         counter_server: params['counter_server'],
@@ -441,10 +444,11 @@ module Fluent
         self
       end
 
-      def apply_options(format: nil, time_format: nil, log_dir_perm: nil, ignore_repeated_log_interval: nil)
+      def apply_options(format: nil, time_format: nil, log_dir_perm: nil, ignore_repeated_log_interval: nil, ignore_same_log_interval: nil)
         $log.format = format if format
         $log.time_format = time_format if time_format
         $log.ignore_repeated_log_interval = ignore_repeated_log_interval if ignore_repeated_log_interval
+        $log.ignore_same_log_interval = ignore_same_log_interval if ignore_same_log_interval
 
         if @path && log_dir_perm
           File.chmod(log_dir_perm || 0755, File.dirname(@path))
@@ -511,7 +515,8 @@ module Fluent
       @cl_opt = opt
       @conf = nil
 
-      log_opts = {suppress_repeated_stacktrace: opt[:suppress_repeated_stacktrace], ignore_repeated_log_interval: opt[:ignore_repeated_log_interval]}
+      log_opts = {suppress_repeated_stacktrace: opt[:suppress_repeated_stacktrace], ignore_repeated_log_interval: opt[:ignore_repeated_log_interval],
+                  ignore_same_log_interval: opt[:ignore_same_log_interval]}
       @log = LoggerInitializer.new(
         @log_path, opt[:log_level], @chuser, @chgroup, log_opts,
         log_rotate_age: @log_rotate_age,
@@ -635,7 +640,8 @@ module Fluent
         format: @system_config.log.format,
         time_format: @system_config.log.time_format,
         log_dir_perm: @system_config.dir_permission,
-        ignore_repeated_log_interval: @system_config.ignore_repeated_log_interval
+        ignore_repeated_log_interval: @system_config.ignore_repeated_log_interval,
+        ignore_same_log_interval: @system_config.ignore_same_log_interval
       )
 
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path

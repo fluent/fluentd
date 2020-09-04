@@ -411,6 +411,50 @@ class LogTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "ignore_same_log_interval" do
+    teardown do
+      Thread.current[:last_same_log] = nil
+    end
+
+    def test_same_message
+      message = "This is test"
+      logger = ServerEngine::DaemonLogger.new(@log_device, {log_level: ServerEngine::DaemonLogger::INFO})
+      log = Fluent::Log.new(logger, {ignore_same_log_interval: 5})
+
+      log.error message
+      10.times { |i|
+        Timecop.freeze(@timestamp + i + 1)
+        log.error message
+      }
+
+      expected = [
+        "2016-04-21 02:58:41 +0000 [error]: This is test\n",
+        "2016-04-21 02:58:47 +0000 [error]: This is test\n"
+      ]
+      assert_equal(expected, log.out.logs)
+    end
+
+    def test_different_message
+      message = "This is test"
+      logger = ServerEngine::DaemonLogger.new(@log_device, {log_level: ServerEngine::DaemonLogger::INFO})
+      log = Fluent::Log.new(logger, {ignore_same_log_interval: 10})
+
+      log.error message
+      3.times { |i|
+        Timecop.freeze(@timestamp + i)
+        log.error message
+        log.error message
+        log.info "Hello! " + message
+      }
+
+      expected = [
+        "2016-04-21 02:58:41 +0000 [error]: This is test\n",
+        "2016-04-21 02:58:41 +0000 [info]: Hello! This is test\n",
+      ]
+      assert_equal(expected, log.out.logs)
+    end
+  end
+
   def test_dup
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
