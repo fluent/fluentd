@@ -53,11 +53,11 @@ module Fluent
         @enable_get_dump = config[:enable_get_dump]
         run_rpc_server
       end
-      install_supervisor_signal_handlers
 
-      if config[:signame]
-        @signame = config[:signame]
+      if Fluent.windows?
         install_windows_event_handler
+      else
+        install_supervisor_signal_handlers
       end
 
       if counter = config[:counter_server]
@@ -159,23 +159,30 @@ module Fluent
     end
 
     def install_supervisor_signal_handlers
+      return if Fluent.windows?
+
       trap :HUP do
         $log.debug "fluentd supervisor process get SIGHUP"
         supervisor_sighup_handler
-      end unless Fluent.windows?
+      end
 
       trap :USR1 do
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
-      end unless Fluent.windows?
+      end
 
       trap :USR2 do
         $log.debug 'fluentd supervisor process got SIGUSR2'
         supervisor_sigusr2_handler
-      end unless Fluent.windows?
+      end
     end
 
     def install_windows_event_handler
+      return unless Fluent.windows?
+      return unless config[:signame]
+
+      @signame = config[:signame]
+
       Thread.new do
         ev = Win32::Event.new(@signame)
         begin
