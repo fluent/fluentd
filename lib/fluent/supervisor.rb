@@ -93,7 +93,8 @@ module Fluent
       @rpc_server.mount_proc('/api/processes.flushBuffersAndKillWorkers') { |req, res|
         $log.debug "fluentd RPC got /api/processes.flushBuffersAndKillWorkers request"
         if Fluent.windows?
-          $log.warn "operation 'flushBuffersAndKillWorkers' is not supported on Windows now."
+          supervisor_sigusr1_handler
+          stop(true)
         else
           Process.kill :USR1, $$
           Process.kill :TERM, $$
@@ -102,7 +103,9 @@ module Fluent
       }
       @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
         $log.debug "fluentd RPC got /api/plugins.flushBuffers request"
-        unless Fluent.windows?
+        if Fluent.windows?
+          supervisor_sigusr1_handler
+        else
           Process.kill :USR1, $$
         end
         nil
@@ -126,7 +129,9 @@ module Fluent
 
       @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
         $log.debug "fluentd RPC got /api/config.gracefulReload request"
-        unless Fluent.windows?
+        if Fluent.windows?
+          supervisor_sigusr2_handler
+        else
           Process.kill :USR2, $$
         end
 

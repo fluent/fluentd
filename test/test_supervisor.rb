@@ -234,7 +234,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     server.run_rpc_server
 
     sv.send(:install_main_process_signal_handlers)
-    Net::HTTP.get URI.parse('http://0.0.0.0:24447/api/plugins.flushBuffers')
+    Net::HTTP.get URI.parse('http://127.0.0.1:24447/api/plugins.flushBuffers')
     info_msg = '[info]: force flushing buffered events' + "\n"
 
     server.stop_rpc_server
@@ -246,6 +246,38 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
     $log.out.reset if $log.out.is_a?(Fluent::Test::DummyLogDevice)
+  end
+
+  def test_rpc_server_windows
+    omit "Only for windows platform" unless Fluent.windows?
+
+    create_info_dummy_logger
+
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+    conf_data = <<-EOC
+  <system>
+    rpc_endpoint 0.0.0.0:24447
+  </system>
+    EOC
+    conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
+    sys_conf = sv.__send__(:build_system_config, conf)
+
+    server = DummyServer.new
+    def server.config
+      {
+        :signame => "TestFluentdEvent",
+        :worker_pid => 5963,
+      }
+    end
+    server.rpc_endpoint = sys_conf.rpc_endpoint
+
+    server.run_rpc_server
+
+    mock(server).restart(true) { nil }
+    Net::HTTP.get URI.parse('http://127.0.0.1:24447/api/plugins.flushBuffers')
+
+    server.stop_rpc_server
   end
 
   def test_load_config
