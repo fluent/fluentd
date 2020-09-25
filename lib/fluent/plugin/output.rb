@@ -769,17 +769,19 @@ module Fluent
             end
           end
 
-          if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
-            log.warn "chunk key placeholder '#{$1}' not replaced. template:#{str}"
-          end
-
-          rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
+          rvalue = rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
             if chunk_passed
               dump_unique_id_hex(chunk.unique_id)
             else
               log.warn "${chunk_id} is not allowed in this plugin. Pass Chunk instead of metadata in extract_placeholders's 2nd argument"
             end
           }
+
+          if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
+            log.warn "chunk key placeholder '#{$1}' not replaced. template:#{str}"
+          end
+
+          rvalue
         end
       end
 
