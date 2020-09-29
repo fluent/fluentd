@@ -18,25 +18,37 @@ require 'fluent/plugin/input'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
+    class PathWithInode
+      def initialize(path, inode)
+        @path = path
+        @inode = inode
+      end
+
+      attr_accessor :path, :inode
+    end
+
     class PositionFile
       UNWATCHED_POSITION = 0xffffffffffffffff
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
 
-      def self.load(file, logger:)
-        pf = new(file, logger: logger)
+      def self.load(file, follow_inodes, logger:)
+        pf = new(file, follow_inodes, logger: logger)
         pf.load
         pf
       end
 
-      def initialize(file, logger: nil)
+      def initialize(file, follow_inodes, logger: nil)
         @file = file
         @logger = logger
         @file_mutex = Mutex.new
         @map = {}
+        @follow_inodes = follow_inodes
       end
 
-      def [](path)
-        if m = @map[path]
+      def [](path, inode)
+        if @follow_inodes && m = @map[inode]
+          return m
+        elsif !@follow_inodes && m = @map[path]
           return m
         end
 
@@ -44,7 +56,11 @@ module Fluent::Plugin
           @file.seek(0, IO::SEEK_END)
           seek = @file.pos + path.bytesize + 1
           @file.write "#{path}\t0000000000000000\t0000000000000000\n"
-          @map[path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+          if @follow_inodes
+            @map[inode] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+          else
+            @map[path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+          end
         }
       end
 
@@ -69,7 +85,11 @@ module Fluent::Plugin
             pos = m[2].to_i(16)
             ino = m[3].to_i(16)
             seek = @file.pos - line.bytesize + path.bytesize + 1
-            map[path] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
+            if @follow_inodes
+              map[ino] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
+            else
+              map[path] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
+            end
           end
         end
 
@@ -224,5 +244,7 @@ module Fluent::Plugin
         @inode
       end
     end
+
+    PathInodeTuple = Struct.new(:path, :ino)
   end
 end
