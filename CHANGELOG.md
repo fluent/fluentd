@@ -1,5 +1,28 @@
 # v1.11
 
+## Release v1.11.3 - 2020/09/30
+
+### Enhancement
+
+* in_exec: Add `connect_mode` parameter to read stderr
+  https://github.com/fluent/fluentd/pull/3108
+* parser_json: Improve the performance
+  https://github.com/fluent/fluentd/pull/3109
+* log: Add `ignore_same_log_interval` parameter
+  https://github.com/fluent/fluentd/pull/3119
+* Upgrade win32 gems
+  https://github.com/fluent/fluentd/pull/3100
+* Refactoring code
+  https://github.com/fluent/fluentd/pull/3094
+  https://github.com/fluent/fluentd/pull/3118
+
+### Bug fix
+
+* buffer: Fix calculation of timekey stats
+  https://github.com/fluent/fluentd/pull/3018
+* buffer: fix binmode usage for prevent gc
+  https://github.com/fluent/fluentd/pull/3138
+
 ## Release v1.11.2 - 2020/08/04
 
 ### Enhancement
