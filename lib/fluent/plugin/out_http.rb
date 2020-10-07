@@ -21,7 +21,8 @@ require 'fluent/tls'
 require 'fluent/plugin/output'
 require 'fluent/plugin_helper/socket'
 
-# patch Net::HTTP to support extra_chain_cert
+# patch Net::HTTP to support extra_chain_cert which was added in Ruby feature #9758.
+# see: https://github.com/ruby/ruby/commit/31af0dafba6d3769d2a39617c0dddedb97883712
 class Net::HTTP
   SSL_IVNAMES << :@extra_chain_cert unless SSL_IVNAMES.include?(:@extra_chain_cert)
   SSL_ATTRIBUTES << :extra_chain_cert unless SSL_ATTRIBUTES.include?(:extra_chain_cert)
