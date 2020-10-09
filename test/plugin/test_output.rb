@@ -378,6 +378,18 @@ class OutputTest < Test::Unit::TestCase
       assert { logs.any? { |log| log.include?("${chunk_id} is not allowed in this plugin") } }
     end
 
+    test '#extract_placeholders does not log for ${chunk_id} placeholder' do
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+      tmpl = "/mypath/${chunk_id}/tail"
+      t = event_time('2016-04-11 20:30:00 +0900')
+      v = {key1: "value1", key2: "value2"}
+      c = create_chunk(timekey: t, tag: 'fluentd.test.output', variables: v)
+      @i.log.out.logs.clear
+      @i.extract_placeholders(tmpl, c)
+      logs = @i.log.out.logs
+      assert { logs.none? { |log| log.include?("${chunk_id}") } }
+    end
+
     test '#extract_placeholders logs warn message with not replaced key' do
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
       tmpl = "/mypath/${key1}/test"
