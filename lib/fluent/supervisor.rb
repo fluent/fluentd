@@ -203,19 +203,28 @@ module Fluent
 
     def install_windows_event_handler
       return unless Fluent.windows?
-      return unless config[:signame]
 
+      @pid_signame = "fluentd_#{$$}"
       @signame = config[:signame]
 
       Thread.new do
         ipc = Win32::Ipc.new(nil)
         events = [
-          Win32::Event.new("#{@signame}"),
-          Win32::Event.new("#{@signame}_HUP"),
-          Win32::Event.new("#{@signame}_USR1"),
-          Win32::Event.new("#{@signame}_USR2"),
-          Win32::Event.new("#{@signame}_STOP_EVENT_THREAD"),
+          Win32::Event.new("#{@pid_signame}_STOP_EVENT_THREAD"),
+          Win32::Event.new("#{@pid_signame}"),
+          Win32::Event.new("#{@pid_signame}_HUP"),
+          Win32::Event.new("#{@pid_signame}_USR1"),
+          Win32::Event.new("#{@pid_signame}_USR2"),
         ]
+        if @signame
+          signame_events = [
+            Win32::Event.new("#{@signame}"),
+            Win32::Event.new("#{@signame}_HUP"),
+            Win32::Event.new("#{@signame}_USR1"),
+            Win32::Event.new("#{@signame}_USR2"),
+          ]
+          events.concat(signame_events)
+        end
         begin
           loop do
             idx = ipc.wait_any(events, Windows::Synchronize::INFINITE)
@@ -225,15 +234,15 @@ module Fluent
               $log.warn("Unexpected reutrn value of Win32::Ipc#wait_any: #{idx}")
             end
             case idx
-            when 1
+            when 2, 6
               stop(true)
-            when 2
+            when 3, 7
               supervisor_sighup_handler
-            when 3
+            when 4, 8
               supervisor_sigusr1_handler
-            when 4
+            when 5, 9
               supervisor_sigusr2_handler
-            when 5
+            when 1
               break
             end
           end
@@ -244,8 +253,8 @@ module Fluent
     end
 
     def stop_windows_event_thread
-      if Fluent.windows? && @signame
-        ev = Win32::Event.open("#{@signame}_STOP_EVENT_THREAD")
+      if Fluent.windows?
+        ev = Win32::Event.open("#{@pid_signame}_STOP_EVENT_THREAD")
         ev.set
         ev.close
       end
