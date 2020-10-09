@@ -176,6 +176,19 @@ class InjectHelperTest < Test::Unit::TestCase
       assert_equal record.merge({"timedata" => float_time}), @d.inject_values_to_record('tag', time, record)
     end
 
+    test 'injects time as unix time millis into specified key' do
+      time_in_unix = Time.parse("2016-06-21 08:10:11 +0900").to_i
+      time_subsecond = 320_101_224
+      time = Fluent::EventTime.new(time_in_unix, time_subsecond)
+      unixtime_millis = 1466464211320
+
+      @d.configure(config_inject_section("time_key" => "timedata", "time_type" => "unixtime_millis"))
+      @d.start
+
+      record = {"key1" => "value1", "key2" => 2}
+      assert_equal record.merge({"timedata" => unixtime_millis}), @d.inject_values_to_record('tag', time, record)
+    end
+
     test 'injects time as unix time into specified key' do
       time_in_unix = Time.parse("2016-06-21 08:10:11 +0900").to_i
       time_subsecond = 320_101_224
