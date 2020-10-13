@@ -1,5 +1,19 @@
 # v1.11
 
+## Release v1.11.4 - 2020/10/13
+
+### Enhancement
+
+* inject: Support `unixtime_millis` in `time_type` parameter
+  https://github.com/fluent/fluentd/pull/3145
+
+### Bug fix
+
+* out_http: Fix broken data with `json_array true`
+  https://github.com/fluent/fluentd/pull/3144
+* output: Fix wrong logging issue for `${chunk_id}`
+  https://github.com/fluent/fluentd/pull/3134
+
 ## Release v1.11.3 - 2020/09/30
 
 ### Enhancement
