@@ -19,6 +19,8 @@ require 'fluent/plugin/formatter'
 module Fluent
   module Plugin
     class LabeledTSVFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('ltsv', self)
 
       # http://ltsv.org/
@@ -26,18 +28,6 @@ module Fluent
       config_param :delimiter, :string, default: "\t"
       config_param :label_delimiter, :string, default: ":"
       config_param :add_newline, :bool, default: true
-      config_param :newline, :enum, list: [:lf, :crlf], default: :lf
-
-      def configure(conf)
-        super
-
-        @newline = case newline
-                   when :lf
-                     "\n"
-                   when :crlf
-                     "\r\n"
-                   end
-      end
 
       # TODO: escaping for \t in values
       def format(tag, time, record)

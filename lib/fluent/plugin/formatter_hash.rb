@@ -19,20 +19,11 @@ require 'fluent/plugin/formatter'
 module Fluent
   module Plugin
     class HashFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('hash', self)
 
       config_param :add_newline, :bool, default: true
-      config_param :newline, :enum, list: [:lf, :crlf], default: :lf
-
-      def configure(conf)
-        super
-        @newline = case newline
-                   when :lf
-                     "\n"
-                   when :crlf
-                     "\r\n"
-                   end
-      end
 
       def format(tag, time, record)
         line = record.to_s

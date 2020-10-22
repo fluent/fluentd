@@ -20,11 +20,12 @@ require 'fluent/env'
 module Fluent
   module Plugin
     class JSONFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('json', self)
 
       config_param :json_parser, :string, default: 'oj'
       config_param :add_newline, :bool, default: true
-      config_param :newline, :enum, list: [:lf, :crlf], default: :lf
 
       def configure(conf)
         super
@@ -42,13 +43,6 @@ module Fluent
         unless @add_newline
           define_singleton_method(:format, method(:format_without_nl))
         end
-
-        @newline = case newline
-                   when :lf
-                     "\n"
-                   when :crlf
-                     "\r\n"
-                   end
       end
 
       def format(tag, time, record)
