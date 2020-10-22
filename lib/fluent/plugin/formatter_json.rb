@@ -24,6 +24,7 @@ module Fluent
 
       config_param :json_parser, :string, default: 'oj'
       config_param :add_newline, :bool, default: true
+      config_param :newline, :enum, list: [:lf, :crlf], default: :lf
 
       def configure(conf)
         super
@@ -41,10 +42,17 @@ module Fluent
         unless @add_newline
           define_singleton_method(:format, method(:format_without_nl))
         end
+
+        @newline = case newline
+                   when :lf
+                     "\n"
+                   when :crlf
+                     "\r\n"
+                   end
       end
 
       def format(tag, time, record)
-        "#{@dump_proc.call(record)}\n"
+        "#{@dump_proc.call(record)}#{@newline}"
       end
 
       def format_without_nl(tag, time, record)

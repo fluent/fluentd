@@ -27,10 +27,23 @@ module Fluent
       config_param :delimiter, :string, default: "\t"
       desc 'The parameter to enable writing to new lines'
       config_param :add_newline, :bool, default: true
+      desc 'The newline code'
+      config_param :newline, :enum, list: [:lf, :crlf], default: :lf
+
+      def configure(conf)
+        super
+
+        @newline = case newline
+                   when :lf
+                     "\n"
+                   when :crlf
+                     "\r\n"
+                   end
+      end
 
       def format(tag, time, record)
         formatted = @keys.map{|k| record[k].to_s }.join(@delimiter)
-        formatted << "\n".freeze if @add_newline
+        formatted << @newline.freeze if @add_newline
         formatted
       end
     end

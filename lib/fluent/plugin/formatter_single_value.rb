@@ -23,10 +23,22 @@ module Fluent
 
       config_param :message_key, :string, default: 'message'
       config_param :add_newline, :bool, default: true
+      config_param :newline, :enum, list: [:lf, :crlf], default: :lf
+
+      def configure(conf)
+        super
+
+        @newline = case newline
+                   when :lf
+                     "\n"
+                   when :crlf
+                     "\r\n"
+                   end
+      end
 
       def format(tag, time, record)
         text = record[@message_key].to_s.dup
-        text << "\n" if @add_newline
+        text << @newline.freeze if @add_newline
         text
       end
     end

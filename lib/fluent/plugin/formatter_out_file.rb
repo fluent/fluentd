@@ -32,19 +32,27 @@ module Fluent
         else "\t"
         end
       end
+      config_param :newline, :enum, list: [:lf, :crlf], default: :lf
       config_set_default :time_type, :string
       config_set_default :time_format, nil # time_format nil => iso8601
 
       def configure(conf)
         super
         @timef = time_formatter_create
+
+        @newline = case newline
+                   when :lf
+                     "\n"
+                   when :crlf
+                     "\r\n"
+                   end
       end
 
       def format(tag, time, record)
         header = ''
         header << "#{@timef.format(time)}#{@delimiter}" if @output_time
         header << "#{tag}#{@delimiter}" if @output_tag
-        "#{header}#{Yajl.dump(record)}\n"
+        "#{header}#{Yajl.dump(record)}#{@newline}"
       end
     end
   end
