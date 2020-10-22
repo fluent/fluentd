@@ -5,6 +5,11 @@ require 'fluent/plugin/formatter_out_file'
 class OutFileFormatterTest < ::Test::Unit::TestCase
   def setup
     @time = event_time
+    @default_newline = if Fluent.windows?
+                         "\r\n"
+                       else
+                         "\n"
+                       end
   end
 
   def create_driver(conf = {})
@@ -48,7 +53,7 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
       oldtz, ENV['TZ'] = ENV['TZ'], "UTC+07"
       d = create_driver(config_element('ROOT', '', {key => value}))
       tag = 'test'
-      assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}\n", d.instance.format(tag, time, record)
+      assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}#{@default_newline}", d.instance.format(tag, time, record)
     ensure
       ENV['TZ'] = oldtz
     end

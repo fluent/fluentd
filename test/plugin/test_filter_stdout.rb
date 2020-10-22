@@ -12,6 +12,11 @@ class StdoutFilterTest < Test::Unit::TestCase
     @old_tz = ENV["TZ"]
     ENV["TZ"] = "UTC"
     Timecop.freeze
+    @default_newline = if Fluent.windows?
+                         "\r\n"
+                       else
+                         "\n"
+                       end
   end
 
   def teardown
@@ -106,7 +111,7 @@ class StdoutFilterTest < Test::Unit::TestCase
     def test_format_json
       d = create_driver(CONFIG + config_element("", "", { "format" => "json" }))
       out = capture_log(d) { filter(d, event_time, {'test' => 'test'}) }
-      assert_equal "{\"test\":\"test\"}\n", out
+      assert_equal "{\"test\":\"test\"}#{@default_newline}", out
     end
   end
 

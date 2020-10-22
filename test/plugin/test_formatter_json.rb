@@ -7,6 +7,11 @@ class JsonFormatterTest < ::Test::Unit::TestCase
 
   def setup
     @time = event_time
+    @default_newline = if Fluent.windows?
+                         "\r\n"
+                       else
+                         "\n"
+                       end
   end
 
   def create_driver(conf = "")
@@ -51,6 +56,6 @@ class JsonFormatterTest < ::Test::Unit::TestCase
     d = create_driver('json_parser' => data)
     formatted = d.instance.format(tag, @time, symbolic_record)
 
-    assert_equal("#{JSON.generate(record)}\n", formatted)
+    assert_equal("#{JSON.generate(record)}#{@default_newline}", formatted)
   end
 end
