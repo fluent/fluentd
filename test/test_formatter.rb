@@ -271,6 +271,7 @@ module FormatterTest
 
     def test_format
       formatter = Fluent::Plugin.new_formatter('single_value')
+      formatter.configure({})
       formatted = formatter.format('tag', Engine.now, {'message' => 'awesome'})
       assert_equal("awesome\n", formatted)
     end
