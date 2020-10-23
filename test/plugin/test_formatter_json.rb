@@ -7,6 +7,11 @@ class JsonFormatterTest < ::Test::Unit::TestCase
 
   def setup
     @time = event_time
+    @default_newline = if Fluent.windows?
+                         "\r\n"
+                       else
+                         "\n"
+                       end
   end
 
   def create_driver(conf = "")
@@ -25,12 +30,17 @@ class JsonFormatterTest < ::Test::Unit::TestCase
     {:message => :awesome}
   end
 
-  data('oj' => 'oj', 'yajl' => 'yajl')
+  data('oj with LF' => ['oj', "lf", "\n"],
+       'oj with CRLF' => ['oj', "crlf", "\r\n"],
+       'yajl with LF' => ['yajl', "lf", "\n"],
+       'yajl with CRLF' => ['yajl', "crlf", "\r\n"]
+      )
   def test_format(data)
-    d = create_driver('json_parser' => data)
+    parser, newline_conf, newline = data
+    d = create_driver('json_parser' => parser, 'newline' => newline_conf)
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("#{JSON.generate(record)}\n", formatted)
+    assert_equal("#{JSON.generate(record)}#{newline}", formatted)
   end
 
   data('oj' => 'oj', 'yajl' => 'yajl')
@@ -46,6 +56,6 @@ class JsonFormatterTest < ::Test::Unit::TestCase
     d = create_driver('json_parser' => data)
     formatted = d.instance.format(tag, @time, symbolic_record)
 
-    assert_equal("#{JSON.generate(record)}\n", formatted)
+    assert_equal("#{JSON.generate(record)}#{@default_newline}", formatted)
   end
 end

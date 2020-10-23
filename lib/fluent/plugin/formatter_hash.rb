@@ -19,13 +19,15 @@ require 'fluent/plugin/formatter'
 module Fluent
   module Plugin
     class HashFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('hash', self)
 
       config_param :add_newline, :bool, default: true
 
       def format(tag, time, record)
         line = record.to_s
-        line << "\n".freeze if @add_newline
+        line << @newline.freeze if @add_newline
         line
       end
     end

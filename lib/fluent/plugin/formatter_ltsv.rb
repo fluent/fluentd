@@ -19,6 +19,8 @@ require 'fluent/plugin/formatter'
 module Fluent
   module Plugin
     class LabeledTSVFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('ltsv', self)
 
       # http://ltsv.org/
@@ -34,7 +36,7 @@ module Fluent
           formatted << @delimiter if formatted.length.nonzero?
           formatted << "#{label}#{@label_delimiter}#{value}"
         end
-        formatted << "\n".freeze if @add_newline
+        formatted << @newline.freeze if @add_newline
         formatted
       end
     end

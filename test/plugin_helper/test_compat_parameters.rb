@@ -10,6 +10,11 @@ class CompatParameterTest < Test::Unit::TestCase
   setup do
     Fluent::Test.setup
     @i = nil
+    @default_newline = if Fluent.windows?
+                         "\r\n"
+                       else
+                         "\n"
+                       end
   end
 
   teardown do
@@ -226,7 +231,7 @@ class CompatParameterTest < Test::Unit::TestCase
       t = event_time('2016-06-24 16:05:01') # localtime
       iso8601str = Time.at(t.to_i).iso8601
       formatted = @i.f.format('tag.test', t, @i.inject_values_to_record('tag.test', t, {"value" => 1}))
-      assert_equal "value%1,tag%tag.test,time%#{iso8601str}\n", formatted
+      assert_equal "value%1,tag%tag.test,time%#{iso8601str}#{@default_newline}", formatted
     end
 
     test 'plugin helper setups time injecting as unix time (integer from epoch)' do
@@ -260,7 +265,7 @@ class CompatParameterTest < Test::Unit::TestCase
       t = event_time('2016-06-24 16:05:01') # localtime
       iso8601str = Time.at(t.to_i).iso8601
       formatted = @i.f.format('tag.test', t, @i.inject_values_to_record('tag.test', t, {"value" => 1}))
-      assert_equal "value%1,tag%tag.test,time%#{iso8601str}\n", formatted
+      assert_equal "value%1,tag%tag.test,time%#{iso8601str}#{@default_newline}", formatted
     end
   end
 

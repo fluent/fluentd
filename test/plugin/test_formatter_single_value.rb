@@ -17,10 +17,13 @@ class SingleValueFormatterTest < ::Test::Unit::TestCase
     assert_equal "foobar", d.instance.message_key
   end
 
-  def test_format
-    d = create_driver
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format(data)
+    newline_conf, newline = data
+    d = create_driver('newline' => newline_conf)
     formatted = d.instance.format('tag', event_time, {'message' => 'awesome'})
-    assert_equal("awesome\n", formatted)
+    assert_equal("awesome#{newline}", formatted)
   end
 
   def test_format_without_newline
@@ -29,10 +32,13 @@ class SingleValueFormatterTest < ::Test::Unit::TestCase
     assert_equal("awesome", formatted)
   end
 
-  def test_format_with_message_key
-    d = create_driver('message_key' => 'foobar')
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format_with_message_key(data)
+    newline_conf, newline = data
+    d = create_driver('message_key' => 'foobar', 'newline' => newline_conf)
     formatted = d.instance.format('tag', event_time, {'foobar' => 'foo'})
 
-    assert_equal("foo\n", formatted)
+    assert_equal("foo#{newline}", formatted)
   end
 end

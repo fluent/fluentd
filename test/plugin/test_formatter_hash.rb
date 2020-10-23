@@ -19,11 +19,14 @@ class HashFormatterTest < ::Test::Unit::TestCase
     {'message' => 'awesome', 'greeting' => 'hello'}
   end
 
-  def test_format
-    d = create_driver({})
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format(data)
+    newline_conf, newline = data
+    d = create_driver({"newline" => newline_conf})
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal(%Q!{"message"=>"awesome", "greeting"=>"hello"}\n!, formatted.encode(Encoding::UTF_8))
+    assert_equal(%Q!{"message"=>"awesome", "greeting"=>"hello"}#{newline}!, formatted.encode(Encoding::UTF_8))
   end
 
   def test_format_without_newline

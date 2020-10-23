@@ -20,6 +20,8 @@ require 'fluent/env'
 module Fluent
   module Plugin
     class JSONFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('json', self)
 
       config_param :json_parser, :string, default: 'oj'
@@ -44,7 +46,7 @@ module Fluent
       end
 
       def format(tag, time, record)
-        "#{@dump_proc.call(record)}\n"
+        "#{@dump_proc.call(record)}#{@newline}"
       end
 
       def format_without_nl(tag, time, record)

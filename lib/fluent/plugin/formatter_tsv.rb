@@ -19,6 +19,8 @@ require 'fluent/plugin/formatter'
 module Fluent
   module Plugin
     class TSVFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('tsv', self)
 
       desc 'Field names included in each lines'
@@ -30,7 +32,7 @@ module Fluent
 
       def format(tag, time, record)
         formatted = @keys.map{|k| record[k].to_s }.join(@delimiter)
-        formatted << "\n".freeze if @add_newline
+        formatted << @newline.freeze if @add_newline
         formatted
       end
     end

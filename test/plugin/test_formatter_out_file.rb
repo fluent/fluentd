@@ -5,6 +5,11 @@ require 'fluent/plugin/formatter_out_file'
 class OutFileFormatterTest < ::Test::Unit::TestCase
   def setup
     @time = event_time
+    @default_newline = if Fluent.windows?
+                         "\r\n"
+                       else
+                         "\n"
+                       end
   end
 
   def create_driver(conf = {})
@@ -48,48 +53,64 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
       oldtz, ENV['TZ'] = ENV['TZ'], "UTC+07"
       d = create_driver(config_element('ROOT', '', {key => value}))
       tag = 'test'
-      assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}\n", d.instance.format(tag, time, record)
+      assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}#{@default_newline}", d.instance.format(tag, time, record)
     ensure
       ENV['TZ'] = oldtz
     end
   end
 
-  def test_format
-    d = create_driver({})
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format(data)
+    newline_conf, newline = data
+    d = create_driver({"newline" => newline_conf})
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("#{time2str(@time)}\t#{tag}\t#{Yajl.dump(record)}\n", formatted)
+    assert_equal("#{time2str(@time)}\t#{tag}\t#{Yajl.dump(record)}#{newline}", formatted)
   end
 
-  def test_format_without_time
-    d = create_driver('output_time' => 'false')
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format_without_time(data)
+    newline_conf, newline = data
+    d = create_driver('output_time' => 'false', 'newline' => newline_conf)
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("#{tag}\t#{Yajl.dump(record)}\n", formatted)
+    assert_equal("#{tag}\t#{Yajl.dump(record)}#{newline}", formatted)
   end
 
-  def test_format_without_tag
-    d = create_driver('output_tag' => 'false')
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format_without_tag(data)
+    newline_conf, newline = data
+    d = create_driver('output_tag' => 'false', 'newline' => newline_conf)
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("#{time2str(@time)}\t#{Yajl.dump(record)}\n", formatted)
+    assert_equal("#{time2str(@time)}\t#{Yajl.dump(record)}#{newline}", formatted)
   end
 
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
   def test_format_without_time_and_tag
-    d = create_driver('output_tag' => 'false', 'output_time' => 'false')
+    newline_conf, newline = data
+    d = create_driver('output_tag' => 'false', 'output_time' => 'false', 'newline' => newline_conf)
     formatted = d.instance.format('tag', @time, record)
 
-    assert_equal("#{Yajl.dump(record)}\n", formatted)
+    assert_equal("#{Yajl.dump(record)}#{newline}", formatted)
   end
 
-  def test_format_without_time_and_tag_against_string_literal_configure
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format_without_time_and_tag_against_string_literal_configure(data)
+    newline_conf, newline = data
     d = create_driver(%[
                         utc         true
                         output_tag  false
                         output_time false
+                        newline     #{newline_conf}
                       ])
     formatted = d.instance.format('tag', @time, record)
 
-    assert_equal("#{Yajl.dump(record)}\n", formatted)
+    assert_equal("#{Yajl.dump(record)}#{newline}", formatted)
   end
 end

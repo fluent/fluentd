@@ -19,6 +19,8 @@ require 'fluent/plugin/formatter'
 module Fluent
   module Plugin
     class SingleValueFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('single_value', self)
 
       config_param :message_key, :string, default: 'message'
@@ -26,7 +28,7 @@ module Fluent
 
       def format(tag, time, record)
         text = record[@message_key].to_s.dup
-        text << "\n" if @add_newline
+        text << @newline.freeze if @add_newline
         text
       end
     end

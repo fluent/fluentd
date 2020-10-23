@@ -21,6 +21,8 @@ require 'yajl'
 module Fluent
   module Plugin
     class OutFileFormatter < Formatter
+      include Fluent::Plugin::Newline::Mixin
+
       Plugin.register_formatter('out_file', self)
 
       config_param :output_time, :bool, default: true
@@ -44,7 +46,7 @@ module Fluent
         header = ''
         header << "#{@timef.format(time)}#{@delimiter}" if @output_time
         header << "#{tag}#{@delimiter}" if @output_tag
-        "#{header}#{Yajl.dump(record)}\n"
+        "#{header}#{Yajl.dump(record)}#{@newline}"
       end
     end
   end

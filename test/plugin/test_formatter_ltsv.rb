@@ -36,11 +36,14 @@ class LabeledTSVFormatterTest < ::Test::Unit::TestCase
     assert_equal  false, d.instance.add_newline
   end
 
-  def test_format
-    d = create_driver({})
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format(data)
+    newline_conf, newline = data
+    d = create_driver({"newline" => newline_conf})
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("message:awesome\tgreeting:hello\n", formatted)
+    assert_equal("message:awesome\tgreeting:hello#{newline}", formatted)
   end
 
   def test_format_without_newline
@@ -50,13 +53,18 @@ class LabeledTSVFormatterTest < ::Test::Unit::TestCase
     assert_equal("message:awesome\tgreeting:hello", formatted)
   end
 
-  def test_format_with_customized_delimiters
+  data("newline (LF)" => ["lf", "\n"],
+       "newline (CRLF)" => ["crlf", "\r\n"])
+  def test_format_with_customized_delimiters(data)
+    newline_conf, newline = data
+
     d = create_driver(
       'delimiter'       => ',',
       'label_delimiter' => '=',
+      'newline' => newline_conf,
     )
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("message=awesome,greeting=hello\n", formatted)
+    assert_equal("message=awesome,greeting=hello#{newline}", formatted)
   end
 end

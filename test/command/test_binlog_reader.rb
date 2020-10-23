@@ -82,6 +82,14 @@ class TestBaseCommand < ::Test::Unit::TestCase
 end
 
 class TestHead < TestBaseCommand
+  setup do
+    @default_newline = if Fluent.windows?
+                         "\r\n"
+                       else
+                         "\n"
+                       end
+  end
+
   sub_test_case 'initialize' do
     data(
       'file is not passed' => %w(),
@@ -138,7 +146,7 @@ class TestHead < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}\n" * 5, out
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}#{@default_newline}" * 5, out
       end
     end
 
@@ -149,7 +157,7 @@ class TestHead < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}\n", out
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}#{@default_newline}", out
       end
     end
 
@@ -169,7 +177,7 @@ class TestHead < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "#{Yajl.dump(@record)}\n", out
+        assert_equal "#{Yajl.dump(@record)}#{@default_newline}", out
       end
     end
 
@@ -198,6 +206,14 @@ class TestHead < TestBaseCommand
 end
 
 class TestCat < TestBaseCommand
+  setup do
+    @default_newline = if Fluent.windows?
+                         "\r\n"
+                       else
+                         "\n"
+                       end
+  end
+
   sub_test_case 'initialize' do
     data(
       'file is not passed' => [],
@@ -254,7 +270,7 @@ class TestCat < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}\n" * 6, out
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}#{@default_newline}" * 6, out
       end
     end
 
@@ -265,7 +281,7 @@ class TestCat < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}\n", out
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}#{@default_newline}", out
       end
     end
 
@@ -276,7 +292,7 @@ class TestCat < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "#{Yajl.dump(@record)}\n", out
+        assert_equal "#{Yajl.dump(@record)}#{@default_newline}", out
       end
     end
 

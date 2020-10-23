@@ -46,5 +46,29 @@ module Fluent
         @proc.call(tag, time, record)
       end
     end
+
+    module Newline
+      module Mixin
+        include Fluent::Configurable
+
+        DEFAULT_NEWLINE = if Fluent.windows?
+                            :crlf
+                          else
+                            :lf
+                          end
+
+        config_param :newline, :enum, list: [:lf, :crlf], default: DEFAULT_NEWLINE
+
+        def configure(conf)
+          super
+          @newline = case newline
+                     when :lf
+                       "\n"
+                     when :crlf
+                       "\r\n"
+                     end
+        end
+      end
+    end
   end
 end
