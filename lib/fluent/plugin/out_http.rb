@@ -21,6 +21,16 @@ require 'fluent/tls'
 require 'fluent/plugin/output'
 require 'fluent/plugin_helper/socket'
 
+# patch Net::HTTP to support extra_chain_cert which was added in Ruby feature #9758.
+# see: https://github.com/ruby/ruby/commit/31af0dafba6d3769d2a39617c0dddedb97883712
+unless Net::HTTP::SSL_IVNAMES.include?(:@extra_chain_cert)
+  class Net::HTTP
+    SSL_IVNAMES << :@extra_chain_cert
+    SSL_ATTRIBUTES << :extra_chain_cert
+    attr_accessor :extra_chain_cert
+  end
+end
+
 module Fluent::Plugin
   class HTTPOutput < Output
     Fluent::Plugin.register_output('http', self)
@@ -171,7 +181,15 @@ module Fluent::Plugin
         end
         if @tls_client_cert_path
           raise Fluent::ConfigError, "tls_client_cert_path is wrong: #{@tls_client_cert_path}" unless File.file?(@tls_client_cert_path)
-          opt[:cert] = OpenSSL::X509::Certificate.new(File.read(@tls_client_cert_path))
+
+          bundle = File.read(@tls_client_cert_path)
+          bundle_certs = bundle.scan(/-----BEGIN CERTIFICATE-----(?:.|\n)+?-----END CERTIFICATE-----/)
+          opt[:cert] = OpenSSL::X509::Certificate.new(bundle_certs[0])
+
+          intermediate_certs = bundle_certs[1..-1]
+          if intermediate_certs
+            opt[:extra_chain_cert] = intermediate_certs.map { |cert| OpenSSL::X509::Certificate.new(cert) }
+          end
         end
         if @tls_private_key_path
           raise Fluent::ConfigError, "tls_private_key_path is wrong: #{@tls_private_key_path}" unless File.file?(@tls_private_key_path)
