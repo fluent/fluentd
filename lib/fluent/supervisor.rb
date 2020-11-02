@@ -183,7 +183,6 @@ module Fluent
           until WaitForSingleObject(ev.handle, 0) == WAIT_OBJECT_0
             sleep 1
           end
-          kill_worker
           stop(true)
         ensure
           ev.close
