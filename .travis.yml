@@ -64,7 +64,7 @@ branches:
 before_install: |
   gem update --system=3.1.2
   if [[ "x${USE_CAPNG}" == "xtrue" ]]; then
-    gem install capng_c --no-document
+    echo 'gem "capng_c"' >> Gemfile.local
   fi
 
 sudo: false
