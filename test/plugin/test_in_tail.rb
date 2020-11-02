@@ -86,6 +86,9 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
       assert_equal 1000, d.instance.read_lines_limit
       assert_equal false, d.instance.ignore_repeated_permission_error
+      assert_nothing_raised do
+        d.instance.have_read_capability?
+      end
     end
 
     data("empty" => config_element,
