@@ -1,5 +1,19 @@
 # v1.11
 
+## Release v1.11.5 - 2020/11/06
+
+### Enhancement
+
+* formatter: Provide `newline` parameter to support `CRLF`
+  https://github.com/fluent/fluentd/pull/3152
+* out_http: adding support for intermediate certificates
+  https://github.com/fluent/fluentd/pull/3146
+
+### Bug fix
+
+* Fix a bug that windows service isn't stopped gracefuly
+  https://github.com/fluent/fluentd/pull/3156
+
 ## Release v1.11.4 - 2020/10/13
 
 ### Enhancement
