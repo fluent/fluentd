@@ -8,6 +8,7 @@
   https://github.com/fluent/fluentd/pull/3152
 * out_http: adding support for intermediate certificates
   https://github.com/fluent/fluentd/pull/3146
+* Update serverengine dependency to 2.2.2 or later
 
 ### Bug fix
 
