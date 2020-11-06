@@ -8,6 +8,10 @@ require 'net/http'
 require 'uri'
 require 'fileutils'
 
+if Fluent.windows?
+  require 'win32/event'
+end
+
 class SupervisorTest < ::Test::Unit::TestCase
   class DummyServer
     include Fluent::ServerModule
@@ -126,6 +130,28 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert{ logs.any?{|log| log.include?(debug_msg) } }
   ensure
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+  end
+
+  def test_windows_shutdown_event
+    omit "Only for Windows platform" unless Fluent.windows?
+
+    server = DummyServer.new
+    def server.config
+      {:signame => "TestFluentdEvent", :worker_pid => {0 => 1234}}
+    end
+
+    mock(server).stop(true)
+    stub(Process).kill.times(0)
+
+    server.before_run
+    server.install_windows_event_handler
+    sleep 0.1 # Wait for starting windows event thread
+    event = Win32::Event.open("TestFluentdEvent")
+    event.set
+    event.close
+    # Wait for stopping windows event thread. Should larger than 1 sec
+    # because the thread is awaked every 1 sec.
+    sleep 1.1
   end
 
   def test_rpc_server
