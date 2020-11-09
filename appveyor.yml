@@ -7,6 +7,9 @@ install:
   - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
   - ruby --version
   - gem --version
+  # stay 0.14.0 for Windows CI until https://github.com/socketry/protocol-http2/issues/6 will be fixed
+  - ps: Write-Output "gem 'protocol-http2', ['<= 0.14.0']" | Out-File -FilePath Gemfile.local -Encoding default
+  - type Gemfile.local
   - ridk.cmd exec bundle install
 build: off
 test_script:
