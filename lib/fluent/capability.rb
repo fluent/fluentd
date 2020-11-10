@@ -24,48 +24,64 @@ if Fluent.linux?
 end
 
 module Fluent
-  class Capability
-    def initialize(target = :current_process, pid_or_path = nil)
-      if defined?(CapNG)
-        @usable = true
+  if defined?(CapNG)
+    class Capability
+      def initialize(target = :current_process, pid_or_path = nil)
         @capng = CapNG.new(target, pid_or_path)
-      else
-        @usable = false
+      end
+
+      def usable?
+        true
+      end
+
+      def apply(select_set)
+        @capng.apply(select_set)
+      end
+
+      def clear(select_set)
+        @capng.clear(select_set)
+      end
+
+      def have_capability?(type, capability)
+        @capng.have_capability?(type, capability)
+      end
+
+      def update(action, type, capability_or_capability_array)
+        @capng.update(action, type, capability_or_capability_array)
+      end
+
+      def have_capabilities?(select_set)
+        @capng.have_capabilities?(select_set)
       end
     end
+  else
+    class Capability
+      def initialize(target = :current_process, pid_or_path = nil)
+      end
 
-    def usable?
-      @usable
-    end
+      def usable?
+        false
+      end
 
-    def apply(select_set)
-      return nil unless usable?
+      def apply(select_set)
+        false
+      end
 
-      @capng.apply(select_set)
-    end
+      def clear(select_set)
+        false
+      end
 
-    def clear(select_set)
-      return nil unless usable?
+      def have_capability?(type, capability)
+        false
+      end
 
-      @capng.clear(select_set)
-    end
+      def update(action, type, capability_or_capability_array)
+        false
+      end
 
-    def have_capability?(type, capability)
-      return false unless usable?
-
-      @capng.have_capability?(type, capability)
-    end
-
-    def update(action, type, capability_or_capability_array)
-      return nil unless usable?
-
-      @capng.update(action, type, capability_or_capability_array)
-    end
-
-    def have_capabilities?(select_set)
-      return false unless usable?
-
-      @capng.have_capabilities?(select_set)
+      def have_capabilities?(select_set)
+        false
+      end
     end
   end
 end
