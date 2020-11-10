@@ -270,9 +270,7 @@ module Fluent::Plugin
           paths += Dir.glob(path).select { |p|
             begin
               is_file = !File.directory?(p)
-              if (File.readable?(p) ||
-                  have_read_capability?) &&
-                 is_file
+              if (File.readable?(p) || have_read_capability?) && is_file
                 if @limit_recently_modified && File.mtime(p) < (date.to_time - @limit_recently_modified)
                   false
                 else
