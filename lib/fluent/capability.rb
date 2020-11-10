@@ -26,7 +26,7 @@ end
 module Fluent
   if defined?(CapNG)
     class Capability
-      def initialize(target = :current_process, pid = nil)
+      def initialize(target = nil, pid = nil)
         @capng = CapNG.new(target, pid)
       end
 
@@ -56,7 +56,7 @@ module Fluent
     end
   else
     class Capability
-      def initialize(target = :current_process, pid = nil)
+      def initialize(target = nil, pid = nil)
       end
 
       def usable?
