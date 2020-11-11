@@ -448,7 +448,7 @@ module Fluent::Plugin
     end
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
-    def update_watcher(path, ino, pe)
+    def update_watcher(path, inode, pe)
       log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
 
       if @pf
@@ -458,9 +458,7 @@ module Fluent::Plugin
         end
       end
 
-      @tails[path] = setup_watcher(path, ino, pe)
       tuple = PathInodeTuple.new(path, pe.read_inode)
-      detach_watcher_after_rotate_wait(rotated_tw) if rotated_tw
       rotated_tw = @tails[tuple]
 
       new_tuple = PathInodeTuple.new(path, inode)
