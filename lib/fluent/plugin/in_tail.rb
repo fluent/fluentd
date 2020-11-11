@@ -245,7 +245,7 @@ module Fluent::Plugin
 
     def shutdown
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
-      stop_watchers(@tails.keys, immediate: true, remove_watcher: false)
+      stop_watchers(existence_path.values, immediate: true, remove_watcher: false)
       @pf_file.close if @pf_file
 
       super
@@ -408,39 +408,32 @@ module Fluent::Plugin
           log.warn "Skip #{path} because unexpected setup error happens: #{e}"
           next
         end
-        @tails[path] = tw
+        tuple = PathInodeTuple.new(path, Fluent::FileWrapper.stat(path).ino)
+        @tails[tuple] = tw
       }
     end
 
-    def stop_watchers(paths, immediate: false, unwatched: false, remove_watcher: true)
-      paths.each { |path|
+    def stop_watchers(paths_with_inodes, immediate: false, unwatched: false, remove_watcher: true)
+      paths_with_inodes.each { |path_with_inode|
         if remove_watcher
-          if @follow_inodes
-            tw = @tails.delete(path.ino)
-          else
-            tw = @tails.delete[path.path]
-          end
+          tw = @tails.delete(path_with_inode)
         else
-          if @follow_inodes
-            tw = @tails[path.ino]
-          else
-            tw = @tails[path.path]
-          end
+          tw = @tails[path_with_inode]
         end
         if tw
           tw.unwatched = unwatched
           if immediate
-            detach_watcher(tw, path.ino, false)
+            detach_watcher(tw, path_with_inode.ino, false)
           else
-            detach_watcher_after_rotate_wait(tw, path.ino)
+            detach_watcher_after_rotate_wait(tw, path_with_inode.ino)
           end
         end
       }
     end
 
     def close_watcher_handles
-      @tails.keys.each do |path|
-        tw = @tails.delete(path)
+      @tails.keys.each do |path_with_inode|
+        tw = @tails.delete(path_with_inode)
         if tw
           tw.close
         end
