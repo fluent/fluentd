@@ -22,7 +22,11 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def cleanup_directory(path)
-    FileUtils.rm_rf(path, secure: true)
+    begin
+      FileUtils.rm_f(path, secure: true)
+    rescue ArgumentError
+      FileUtils.rm_f(path) # For Ruby 2.6 or before.
+    end
     if File.exist?(path)
       FileUtils.remove_entry_secure(path, true)
     end
@@ -30,7 +34,11 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def cleanup_file(path)
-    FileUtils.rm_f(path, secure: true)
+    begin
+      FileUtils.rm_f(path, secure: true)
+    rescue ArgumentError
+      FileUtils.rm_f(path) # For Ruby 2.6 or before.
+    end
     if File.exist?(path)
       # ensure files are closed for Windows, on which deleted files
       # are still visible from filesystem
