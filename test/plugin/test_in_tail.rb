@@ -1512,7 +1512,8 @@ class TailInputTest < Test::Unit::TestCase
           "refresh_interval" => "1s",
           "limit_recently_modified" => "1s",
           "read_from_head" => "true",
-          "format" => "none"
+          "format" => "none",
+          "follow_inodes" => "true",
       })
 
       d = create_driver(config, false)
@@ -1529,10 +1530,13 @@ class TailInputTest < Test::Unit::TestCase
 
 
       Timecop.travel(Time.now + 10) do
-        waiting(5) {sleep 0.1 until d.instance.instance_variable_get(:@pf)[path_ino.path, path_ino.ino].read_pos == Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION}
+        waiting(5) {
+          # @pos will be reset as 0 when UNWATCHED_POSITION is specified.
+          sleep 0.1 until d.instance.instance_variable_get(:@pf)[path_ino.path, path_ino.ino].read_pos == 0
+        }
       end
 
-      assert_equal(Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION, d.instance.instance_variable_get(:@pf)[path_ino.path, path_ino.ino].read_pos)
+      assert_equal(0, d.instance.instance_variable_get(:@pf)[path_ino.path, path_ino.ino].read_pos)
 
       d.instance_shutdown
     end
