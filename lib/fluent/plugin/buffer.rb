@@ -143,33 +143,14 @@ module Fluent
           end
         end
 
-        # timekey should be unixtime as usual.
-        # So, unixtime should be bigger than 2^30 - 1 (= 1073741823) nowadays.
-        # We should check object_id stability to use object_id as optimization for comparing operations.
-        # e.g.)
-        # irb> Time.parse("2020/07/31 18:30:00+09:00").to_i
-        # => 1596187800
-        # irb> Time.parse("2020/07/31 18:30:00+09:00").to_i > 2**30 -1
-        # => true
-        def self.enable_optimize?
-          a1 = 2**30 - 1
-          a2 = 2**30 - 1
-          b1 = 2**62 - 1
-          b2 = 2**62 - 1
-          (a1.object_id == a2.object_id) && (b1.object_id == b2.object_id)
-        end
-
         # This is an optimization code. Current Struct's implementation is comparing all data.
         # https://github.com/ruby/ruby/blob/0623e2b7cc621b1733a760b72af246b06c30cf96/struct.c#L1200-L1203
         # Actually this overhead is very small but this class is generated *per chunk* (and used in hash object).
         # This means that this class is one of the most called object in Fluentd.
         # See https://github.com/fluent/fluentd/pull/2560
-        # But, this optimization has a side effect on Windows and 32bit environment(s) due to differing object_id.
-        # This difference causes flood of buffer files.
-        # So, this optimization should be enabled on `enable_optimize?` as true platforms.
         def hash
-          timekey.object_id
-        end if enable_optimize?
+          timekey.hash
+        end
       end
 
       # for tests
