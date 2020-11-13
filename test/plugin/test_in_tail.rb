@@ -1641,25 +1641,15 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test2"
       }
       path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
-
-      flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with(path_ino.path, path_ino.ino, 1, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any, any, any, true, any).once.and_return do
-          flexmock('TailWatcher') {|watcher|
-            watcher.should_receive(:attach).once
-            watcher.should_receive(:unwatched=).once
-            watcher.should_receive(:detach).once
-            watcher.should_receive(:close).once
-            watcher.should_receive(:line_buffer).zero_or_more_times.and_return nil
-          }
-        end
-        d.run(shutdown: false)
-      end
+      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path_ino.path, path_ino.ino, anything, anything, true, true, anything, nil, anything).once
+      d.run(shutdown: false)
+      assert d.instance.instance_variable_get(:@tails)[path_ino]
 
       Timecop.travel(now + 10) do
-        sleep 3
         d.instance.instance_eval do
-          @tails[path_ino.path] == nil
+          sleep 0.1 until @tails[path_ino] == nil
         end
+        assert_nil d.instance.instance_variable_get(:@tails)[path_ino]
       end
       d.instance_shutdown
     end
