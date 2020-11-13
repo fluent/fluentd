@@ -36,7 +36,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
 
   test '.load' do
     write_data(@file, TEST_CONTENT)
-    Fluent::Plugin::TailInput::PositionFile.load(@file, false, **{logger: $log})
+    Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, **{logger: $log})
 
     @file.seek(0)
     lines = @file.readlines
@@ -48,7 +48,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
   sub_test_case '#try_compact' do
     test 'compact invalid and convert 32 bit inode value' do
       write_data(@file, TEST_CONTENT)
-      Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log}).try_compact
+      Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log}).try_compact
 
       @file.seek(0)
       lines = @file.readlines
@@ -62,7 +62,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
         valid_path\t0000000000000002\t0000000000000001
         valid_path\t0000000000000003\t0000000000000004
       EOF
-      Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log}).try_compact
+      Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log}).try_compact
 
       @file.seek(0)
       lines = @file.readlines
@@ -71,7 +71,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
 
     test 'does not change when the file is changed' do
       write_data(@file, TEST_CONTENT)
-      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log})
+      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log})
 
       mock.proxy(pf).fetch_compacted_entries do |r|
         @file.write("unwatched\t#{UNWATCHED_STR}\t0000000000000000\n")
@@ -86,11 +86,12 @@ class IntailPositionFileTest < Test::Unit::TestCase
     end
 
     test 'update seek postion of remained position entry' do
-      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log})
+      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log})
       pf['path1', -1]
       pf['path2', -1]
       pf['path3', -1]
-      pf.unwatch('path1')
+
+      pf.unwatch('path1', 1234)
 
       pf.try_compact
 
@@ -100,8 +101,8 @@ class IntailPositionFileTest < Test::Unit::TestCase
       assert_equal "path3\t0000000000000000\t0000000000000000\n", lines[1]
       assert_equal 2, lines.size
 
-      pf.unwatch('path2')
-      pf.unwatch('path3')
+      pf.unwatch('path2', 1235)
+      pf.unwatch('path3', 1236)
       @file.seek(0)
       lines = @file.readlines
       assert_equal "path2\t#{UNWATCHED_STR}\t0000000000000000\n", lines[0]
@@ -113,7 +114,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
   sub_test_case '#load' do
     test 'compact invalid and convert 32 bit inode value' do
       write_data(@file, TEST_CONTENT)
-      Fluent::Plugin::TailInput::PositionFile.load(@file, false, **{logger: $log})
+      Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, **{logger: $log})
 
       @file.seek(0)
       lines = @file.readlines
@@ -127,7 +128,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
         valid_path\t0000000000000002\t0000000000000001
         valid_path\t0000000000000003\t0000000000000004
       EOF
-      Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log}).load
+      Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log}).load
 
       @file.seek(0)
       lines = @file.readlines
@@ -138,7 +139,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
   sub_test_case '#[]' do
     test 'return entry' do
       write_data(@file, TEST_CONTENT)
-      pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, **{logger: $log})
+      pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, **{logger: $log})
 
       f = pf['valid_path', Fluent::FileWrapper.stat(@file).ino]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, f.class
@@ -162,7 +163,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
 
     test 'does not change other value position if other entry try to write' do
       write_data(@file, TEST_CONTENT)
-      pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, logger: $log)
+      pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, logger: $log)
 
       f = pf['nonexist_path', -1]
       assert_equal 0, f.read_inode
@@ -183,14 +184,16 @@ class IntailPositionFileTest < Test::Unit::TestCase
   sub_test_case '#unwatch' do
     test 'deletes entry by path' do
       write_data(@file, TEST_CONTENT)
-      pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, logger: $log)
-      p1 = pf['valid_path', Fluent::FileWrapper.stat(@file).ino]
+      pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, logger: $log)
+      inode1 = Fluent::FileWrapper.stat(@file).ino
+      p1 = pf['valid_path', inode1]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p1.class
 
-      pf.unwatch('valid_path')
+      pf.unwatch('valid_path', inode1)
       assert_equal p1.read_pos, Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION
 
-      p2 = pf['valid_path', Fluent::FileWrapper.stat(@file).ino]
+      inode2 = Fluent::FileWrapper.stat(@file).ino
+      p2 = pf['valid_path', inode2]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p2.class
 
       assert_not_equal p1, p2
