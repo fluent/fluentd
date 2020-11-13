@@ -28,4 +28,8 @@ module Fluent
   def self.windows?
     ServerEngine.windows?
   end
+
+  def self.linux?
+    /linux/ === RUBY_PLATFORM
+  end
 end

@@ -86,6 +86,9 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
       assert_equal 1000, d.instance.read_lines_limit
       assert_equal false, d.instance.ignore_repeated_permission_error
+      assert_nothing_raised do
+        d.instance.have_read_capability?
+      end
     end
 
     data("empty" => config_element,
@@ -1109,6 +1112,49 @@ class TailInputTest < Test::Unit::TestCase
         num += 1
       }
       num
+    end
+  end
+
+  sub_test_case "path w/ Linux capability" do
+    def capability_enabled?
+      if Fluent.linux?
+        begin
+          require 'capng'
+          true
+        rescue LoadError
+          false
+        end
+      else
+        false
+      end
+    end
+
+    setup do
+      omit "This environment is not enabled Linux capability handling feature" unless capability_enabled?
+
+      @capng = CapNG.new(:current_process)
+      flexstub(Fluent::Capability) do |klass|
+        klass.should_receive(:new).with(:current_process).and_return(@capng)
+      end
+    end
+
+    data("dac_read_search" => [:dac_read_search, true,  1],
+         "dac_override"    => [:dac_override,    true,  1],
+         "chown"           => [:chown,           false, 0],
+        )
+    test "with partially elevated privileges" do |data|
+      cap, result, readable_paths = data
+      @capng.update(:add, :effective, cap)
+
+      d = create_driver(
+        config_element("ROOT", "", {
+                            "path" => "/var/log/ker*.log", # Use /var/log/kern.log
+                            "tag" => "t1",
+                            "rotate_wait" => "2s"
+                       }) + PARSE_SINGLE_LINE_CONFIG, false)
+
+      assert_equal readable_paths, d.instance.expand_paths.length
+      assert_equal result, d.instance.have_read_capability?
     end
   end
 

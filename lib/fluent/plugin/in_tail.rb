@@ -22,6 +22,7 @@ require 'fluent/event'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin/parser_multiline'
 require 'fluent/variable_store'
+require 'fluent/capability'
 require 'fluent/plugin/in_tail/position_file'
 
 if Fluent.windows?
@@ -171,6 +172,7 @@ module Fluent::Plugin
       @dir_perm = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
       # parser is already created by parser helper
       @parser = parser_create(usage: parser_config['usage'] || @parser_configs.first.usage)
+      @capability = Fluent::Capability.new(:current_process)
     end
 
     def configure_tag
@@ -250,6 +252,11 @@ module Fluent::Plugin
       close_watcher_handles
     end
 
+    def have_read_capability?
+      @capability.have_capability?(:effective, :dac_read_search) ||
+        @capability.have_capability?(:effective, :dac_override)
+    end
+
     def expand_paths
       date = Fluent::EventTime.now
       paths = []
@@ -263,7 +270,7 @@ module Fluent::Plugin
           paths += Dir.glob(path).select { |p|
             begin
               is_file = !File.directory?(p)
-              if File.readable?(p) && is_file
+              if (File.readable?(p) || have_read_capability?) && is_file
                 if @limit_recently_modified && File.mtime(p) < (date.to_time - @limit_recently_modified)
                   false
                 else
