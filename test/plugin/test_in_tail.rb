@@ -1623,7 +1623,10 @@ class TailInputTest < Test::Unit::TestCase
 
       pos_file = d.instance.instance_variable_get(:@pf)
 
-      waiting(10) {sleep 0.1 until pos_file[path_ino.path, path_ino.ino].read_pos == Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION}
+      waiting(10) {
+        # @pos will be reset as 0 when UNWATCHED_POSITION is specified.
+        sleep 0.1 until pos_file[path_ino.path, path_ino.ino].read_pos == 0
+      }
       new_position = pos_file[new_path_ino.path, new_path_ino.ino].read_pos
       assert_equal(6, new_position)
 
