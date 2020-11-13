@@ -31,18 +31,19 @@ module Fluent::Plugin
       UNWATCHED_POSITION = 0xffffffffffffffff
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
 
-      def self.load(file, follow_inodes, logger:)
-        pf = new(file, follow_inodes, logger: logger)
+      def self.load(file, follow_inodes, existing_paths, logger:)
+        pf = new(file, follow_inodes, existing_paths, logger: logger)
         pf.load
         pf
       end
 
-      def initialize(file, follow_inodes, logger: nil)
+      def initialize(file, follow_inodes, existing_paths, logger: nil)
         @file = file
         @logger = logger
         @file_mutex = Mutex.new
         @map = {}
         @follow_inodes = follow_inodes
+        @existing_paths = existing_paths
       end
 
       def [](path, inode)
@@ -165,12 +166,24 @@ module Fluent::Plugin
               @logger.warn("#{path} already exists. use latest one: deleted #{entries[path]}") if @logger
             end
 
-            entries[path] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+            if @follow_inodes
+              entries[ino] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+            else
+              entries[path] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+            end
             file_pos += line.size
           end
         end
 
+        entries = remove_deleted_files_entries(entries, @existing_paths) if @follow_inodes
         entries
+      end
+
+      def remove_deleted_files_entries(existent_entries, existing_paths)
+        filtered_entries = existent_entries.select {|file_entry|
+          existing_paths.key?(file_entry)
+        }
+        filtered_entries
       end
     end
 
