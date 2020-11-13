@@ -1558,7 +1558,8 @@ class TailInputTest < Test::Unit::TestCase
           "refresh_interval" => "1s",
           "limit_recently_modified" => "60s",
           "read_from_head" => "true",
-          "format" => "none"
+          "format" => "none",
+          "follow_inodes" => "true"
       })
 
       d = create_driver(config, false)
@@ -1574,7 +1575,7 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       events = d.events
-      assert_equal(6, events.length)
+      assert_equal(3, events.length)
       d.instance_shutdown
     end
 
