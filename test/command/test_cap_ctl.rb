@@ -11,7 +11,7 @@ class TestFluentCapCtl < Test::Unit::TestCase
   sub_test_case "success" do
     test "clear capability" do
       logs = capture_stdout do
-        Fluent::CapCtl.new(["--clear-cap"]).call
+        Fluent::CapCtl.new(["--clear"]).call
       end
       expression = /\AClear capabilities .*\n/m
       assert_match expression, logs

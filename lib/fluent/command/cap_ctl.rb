@@ -24,7 +24,7 @@ module Fluent
     def prepare_option_parser
       @op = OptionParser.new
 
-      @op.on('--clear-cap', '--clear-capabilities', "Clear Fluentd Ruby capability") {|s|
+      @op.on('--clear', "Clear Fluentd Ruby capability") {|s|
         @opts[:clear_capabilities] = true
       }
 
