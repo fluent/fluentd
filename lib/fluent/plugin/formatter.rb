@@ -63,9 +63,9 @@ module Fluent
           super
           @newline = case newline
                      when :lf
-                       "\n"
+                       "\n".freeze
                      when :crlf
-                       "\r\n"
+                       "\r\n".freeze
                      end
         end
       end
