@@ -27,7 +27,7 @@ module Fluent
       helpers :record_accessor
 
       config_param :delimiter, default: ',' do |val|
-        ['\t', 'TAB'].include?(val) ? "\t" : val
+        ['\t', 'TAB'].include?(val) ? "\t".freeze : val.freeze
       end
       config_param :force_quotes, :bool, default: true
       # "array" looks good for type of :fields, but this implementation removes tailing comma

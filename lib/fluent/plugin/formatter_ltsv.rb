@@ -25,8 +25,8 @@ module Fluent
 
       # http://ltsv.org/
 
-      config_param :delimiter, :string, default: "\t"
-      config_param :label_delimiter, :string, default: ":"
+      config_param :delimiter, :string, default: "\t".freeze
+      config_param :label_delimiter, :string, default: ":".freeze
       config_param :add_newline, :bool, default: true
 
       # TODO: escaping for \t in values
@@ -36,7 +36,7 @@ module Fluent
           formatted << @delimiter if formatted.length.nonzero?
           formatted << "#{label}#{@label_delimiter}#{value}"
         end
-        formatted << @newline.freeze if @add_newline
+        formatted << @newline if @add_newline
         formatted
       end
     end
