@@ -106,6 +106,7 @@ module Fluent
         @capng.clear(:caps)
         @capng.caps_file(target_file)
         capabilities = add_caps.split(/\s*,\s*/)
+        check_capabilities(capabilities, get_valid_capabilities)
         ret = @capng.update(:add,
                             CapNG::Type::EFFECTIVE | CapNG::Type::INHERITABLE | CapNG::Type::PERMITTED,
                             capabilities)
@@ -120,6 +121,7 @@ module Fluent
         @capng.clear(:caps)
         @capng.caps_file(target_file)
         capabilities = drop_caps.split(/\s*,\s*/)
+        check_capabilities(capabilities, get_valid_capabilities)
         ret = @capng.update(:drop,
                             CapNG::Type::EFFECTIVE | CapNG::Type::INHERITABLE | CapNG::Type::PERMITTED,
                             capabilities)
@@ -137,6 +139,23 @@ module Fluent
         puts "Effective:   #{print.caps_text(:buffer, :effective)}"
         puts "Inheritable: #{print.caps_text(:buffer, :inheritable)}"
         puts "Permitted:   #{print.caps_text(:buffer, :permitted)}"
+      end
+    end
+
+    def get_valid_capabilities
+      capabilities = []
+      cap = CapNG::Capability.new
+      cap.each do |_code, capability|
+        capabilities << capability
+      end
+      capabilities
+    end
+
+    def check_capabilities(capabilities, valid_capabilities)
+      capabilities.each do |capability|
+        unless valid_capabilities.include?(capability)
+          raise ArgumentError, "'#{capability}' is not valid capability. Valid Capabilities are:  #{valid_capabilities.join(", ")}"
+        end
       end
     end
 

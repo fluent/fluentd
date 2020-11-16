@@ -86,13 +86,13 @@ class TestFluentCapCtl < Test::Unit::TestCase
 
   sub_test_case "invalid" do
     test "add capability" do
-      assert_raise(RuntimeError) do
+      assert_raise(ArgumentError) do
         Fluent::CapCtl.new(["--add-cap", "nonexitent"]).call
       end
     end
 
     test "drop capability" do
-      assert_raise(RuntimeError) do
+      assert_raise(ArgumentError) do
         Fluent::CapCtl.new(["--drop-cap", "invalid"]).call
       end
     end
