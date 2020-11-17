@@ -19,7 +19,7 @@ class TestFluentCapCtl < Test::Unit::TestCase
 
     test "add capability" do
       logs = capture_stdout do
-        Fluent::CapCtl.new(["--add-cap", "dac_override"]).call
+        Fluent::CapCtl.new(["--add", "dac_override"]).call
       end
       expression = /\AUpdating .* done.\nAdding .*\n/m
       assert_match expression, logs
@@ -27,7 +27,7 @@ class TestFluentCapCtl < Test::Unit::TestCase
 
     test "drop capability" do
       logs = capture_stdout do
-        Fluent::CapCtl.new(["--drop-cap", "chown"]).call
+        Fluent::CapCtl.new(["--drop", "chown"]).call
       end
       expression = /\AUpdating .* done.\nDropping .*\n/m
       assert_match expression, logs
@@ -35,7 +35,7 @@ class TestFluentCapCtl < Test::Unit::TestCase
 
     test "get capability" do
       logs = capture_stdout do
-        Fluent::CapCtl.new(["--get-cap"]).call
+        Fluent::CapCtl.new(["--get"]).call
       end
       expression = /\ACapabilities in .*,\nEffective:   .*\nInheritable: .*\nPermitted:   .*/m
       assert_match expression, logs
@@ -56,7 +56,7 @@ class TestFluentCapCtl < Test::Unit::TestCase
     test "add capability" do
       logs = capture_stdout do
         Tempfile.create("fluent-cap-") do |tempfile|
-          Fluent::CapCtl.new(["--add-cap", "dac_override", "-f", tempfile.path]).call
+          Fluent::CapCtl.new(["--add", "dac_override", "-f", tempfile.path]).call
         end
       end
       expression = /\AUpdating .* done.\nAdding .*\n/m
@@ -66,7 +66,7 @@ class TestFluentCapCtl < Test::Unit::TestCase
     test "drop capability" do
       logs = capture_stdout do
         Tempfile.create("fluent-cap-") do |tempfile|
-          Fluent::CapCtl.new(["--drop-cap", "chown", "-f", tempfile.path]).call
+          Fluent::CapCtl.new(["--drop", "chown", "-f", tempfile.path]).call
         end
       end
       expression = /\AUpdating .* done.\nDropping .*\n/m
@@ -76,7 +76,7 @@ class TestFluentCapCtl < Test::Unit::TestCase
     test "get capability" do
       logs = capture_stdout do
         Tempfile.create("fluent-cap-") do |tempfile|
-          Fluent::CapCtl.new(["--get-cap", "-f", tempfile.path]).call
+          Fluent::CapCtl.new(["--get", "-f", tempfile.path]).call
         end
       end
       expression = /\ACapabilities in .*,\nEffective:   .*\nInheritable: .*\nPermitted:   .*/m
@@ -87,13 +87,13 @@ class TestFluentCapCtl < Test::Unit::TestCase
   sub_test_case "invalid" do
     test "add capability" do
       assert_raise(ArgumentError) do
-        Fluent::CapCtl.new(["--add-cap", "nonexitent"]).call
+        Fluent::CapCtl.new(["--add", "nonexitent"]).call
       end
     end
 
     test "drop capability" do
       assert_raise(ArgumentError) do
-        Fluent::CapCtl.new(["--drop-cap", "invalid"]).call
+        Fluent::CapCtl.new(["--drop", "invalid"]).call
       end
     end
   end
