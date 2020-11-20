@@ -78,6 +78,15 @@ begin
       set_event("#{@service_name}_USR2")
     end
 
+    def service_user_defined_control(code)
+      case code
+      when 128
+        set_event("#{@service_name}_HUP")
+      when 129
+        set_event("#{@service_name}_USR1")
+      end
+    end
+
     private
 
     def set_event(event_name)
