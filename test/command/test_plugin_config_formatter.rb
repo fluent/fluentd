@@ -56,6 +56,13 @@ class TestFluentPluginConfigFormatter < Test::Unit::TestCase
     end
   end
 
+  class FakeServiceDiscovery < ::Fluent::Plugin::ServiceDiscovery
+    ::Fluent::Plugin.register_sd('fake', self)
+
+    desc "hostname"
+    config_param :hostname, :string
+  end
+
   class SimpleInput < ::Fluent::Plugin::Input
     ::Fluent::Plugin.register_input("simple", self)
     helpers :inject, :compat_parameters
@@ -280,7 +287,7 @@ TEXT
   sub_test_case "arguments" do
     data do
       hash = {}
-      ["input", "output", "filter", "parser", "formatter"].each do |type|
+      ["input", "output", "filter", "parser", "formatter", "service_discovery"].each do |type|
         ["txt", "json", "markdown"].each do |format|
           argv = ["--format=#{format}"]
           [
