@@ -88,6 +88,13 @@ class TestFluentPluginConfigFormatter < Test::Unit::TestCase
     end
   end
 
+  class SimpleServiceDiscovery < ::Fluent::Plugin::ServiceDiscovery
+    ::Fluent::Plugin.register_sd('simple', self)
+
+    desc "servers"
+    config_param :servers, :array
+  end
+
   sub_test_case "json" do
     data(input: [FakeInput, "input"],
          output: [FakeOutput, "output"],
@@ -195,6 +202,28 @@ path to something
 TEXT
       assert_equal(expected, dumped_config)
     end
+
+    data("abbrev" => "sd",
+         "normal" => "service_discovery")
+    test "service_discovery simple" do |data|
+      plugin_type = data
+      dumped_config = capture_stdout do
+        FluentPluginConfigFormatter.new(["--format=markdown", plugin_type, "simple"]).call
+      end
+      expected = <<TEXT
+* See also: [ServiceDiscovery Plugin Overview](https://docs.fluentd.org/v/1.0/servicediscovery#overview)
+
+## TestFluentPluginConfigFormatter::SimpleServiceDiscovery
+
+### servers (array) (required)
+
+servers
+
+
+TEXT
+      assert_equal(expected, dumped_config)
+    end
+
 
     test "output complex" do
       dumped_config = capture_stdout do
