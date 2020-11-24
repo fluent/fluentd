@@ -29,7 +29,8 @@ class FluentPluginConfigFormatter
   AVAILABLE_FORMATS = [:markdown, :txt, :json]
   SUPPORTED_TYPES = [
     "input", "output", "filter",
-    "buffer", "parser", "formatter", "storage"
+    "buffer", "parser", "formatter", "storage",
+    "service_discovery"
   ]
 
   DOCS_BASE_URL = "https://docs.fluentd.org/v/1.0"

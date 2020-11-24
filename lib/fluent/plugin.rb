@@ -121,6 +121,11 @@ module Fluent
       new_impl('sd', SD_REGISTRY, type, parent)
     end
 
+    class << self
+      # This should be defined for fluent-plugin-config-formatter type arguments.
+      alias_method :new_service_discovery, :new_sd
+    end
+
     def self.new_parser(type, parent: nil)
       if type[0] == '/' && type[-1] == '/'
         # This usage is not recommended for new API... create RegexpParser directly
