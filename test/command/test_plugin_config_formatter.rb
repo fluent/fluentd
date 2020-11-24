@@ -295,7 +295,7 @@ TEXT
             ["--verbose"],
             ["--compact"]
           ].each do |options|
-            hash[(argv + options).join(" ")] = argv + options + [type, "fake"]
+            hash["[#{type}] " + (argv + options).join(" ")] = argv + options + [type, "fake"]
           end
         end
       end
