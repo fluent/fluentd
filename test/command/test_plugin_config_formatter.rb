@@ -56,6 +56,25 @@ class TestFluentPluginConfigFormatter < Test::Unit::TestCase
     end
   end
 
+  class FakeStorage < ::Fluent::Plugin::Storage
+    ::Fluent::Plugin.register_storage('fake', self)
+
+    def get(key)
+    end
+
+    def fetch(key, defval)
+    end
+
+    def put(key, value)
+    end
+
+    def delete(key)
+    end
+
+    def update(key, &block)
+    end
+  end
+
   class FakeServiceDiscovery < ::Fluent::Plugin::ServiceDiscovery
     ::Fluent::Plugin.register_sd('fake', self)
 
@@ -287,7 +306,7 @@ TEXT
   sub_test_case "arguments" do
     data do
       hash = {}
-      ["input", "output", "filter", "parser", "formatter", "service_discovery"].each do |type|
+      ["input", "output", "filter", "parser", "formatter", "storage", "service_discovery"].each do |type|
         ["txt", "json", "markdown"].each do |format|
           argv = ["--format=#{format}"]
           [
