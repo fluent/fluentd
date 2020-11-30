@@ -217,5 +217,37 @@ class CopyOutputTest < Test::Unit::TestCase
       end
     end
   end
+
+  IGNORE_IF_PREV_SUCCESS_CONFIG = %[
+    <store ignore_error>
+      @type test
+      name c0
+    </store>
+    <store ignore_if_prev_success ignore_error>
+      @type test
+      name c1
+    </store>
+    <store ignore_if_prev_success>
+      @type test
+      name c2
+    </store>
+  ]
+
+  def test_ignore_if_prev_success
+    d = create_driver(IGNORE_IF_PREV_SUCCESS_CONFIG)
+
+    # override to raise an error
+    d.instance.outputs[0].define_singleton_method(:process) do |tag, es|
+      raise ArgumentError, 'Failed'
+    end
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    assert_nothing_raised do
+      d.run(default_tag: 'test') do
+        d.feed(time, {"a"=>1})
+      end
+    end
+  end
+
 end
 
