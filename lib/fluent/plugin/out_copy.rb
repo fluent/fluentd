@@ -27,11 +27,12 @@ module Fluent::Plugin
     desc 'Pass different record to each `store` plugin by specified method'
     config_param :copy_mode, :enum, list: [:no_copy, :shallow, :deep, :marshal], default: :no_copy
 
-    attr_reader :ignore_errors
+    attr_reader :ignore_errors, :ignore_if_prev_successes
 
     def initialize
       super
       @ignore_errors = []
+      @ignore_if_prev_successes = []
     end
 
     def configure(conf)
@@ -40,6 +41,7 @@ module Fluent::Plugin
       @copy_proc = gen_copy_proc
       @stores.each { |store|
         @ignore_errors << (store.arg == 'ignore_error')
+        @ignore_if_prev_successes << (store.arg == 'ignore_if_prev_success')
       }
     end
 
@@ -55,10 +57,15 @@ module Fluent::Plugin
         }
         es = m
       end
-
+      success = []
       outputs.each_with_index do |output, i|
         begin
-          output.emit_events(tag, @copy_proc ? @copy_proc.call(es) : es)
+          if i > 0 && success[i - 1] && @ignore_if_prev_successes[i]
+            log.info "ignore copy because prev_success in #{output.plugin_id}", index: i
+          else
+            output.emit_events(tag, @copy_proc ? @copy_proc.call(es) : es)
+            success[i] = true;
+          end
         rescue => e
           if @ignore_errors[i]
             log.error "ignore emit error in #{output.plugin_id}", error: e
