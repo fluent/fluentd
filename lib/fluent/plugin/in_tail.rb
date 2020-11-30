@@ -81,6 +81,8 @@ module Fluent::Plugin
     config_param :refresh_interval, :time, default: 60
     desc 'The number of reading lines at each IO.'
     config_param :read_lines_limit, :integer, default: 1000
+    desc 'The number of reading bytes per second'
+    config_param :read_bytes_limit_per_second, :integer, default: -1
     desc 'The interval of flushing the buffer for multiline format'
     config_param :multiline_flush_interval, :time, default: nil
     desc 'Enable the option to emit unmatched lines.'
@@ -633,6 +635,7 @@ module Fluent::Plugin
         path: path,
         log: log,
         read_lines_limit: @read_lines_limit,
+        read_bytes_limit_per_second: @read_bytes_limit_per_second,
         open_on_every_update: @open_on_every_update,
         from_encoding: @from_encoding,
         encoding: @encoding,
@@ -876,10 +879,11 @@ module Fluent::Plugin
       end
 
       class IOHandler
-        def initialize(watcher, path:, read_lines_limit:, log:, open_on_every_update:, from_encoding: nil, encoding: nil, &receive_lines)
+        def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, log:, open_on_every_update:, from_encoding: nil, encoding: nil, &receive_lines)
           @watcher = watcher
           @path = path
           @read_lines_limit = read_lines_limit
+          @read_bytes_limit_per_second = read_bytes_limit_per_second
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
           @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT)
@@ -912,16 +916,36 @@ module Fluent::Plugin
         def handle_notify
           with_io do |io|
             begin
+              bytes_to_read = 8192
+              number_bytes_read = 0
+              start_reading = Fluent::EventTime.now
               read_more = false
 
               if !io.nil? && @lines.empty?
                 begin
                   while true
-                    @fifo << io.readpartial(8192, @iobuf)
+                    @fifo << io.readpartial(bytes_to_read, @iobuf)
                     @fifo.read_lines(@lines)
-                    if @lines.size >= @read_lines_limit
+
+                    number_bytes_read += bytes_to_read
+                    limit_bytes_per_second_reached = (number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0)
+                    @log.debug("reading file: #{@path}")
+                    if @lines.size >= @read_lines_limit || limit_bytes_per_second_reached
                       # not to use too much memory in case the file is very large
                       read_more = true
+
+                      if limit_bytes_per_second_reached
+                        # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
+                        time_spent_reading = Time.now - start_reading
+                        @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
+                        if time_spent_reading < 1
+                          debug_time = 1 - time_spent_reading
+                          @log.debug("sleep: #{debug_time}")
+                          sleep(1 - time_spent_reading)
+                        end
+                        start_reading = Fluent::EventTime.now
+                      end
+
                       break
                     end
                   end

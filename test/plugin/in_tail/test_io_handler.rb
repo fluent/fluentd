@@ -30,7 +30,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
     end
 
     returned_lines = ''
-    r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, log: $log, open_on_every_update: false) do |lines, _watcher|
+    r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false) do |lines, _watcher|
       returned_lines << lines.join
       true
     end
@@ -62,7 +62,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       end
 
       returned_lines = ''
-      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, log: $log, open_on_every_update: true) do |lines, _watcher|
+      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: true) do |lines, _watcher|
         returned_lines << lines.join
         true
       end
@@ -93,7 +93,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       end
 
       returned_lines = []
-      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, log: $log, open_on_every_update: false) do |lines, _watcher|
+      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false) do |lines, _watcher|
         returned_lines << lines.dup
         true
       end
@@ -119,7 +119,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       end
 
       returned_lines = []
-      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, log: $log, open_on_every_update: false) do |lines, _watcher|
+      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false) do |lines, _watcher|
         returned_lines << lines.dup
         true
       end

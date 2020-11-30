@@ -156,6 +156,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal 2, d.instance.rotate_wait
       assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
       assert_equal 1000, d.instance.read_lines_limit
+      assert_equal -1, d.instance.read_bytes_limit_per_second
       assert_equal false, d.instance.ignore_repeated_permission_error
       assert_nothing_raised do
         d.instance.have_read_capability?
@@ -321,6 +322,41 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => msg}, events[0][2])
       assert_equal({"message" => msg}, events[1][2])
       assert num_events <= d.emit_count
+    end
+
+    sub_test_case "log throttoling per file" do
+      teardown do
+        FileUtils.rm_f("#{TMP_DIR}/tail.txt")
+      end
+
+      data("flat 8192 bytes, 10 events" => [:flat, 100, 8192, 10],
+           "flat #{8192*10} bytes, 20 events" => [:flat, 100, (8192 * 10), 20],
+           "parse #{8192*3} bytes, 10 events" => [:parse, 100, (8192 * 3), 10],
+           "parse #{8192*10} bytes, 20 events" => [:parse, 100, (8192 * 10), 20])
+      def test_emit_with_read_bytes_limit_per_second(data)
+        config_style, limit, limit_bytes, num_events = data
+        case config_style
+        when :flat
+          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes })
+        when :parse
+          config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
+        end
+        d = create_driver(config)
+        msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
+
+        d.run(expect_emits: 2) do
+          File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+            for _x in 0..20
+              f.puts msg
+            end
+          }
+        end
+
+        events = d.events
+        assert_equal(true, events.length <= num_events)
+        assert_equal({"message" => msg}, events[0][2])
+        assert_equal({"message" => msg}, events[1][2])
+      end
     end
 
     data(flat: CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG,
