@@ -81,7 +81,7 @@ module Fluent
 
           def build_handler
             @methods.group_by(&:first).each do |(path, rest)|
-              klass = Fluent::PluginHelper::HttpServer::Compat::WebrickHandler.build(Hash[rest.map { |e| [e[1], e[2]] }])
+              klass = Fluent::PluginHelper::HttpServer::Compat::WebrickHandler.build(**Hash[rest.map { |e| [e[1], e[2]] }])
               @server.mount(path, klass)
             end
           end
