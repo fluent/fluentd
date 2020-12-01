@@ -82,7 +82,7 @@ module Fluent::Plugin
     desc 'The number of reading lines at each IO.'
     config_param :read_lines_limit, :integer, default: 1000
     desc 'The number of reading bytes per second'
-    config_param :read_bytes_limit_per_second, :integer, default: -1
+    config_param :read_bytes_limit_per_second, :size, default: -1
     desc 'The interval of flushing the buffer for multiline format'
     config_param :multiline_flush_interval, :time, default: nil
     desc 'Enable the option to emit unmatched lines.'
