@@ -40,8 +40,8 @@ module Fluent::Plugin
 
       @copy_proc = gen_copy_proc
       @stores.each { |store|
-        @ignore_errors << (store.arg == 'ignore_error')
-        @ignore_if_prev_successes << (store.arg == 'ignore_if_prev_success')
+        @ignore_errors << (store.arg.include?('ignore_error'))
+        @ignore_if_prev_successes << (store.arg.include?('ignore_if_prev_success'))
       }
     end
 
@@ -57,14 +57,14 @@ module Fluent::Plugin
         }
         es = m
       end
-      success = []
+      success = Array.new(outputs.size)
       outputs.each_with_index do |output, i|
         begin
           if i > 0 && success[i - 1] && @ignore_if_prev_successes[i]
-            log.info "ignore copy because prev_success in #{output.plugin_id}", index: i
+            log.debug "ignore copy because prev_success in #{output.plugin_id}", index: i
           else
             output.emit_events(tag, @copy_proc ? @copy_proc.call(es) : es)
-            success[i] = true;
+            success[i] = true
           end
         rescue => e
           if @ignore_errors[i]
