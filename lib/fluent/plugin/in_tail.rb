@@ -325,7 +325,7 @@ module Fluent::Plugin
 
     def existence_path
       hash = {}
-      @tails.keys.each {|path_ino|
+      @tails.each_key {|path_ino|
         if @follow_inodes
           hash[path_ino.ino] = path_ino
         else
