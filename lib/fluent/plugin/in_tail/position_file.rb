@@ -18,15 +18,6 @@ require 'fluent/plugin/input'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
-    class PathWithInode
-      def initialize(path, inode)
-        @path = path
-        @inode = inode
-      end
-
-      attr_accessor :path, :inode
-    end
-
     class PositionFile
       UNWATCHED_POSITION = 0xffffffffffffffff
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
