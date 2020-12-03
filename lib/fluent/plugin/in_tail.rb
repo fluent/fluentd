@@ -245,7 +245,7 @@ module Fluent::Plugin
 
     def shutdown
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
-      stop_watchers(existence_path.values, immediate: true, remove_watcher: false)
+      stop_watchers(existence_path, immediate: true, remove_watcher: false)
       @pf_file.close if @pf_file
 
       super
@@ -349,8 +349,8 @@ module Fluent::Plugin
       unwatched_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
 
-      stop_watchers(unwatched_hash.values, immediate: false, unwatched: true) unless unwatched_hash.empty?
-      start_watchers(added_hash.values) unless added_hash.empty?
+      stop_watchers(unwatched_hash, immediate: false, unwatched: true) unless unwatched_hash.empty?
+      start_watchers(added_hash) unless added_hash.empty?
     end
 
     def setup_watcher(path, ino, pe)
@@ -387,7 +387,7 @@ module Fluent::Plugin
     end
 
     def start_watchers(paths_with_inodes)
-      paths_with_inodes.each { |path_with_inode|
+      paths_with_inodes.each_value { |path_with_inode|
         path = path_with_inode.path
         ino = path_with_inode.ino
         pe = nil
@@ -414,7 +414,7 @@ module Fluent::Plugin
     end
 
     def stop_watchers(paths_with_inodes, immediate: false, unwatched: false, remove_watcher: true)
-      paths_with_inodes.each { |path_with_inode|
+      paths_with_inodes.each_value { |path_with_inode|
         if remove_watcher
           tw = @tails.delete(path_with_inode)
         else
