@@ -31,7 +31,7 @@ module Fluent
       include Windows::ServiceStructs
       include Windows::ServiceFunctions
 
-      WINDOWS_EVENT_MAP = {
+      COMMAND_MAP = {
         shutdown: "",
         restart: "HUP",
         flush: "USR1",
@@ -45,15 +45,13 @@ module Fluent
         flush: 129,
         reload: SERVICE_CONTROL_PARAMCHANGE,
       }
-      COMMAND_MAP = WINDOWS_EVENT_MAP
     else
-      UNIX_SIGNAL_MAP = {
+      COMMAND_MAP = {
         shutdown: :TERM,
         restart: :HUP,
         flush: :USR1,
         reload: :USR2,
       }
-      COMMAND_MAP = UNIX_SIGNAL_MAP
     end
 
     def initialize(argv = ARGV)
