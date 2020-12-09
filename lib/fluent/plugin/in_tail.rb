@@ -353,9 +353,9 @@ module Fluent::Plugin
       start_watchers(added_hash) unless added_hash.empty?
     end
 
-    def setup_watcher(path, ino, pe)
+    def setup_watcher(path_with_inode, pe)
       line_buffer_timer_flusher = @multiline_mode ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, ino, pe, log, @read_from_head, @follow_inodes, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler))
+      tw = TailWatcher.new(path_with_inode, pe, log, @read_from_head, @follow_inodes, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler))
 
       if @enable_watch_timer
         tt = TimerTrigger.new(1, log) { tw.on_notify }
@@ -403,7 +403,7 @@ module Fluent::Plugin
         end
 
         begin
-          tw = setup_watcher(path, ino, pe)
+          tw = setup_watcher(path_with_inode, pe)
         rescue WatcherSetupError => e
           log.warn "Skip #{path} because unexpected setup error happens: #{e}"
           next
@@ -441,29 +441,29 @@ module Fluent::Plugin
     end
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
-    def update_watcher(path, inode, pe)
+    def update_watcher(path_with_inode, pe)
       log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
 
       if @pf
-        unless pe.read_inode == @pf[path, pe.read_inode].read_inode
+        unless pe.read_inode == @pf[path_with_inode.path, pe.read_inode].read_inode
           log.debug "Skip update_watcher because watcher has been already updated by other inotify event"
           return
         end
       end
 
-      target_info = TargetInfo.new(path, pe.read_inode)
+      target_info = TargetInfo.new(path_with_inode.path, pe.read_inode)
       rotated_tw = @tails[target_info]
 
-      new_target_info = TargetInfo.new(path, inode)
+      new_target_info = TargetInfo.new(path_with_inode.path, path_with_inode.ino)
 
       if @follow_inodes
-        new_position_entry = @pf[path, inode]
+        new_position_entry = @pf[path_with_inode.path, path_with_inode.ino]
 
         if new_position_entry.read_inode == 0
-          @tails[new_target_info] = setup_watcher(path, inode, new_position_entry)
+          @tails[new_target_info] = setup_watcher(new_target_info, new_position_entry)
         end
       else
-        @tails[new_target_info] = setup_watcher(path, inode, pe)
+        @tails[new_target_info] = setup_watcher(new_target_info, pe)
       end
       detach_watcher_after_rotate_wait(rotated_tw, pe.read_inode) if rotated_tw
     end
@@ -657,9 +657,9 @@ module Fluent::Plugin
     end
 
     class TailWatcher
-      def initialize(path, ino, pe, log, read_from_head, follow_inodes, update_watcher, line_buffer_timer_flusher, io_handler_build)
-        @path = path
-        @ino = ino
+      def initialize(path_with_inode, pe, log, read_from_head, follow_inodes, update_watcher, line_buffer_timer_flusher, io_handler_build)
+        @path = path_with_inode.path
+        @ino = path_with_inode.ino
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
         @follow_inodes = follow_inodes
@@ -770,11 +770,12 @@ module Fluent::Plugin
             # No need to update a watcher if stat is nil (file not present), because moving to inodes will create
             # new watcher, and old watcher will be closed by stop_watcher in refresh_watchers method
             if stat
+              target_info = TargetInfo.new(@path, stat.ino)
               if @follow_inodes
                 # don't want to swap state because we need latest read offset in pos file even after rotate_wait
-                @update_watcher.call(@path, stat.ino, @pe)
+                @update_watcher.call(target_info, @pe)
               else
-                @update_watcher.call(@path, stat.ino, swap_state(@pe))
+                @update_watcher.call(target_info, swap_state(@pe))
               end
             end
           else

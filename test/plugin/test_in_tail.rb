@@ -1263,8 +1263,8 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
-      ex_paths.each do |path|
-        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path.path, path.ino , anything, anything, true, false, anything, nil, anything).once
+      ex_paths.each do |path_with_inode|
+        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path_with_inode , anything, anything, true, false, anything, nil, anything).once
       end
 
       plugin.refresh_watchers
@@ -1277,7 +1277,8 @@ class TailInputTest < Test::Unit::TestCase
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
       path = "test/plugin/data/2010/01/20100102-030406.log"
       inode = Fluent::FileWrapper.stat(path).ino
-      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path, inode, anything, anything, true, false, anything, nil, anything).once
+      target_info = Fluent::Plugin::TailInput::TargetInfo.new(path, inode)
+      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, false, anything, nil, anything).once
       plugin.refresh_watchers
 
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
@@ -1645,7 +1646,7 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test2"
       }
       path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
-      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path_ino.path, path_ino.ino, anything, anything, true, true, anything, nil, anything).once
+      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path_ino, anything, anything, true, true, anything, nil, anything).once
       d.run(shutdown: false)
       assert d.instance.instance_variable_get(:@tails)[path_ino]
 
