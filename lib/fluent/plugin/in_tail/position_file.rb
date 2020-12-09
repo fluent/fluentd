@@ -22,21 +22,25 @@ module Fluent::Plugin
       UNWATCHED_POSITION = 0xffffffffffffffff
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
 
-      def self.load(file, logger:)
-        pf = new(file, logger: logger)
+      def self.load(file, follow_inodes, existing_paths, logger:)
+        pf = new(file, follow_inodes, existing_paths, logger: logger)
         pf.load
         pf
       end
 
-      def initialize(file, logger: nil)
+      def initialize(file, follow_inodes, existing_paths, logger: nil)
         @file = file
         @logger = logger
         @file_mutex = Mutex.new
         @map = {}
+        @follow_inodes = follow_inodes
+        @existing_paths = existing_paths
       end
 
-      def [](path)
-        if m = @map[path]
+      def [](path, inode)
+        if @follow_inodes && m = @map[inode]
+          return m
+        elsif !@follow_inodes && m = @map[path]
           return m
         end
 
@@ -44,13 +48,23 @@ module Fluent::Plugin
           @file.seek(0, IO::SEEK_END)
           seek = @file.pos + path.bytesize + 1
           @file.write "#{path}\t0000000000000000\t0000000000000000\n"
-          @map[path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+          if @follow_inodes
+            @map[inode] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+          else
+            @map[path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+          end
         }
       end
 
-      def unwatch(path)
-        if (entry = @map.delete(path))
-          entry.update_pos(UNWATCHED_POSITION)
+      def unwatch(path, inode)
+        if @follow_inodes
+          if (entry = @map.delete(inode))
+            entry.update_pos(UNWATCHED_POSITION)
+          end
+        else
+          if (entry = @map.delete(path))
+            entry.update_pos(UNWATCHED_POSITION)
+          end
         end
       end
 
@@ -69,7 +83,11 @@ module Fluent::Plugin
             pos = m[2].to_i(16)
             ino = m[3].to_i(16)
             seek = @file.pos - line.bytesize + path.bytesize + 1
-            map[path] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
+            if @follow_inodes
+              map[ino] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
+            else
+              map[path] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
+            end
           end
         end
 
@@ -139,12 +157,24 @@ module Fluent::Plugin
               @logger.warn("#{path} already exists. use latest one: deleted #{entries[path]}") if @logger
             end
 
-            entries[path] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+            if @follow_inodes
+              entries[ino] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+            else
+              entries[path] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+            end
             file_pos += line.size
           end
         end
 
+        entries = remove_deleted_files_entries(entries, @existing_paths) if @follow_inodes
         entries
+      end
+
+      def remove_deleted_files_entries(existent_entries, existing_paths)
+        filtered_entries = existent_entries.select {|file_entry|
+          existing_paths.key?(file_entry)
+        }
+        filtered_entries
       end
     end
 
@@ -224,5 +254,7 @@ module Fluent::Plugin
         @inode
       end
     end
+
+    TargetInfo = Struct.new(:path, :ino)
   end
 end
