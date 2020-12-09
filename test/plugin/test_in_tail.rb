@@ -48,7 +48,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def path_to_tuple(path)
-    Fluent::Plugin::TailInput::PathInodeTuple.new(path, Fluent::FileWrapper.stat(path).ino)
+    Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
   end
 
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
@@ -1271,8 +1271,8 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     path = 'test/plugin/data/2010/01/20100102-030405.log'
-    tuple = Fluent::Plugin::TailInput::PathInodeTuple.new(path, Fluent::FileWrapper.stat(path).ino)
-    mock.proxy(plugin).detach_watcher_after_rotate_wait(plugin.instance_variable_get(:@tails)[tuple], tuple.ino)
+    target_info = Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+    mock.proxy(plugin).detach_watcher_after_rotate_wait(plugin.instance_variable_get(:@tails)[target_info], target_info.ino)
 
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
       path = "test/plugin/data/2010/01/20100102-030406.log"

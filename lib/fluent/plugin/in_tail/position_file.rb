@@ -255,6 +255,6 @@ module Fluent::Plugin
       end
     end
 
-    PathInodeTuple = Struct.new(:path, :ino)
+    TargetInfo = Struct.new(:path, :ino)
   end
 end

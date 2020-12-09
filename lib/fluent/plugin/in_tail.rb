@@ -313,11 +313,11 @@ module Fluent::Plugin
       (paths - excluded).select { |path|
         FileTest.exist?(path)
       }.each { |path|
-        tuple = PathInodeTuple.new(path, Fluent::FileWrapper.stat(path).ino)
+        target_info = TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
         if @follow_inodes
-          hash[tuple.ino] = tuple
+          hash[target_info.ino] = target_info
         else
-          hash[tuple.path] = tuple
+          hash[target_info.path] = target_info
         end
       }
       hash
@@ -408,8 +408,8 @@ module Fluent::Plugin
           log.warn "Skip #{path} because unexpected setup error happens: #{e}"
           next
         end
-        tuple = PathInodeTuple.new(path, Fluent::FileWrapper.stat(path).ino)
-        @tails[tuple] = tw
+        target_info = TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+        @tails[target_info] = tw
       }
     end
 
@@ -451,19 +451,19 @@ module Fluent::Plugin
         end
       end
 
-      tuple = PathInodeTuple.new(path, pe.read_inode)
-      rotated_tw = @tails[tuple]
+      target_info = TargetInfo.new(path, pe.read_inode)
+      rotated_tw = @tails[target_info]
 
-      new_tuple = PathInodeTuple.new(path, inode)
+      new_target_info = TargetInfo.new(path, inode)
 
       if @follow_inodes
         new_position_entry = @pf[path, inode]
 
         if new_position_entry.read_inode == 0
-          @tails[new_tuple] = setup_watcher(path, inode, new_position_entry)
+          @tails[new_target_info] = setup_watcher(path, inode, new_position_entry)
         end
       else
-        @tails[new_tuple] = setup_watcher(path, inode, pe)
+        @tails[new_target_info] = setup_watcher(path, inode, pe)
       end
       detach_watcher_after_rotate_wait(rotated_tw, pe.read_inode) if rotated_tw
     end
