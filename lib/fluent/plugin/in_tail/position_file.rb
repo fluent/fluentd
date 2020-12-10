@@ -57,14 +57,8 @@ module Fluent::Plugin
       end
 
       def unwatch(target_info)
-        if @follow_inodes
-          if (entry = @map.delete(target_info.ino))
-            entry.update_pos(UNWATCHED_POSITION)
-          end
-        else
-          if (entry = @map.delete(target_info.path))
-            entry.update_pos(UNWATCHED_POSITION)
-          end
+        if (entry = @map.delete(@follow_inodes ? target_info.ino : target_info.path))
+          entry.update_pos(UNWATCHED_POSITION)
         end
       end
 
