@@ -112,8 +112,9 @@ module Fluent::Plugin
             @file.truncate(0)
             @file.write(entries.values.map(&:to_entry_fmt).join)
 
-            entries.each do |path, val|
-              if (m = @map[path])
+            # entry contains path/ino key and value.
+            entries.each do |key, val|
+              if (m = @map[key])
                 m.seek = val.seek
               end
             end
