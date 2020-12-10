@@ -80,6 +80,8 @@ module Fluent::Plugin
     config_param :use_204_response, :bool, default: false
     desc 'Dump error log or not'
     config_param :dump_error_log, :bool, default: true
+    desc 'Add QUERY_ prefix query params to record'
+    config_param :add_query_params, :bool, default: false
 
     config_section :parse do
       config_set_default :@type, 'in_http'
@@ -277,7 +279,7 @@ module Fluent::Plugin
     private
 
     def on_server_connect(conn)
-      handler = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins)
+      handler = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins, @add_query_params)
 
       conn.on(:data) do |data|
         handler.on_read(data)
@@ -326,6 +328,14 @@ module Fluent::Plugin
         }
       end
 
+      if @add_query_params
+        params.each_pair { |k, v|
+          if k.start_with?("QUERY_".freeze)
+            record[k] = v
+          end
+        }
+      end
+
       if @add_remote_addr
         record['REMOTE_ADDR'] = params['REMOTE_ADDR']
       end
@@ -346,7 +356,7 @@ module Fluent::Plugin
     class Handler
       attr_reader :content_type
 
-      def initialize(io, km, callback, body_size_limit, format_name, log, cors_allow_origins)
+      def initialize(io, km, callback, body_size_limit, format_name, log, cors_allow_origins, add_query_params)
         @io = io
         @km = km
         @callback = callback
@@ -356,6 +366,7 @@ module Fluent::Plugin
         @log = log
         @cors_allow_origins = cors_allow_origins
         @idle = 0
+        @add_query_params = add_query_params
         @km.add(self)
 
         @remote_port, @remote_addr = io.remote_port, io.remote_addr
@@ -533,7 +544,17 @@ module Fluent::Plugin
         end
         path_info = uri.path
 
+        if (@add_query_params) 
+
+          query_params = WEBrick::HTTPUtils.parse_query(uri.query)
+
+          query_params.each_pair {|k,v|
+            params["QUERY_#{k.gsub('-','_').upcase}"] = v
+          }
+        end
+
         params.merge!(@env)
+
         @env.clear
 
         code, header, body = @callback.call(path_info, params)
