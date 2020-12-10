@@ -452,7 +452,7 @@ module Fluent::Plugin
       end
 
       rotated_tw = @tails[target_info]
-      new_target_info = TargetInfo.new(target_info.path, target_info.ino)
+      new_target_info = target_info.dup
 
       if @follow_inodes
         new_position_entry = @pf[target_info]
