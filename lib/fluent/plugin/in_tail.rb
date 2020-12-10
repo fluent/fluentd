@@ -443,8 +443,9 @@ module Fluent::Plugin
       log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
 
       if @pf
-        target_info_from_position_entry = TargetInfo.new(target_info.path, pe.read_inode)
-        unless pe.read_inode == @pf[target_info_from_position_entry].read_inode
+        pe_inode = pe.read_inode
+        target_info_from_position_entry = TargetInfo.new(target_info.path, pe_inode)
+        unless pe_inode == @pf[target_info_from_position_entry].read_inode
           log.debug "Skip update_watcher because watcher has been already updated by other inotify event"
           return
         end
