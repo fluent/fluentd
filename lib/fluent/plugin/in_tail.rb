@@ -451,7 +451,8 @@ module Fluent::Plugin
         end
       end
 
-      rotated_tw = @tails[target_info]
+      rotated_target_info = TargetInfo.new(target_info.path, pe.read_inode)
+      rotated_tw = @tails[rotated_target_info]
       new_target_info = target_info.dup
 
       if @follow_inodes
