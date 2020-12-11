@@ -38,9 +38,7 @@ module Fluent::Plugin
       end
 
       def [](target_info)
-        if @follow_inodes && m = @map[target_info.ino]
-          return m
-        elsif !@follow_inodes && m = @map[target_info.path]
+        if m = @map[@follow_inodes ? target_info.ino : target_info.path]
           return m
         end
 
