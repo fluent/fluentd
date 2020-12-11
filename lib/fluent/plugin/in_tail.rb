@@ -395,7 +395,7 @@ module Fluent::Plugin
             begin
               pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
             rescue Errno::ENOENT
-              $log.warn "#{path} not found. Continuing without tailing it."
+              $log.warn "#{target_info.path} not found. Continuing without tailing it."
             end
           end
         end
@@ -403,7 +403,7 @@ module Fluent::Plugin
         begin
           tw = setup_watcher(target_info, pe)
         rescue WatcherSetupError => e
-          log.warn "Skip #{path} because unexpected setup error happens: #{e}"
+          log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
           next
         end
         target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
@@ -440,7 +440,7 @@ module Fluent::Plugin
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(target_info, pe)
-      log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
+      log.info("detected rotation of #{target_info.path}; waiting #{@rotate_wait} seconds")
 
       if @pf
         pe_inode = pe.read_inode
