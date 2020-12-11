@@ -325,11 +325,11 @@ module Fluent::Plugin
 
     def existence_path
       hash = {}
-      @tails.each_key {|path_ino|
+      @tails.each_key {|target_info|
         if @follow_inodes
-          hash[path_ino.ino] = path_ino
+          hash[target_info.ino] = target_info
         else
-          hash[path_ino.path] = path_ino
+          hash[target_info.path] = target_info
         end
       }
       hash
