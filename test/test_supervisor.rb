@@ -234,7 +234,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     server.run_rpc_server
 
     sv.send(:install_main_process_signal_handlers)
-    Net::HTTP.get URI.parse('http://127.0.0.1:24447/api/plugins.flushBuffers')
+    response = Net::HTTP.get(URI.parse('http://127.0.0.1:24447/api/plugins.flushBuffers'))
     info_msg = '[info]: force flushing buffered events' + "\n"
 
     server.stop_rpc_server
@@ -243,6 +243,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     # This test will be passed in such environment.
     pend unless $log.out.logs.first
 
+    assert_equal('{"ok":true}', response)
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
     $log.out.reset if $log.out.is_a?(Fluent::Test::DummyLogDevice)
@@ -275,9 +276,10 @@ class SupervisorTest < ::Test::Unit::TestCase
     server.run_rpc_server
 
     mock(server).restart(true) { nil }
-    Net::HTTP.get URI.parse('http://127.0.0.1:24447/api/plugins.flushBuffers')
+    response = Net::HTTP.get(URI.parse('http://127.0.0.1:24447/api/plugins.flushBuffers'))
 
     server.stop_rpc_server
+    assert_equal('{"ok":true}', response)
   end
 
   def test_load_config
