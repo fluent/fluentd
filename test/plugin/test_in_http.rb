@@ -46,6 +46,7 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal 10*1024*1024, d.instance.body_size_limit
     assert_equal 5, d.instance.keepalive_timeout
     assert_equal false, d.instance.add_http_headers
+    assert_equal false, d.instance.add_query_params
   end
 
   def test_time
@@ -905,6 +906,30 @@ class HttpInputTest < Test::Unit::TestCase
       res_codes << res.code
     end
     assert_equal ["403", "403"], res_codes
+  end
+
+  def test_add_query_params 
+    d = create_driver(CONFIG + "add_query_params true")
+    assert_equal true, d.instance.add_query_params
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    time_i = time.to_i
+    events = [
+      ["tag1", time, {"a"=>1, "QUERY_A"=>"b"}],
+      ["tag2", time, {"a"=>2, "QUERY_A"=>"b"}],
+    ]
+    res_codes = []
+    res_bodies = []
+
+    d.run do
+      events.each do |tag, _t, record|
+        res = post("/#{tag}?a=b", {"json"=>record.to_json, "time"=>time_i.to_s})
+        res_codes << res.code
+      end
+    end
+    assert_equal ["200", "200"], res_codes
+    assert_equal [], res_bodies
+    assert_equal events, d.events
   end
 
   $test_in_http_connection_object_ids = []
