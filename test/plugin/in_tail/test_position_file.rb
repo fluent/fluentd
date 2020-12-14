@@ -87,11 +87,15 @@ class IntailPositionFileTest < Test::Unit::TestCase
 
     test 'update seek postion of remained position entry' do
       pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log})
-      pf['path1', -1]
-      pf['path2', -1]
-      pf['path3', -1]
+      target_info1 = Fluent::Plugin::TailInput::TargetInfo.new('path1', -1)
+      target_info2 = Fluent::Plugin::TailInput::TargetInfo.new('path2', -1)
+      target_info3 = Fluent::Plugin::TailInput::TargetInfo.new('path3', -1)
+      pf[target_info1]
+      pf[target_info2]
+      pf[target_info3]
 
-      pf.unwatch('path1', 1234)
+      target_info1_2 = Fluent::Plugin::TailInput::TargetInfo.new('path1', 1234)
+      pf.unwatch(target_info1_2)
 
       pf.try_compact
 
@@ -101,8 +105,10 @@ class IntailPositionFileTest < Test::Unit::TestCase
       assert_equal "path3\t0000000000000000\t0000000000000000\n", lines[1]
       assert_equal 2, lines.size
 
-      pf.unwatch('path2', 1235)
-      pf.unwatch('path3', 1236)
+      target_info2_2 = Fluent::Plugin::TailInput::TargetInfo.new('path2', 1235)
+      target_info3_2 = Fluent::Plugin::TailInput::TargetInfo.new('path3', 1236)
+      pf.unwatch(target_info2_2)
+      pf.unwatch(target_info3_2)
       @file.seek(0)
       lines = @file.readlines
       assert_equal "path2\t#{UNWATCHED_STR}\t0000000000000000\n", lines[0]
@@ -141,7 +147,8 @@ class IntailPositionFileTest < Test::Unit::TestCase
       write_data(@file, TEST_CONTENT)
       pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, **{logger: $log})
 
-      f = pf['valid_path', Fluent::FileWrapper.stat(@file).ino]
+      valid_target_info = Fluent::Plugin::TailInput::TargetInfo.new('valid_path', Fluent::FileWrapper.stat(@file).ino)
+      f = pf[valid_target_info]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, f.class
       assert_equal 2, f.read_pos
       assert_equal 1, f.read_inode
@@ -150,7 +157,8 @@ class IntailPositionFileTest < Test::Unit::TestCase
       lines = @file.readlines
       assert_equal 2, lines.size
 
-      f = pf['nonexist_path', -1]
+      nonexistent_target_info = Fluent::Plugin::TailInput::TargetInfo.new('nonexist_path', -1)
+      f = pf[nonexistent_target_info]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, f.class
       assert_equal 0, f.read_pos
       assert_equal 0, f.read_inode
@@ -165,17 +173,17 @@ class IntailPositionFileTest < Test::Unit::TestCase
       write_data(@file, TEST_CONTENT)
       pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, logger: $log)
 
-      f = pf['nonexist_path', -1]
+      f = pf[Fluent::Plugin::TailInput::TargetInfo.new('nonexist_path', -1)]
       assert_equal 0, f.read_inode
       assert_equal 0, f.read_pos
 
-      pf['valid_path', Fluent::FileWrapper.stat(@file).ino].update(1, 2)
+      pf[Fluent::Plugin::TailInput::TargetInfo.new('valid_path', Fluent::FileWrapper.stat(@file).ino)].update(1, 2)
 
-      f = pf['nonexist_path', -1]
+      f = pf[Fluent::Plugin::TailInput::TargetInfo.new('nonexist_path', -1)]
       assert_equal 0, f.read_inode
       assert_equal 0, f.read_pos
 
-      pf['nonexist_path', -1].update(1, 2)
+      pf[Fluent::Plugin::TailInput::TargetInfo.new('nonexist_path', -1)].update(1, 2)
       assert_equal 1, f.read_inode
       assert_equal 2, f.read_pos
     end
@@ -186,14 +194,16 @@ class IntailPositionFileTest < Test::Unit::TestCase
       write_data(@file, TEST_CONTENT)
       pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, logger: $log)
       inode1 = Fluent::FileWrapper.stat(@file).ino
-      p1 = pf['valid_path', inode1]
+      target_info1 = Fluent::Plugin::TailInput::TargetInfo.new('valid_path', inode1)
+      p1 = pf[target_info1]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p1.class
 
-      pf.unwatch('valid_path', inode1)
+      pf.unwatch(target_info1)
       assert_equal p1.read_pos, Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION
 
       inode2 = Fluent::FileWrapper.stat(@file).ino
-      p2 = pf['valid_path', inode2]
+      target_info2 = Fluent::Plugin::TailInput::TargetInfo.new('valid_path', inode2)
+      p2 = pf[target_info2]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p2.class
 
       assert_not_equal p1, p2

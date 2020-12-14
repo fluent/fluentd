@@ -47,7 +47,7 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
-  def path_to_tuple(path)
+  def create_target_info(path)
     Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
   end
 
@@ -1055,9 +1055,9 @@ class TailInputTest < Test::Unit::TestCase
                                })
     def test_expand_paths
       ex_paths = [
-        path_to_tuple('test/plugin/data/2010/01/20100102-030405.log'),
-        path_to_tuple('test/plugin/data/log/foo/bar.log'),
-        path_to_tuple('test/plugin/data/log/test.log')
+        create_target_info('test/plugin/data/2010/01/20100102-030405.log'),
+        create_target_info('test/plugin/data/log/foo/bar.log'),
+        create_target_info('test/plugin/data/log/test.log')
       ]
       plugin = create_driver(EX_CONFIG, false).instance
       flexstub(Time) do |timeclass|
@@ -1073,8 +1073,8 @@ class TailInputTest < Test::Unit::TestCase
 
     def test_expand_paths_with_duplicate_configuration
       expanded_paths = [
-        path_to_tuple('test/plugin/data/log/foo/bar.log'),
-        path_to_tuple('test/plugin/data/log/test.log')
+        create_target_info('test/plugin/data/log/foo/bar.log'),
+        create_target_info('test/plugin/data/log/test.log')
       ]
       duplicate_config = EX_CONFIG.dup
       duplicate_config["path"]="test/plugin/data/log/**/*.log, test/plugin/data/log/**/*.log"
@@ -1084,9 +1084,9 @@ class TailInputTest < Test::Unit::TestCase
 
     def test_expand_paths_with_timezone
       ex_paths = [
-        path_to_tuple('test/plugin/data/2010/01/20100102-030405.log'),
-        path_to_tuple('test/plugin/data/log/foo/bar.log'),
-        path_to_tuple('test/plugin/data/log/test.log')
+        create_target_info('test/plugin/data/2010/01/20100102-030405.log'),
+        create_target_info('test/plugin/data/log/foo/bar.log'),
+        create_target_info('test/plugin/data/log/test.log')
       ]
       ['Asia/Taipei', '+08'].each do |tz_type|
         taipei_config = EX_CONFIG + config_element("", "", {"path_timezone" => tz_type})
@@ -1110,10 +1110,10 @@ class TailInputTest < Test::Unit::TestCase
 
     def test_log_file_without_extension
       expected_files = [
-        path_to_tuple('test/plugin/data/log/bar'),
-        path_to_tuple('test/plugin/data/log/foo/bar.log'),
-        path_to_tuple('test/plugin/data/log/foo/bar2'),
-        path_to_tuple('test/plugin/data/log/test.log')
+        create_target_info('test/plugin/data/log/bar'),
+        create_target_info('test/plugin/data/log/foo/bar.log'),
+        create_target_info('test/plugin/data/log/foo/bar2'),
+        create_target_info('test/plugin/data/log/test.log')
       ]
 
       config = config_element("", "", {
@@ -1251,9 +1251,9 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_z_refresh_watchers
     ex_paths = [
-      path_to_tuple('test/plugin/data/2010/01/20100102-030405.log'),
-      path_to_tuple('test/plugin/data/log/foo/bar.log'),
-      path_to_tuple('test/plugin/data/log/test.log'),
+      create_target_info('test/plugin/data/2010/01/20100102-030405.log'),
+      create_target_info('test/plugin/data/log/foo/bar.log'),
+      create_target_info('test/plugin/data/log/test.log'),
     ]
     plugin = create_driver(EX_CONFIG, false).instance
     sio = StringIO.new
@@ -1263,8 +1263,8 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
-      ex_paths.each do |path_with_inode|
-        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path_with_inode , anything, anything, true, false, anything, nil, anything).once
+      ex_paths.each do |target_info|
+        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, false, anything, nil, anything).once
       end
 
       plugin.refresh_watchers
@@ -1503,7 +1503,7 @@ class TailInputTest < Test::Unit::TestCase
       Timecop.travel(Time.now + 10) do
         sleep 5
         pos_file.pos = 0
-        tuple = path_to_tuple("#{TMP_DIR}/tail.txt")
+        tuple = create_target_info("#{TMP_DIR}/tail.txt")
         path_pos_ino = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(pos_file.readline)
         assert_equal(tuple.path, path_pos_ino[1])
         assert_equal(12, path_pos_ino[2].to_i(16))
@@ -1531,7 +1531,7 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test1"
         f.puts "test2"
       }
-      path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+      target_info = create_target_info("#{TMP_DIR}/tail.txt")
 
       d.run(expect_emits: 1, shutdown: false) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
@@ -1541,11 +1541,11 @@ class TailInputTest < Test::Unit::TestCase
       Timecop.travel(Time.now + 10) do
         waiting(5) {
           # @pos will be reset as 0 when UNWATCHED_POSITION is specified.
-          sleep 0.1 until d.instance.instance_variable_get(:@pf)[path_ino.path, path_ino.ino].read_pos == 0
+          sleep 0.1 until d.instance.instance_variable_get(:@pf)[target_info].read_pos == 0
         }
       end
 
-      assert_equal(0, d.instance.instance_variable_get(:@pf)[path_ino.path, path_ino.ino].read_pos)
+      assert_equal(0, d.instance.instance_variable_get(:@pf)[target_info].read_pos)
 
       d.instance_shutdown
     end
@@ -1613,7 +1613,7 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test1"
         f.puts "test2"
       }
-      path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+      target_info = create_target_info("#{TMP_DIR}/tail.txt")
 
       d.run(expect_emits: 2, shutdown: false) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
@@ -1621,15 +1621,15 @@ class TailInputTest < Test::Unit::TestCase
         File.open("#{TMP_DIR}/tail.txt", "wb") {|f| f.puts "test4\n"}
       end
 
-      new_path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+      new_target_info = create_target_info("#{TMP_DIR}/tail.txt")
 
       pos_file = d.instance.instance_variable_get(:@pf)
 
       waiting(10) {
         # @pos will be reset as 0 when UNWATCHED_POSITION is specified.
-        sleep 0.1 until pos_file[path_ino.path, path_ino.ino].read_pos == 0
+        sleep 0.1 until pos_file[target_info].read_pos == 0
       }
-      new_position = pos_file[new_path_ino.path, new_path_ino.ino].read_pos
+      new_position = pos_file[new_target_info].read_pos
       assert_equal(6, new_position)
 
       d.instance_shutdown
@@ -1645,16 +1645,16 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test1"
         f.puts "test2"
       }
-      path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
-      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path_ino, anything, anything, true, true, anything, nil, anything).once
+      target_info = create_target_info("#{TMP_DIR}/tail.txt")
+      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, true, anything, nil, anything).once
       d.run(shutdown: false)
-      assert d.instance.instance_variable_get(:@tails)[path_ino]
+      assert d.instance.instance_variable_get(:@tails)[target_info]
 
       Timecop.travel(now + 10) do
         d.instance.instance_eval do
-          sleep 0.1 until @tails[path_ino] == nil
+          sleep 0.1 until @tails[target_info] == nil
         end
-        assert_nil d.instance.instance_variable_get(:@tails)[path_ino]
+        assert_nil d.instance.instance_variable_get(:@tails)[target_info]
       end
       d.instance_shutdown
     end
@@ -1669,7 +1669,7 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test1"
         f.puts "test2"
       }
-      path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+      path_ino = create_target_info("#{TMP_DIR}/tail.txt")
 
       d.run(expect_emits: 1, shutdown: false) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
@@ -1680,7 +1680,7 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test3"
         f.puts "test4"
       }
-      new_path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+      new_path_ino = create_target_info("#{TMP_DIR}/tail.txt")
 
       Timecop.travel(now + 10) do
         sleep 3
@@ -1852,8 +1852,8 @@ class TailInputTest < Test::Unit::TestCase
     })
 
     expected_files = [
-      path_to_tuple("#{TMP_DIR}/tail_watch1.txt"),
-      path_to_tuple("#{TMP_DIR}/tail_watch2.txt")
+      create_target_info("#{TMP_DIR}/tail_watch1.txt"),
+      create_target_info("#{TMP_DIR}/tail_watch2.txt")
     ]
 
     Timecop.freeze(now) do

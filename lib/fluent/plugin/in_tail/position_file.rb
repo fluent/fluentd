@@ -37,34 +37,26 @@ module Fluent::Plugin
         @existing_paths = existing_paths
       end
 
-      def [](path, inode)
-        if @follow_inodes && m = @map[inode]
-          return m
-        elsif !@follow_inodes && m = @map[path]
+      def [](target_info)
+        if m = @map[@follow_inodes ? target_info.ino : target_info.path]
           return m
         end
 
         @file_mutex.synchronize {
           @file.seek(0, IO::SEEK_END)
-          seek = @file.pos + path.bytesize + 1
-          @file.write "#{path}\t0000000000000000\t0000000000000000\n"
+          seek = @file.pos + target_info.path.bytesize + 1
+          @file.write "#{target_info.path}\t0000000000000000\t0000000000000000\n"
           if @follow_inodes
-            @map[inode] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+            @map[target_info.ino] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
           else
-            @map[path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+            @map[target_info.path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
           end
         }
       end
 
-      def unwatch(path, inode)
-        if @follow_inodes
-          if (entry = @map.delete(inode))
-            entry.update_pos(UNWATCHED_POSITION)
-          end
-        else
-          if (entry = @map.delete(path))
-            entry.update_pos(UNWATCHED_POSITION)
-          end
+      def unwatch(target_info)
+        if (entry = @map.delete(@follow_inodes ? target_info.ino : target_info.path))
+          entry.update_pos(UNWATCHED_POSITION)
         end
       end
 
@@ -112,8 +104,9 @@ module Fluent::Plugin
             @file.truncate(0)
             @file.write(entries.values.map(&:to_entry_fmt).join)
 
-            entries.each do |path, val|
-              if (m = @map[path])
+            # entry contains path/ino key and value.
+            entries.each do |key, val|
+              if (m = @map[key])
                 m.seek = val.seek
               end
             end
