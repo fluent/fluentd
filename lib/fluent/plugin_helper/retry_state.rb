@@ -127,6 +127,10 @@ module Fluent
           nil
         end
 
+        def recalc_next_time
+          @next_time = calc_next_time
+        end
+
         def limit?
           if @forever
             false
