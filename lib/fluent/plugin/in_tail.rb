@@ -939,9 +939,9 @@ module Fluent::Plugin
                         time_spent_reading = Time.now - start_reading
                         @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
                         if time_spent_reading < 1
-                          debug_time = 1 - time_spent_reading
-                          @log.debug("sleep: #{debug_time}")
-                          sleep(1 - time_spent_reading)
+                          needed_sleeping_time = 1 - time_spent_reading
+                          @log.debug("sleep: #{needed_sleeping_time}")
+                          sleep(needed_sleeping_time)
                         end
                         start_reading = Fluent::EventTime.now
                       end
