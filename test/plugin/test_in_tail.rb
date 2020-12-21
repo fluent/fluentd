@@ -330,13 +330,13 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       data("flat 8192 bytes, 10 events"        => [:flat, 100, 8192, 10],
-           "flat #{8192*10} bytes, 20 events"  => [:flat, 100, (8192 * 10), 20],
+           "flat #{8192*10} bytes, 22 events"  => [:flat, 100, (8192 * 10), 22],
            "parse #{8192*3} bytes, 10 events"  => [:parse, 100, (8192 * 3), 10],
-           "parse #{8192*10} bytes, 20 events" => [:parse, 100, (8192 * 10), 20],
+           "parse #{8192*10} bytes, 22 events" => [:parse, 100, (8192 * 10), 22],
            "flat 8k bytes with unit, 10 events"        => [:flat, 100, "8k", 10],
-           "flat #{8*10}k bytes with unit, 20 events"  => [:flat, 100, "#{8*10}k", 20],
+           "flat #{8*10}k bytes with unit, 22 events"  => [:flat, 100, "#{8*10}k", 22],
            "parse #{8*3}k bytes with unit, 10 events"  => [:parse, 100, "#{8*3}k", 10],
-           "parse #{8*10}k bytes with unit, 20 events" => [:parse, 100, "#{8*10}k", 20])
+           "parse #{8*10}k bytes with unit, 22 events" => [:parse, 100, "#{8*10}k", 22])
       def test_emit_with_read_bytes_limit_per_second(data)
         config_style, limit, limit_bytes, num_events = data
         case config_style
