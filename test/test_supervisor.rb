@@ -111,6 +111,32 @@ class SupervisorTest < ::Test::Unit::TestCase
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
+  def test_main_process_command_handlers
+    omit "Only for Windows, alternative to UNIX signals" unless Fluent.windows?
+
+    create_info_dummy_logger
+
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+    r, w = IO.pipe
+    $stdin = r
+    sv.send(:install_main_process_signal_handlers)
+
+    begin
+      w.write("GRACEFUL_RESTART\n")
+      w.flush
+    ensure
+      $stdin = STDIN
+    end
+
+    sleep 1
+
+    info_msg = '[info]: force flushing buffered events' + "\n"
+    assert{ $log.out.logs.first.end_with?(info_msg) }
+  ensure
+    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+  end
+
   def test_supervisor_signal_handler
     omit "Windows cannot handle signals" if Fluent.windows?
 
@@ -137,21 +163,53 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     server = DummyServer.new
     def server.config
-      {:signame => "TestFluentdEvent", :worker_pid => {0 => 1234}}
+      {:signame => "TestFluentdEvent"}
     end
 
     mock(server).stop(true)
     stub(Process).kill.times(0)
 
-    server.before_run
     server.install_windows_event_handler
-    sleep 0.1 # Wait for starting windows event thread
-    event = Win32::Event.open("TestFluentdEvent")
-    event.set
-    event.close
-    # Wait for stopping windows event thread. Should larger than 1 sec
-    # because the thread is awaked every 1 sec.
-    sleep 1.1
+    begin
+      sleep 0.1 # Wait for starting windows event thread
+      event = Win32::Event.open("TestFluentdEvent")
+      event.set
+      event.close
+    ensure
+      server.stop_windows_event_thread
+    end
+
+    debug_msg = '[debug]: Got Win32 event "TestFluentdEvent"'
+    logs = $log.out.logs
+    assert{ logs.any?{|log| log.include?(debug_msg) } }
+  ensure
+    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+  end
+
+  def test_supervisor_event_handler
+    omit "Only for Windows, alternative to UNIX signals" unless Fluent.windows?
+
+    create_debug_dummy_logger
+
+    server = DummyServer.new
+    def server.config
+      {:signame => "TestFluentdEvent"}
+    end
+    server.install_windows_event_handler
+    begin
+      sleep 0.1 # Wait for starting windows event thread
+      event = Win32::Event.open("TestFluentdEvent_USR1")
+      event.set
+      event.close
+    ensure
+      server.stop_windows_event_thread
+    end
+
+    debug_msg = '[debug]: Got Win32 event "TestFluentdEvent_USR1"'
+    logs = $log.out.logs
+    assert{ logs.any?{|log| log.include?(debug_msg) } }
+  ensure
+    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
   def test_rpc_server
@@ -176,7 +234,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     server.run_rpc_server
 
     sv.send(:install_main_process_signal_handlers)
-    Net::HTTP.get URI.parse('http://0.0.0.0:24447/api/plugins.flushBuffers')
+    response = Net::HTTP.get(URI.parse('http://127.0.0.1:24447/api/plugins.flushBuffers'))
     info_msg = '[info]: force flushing buffered events' + "\n"
 
     server.stop_rpc_server
@@ -185,9 +243,43 @@ class SupervisorTest < ::Test::Unit::TestCase
     # This test will be passed in such environment.
     pend unless $log.out.logs.first
 
+    assert_equal('{"ok":true}', response)
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
     $log.out.reset if $log.out.is_a?(Fluent::Test::DummyLogDevice)
+  end
+
+  def test_rpc_server_windows
+    omit "Only for windows platform" unless Fluent.windows?
+
+    create_info_dummy_logger
+
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+    conf_data = <<-EOC
+  <system>
+    rpc_endpoint 0.0.0.0:24447
+  </system>
+    EOC
+    conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
+    sys_conf = sv.__send__(:build_system_config, conf)
+
+    server = DummyServer.new
+    def server.config
+      {
+        :signame => "TestFluentdEvent",
+        :worker_pid => 5963,
+      }
+    end
+    server.rpc_endpoint = sys_conf.rpc_endpoint
+
+    server.run_rpc_server
+
+    mock(server).restart(true) { nil }
+    response = Net::HTTP.get(URI.parse('http://127.0.0.1:24447/api/plugins.flushBuffers'))
+
+    server.stop_rpc_server
+    assert_equal('{"ok":true}', response)
   end
 
   def test_load_config

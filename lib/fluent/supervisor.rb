@@ -53,11 +53,11 @@ module Fluent
         @enable_get_dump = config[:enable_get_dump]
         run_rpc_server
       end
-      install_supervisor_signal_handlers
 
-      if config[:signame]
-        @signame = config[:signame]
+      if Fluent.windows?
         install_windows_event_handler
+      else
+        install_supervisor_signal_handlers
       end
 
       if counter = config[:counter_server]
@@ -70,6 +70,7 @@ module Fluent
     end
 
     def after_run
+      stop_windows_event_thread if Fluent.windows?
       stop_rpc_server if @rpc_endpoint
       stop_counter_server if @counter
       Fluent::Supervisor.cleanup_resources
@@ -92,7 +93,8 @@ module Fluent
       @rpc_server.mount_proc('/api/processes.flushBuffersAndKillWorkers') { |req, res|
         $log.debug "fluentd RPC got /api/processes.flushBuffersAndKillWorkers request"
         if Fluent.windows?
-          $log.warn "operation 'flushBuffersAndKillWorkers' is not supported on Windows now."
+          supervisor_sigusr1_handler
+          stop(true)
         else
           Process.kill :USR1, $$
           Process.kill :TERM, $$
@@ -101,7 +103,9 @@ module Fluent
       }
       @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
         $log.debug "fluentd RPC got /api/plugins.flushBuffers request"
-        unless Fluent.windows?
+        if Fluent.windows?
+          supervisor_sigusr1_handler
+        else
           Process.kill :USR1, $$
         end
         nil
@@ -125,7 +129,9 @@ module Fluent
 
       @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
         $log.debug "fluentd RPC got /api/config.gracefulReload request"
-        unless Fluent.windows?
+        if Fluent.windows?
+          supervisor_sigusr2_handler
+        else
           Process.kill :USR2, $$
         end
 
@@ -159,34 +165,98 @@ module Fluent
     end
 
     def install_supervisor_signal_handlers
+      return if Fluent.windows?
+
       trap :HUP do
         $log.debug "fluentd supervisor process get SIGHUP"
         supervisor_sighup_handler
-      end unless Fluent.windows?
+      end
 
       trap :USR1 do
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
-      end unless Fluent.windows?
+      end
 
       trap :USR2 do
         $log.debug 'fluentd supervisor process got SIGUSR2'
         supervisor_sigusr2_handler
-      end unless Fluent.windows?
+      end
+    end
+
+    if Fluent.windows?
+      # Override some methods of ServerEngine::MultiSpawnWorker
+      # Since Fluentd's Supervisor doesn't use ServerEngine's HUP, USR1 and USR2
+      # handlers (see install_supervisor_signal_handlers), they should be
+      # disabled also on Windows, just send commands to workers instead.
+      def restart(graceful)
+        @monitors.each do |m|
+          m.send_command(graceful ? "GRACEFUL_RESTART\n" : "IMMEDIATE_RESTART\n")
+        end
+      end
+
+      def reload
+        @monitors.each do |m|
+          m.send_command("RELOAD\n")
+        end
+      end
     end
 
     def install_windows_event_handler
+      return unless Fluent.windows?
+
+      @pid_signame = "fluentd_#{$$}"
+      @signame = config[:signame]
+
       Thread.new do
-        ev = Win32::Event.new(@signame)
-        begin
-          ev.reset
-          until WaitForSingleObject(ev.handle, 0) == WAIT_OBJECT_0
-            sleep 1
-          end
-          stop(true)
-        ensure
-          ev.close
+        ipc = Win32::Ipc.new(nil)
+        events = [
+          Win32::Event.new("#{@pid_signame}_STOP_EVENT_THREAD"),
+          Win32::Event.new("#{@pid_signame}"),
+          Win32::Event.new("#{@pid_signame}_HUP"),
+          Win32::Event.new("#{@pid_signame}_USR1"),
+          Win32::Event.new("#{@pid_signame}_USR2"),
+        ]
+        if @signame
+          signame_events = [
+            Win32::Event.new("#{@signame}"),
+            Win32::Event.new("#{@signame}_HUP"),
+            Win32::Event.new("#{@signame}_USR1"),
+            Win32::Event.new("#{@signame}_USR2"),
+          ]
+          events.concat(signame_events)
         end
+        begin
+          loop do
+            idx = ipc.wait_any(events, Windows::Synchronize::INFINITE)
+            if idx > 0 && idx <= events.length
+              $log.debug("Got Win32 event \"#{events[idx - 1].name}\"")
+            else
+              $log.warn("Unexpected reutrn value of Win32::Ipc#wait_any: #{idx}")
+            end
+            case idx
+            when 2, 6
+              stop(true)
+            when 3, 7
+              supervisor_sighup_handler
+            when 4, 8
+              supervisor_sigusr1_handler
+            when 5, 9
+              supervisor_sigusr2_handler
+            when 1
+              break
+            end
+          end
+        ensure
+          events.each { |event| event.close }
+        end
+      end
+    end
+
+    def stop_windows_event_thread
+      if Fluent.windows?
+        ev = Win32::Event.open("#{@pid_signame}_STOP_EVENT_THREAD")
+        ev.set
+        ev.close
       end
     end
 
@@ -264,9 +334,25 @@ module Fluent
     def send_signal_to_workers(signal)
       return unless config[:worker_pid]
 
-      config[:worker_pid].each_value do |pid|
-        # don't rescue Errno::ESRCH here (invalid status)
-        Process.kill(signal, pid)
+      if Fluent.windows?
+        send_command_to_workers(signal)
+      else
+        config[:worker_pid].each_value do |pid|
+          # don't rescue Errno::ESRCH here (invalid status)
+          Process.kill(signal, pid)
+        end
+      end
+    end
+
+    def send_command_to_workers(signal)
+      # Use SeverEngine's CommandSender on Windows
+      case signal
+      when :HUP
+        restart(false)
+      when :USR1
+        restart(true)
+      when :USR2
+        reload
       end
     end
   end
@@ -745,33 +831,45 @@ module Fluent
         end
       end
 
-      trap :USR1 do
-        flush_buffer
-      end unless Fluent.windows?
-
-      trap :USR2 do
-        reload_config
-      end unless Fluent.windows?
-
       if Fluent.windows?
-        command_pipe = STDIN.dup
-        STDIN.reopen(File::NULL, "rb")
-        command_pipe.binmode
-        command_pipe.sync = true
+        install_main_process_command_handlers
+      else
+        trap :USR1 do
+          flush_buffer
+        end
 
-        Thread.new do
-          loop do
-            cmd = command_pipe.gets.chomp
-            case cmd
-            when "GRACEFUL_STOP", "IMMEDIATE_STOP"
-              $log.debug "fluentd main process get #{cmd} command"
-              @finished = true
-              $log.debug "getting start to shutdown main process"
-              Fluent::Engine.stop
-              break
-            else
-              $log.warn "fluentd main process get unknown command [#{cmd}]"
-            end
+        trap :USR2 do
+          reload_config
+        end
+      end
+    end
+
+    def install_main_process_command_handlers
+      command_pipe = $stdin.dup
+      $stdin.reopen(File::NULL, "rb")
+      command_pipe.binmode
+      command_pipe.sync = true
+
+      Thread.new do
+        loop do
+          cmd = command_pipe.gets
+          break unless cmd
+
+          case cmd.chomp!
+          when "GRACEFUL_STOP", "IMMEDIATE_STOP"
+            $log.debug "fluentd main process get #{cmd} command"
+            @finished = true
+            $log.debug "getting start to shutdown main process"
+            Fluent::Engine.stop
+            break
+          when "GRACEFUL_RESTART"
+            $log.debug "fluentd main process get #{cmd} command"
+            flush_buffer
+          when "RELOAD"
+            $log.debug "fluentd main process get #{cmd} command"
+            reload_config
+          else
+            $log.warn "fluentd main process get unknown command [#{cmd}]"
           end
         end
       end

@@ -61,7 +61,6 @@ begin
     end
     
     def service_main
-    
       @pid = service_main_start(@service_name)
       while running?
         sleep 10
@@ -69,12 +68,31 @@ begin
     end
 
     def service_stop
-      ev = Win32::Event.open(@service_name)
-      ev.set
-      ev.close
+      set_event(@service_name)
       if @pid > 0
         Process.waitpid(@pid)
       end
+    end
+
+    def service_paramchange
+      set_event("#{@service_name}_USR2")
+    end
+
+    def service_user_defined_control(code)
+      case code
+      when 128
+        set_event("#{@service_name}_HUP")
+      when 129
+        set_event("#{@service_name}_USR1")
+      end
+    end
+
+    private
+
+    def set_event(event_name)
+      ev = Win32::Event.open(event_name)
+      ev.set
+      ev.close
     end
   end
 
