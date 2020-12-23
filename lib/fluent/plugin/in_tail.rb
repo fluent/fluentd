@@ -926,7 +926,7 @@ module Fluent::Plugin
                     @fifo << io.readpartial(8192, @iobuf)
                     @fifo.read_lines(@lines)
 
-                    number_bytes_read += @lines.last.size
+                    number_bytes_read += @lines.last ? @lines.last.size : 0
                     limit_bytes_per_second_reached = (number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0)
                     @log.debug("reading file: #{@path}")
                     if @lines.size >= @read_lines_limit || limit_bytes_per_second_reached
