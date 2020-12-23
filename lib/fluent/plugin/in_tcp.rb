@@ -98,6 +98,7 @@ module Fluent::Plugin
     def start
       super
 
+      log.info "listening tcp socket", bind: @bind, port: @port
       del_size = @delimiter.length
       if @_extract_enabled && @_extract_tag_key
         server_create(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
