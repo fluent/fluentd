@@ -109,6 +109,8 @@ module Fluent::Plugin
     config_param :path_timezone, :string, default: nil
     desc 'Follow inodes instead of following file names. Guarantees more stable delivery and allows to use * in path pattern with rotating files'
     config_param :follow_inodes, :bool, default: false
+    desc 'Specify max size of thread pool'
+    config_param :max_thread_pool_size, :integer, default: 10
 
     config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
       config_argument :usage, :string, default: 'in_tail_parser'
@@ -180,6 +182,8 @@ module Fluent::Plugin
       # parser is already created by parser helper
       @parser = parser_create(usage: parser_config['usage'] || @parser_configs.first.usage)
       @capability = Fluent::Capability.new(:current_process)
+      # Need to create thread pool because #sleep should pause entire thread on enabling log throttling feature.
+      @thread_pool = nil
     end
 
     def configure_tag
@@ -395,36 +399,40 @@ module Fluent::Plugin
     end
 
     def start_watchers(targets_info)
-      targets_info.each_value { |target_info|
-        pe = nil
-        if @pf
-          pe = @pf[target_info]
-          if @read_from_head && pe.read_inode.zero?
-            begin
-              pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
-            rescue Errno::ENOENT
-              $log.warn "#{target_info.path} not found. Continuing without tailing it."
+      @thread_pool = TailThread::Pool.new(@max_thread_pool_size) do |pool|
+        targets_info.each_value { |target_info|
+          pool.run {
+            pe = nil
+            if @pf
+              pe = @pf[target_info]
+              if @read_from_head && pe.read_inode.zero?
+                begin
+                  pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
+                rescue Errno::ENOENT
+                  $log.warn "#{target_info.path} not found. Continuing without tailing it."
+                end
+              end
             end
-          end
-        end
 
-        begin
-          tw = setup_watcher(target_info, pe)
-        rescue WatcherSetupError => e
-          log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
-          next
-        end
+            begin
+              tw = setup_watcher(target_info, pe)
+            rescue WatcherSetupError => e
+              log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
+              next
+            end
 
-        begin
-          target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
-          @tails[target_info] = tw
-        rescue Errno::ENOENT
-          $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
-          # explicitly detach and unwatch watcher `tw`.
-          tw.unwatched = true
-          detach_watcher(tw, target_info.ino, false)
-        end
-      }
+            begin
+              target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
+              @tails[target_info] = tw
+            rescue Errno::ENOENT
+              $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
+              # explicitly detach and unwatch watcher `tw`.
+              tw.unwatched = true
+              detach_watcher(tw, target_info.ino, false)
+            end
+          }
+        }
+      end
     end
 
     def stop_watchers(targets_info, immediate: false, unwatched: false, remove_watcher: true)
@@ -443,6 +451,9 @@ module Fluent::Plugin
           end
         end
       }
+      if @thread_pool
+        @thread_pool.stop
+      end
     end
 
     def close_watcher_handles
@@ -670,6 +681,51 @@ module Fluent::Plugin
       rescue => e
         @log.error e.to_s
         @log.error_backtrace
+      end
+    end
+
+    class TailThread
+      class Pool
+        def initialize(max_size, &session)
+          @max_size = max_size
+          @queue = Queue.new
+          @threads = []
+          @running = false
+          session.call(self)
+          @running = true
+        ensure
+          stop
+        end
+
+        def run(&task)
+          @queue.push(task)
+          @threads << create_thread if @threads.size < @max_size
+        end
+
+        def stop
+          return unless @running
+          @running = false
+
+          until @queue.num_waiting == @threads.size
+            sleep 0.01
+          end
+          begin
+            Timeout.timeout(1) do
+              @threads.join
+            end
+          rescue Timeout::Error
+            @threads.each {|th| th.kill }
+          end
+        end
+
+        protected def create_thread
+          Thread.start(@queue) do |q|
+            loop do
+              task = q.pop
+              task.call
+            end
+          end
+        end
       end
     end
 
