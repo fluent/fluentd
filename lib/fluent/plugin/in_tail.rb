@@ -188,6 +188,10 @@ module Fluent::Plugin
         if @max_thread_pool_size < 0
           raise Fluent::ConfigError, "Specify positive number"
         end
+        require 'etc'
+        if @max_thread_pool_size <= (Etc.nprocessors / 2)
+          raise Fluent::ConfigError, "Specify #{Etc.nprocessors / 2} or more on max_thread_pool_size"
+        end
       end
     end
 

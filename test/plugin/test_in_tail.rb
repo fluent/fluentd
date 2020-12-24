@@ -102,6 +102,7 @@ class TailInputTest < Test::Unit::TestCase
   CONFIG_ENABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
   CONFIG_DISABLE_STAT_WATCHER = config_element("", "", { "enable_stat_watcher" => false })
   CONFIG_OPEN_ON_EVERY_UPDATE = config_element("", "", { "open_on_every_update" => true })
+  CONFIG_MAX_THREAD_POOL_SIZE = config_element("", "", { "max_thread_pool_size" => (Etc.nprocessors / 1.5).ceil })
   COMMON_FOLLOW_INODE_CONFIG = config_element("ROOT", "", {
                                                 "path" => "#{TMP_DIR}/tail.txt*",
                                                 "pos_file" => "#{TMP_DIR}/tail.pos",
@@ -330,33 +331,33 @@ class TailInputTest < Test::Unit::TestCase
         FileUtils.rm_f("#{TMP_DIR}/tail.txt")
       end
 
-      data("flat 8192 bytes, 10 events"        => [:flat, 100, 8192, 10],
-           "flat 8192 bytes, 10 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 10],
+      data("flat 8192 bytes, 24 events"        => [:flat, 100, 8192, 24],
+           "flat 8192 bytes, 24 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 24],
            "flat #{8192*10} bytes, 22 events"  => [:flat, 100, (8192 * 10), 22],
            "flat #{8192*10} bytes, 22 events w/o stat watcher"  => [:flat_without_stat, 100, (8192 * 10), 22],
-           "parse #{8192*3} bytes, 10 events"  => [:parse, 100, (8192 * 3), 10],
-           "parse #{8192*3} bytes, 10 events w/o stat watcher"  => [:parse_without_stat, 100, (8192 * 3), 10],
+           "parse #{8192*3} bytes, 48 events"  => [:parse, 100, (8192 * 3), 48],
+           "parse #{8192*3} bytes, 48 events w/o stat watcher"  => [:parse_without_stat, 100, (8192 * 3), 48],
            "parse #{8192*10} bytes, 22 events" => [:parse, 100, (8192 * 10), 22],
            "parse #{8192*10} bytes, 22 events w/o stat watcher" => [:parse_without_stat, 100, (8192 * 10), 22],
-           "flat 8k bytes with unit, 10 events"        => [:flat, 100, "8k", 10],
-           "flat 8k bytes with unit, 10 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 10],
+           "flat 8k bytes with unit, 24 events"        => [:flat, 100, "8k", 24],
+           "flat 8k bytes with unit, 24 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 24],
            "flat #{8*10}k bytes with unit, 22 events"  => [:flat, 100, "#{8*10}k", 22],
            "flat #{8*10}k bytes with unit, 22 events w/o stat watcher"  => [:flat_without_stat, 100, "#{8*10}k", 22],
-           "parse #{8*3}k bytes with unit, 10 events"  => [:parse, 100, "#{8*3}k", 10],
-           "parse #{8*3}k bytes with unit, 10 events w/o stat watcher"  => [:parse_without_stat, 100, "#{8*3}k", 10],
+           "parse #{8*3}k bytes with unit, 48 events"  => [:parse, 100, "#{8*3}k", 48],
+           "parse #{8*3}k bytes with unit, 48 events w/o stat watcher"  => [:parse_without_stat, 100, "#{8*3}k", 48],
            "parse #{8*10}k bytes with unit, 22 events" => [:parse, 100, "#{8*10}k", 22],
            "parse #{8*10}k bytes with unit, 22 events w/o stat watcher" => [:parse_without_stat, 100, "#{8*10}k", 22])
       def test_emit_with_read_bytes_limit_per_second(data)
         config_style, limit, limit_bytes, num_events = data
         case config_style
         when :flat
-          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes })
+          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + CONFIG_MAX_THREAD_POOL_SIZE
         when :parse
-          config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
+          config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG + CONFIG_MAX_THREAD_POOL_SIZE
         when :flat_without_stat
-          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes })
+          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + CONFIG_MAX_THREAD_POOL_SIZE
         when :parse_without_stat
-          config = CONFIG_READ_FROM_HEAD + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
+          config = CONFIG_READ_FROM_HEAD + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG + CONFIG_MAX_THREAD_POOL_SIZE
         end
         d = create_driver(config)
         msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
