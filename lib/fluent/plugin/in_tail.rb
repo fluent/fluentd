@@ -110,7 +110,7 @@ module Fluent::Plugin
     desc 'Follow inodes instead of following file names. Guarantees more stable delivery and allows to use * in path pattern with rotating files'
     config_param :follow_inodes, :bool, default: false
     desc 'Specify max size of thread pool'
-    config_param :max_thread_pool_size, :integer, default: 10
+    config_param :max_thread_pool_size, :integer, default: 1
 
     config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
       config_argument :usage, :string, default: 'in_tail_parser'
