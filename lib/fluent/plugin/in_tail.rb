@@ -991,7 +991,7 @@ module Fluent::Plugin
 
                       if limit_bytes_per_second_reached
                         # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
-                        time_spent_reading = Time.now - start_reading
+                        time_spent_reading = Fluent::EventTime.now - start_reading
                         @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
                         if time_spent_reading < 1
                           needed_sleeping_time = 1 - time_spent_reading
