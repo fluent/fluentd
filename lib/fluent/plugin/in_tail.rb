@@ -188,6 +188,10 @@ module Fluent::Plugin
         if @max_thread_pool_size < 0
           raise Fluent::ConfigError, "Specify positive number"
         end
+        if @read_bytes_limit_per_second < 8192
+          log.warn "Should specify greater equal than 8192. Use 8192 for read_bytes_limit_per_second"
+          @read_bytes_limit_per_second = 8192
+        end
         require 'etc'
         if @max_thread_pool_size <= (Etc.nprocessors / 2)
           raise Fluent::ConfigError, "Specify #{Etc.nprocessors / 2} or more on max_thread_pool_size"
