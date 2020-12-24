@@ -184,6 +184,11 @@ module Fluent::Plugin
       @capability = Fluent::Capability.new(:current_process)
       # Need to create thread pool because #sleep should pause entire thread on enabling log throttling feature.
       @thread_pool = nil
+      if @read_bytes_limit_per_second > 0
+        if @max_thread_pool_size < 0
+          raise Fluent::ConfigError, "Specify positive number"
+        end
+      end
     end
 
     def configure_tag
