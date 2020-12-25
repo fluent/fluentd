@@ -8,6 +8,7 @@ require 'flexmock/test_unit'
 require 'timecop'
 require 'tmpdir'
 require 'securerandom'
+require 'etc'
 
 class TailInputTest < Test::Unit::TestCase
   include FlexMock::TestCase
@@ -195,6 +196,29 @@ class TailInputTest < Test::Unit::TestCase
     test "follow_inodes w/o pos file" do
       assert_raise(Fluent::ConfigError) do
         create_driver(CONFIG + config_element('', '', {'follow_inodes' => 'true'}))
+      end
+    end
+
+    sub_test_case "log throttling per file" do
+      test "w/o watcher timer is invalid" do
+        conf = CONFIG_ENABLE_WATCH_TIMER + CONFIG_MAX_THREAD_POOL_SIZE + config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+
+      test "w/o 2 or more thread pool size is invalid" do
+        conf = config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+
+      test "valid" do
+        conf = CONFIG_MAX_THREAD_POOL_SIZE + config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
       end
     end
 
