@@ -190,6 +190,34 @@ class InjectHelperTest < Test::Unit::TestCase
       assert_equal record.merge({"timedata" => time_in_unix * 1_000}), @d.inject_values_to_record('tag', time_in_unix, record)
     end
 
+    test 'injects time as unix time micros into specified key' do
+      time_in_unix = Time.parse("2016-06-21 08:10:11 +0900").to_i
+      time_subsecond = 320_101_224
+      time = Fluent::EventTime.new(time_in_unix, time_subsecond)
+      unixtime_micros = 1466464211320101
+
+      @d.configure(config_inject_section("time_key" => "timedata", "time_type" => "unixtime_micros"))
+      @d.start
+
+      record = {"key1" => "value1", "key2" => 2}
+      assert_equal record.merge({"timedata" => unixtime_micros}), @d.inject_values_to_record('tag', time, record)
+      assert_equal record.merge({"timedata" => time_in_unix * 1_000_000}), @d.inject_values_to_record('tag', time_in_unix, record)
+    end
+
+    test 'injects time as unix time nanos into specified key' do
+      time_in_unix = Time.parse("2016-06-21 08:10:11 +0900").to_i
+      time_subsecond = 320_101_224
+      time = Fluent::EventTime.new(time_in_unix, time_subsecond)
+      unixtime_nanos = 1466464211320101224
+
+      @d.configure(config_inject_section("time_key" => "timedata", "time_type" => "unixtime_nanos"))
+      @d.start
+
+      record = {"key1" => "value1", "key2" => 2}
+      assert_equal record.merge({"timedata" => unixtime_nanos}), @d.inject_values_to_record('tag', time, record)
+      assert_equal record.merge({"timedata" => time_in_unix * 1_000_000_000}), @d.inject_values_to_record('tag', time_in_unix, record)
+    end
+
     test 'injects time as unix time into specified key' do
       time_in_unix = Time.parse("2016-06-21 08:10:11 +0900").to_i
       time_subsecond = 320_101_224
