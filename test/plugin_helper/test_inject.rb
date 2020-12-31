@@ -187,6 +187,7 @@ class InjectHelperTest < Test::Unit::TestCase
 
       record = {"key1" => "value1", "key2" => 2}
       assert_equal record.merge({"timedata" => unixtime_millis}), @d.inject_values_to_record('tag', time, record)
+      assert_equal record.merge({"timedata" => time_in_unix * 1_000}), @d.inject_values_to_record('tag', time_in_unix, record)
     end
 
     test 'injects time as unix time into specified key' do
