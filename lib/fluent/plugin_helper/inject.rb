@@ -76,7 +76,7 @@ module Fluent
           config_param :time_key, :string, default: nil
 
           # To avoid defining :time_type twice
-          config_param :time_type, :enum, list: [:float, :unixtime, :unixtime_millis, :string], default: :float
+          config_param :time_type, :enum, list: [:float, :unixtime, :unixtime_millis, :unixtime_micros, :unixtime_nanos, :string], default: :float
 
           Fluent::TimeMixin::TIME_PARAMETERS.each do |name, type, opts|
             config_param(name, type, **opts)
@@ -132,7 +132,9 @@ module Fluent
           if @_inject_time_key
             @_inject_time_formatter = case @inject_config.time_type
                                       when :float then ->(time){ time.to_r.truncate(+6).to_f } # microsecond floating point value
-                                      when :unixtime_millis then ->(time) { time.to_f.floor(3) * 1000 }
+                                      when :unixtime_millis then ->(time) { time.respond_to?(:nsec) ? time.to_i * 1_000 + time.nsec / 1_000_000 : (time * 1_000).floor }
+                                      when :unixtime_micros then ->(time) { time.respond_to?(:nsec) ? time.to_i * 1_000_000 + time.nsec / 1_000 : (time * 1_000_000).floor }
+                                      when :unixtime_nanos then ->(time) { time.respond_to?(:nsec) ? time.to_i * 1_000_000_000 + time.nsec : (time * 1_000_000_000).floor }
                                       when :unixtime then ->(time){ time.to_i }
                                       else
                                         localtime = @inject_config.localtime && !@inject_config.utc

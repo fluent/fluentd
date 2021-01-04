@@ -50,6 +50,7 @@ module Fluent
     def to_int
       @sec
     end
+    alias :to_i :to_int
 
     def to_f
       @sec + @nsec / 1_000_000_000.0
