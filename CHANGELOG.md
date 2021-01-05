@@ -1,3 +1,40 @@
+# v1.12
+
+## Release v1.12.0 - 2020/01/05
+
+### New feature
+
+* in_tail: Add `follow_inode` to support log rotation with wild card
+  https://github.com/fluent/fluentd/pull/2992
+* in_tail: Handle linux capability
+  https://github.com/fluent/fluentd/pull/3155
+  https://github.com/fluent/fluentd/pull/3162
+* windows: Add win32 events alternative to unix signals
+  https://github.com/fluent/fluentd/pull/3131
+
+### Enhancement
+
+* buffer: Enable metadata comparison optimization on all platform
+  https://github.com/fluent/fluentd/pull/3095
+* fluent-plugin-config-formatter: Handle `service_discovery` type
+  https://github.com/fluent/fluentd/pull/3178
+* in_http: Add `add_query_params` parameter to add query params to event record
+  https://github.com/fluent/fluentd/pull/3197
+* inject: Support `unixtime_micros` and `unixtime_nanos` in `time_type`
+  https://github.com/fluent/fluentd/pull/3220
+* Refactoring code
+  https://github.com/fluent/fluentd/pull/3167
+  https://github.com/fluent/fluentd/pull/3170
+  https://github.com/fluent/fluentd/pull/3180
+  https://github.com/fluent/fluentd/pull/3196
+  https://github.com/fluent/fluentd/pull/3213
+  https://github.com/fluent/fluentd/pull/3222
+
+### Bug fix
+
+* output: Prevent retry.step from being called too many times in a short time
+  https://github.com/fluent/fluentd/pull/3203
+
 # v1.11
 
 ## Release v1.11.5 - 2020/11/06
