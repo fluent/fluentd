@@ -363,22 +363,22 @@ class TailInputTest < Test::Unit::TestCase
         num
       end
 
-      data("flat 8192 bytes, 24 events"        => [:flat, 100, 8192, 24],
-           "flat 8192 bytes, 24 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 24],
+      data("flat 8192 bytes, 12 events"        => [:flat, 100, 8192, 12],
+           "flat 8192 bytes, 12 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 12],
            "flat #{8192*10} bytes, 22 events"  => [:flat, 100, (8192 * 10), 22],
            "flat #{8192*10} bytes, 22 events w/o stat watcher"  => [:flat_without_stat, 100, (8192 * 10), 22],
            "parse #{8192*3} bytes, 48 events"  => [:parse, 100, (8192 * 3), 48],
            "parse #{8192*3} bytes, 48 events w/o stat watcher"  => [:parse_without_stat, 100, (8192 * 3), 48],
-           "parse #{8192*10} bytes, 22 events" => [:parse, 100, (8192 * 10), 22],
-           "parse #{8192*10} bytes, 22 events w/o stat watcher" => [:parse_without_stat, 100, (8192 * 10), 22],
-           "flat 8k bytes with unit, 24 events"        => [:flat, 100, "8k", 24],
-           "flat 8k bytes with unit, 24 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 24],
-           "flat #{8*10}k bytes with unit, 22 events"  => [:flat, 100, "#{8*10}k", 22],
-           "flat #{8*10}k bytes with unit, 22 events w/o stat watcher"  => [:flat_without_stat, 100, "#{8*10}k", 22],
+           "parse #{8192*10} bytes, 32 events" => [:parse, 100, (8192 * 10), 32],
+           "parse #{8192*10} bytes, 32 events w/o stat watcher" => [:parse_without_stat, 100, (8192 * 10), 32],
+           "flat 8k bytes with unit, 12 events"        => [:flat, 100, "8k", 12],
+           "flat 8k bytes with unit, 12 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 12],
+           "flat #{8*10}k bytes with unit, 32 events"  => [:flat, 100, "#{8*10}k", 32],
+           "flat #{8*10}k bytes with unit, 32 events w/o stat watcher"  => [:flat_without_stat, 100, "#{8*10}k", 32],
            "parse #{8*3}k bytes with unit, 48 events"  => [:parse, 100, "#{8*3}k", 48],
            "parse #{8*3}k bytes with unit, 48 events w/o stat watcher"  => [:parse_without_stat, 100, "#{8*3}k", 48],
-           "parse #{8*10}k bytes with unit, 22 events" => [:parse, 100, "#{8*10}k", 22],
-           "parse #{8*10}k bytes with unit, 22 events w/o stat watcher" => [:parse_without_stat, 100, "#{8*10}k", 22])
+           "parse #{8*10}k bytes with unit, 32 events" => [:parse, 100, "#{8*10}k", 32],
+           "parse #{8*10}k bytes with unit, 32 events w/o stat watcher" => [:parse_without_stat, 100, "#{8*10}k", 32])
       def test_emit_with_read_bytes_limit_per_second(data)
         config_style, limit, limit_bytes, num_events = data
         case config_style
@@ -407,7 +407,7 @@ class TailInputTest < Test::Unit::TestCase
         end
 
         events = d.events
-        assert_equal(true, events.length <= num_events)
+        assert_true(events.length <= num_events)
         assert_equal({"message" => msg}, events[0][2])
         assert_equal({"message" => msg}, events[1][2])
       end
