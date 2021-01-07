@@ -350,7 +350,7 @@ class TailInputTest < Test::Unit::TestCase
       assert num_events <= d.emit_count
     end
 
-    sub_test_case "log throttoling per file" do
+    sub_test_case "log throttling per file" do
       teardown do
         FileUtils.rm_f("#{TMP_DIR}/tail.txt")
       end
