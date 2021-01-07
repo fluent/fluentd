@@ -950,6 +950,8 @@ module Fluent::Plugin
       end
 
       class IOHandler
+        BYTES_TO_READ = 8192
+
         def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, log:, open_on_every_update:, from_encoding: nil, encoding: nil, &receive_lines)
           @watcher = watcher
           @path = path
@@ -994,10 +996,10 @@ module Fluent::Plugin
               if !io.nil? && @lines.empty?
                 begin
                   while true
-                    @fifo << io.readpartial(8192, @iobuf)
+                    @fifo << io.readpartial(BYTES_TO_READ, @iobuf)
                     @fifo.read_lines(@lines)
 
-                    number_bytes_read += 8192
+                    number_bytes_read += BYTES_TO_READ
                     limit_bytes_per_second_reached = (number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0)
                     @log.debug("reading file: #{@path}")
                     if @lines.size >= @read_lines_limit || limit_bytes_per_second_reached
