@@ -78,7 +78,7 @@ You can run specified test via `TEST` environment variable:
 - Slack / Community: https://slack.fluentd.org
 - Newsletters: https://www.fluentd.org/newsletter
 - Author: [Sadayuki Furuhashi](https://github.com/frsyuki)
-- Copyright: 2011-2019 Fluentd Authors
+- Copyright: 2011-2021 Fluentd Authors
 - License: Apache License, Version 2.0
 
 ## Security

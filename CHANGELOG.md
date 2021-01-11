@@ -1,6 +1,6 @@
 # v1.12
 
-## Release v1.12.0 - 2020/01/05
+## Release v1.12.0 - 2021/01/05
 
 ### New feature
 
@@ -14,7 +14,7 @@
 
 ### Enhancement
 
-* buffer: Enable metadata comparison optimization on all platform
+* buffer: Enable metadata comparison optimization on all platforms
   https://github.com/fluent/fluentd/pull/3095
 * fluent-plugin-config-formatter: Handle `service_discovery` type
   https://github.com/fluent/fluentd/pull/3178
