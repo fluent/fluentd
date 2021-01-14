@@ -85,7 +85,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
       assert_equal 5, lines.size
     end
 
-    test 'update seek postion of remained position entry' do
+    test 'update seek position of remained position entry' do
       pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log})
       target_info1 = Fluent::Plugin::TailInput::TargetInfo.new('path1', -1)
       target_info2 = Fluent::Plugin::TailInput::TargetInfo.new('path2', -1)
