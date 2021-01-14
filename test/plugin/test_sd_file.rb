@@ -149,7 +149,7 @@ class FileServiceDiscoveryTest < ::Test::Unit::TestCase
       assert_empty queue
     end
 
-    test 'Skip if error is occured' do
+    test 'Skip if error is occurred' do
       @sd_file.extend(TestStatEventHelperWrapper)
 
       create_tmp_config('config.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
