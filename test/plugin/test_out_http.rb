@@ -280,6 +280,25 @@ class HTTPOutputTest < Test::Unit::TestCase
     assert_equal "fluentd!", result.headers['test_header']
   end
 
+  def test_write_with_headers_from_placeholders
+    d = create_driver(config + %[
+      headers_from_placeholders {"x-test":"${$.foo.bar}-test","x-tag":"${tag}"}
+      <buffer tag,$.foo.bar>
+      </buffer>
+    ])
+    d.run(default_tag: 'test.http') do
+      test_events.each { |event|
+        ev = event.dup
+        ev['foo'] = {'bar' => 'abcd'}
+        d.feed(ev)
+      }
+    end
+
+    result = @@result
+    assert_equal "abcd-test", result.headers['x-test']
+    assert_equal "test.http", result.headers['x-tag']
+  end
+
   def test_write_with_retryable_response
     old_report_on_exception = Thread.report_on_exception
     Thread.report_on_exception = false # thread finished as invalid state since RetryableResponse raises.

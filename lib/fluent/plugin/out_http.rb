@@ -51,6 +51,8 @@ module Fluent::Plugin
     config_param :json_array, :bool, default: false
     desc 'Additional headers for HTTP request'
     config_param :headers, :hash, default: nil
+    desc 'Additional placeholder based headers for HTTP request'
+    config_param :headers_from_placeholders, :hash, default: nil
 
     desc 'The connection open timeout in seconds'
     config_param :open_timeout, :integer, default: nil
@@ -213,10 +215,15 @@ module Fluent::Plugin
       URI.parse(endpoint)
     end
 
-    def set_headers(req)
+    def set_headers(req, chunk)
       if @headers
         @headers.each do |k, v|
           req[k] = v
+        end
+      end
+      if @headers_from_placeholders
+        @headers_from_placeholders.each do |k, v|
+          req[k] = extract_placeholders(v, chunk)
         end
       end
       req['Content-Type'] = @content_type
@@ -232,7 +239,7 @@ module Fluent::Plugin
       if @auth
         req.basic_auth(@auth.username, @auth.password)
       end
-      set_headers(req)
+      set_headers(req, chunk)
       req.body = @json_array ? "[#{chunk.read.chop}]" : chunk.read
       req
     end
