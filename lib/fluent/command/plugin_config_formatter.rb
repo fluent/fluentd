@@ -162,9 +162,20 @@ class FluentPluginConfigFormatter
     else
       sections, params = base_section.partition {|_name, value| value[:section] }
     end
+    if @table and not params.empty?
+      dumped << "### Configuration\n\n"
+      dumped << "|parameter|type|description|default|\n"
+      dumped << "|---|---|---|---|\n"
+    end
     params.each do |name, config|
       next if name == :section
-      template_name = @compact ? "param.md-compact.erb" : "param.md.erb"
+      template_name = if @compact
+                        "param.md-compact.erb"
+                      elsif @table
+                        "param.md-table.erb"
+                      else
+                        "param.md.erb"
+                      end
       template = template_path(template_name).read
       dumped <<
         if ERB.instance_method(:initialize).parameters.assoc(:key) # Ruby 2.6+
@@ -256,6 +267,9 @@ BANNER
     end
     @parser.on("-p", "--plugin=DIR", "Add plugin directory") do |s|
       @plugin_dirs << s
+    end
+    @parser.on("-t", "--table", "Use table syntax to dump parameters") do
+      @table = true
     end
   end
 

@@ -229,6 +229,30 @@ TEXT
       assert_equal(expected, dumped_config)
     end
 
+    test "input simple (table)" do
+      dumped_config = capture_stdout do
+        FluentPluginConfigFormatter.new(["--format=markdown", "--table", "input", "simple"]).call
+      end
+      expected = <<TEXT
+## Plugin helpers
+
+* [inject](https://docs.fluentd.org/v/1.0/plugin-helper-overview/api-plugin-helper-inject)
+* [compat_parameters](https://docs.fluentd.org/v/1.0/plugin-helper-overview/api-plugin-helper-compat_parameters)
+
+* See also: [Input Plugin Overview](https://docs.fluentd.org/v/1.0/input#overview)
+
+## TestFluentPluginConfigFormatter::SimpleInput
+
+### Configuration
+
+|parameter|type|description|default|
+|---|---|---|---|
+|path|string (required)|path to something||
+
+TEXT
+      assert_equal(expected, dumped_config)
+    end
+
     data("abbrev" => "sd",
          "normal" => "service_discovery")
     test "service_discovery simple" do |data|
@@ -295,6 +319,49 @@ Available values: easy, normal, hard
 
 Default value: `normal`.
 
+
+
+
+TEXT
+      assert_equal(expected, dumped_config)
+    end
+
+    test "output complex (table)" do
+      dumped_config = capture_stdout do
+        FluentPluginConfigFormatter.new(["--format=markdown", "--table", "output", "complex"]).call
+      end
+      expected = <<TEXT
+## Plugin helpers
+
+* [inject](https://docs.fluentd.org/v/1.0/plugin-helper-overview/api-plugin-helper-inject)
+* [compat_parameters](https://docs.fluentd.org/v/1.0/plugin-helper-overview/api-plugin-helper-compat_parameters)
+
+* See also: [Output Plugin Overview](https://docs.fluentd.org/v/1.0/output#overview)
+
+## TestFluentPluginConfigFormatter::ComplexOutput
+
+
+### \\<authentication\\> section (required) (single)
+
+### Configuration
+
+|parameter|type|description|default|
+|---|---|---|---|
+|username|string (required)|username||
+|password|string (required)|password||
+
+
+### \\<parent\\> section (optional) (multiple)
+
+
+#### \\<child\\> section (optional) (multiple)
+
+### Configuration
+
+|parameter|type|description|default|
+|---|---|---|---|
+|names|array (required)|names||
+|difficulty|enum (optional)|difficulty (`easy`, `normal`, `hard`)|`normal`|
 
 
 
