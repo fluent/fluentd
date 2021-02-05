@@ -75,6 +75,8 @@ HELP
 
       digest = OpenSSL::Digest::SHA256.new
 
+      factory = OpenSSL::X509::ExtensionFactory.new
+
       cert = OpenSSL::X509::Certificate.new
       cert.not_before = Time.at(0)
       cert.not_after = Time.now + 5 * 365 * 86400 # 5 years after
@@ -82,7 +84,7 @@ HELP
       cert.serial = 1
       cert.issuer = issuer
       cert.subject = subject
-      cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(true)]))
+      cert.add_extension(factory.create_extension('basicConstraints', 'CA:TRUE'))
       cert.sign(key, digest)
 
       return cert, key
@@ -111,8 +113,9 @@ HELP
       cert.issuer = issuer
       cert.subject = subject
 
-      cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(false)]))
-      cert.add_extension OpenSSL::X509::Extension.new('nsCertType', 'server')
+      factory = OpenSSL::X509::ExtensionFactory.new
+      server_cert.add_extension(factory.create_extension('basicConstraints', 'CA:FALSE'))
+      server_cert.add_extension(factory.create_extension('nsCertType', 'server'))
 
       cert.sign ca_key, digest
 

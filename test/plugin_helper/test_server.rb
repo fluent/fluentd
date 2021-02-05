@@ -832,8 +832,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     chain_cert.sign(root_key, "sha256")
 
     server_cert, server_key, _ = CertUtil.cert_option_generate_pair(create_server_options, chain_cert.subject)
-    server_cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(false)]))
-    server_cert.add_extension OpenSSL::X509::Extension.new('nsCertType', 'server')
+    factory = OpenSSL::X509::ExtensionFactory.new
+    server_cert.add_extension(factory.create_extension('basicConstraints', 'CA:FALSE'))
+    server_cert.add_extension(factory.create_extension('nsCertType', 'server'))
     server_cert.sign(chain_key, "sha256")
 
     # write chained cert
