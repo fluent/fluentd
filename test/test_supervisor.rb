@@ -517,6 +517,31 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal Fluent::Log::LEVEL_ERROR, $log.level
   end
 
+  def test_enable_shared_socket
+    server = DummyServer.new
+    begin
+      server.before_run
+      assert_not_nil(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
+    ensure
+      server.after_run
+    end
+  end
+
+  def test_disable_shared_socket
+    server = DummyServer.new
+    def server.config
+      {
+        :disable_shared_socket => true,
+      }
+    end
+    begin
+      server.before_run
+      assert_nil(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
+    ensure
+      server.after_run
+    end
+  end
+
   def create_debug_dummy_logger
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::DEBUG

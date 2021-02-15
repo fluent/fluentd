@@ -163,6 +163,10 @@ op.on('--conf-encoding ENCODING', "specify configuration file encoding") { |s|
   opts[:conf_encoding] = s
 }
 
+op.on('--disable-shared-socket', "Don't open shared socket for multiple workers") { |b|
+  opts[:disable_shared_socket] = b
+}
+
 if Fluent.windows?
   require 'windows/library'
   include Windows::Library

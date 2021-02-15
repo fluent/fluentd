@@ -1065,4 +1065,34 @@ CONF
                          "secret xxxxxx", patterns_not_match: ["secret secret0", "secret secret1"])
     end
   end
+
+  sub_test_case 'sahred socket options' do
+    test 'enable shared socket by default' do
+      conf = ""
+      conf_path = create_conf_file('empty.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path),
+                         patterns_not_match: ["shared socket for multiple workers is disabled"])
+    end
+
+    test 'disable shared socket by command line option' do
+      conf = ""
+      conf_path = create_conf_file('empty.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path, "--disable-shared-socket"),
+                         "shared socket for multiple workers is disabled",)
+    end
+
+    test 'disable shared socket by system config' do
+      conf = <<CONF
+<system>
+  disable_shared_socket
+</system>
+CONF
+      conf_path = create_conf_file('empty.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path, "--disable-shared-socket"),
+                         "shared socket for multiple workers is disabled",)
+    end
+  end
 end
