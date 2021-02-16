@@ -520,10 +520,12 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_enable_shared_socket
     server = DummyServer.new
     begin
+      ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
       server.before_run
       assert_not_nil(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
     ensure
       server.after_run
+      ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
     end
   end
 
@@ -535,10 +537,12 @@ class SupervisorTest < ::Test::Unit::TestCase
       }
     end
     begin
+      ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
       server.before_run
       assert_nil(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
     ensure
       server.after_run
+      ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
     end
   end
 
