@@ -132,7 +132,9 @@ class HttpHelperTest < Test::Unit::TestCase
         error = e
       end
 
-      resp = Response.new(response.status.to_s, response.body.read, response.headers)
+      if response
+        resp = Response.new(response.status.to_s, response.body.read, response.headers)
+      end
     end
 
     if error
