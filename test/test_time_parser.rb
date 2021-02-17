@@ -228,4 +228,113 @@ class TimeParserTest < ::Test::Unit::TestCase
       assert_equal_event_time(time, parser.parse("#{time.sec}.#{time.nsec}"))
     end
   end
+
+  sub_test_case 'MixedTimeParser fallback' do
+    class DummyForTimeParser
+      include Fluent::Configurable
+      include Fluent::TimeMixin::Parser
+    end
+
+    test 'no time_format_fallbacks failure' do
+      i = DummyForTimeParser.new
+      assert_raise(Fluent::ConfigError.new("time_type is :mixed but time_format and time_format_fallbacks is empty.")) do
+        i.configure(config_element('parse', '', {'time_type' => 'mixed'}))
+      end
+    end
+
+    test 'fallback time format failure' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '',
+                                 {'time_type' => 'mixed',
+                                  'time_format_fallbacks' => ['%iso8601']}))
+      parser = i.time_parser_create
+      assert_raise(Fluent::TimeParser::TimeParseError.new("invalid time format: value = INVALID, even though fallbacks: Fluent::TimeParser")) do
+        parser.parse("INVALID")
+      end
+    end
+
+    test 'primary format is unixtime, secondary %iso8601 is used' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '',
+                                 {'time_type' => 'mixed',
+                                  'time_format' => 'unixtime',
+                                  'time_format_fallbacks' => ['%iso8601']}))
+      parser = i.time_parser_create
+      time = event_time('2021-01-01T12:00:00+0900')
+      assert_equal_event_time(time, parser.parse('2021-01-01T12:00:00+0900'))
+    end
+
+    test 'primary format is %iso8601, secondary unixtime is used' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '',
+                                 {'time_type' => 'mixed',
+                                  'time_format' => '%iso8601',
+                                  'time_format_fallbacks' => ['unixtime']}))
+      parser = i.time_parser_create
+      time = event_time('2021-01-01T12:00:00+0900')
+      assert_equal_event_time(time, parser.parse("#{time.sec}"))
+    end
+
+    test 'primary format is %iso8601, no secondary is used' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '',
+                                 {'time_type' => 'mixed',
+                                  'time_format' => '%iso8601'}))
+      parser = i.time_parser_create
+      time = event_time('2021-01-01T12:00:00+0900')
+      assert_equal_event_time(time, parser.parse("2021-01-01T12:00:00+0900"))
+    end
+
+    test 'primary format is unixtime, no secondary is used' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '',
+                                 {'time_type' => 'mixed',
+                                  'time_format' => 'unixtime'}))
+      parser = i.time_parser_create
+      time = event_time('2021-01-01T12:00:00+0900')
+      assert_equal_event_time(time, parser.parse("#{time.sec}"))
+    end
+
+    test 'primary format is %iso8601, raise error because of no appropriate secondary' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '',
+                                 {'time_type' => 'mixed',
+                                  'time_format' => '%iso8601'}))
+      parser = i.time_parser_create
+      time = event_time('2021-01-01T12:00:00+0900')
+      assert_raise("Fluent::TimeParser::TimeParseError: invalid time format: value = #{time.sec}, even though fallbacks: Fluent::TimeParser") do
+        parser.parse("#{time.sec}")
+      end
+    end
+
+    test 'primary format is unixtime, raise error because of no appropriate secondary' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '',
+                                 {'time_type' => 'mixed',
+                                  'time_format' => 'unixtime'}))
+      parser = i.time_parser_create
+      time = event_time('2021-01-01T12:00:00+0900')
+      assert_raise("Fluent::TimeParser::TimeParseError: invalid time format: value = #{time}, even though fallbacks: Fluent::NumericTimeParser") do
+        parser.parse("2021-01-01T12:00:00+0900")
+      end
+    end
+
+    test 'fallback to unixtime' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '', {'time_type' => 'mixed',
+                                               'time_format_fallbacks' => ['%iso8601', 'unixtime']}))
+      parser = i.time_parser_create
+      time = event_time('2021-01-01T12:00:00+0900')
+      assert_equal_event_time(Fluent::EventTime.new(time.to_i), parser.parse("#{time.sec}"))
+    end
+
+    test 'fallback to %iso8601' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '', {'time_type' => 'mixed',
+                                               'time_format_fallbacks' => ['unixtime', '%iso8601']}))
+      parser = i.time_parser_create
+      time = event_time('2021-01-01T12:00:00+0900')
+      assert_equal_event_time(time, parser.parse('2021-01-01T12:00:00+0900'))
+    end
+  end
 end
