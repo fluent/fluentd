@@ -20,7 +20,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ martix.ruby-version }}
+          ruby-version: ${{ matrix.ruby-version }}
       - name: Install addons
         run: sudo apt-get install libgmp3-dev libcap-ng-dev
       - name: Install dependencies
