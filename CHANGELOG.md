@@ -1,5 +1,30 @@
 # v1.12
 
+## Release v1.12.1 - 2021/02/18
+
+### Enhancement
+
+* out_http: Add `headers_from_placeholders` parameter
+  https://github.com/fluent/fluentd/pull/3241
+* fluent-plugin-config-format: Add `--table` option to use markdown table
+  https://github.com/fluent/fluentd/pull/3240
+* Add `--disable-shared-socket`/`disable_shared_socket` to disable ServerEngine's shared socket setup
+  https://github.com/fluent/fluentd/pull/3250
+
+### Bug fix
+
+* ca_generate: Fix creating TLS certification files which include broken extensions
+  https://github.com/fluent/fluentd/pull/3246
+* test: Drop TLS 1.1 tests
+  https://github.com/fluent/fluentd/pull/3256
+* Remove old gem constraints to support Ruby 3
+
+### Misc
+
+* Use GitHub Actions
+  https://github.com/fluent/fluentd/pull/3233
+  https://github.com/fluent/fluentd/pull/3255
+
 ## Release v1.12.0 - 2021/01/05
 
 ### New feature
