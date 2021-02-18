@@ -152,7 +152,7 @@ module Fluent
         sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
         $log.info "fluentd worker is now stopping", worker: worker_id
 
-      rescue Exception => e
+      rescue StandardError => e
         $log.error "unexpected error", error: e
         $log.error_backtrace
         raise

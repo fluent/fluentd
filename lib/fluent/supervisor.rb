@@ -673,7 +673,7 @@ module Fluent
     def run_worker
       begin
         require 'sigdump/setup'
-      rescue Exception
+      rescue StandardError
         # ignore LoadError and others (related with signals): it may raise these errors in Windows
       end
 
@@ -893,7 +893,7 @@ module Fluent
           @log.reopen!
           Fluent::Engine.flush!
           $log.debug "flushing thread: flushed"
-        rescue Exception => e
+        rescue StandardError => e
           $log.warn "flushing thread error: #{e}"
         end
       end
