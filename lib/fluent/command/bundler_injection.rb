@@ -40,6 +40,6 @@ else
     File.expand_path(File.join(File.dirname(__FILE__), 'fluentd.rb')),
   ] + ARGV
 
-  exec *cmdline
+  exec(*cmdline)
   exit! 127
 end
