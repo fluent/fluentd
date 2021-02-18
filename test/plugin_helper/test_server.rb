@@ -1495,8 +1495,13 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       test "can't connect with different TLS version" do
         @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
         end
+        if defined?(OpenSSL::SSL::TLS1_3_VERSION)
+          version = :'TLS1_3'
+        else
+          version = :'TLS1_1'
+        end
         assert_raise(OpenSSL::SSL::SSLError, Errno::ECONNRESET) {
-          open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: :'TLS1_1') do |sock|
+          open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: version) do |sock|
           end
         }
       end
@@ -1504,14 +1509,21 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       test "can specify multiple TLS versions by min_version/max_version" do
         omit "min_version=/max_version= is not supported" unless Fluent::TLS::MIN_MAX_AVAILABLE
 
-        opts = @tls_options.merge(min_version: :'TLS1_1', max_version: :'TLSv1_2')
+        min_version = :'TLS1_2'
+        if defined?(OpenSSL::SSL::TLS1_3_VERSION)
+          max_version = :'TLS1_3'
+        else
+          max_version = :'TLS1_2'
+        end
+
+        opts = @tls_options.merge(min_version: min_version, max_version: max_version)
         @d.server_create_tls(:s, PORT, tls_options: opts) do |data, conn|
         end
         assert_raise(OpenSSL::SSL::SSLError, Errno::ECONNRESET) {
           open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: :'TLS1') do |sock|
           end
         }
-        [:'TLS1_1', :'TLS1_2'].each { |ver|
+        [min_version, max_version].each { |ver|
           assert_nothing_raised {
             open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: ver) do |sock|
             end
