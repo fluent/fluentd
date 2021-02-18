@@ -255,7 +255,7 @@ EOC
     assert{ d.events.length > 0 }
     d.events.each do |event|
       assert_equal 'test', event[0]
-      assert_match /LoadError/, event[2]['message']
+      assert_match(/LoadError/, event[2]['message'])
     end
   end
 end
