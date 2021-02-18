@@ -338,7 +338,7 @@ module Fluent::Plugin
         obj.merge!(pe.statistics['output'] || {})
       end
 
-      obj['retry'] = get_retry_info(pe.retry) if opts[:with_retry] and pe.instance_variable_defined?(:@retry)
+      obj['retry'] = get_retry_info(pe.retry) if opts[:with_retry] && pe.instance_variable_defined?(:@retry)
 
       # include all instance variables if :with_debug_info is set
       if opts[:with_debug_info]

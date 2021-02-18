@@ -385,7 +385,7 @@ module Fluent
       config_mtime = File.mtime(path)
 
       # reuse previous config if last load time is within 5 seconds and mtime of the config file is not changed
-      if Time.now - Time.at(pre_loadtime) < 5 and config_mtime == pre_config_mtime
+      if (Time.now - Time.at(pre_loadtime) < 5) && (config_mtime == pre_config_mtime)
         return params['pre_conf']
       end
 
