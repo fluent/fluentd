@@ -127,7 +127,7 @@ class HTTPOutputTest < Test::Unit::TestCase
     now = Time.now
     started = false
     until started
-      raise "Server not started" if (now - Time.now > 10.0)
+      raise "Server not started" if (Time.now - now > 10.0)
       begin
         http_client { |c| c.request_get('/') }
         started = true
