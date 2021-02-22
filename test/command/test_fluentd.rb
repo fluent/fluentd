@@ -878,6 +878,8 @@ CONF
     end
 
     test "without RUBYOPT" do
+      saved_ruby_opt = ENV["RUBYOPT"]
+      ENV["RUBYOPT"] = nil
       conf = <<CONF
 <source>
   @type dummy
@@ -889,6 +891,8 @@ CONF
 CONF
       conf_path = create_conf_file('rubyopt_test.conf', conf)
       assert_log_matches(create_cmdline(conf_path), '-Eascii-8bit:ascii-8bit')
+    ensure
+      ENV["RUBYOPT"] = saved_ruby_opt
     end
 
     test 'invalid values are set to RUBYOPT' do
@@ -912,6 +916,8 @@ CONF
 
     # https://github.com/fluent/fluentd/issues/2915
     test "ruby path contains spaces" do
+      saved_ruby_opt = ENV["RUBYOPT"]
+      ENV["RUBYOPT"] = nil
       conf = <<CONF
 <source>
   @type dummy
@@ -940,6 +946,8 @@ CONF
         'spawn command to main:',
         '-Eascii-8bit:ascii-8bit'
       )
+    ensure
+      ENV["RUBYOPT"] = saved_ruby_opt
     end
 
     test 'success to start workers when file buffer is configured in non-workers way only for specific worker' do
