@@ -1,4 +1,4 @@
-name: build
+name: Testing on Ubuntu
 
 on:
   push:
@@ -8,13 +8,16 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
         ruby-version: [2.7, 2.6, 2.5]
+        os:
+          - ubuntu-latest
 
+    name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Ruby
