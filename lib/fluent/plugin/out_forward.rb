@@ -166,6 +166,7 @@ module Fluent::Plugin
 
       @usock = nil
       @keep_alive_watcher_interval = 5 # TODO
+      @suspend_flush = false
     end
 
     def configure(conf)
@@ -291,6 +292,15 @@ module Fluent::Plugin
       @require_ack_response
     end
 
+    def overwrite_delayed_commit_timeout
+      # Output#start sets @delayed_commit_timeout by @buffer_config.delayed_commit_timeout
+      # But it should be overwritten by ack_response_timeout to rollback chunks after timeout
+      if @delayed_commit_timeout != @ack_response_timeout
+        log.info "delayed_commit_timeout is overwritten by ack_response_timeout"
+        @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
+      end
+    end
+
     def start
       super
 
@@ -303,13 +313,7 @@ module Fluent::Plugin
       end
 
       if @require_ack_response
-        # Output#start sets @delayed_commit_timeout by @buffer_config.delayed_commit_timeout
-        # But it should be overwritten by ack_response_timeout to rollback chunks after timeout
-        if @delayed_commit_timeout != @ack_response_timeout
-          log.info "delayed_commit_timeout is overwritten by ack_response_timeout"
-          @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
-        end
-
+        overwrite_delayed_commit_timeout
         thread_create(:out_forward_receiving_ack, &method(:ack_reader))
       end
 
@@ -346,6 +350,26 @@ module Fluent::Plugin
       end
     end
 
+    def before_shutdown
+      super
+      @suspend_flush = true
+    end
+
+    def after_shutdown
+      last_ack if @require_ack_response
+      super
+    end
+
+    def try_flush
+      return if @require_ack_response && @suspend_flush
+      super
+    end
+
+    def last_ack
+      overwrite_delayed_commit_timeout
+      ack_check(set_interval)
+    end
+
     def write(chunk)
       return if chunk.empty?
       tag = chunk.metadata.tag
@@ -361,6 +385,7 @@ module Fluent::Plugin
       end
       tag = chunk.metadata.tag
       discovery_manager.select_service { |node| node.send_data(tag, chunk) }
+      last_ack if @require_ack_response && @suspend_flush
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -481,31 +506,39 @@ module Fluent::Plugin
       @connection_manager.purge_obsolete_socks
     end
 
+    def set_interval
+      if @delayed_commit_timeout > 3
+        1
+      else
+        @delayed_commit_timeout / 3.0
+      end
+    end
+
     def ack_reader
-      select_interval = if @delayed_commit_timeout > 3
-                          1
-                        else
-                          @delayed_commit_timeout / 3.0
-                        end
+      select_interval = set_interval
 
       while thread_current_running?
-        @ack_handler.collect_response(select_interval) do |chunk_id, node, sock, result|
-          @connection_manager.close(sock)
+        ack_check(select_interval)
+      end
+    end
 
-          case result
-          when AckHandler::Result::SUCCESS
-            commit_write(chunk_id)
-          when AckHandler::Result::FAILED
-            node.disable!
-            rollback_write(chunk_id, update_retry: false)
-          when AckHandler::Result::CHUNKID_UNMATCHED
-            rollback_write(chunk_id, update_retry: false)
-          else
-            log.warn("BUG: invalid status #{result} #{chunk_id}")
+    def ack_check(select_interval)
+      @ack_handler.collect_response(select_interval) do |chunk_id, node, sock, result|
+        @connection_manager.close(sock)
 
-            if chunk_id
-              rollback_write(chunk_id, update_retry: false)
-            end
+        case result
+        when AckHandler::Result::SUCCESS
+          commit_write(chunk_id)
+        when AckHandler::Result::FAILED
+          node.disable!
+          rollback_write(chunk_id, update_retry: false)
+        when AckHandler::Result::CHUNKID_UNMATCHED
+          rollback_write(chunk_id, update_retry: false)
+        else
+          log.warn("BUG: invalid status #{result} #{chunk_id}")
+
+          if chunk_id
+            rollback_write(chunk_id, update_retry: false)
           end
         end
       end
