@@ -147,7 +147,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
       write_data(@file, TEST_CONTENT)
       pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, **{logger: $log})
 
-      valid_target_info = Fluent::Plugin::TailInput::TargetInfo.new('valid_path', Fluent::FileWrapper.stat(@file).ino)
+      valid_target_info = Fluent::Plugin::TailInput::TargetInfo.new('valid_path', File.stat(@file).ino)
       f = pf[valid_target_info]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, f.class
       assert_equal 2, f.read_pos
@@ -177,7 +177,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
       assert_equal 0, f.read_inode
       assert_equal 0, f.read_pos
 
-      pf[Fluent::Plugin::TailInput::TargetInfo.new('valid_path', Fluent::FileWrapper.stat(@file).ino)].update(1, 2)
+      pf[Fluent::Plugin::TailInput::TargetInfo.new('valid_path', File.stat(@file).ino)].update(1, 2)
 
       f = pf[Fluent::Plugin::TailInput::TargetInfo.new('nonexist_path', -1)]
       assert_equal 0, f.read_inode
@@ -193,7 +193,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
     test 'deletes entry by path' do
       write_data(@file, TEST_CONTENT)
       pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, logger: $log)
-      inode1 = Fluent::FileWrapper.stat(@file).ino
+      inode1 = File.stat(@file).ino
       target_info1 = Fluent::Plugin::TailInput::TargetInfo.new('valid_path', inode1)
       p1 = pf[target_info1]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p1.class
@@ -201,7 +201,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
       pf.unwatch(target_info1)
       assert_equal p1.read_pos, Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION
 
-      inode2 = Fluent::FileWrapper.stat(@file).ino
+      inode2 = File.stat(@file).ino
       target_info2 = Fluent::Plugin::TailInput::TargetInfo.new('valid_path', inode2)
       p2 = pf[target_info2]
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p2.class
