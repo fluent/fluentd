@@ -313,11 +313,17 @@ module Fluent::Plugin
       (paths - excluded).select { |path|
         FileTest.exist?(path)
       }.each { |path|
-        target_info = TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
-        if @follow_inodes
-          hash[target_info.ino] = target_info
-        else
-          hash[target_info.path] = target_info
+        # Even we just checked for existence, there is a race condition here as
+        # of which stat() might fail with ENOENT. See #3224.
+        begin
+          target_info = TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+          if @follow_inodes
+            hash[target_info.ino] = target_info
+          else
+            hash[target_info.path] = target_info
+          end
+        rescue Errno::ENOENT
+          $log.warn "expand_paths: stat() for #{target_info.path} failed with ENOENT. Skip file."
         end
       }
       hash
