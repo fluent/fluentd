@@ -323,7 +323,7 @@ module Fluent::Plugin
             hash[target_info.path] = target_info
           end
         rescue Errno::ENOENT
-          $log.warn "expand_paths: stat() for #{target_info.path} failed with ENOENT. Skip file."
+          $log.warn "expand_paths: stat() for #{path} failed with ENOENT. Skip file."
         end
       }
       hash
