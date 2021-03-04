@@ -993,6 +993,8 @@ EOL
   end
 
   test 'when out_forward has @id' do
+    omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
+
     # cancel https://github.com/fluent/fluentd/blob/077508ac817b7637307434d0c978d7cdc3d1c534/lib/fluent/plugin_id.rb#L43-L53
     # it always return true in test
     mock.proxy(Fluent::Plugin).new_sd(:static, anything) { |v|
@@ -1137,6 +1139,8 @@ EOL
   end
 
   test 'Create new connection per send_data' do
+    omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
+
     target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
     output_conf = CONFIG
     d = create_driver(output_conf)
@@ -1175,6 +1179,8 @@ EOL
 
   sub_test_case 'keepalive' do
     test 'Do not create connection per send_data' do
+      omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
+
       target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
       output_conf = CONFIG + %[
         keepalive true
