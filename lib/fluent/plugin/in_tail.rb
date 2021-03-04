@@ -313,11 +313,17 @@ module Fluent::Plugin
       (paths - excluded).select { |path|
         FileTest.exist?(path)
       }.each { |path|
-        target_info = TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
-        if @follow_inodes
-          hash[target_info.ino] = target_info
-        else
-          hash[target_info.path] = target_info
+        # Even we just checked for existence, there is a race condition here as
+        # of which stat() might fail with ENOENT. See #3224.
+        begin
+          target_info = TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+          if @follow_inodes
+            hash[target_info.ino] = target_info
+          else
+            hash[target_info.path] = target_info
+          end
+        rescue Errno::ENOENT
+          $log.warn "expand_paths: stat() for #{path} failed with ENOENT. Skip file."
         end
       }
       hash
@@ -406,8 +412,15 @@ module Fluent::Plugin
           log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
           next
         end
-        target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
-        @tails[target_info] = tw
+
+        begin
+          target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
+          @tails[target_info] = tw
+        rescue Errno::ENOENT
+          $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
+          # explicitly detach and unwatch watcher `tw`.
+          stop_watchers(target_info, immediate: true, unwatched: true)
+        end
       }
     end
 
