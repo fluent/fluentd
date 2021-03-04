@@ -363,16 +363,16 @@ class TailInputTest < Test::Unit::TestCase
         num
       end
 
-      data("flat 8192 bytes, 12 events"        => [:flat, 100, 8192, 12],
-           "flat 8192 bytes, 12 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 12],
-           "flat #{8192*10} bytes, 22 events"  => [:flat, 100, (8192 * 10), 22],
-           "flat #{8192*10} bytes, 22 events w/o stat watcher"  => [:flat_without_stat, 100, (8192 * 10), 22],
+      data("flat 8192 bytes, 21 events"        => [:flat, 100, 8192, 21],
+           "flat 8192 bytes, 21 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 21],
+           "flat #{8192*10} bytes, 32 events"  => [:flat, 100, (8192 * 10), 32],
+           "flat #{8192*10} bytes, 32 events w/o stat watcher"  => [:flat_without_stat, 100, (8192 * 10), 32],
            "parse #{8192*3} bytes, 48 events"  => [:parse, 100, (8192 * 3), 48],
            "parse #{8192*3} bytes, 48 events w/o stat watcher"  => [:parse_without_stat, 100, (8192 * 3), 48],
            "parse #{8192*10} bytes, 32 events" => [:parse, 100, (8192 * 10), 32],
            "parse #{8192*10} bytes, 32 events w/o stat watcher" => [:parse_without_stat, 100, (8192 * 10), 32],
-           "flat 8k bytes with unit, 12 events"        => [:flat, 100, "8k", 12],
-           "flat 8k bytes with unit, 12 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 12],
+           "flat 8k bytes with unit, 21 events"        => [:flat, 100, "8k", 21],
+           "flat 8k bytes with unit, 21 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 21],
            "flat #{8*10}k bytes with unit, 32 events"  => [:flat, 100, "#{8*10}k", 32],
            "flat #{8*10}k bytes with unit, 32 events w/o stat watcher"  => [:flat_without_stat, 100, "#{8*10}k", 32],
            "parse #{8*3}k bytes with unit, 48 events"  => [:parse, 100, "#{8*3}k", 48],
