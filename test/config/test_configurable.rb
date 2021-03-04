@@ -1453,7 +1453,7 @@ module Fluent::Config
         @example = ConfigurableSpec::ExampleWithSkipAccessor.new
         @example.configure(config_element('ROOT'))
         assert_equal 'example7', @example.instance_variable_get(:@name)
-        assert_raise NoMethodError.new("undefined method `name' for #{@example}") do
+        assert_raise NoMethodError do
           @example.name
         end
       end
