@@ -1,4 +1,4 @@
-name: build
+name: Testing on Windows
 
 on:
   push:
@@ -8,22 +8,23 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: [2.7, 2.6, 2.5]
+        ruby-version: ['3.0', '2.7', '2.6', '2.5']
+        os:
+          - windows-latest
 
+    name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
-      - name: Install addons
-        run: sudo apt-get install libgmp3-dev libcap-ng-dev
       - name: Install dependencies
-        run: bundle install
+        run: ridk exec bundle install
       - name: Run tests
         run: bundle exec rake test TESTOPTS=-v

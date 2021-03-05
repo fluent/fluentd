@@ -81,6 +81,8 @@ class ConnectionManager < Test::Unit::TestCase
 
     sub_test_case 'when socket_cache exists' do
       test 'calls connect_keepalive' do
+        omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
+
         cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
         mock(cache).checkin('sock').never
 
@@ -99,6 +101,8 @@ class ConnectionManager < Test::Unit::TestCase
       end
 
       test 'calls connect_keepalive and closes socket with block' do
+        omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
+
         cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
         mock(cache).checkin('sock').once
 
@@ -118,6 +122,8 @@ class ConnectionManager < Test::Unit::TestCase
       end
 
       test 'does not call dec_ref when ack is passed' do
+        omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
+
         cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
         mock(cache).checkin('sock').never
         sock = 'sock'
