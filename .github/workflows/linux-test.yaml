@@ -9,13 +9,17 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: ['3.0', '2.7', '2.6', '2.5', 'head']
-        os:
-          - ubuntu-latest
+        ruby-version: ['3.0', '2.7', '2.6', '2.5']
+        os: [ubuntu-latest]
+        experimental: [false]
+        include:
+          - ruby-version: head
+            os: ubuntu-latest
+            experimental: true
 
     name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
