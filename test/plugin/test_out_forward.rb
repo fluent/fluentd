@@ -367,6 +367,7 @@ EOL
       require_ack_response true
       ack_response_timeout 2s
     ])
+    d.instance_start
     assert d.instance.require_ack_response
     assert_equal 2, d.instance.ack_response_timeout
   end
