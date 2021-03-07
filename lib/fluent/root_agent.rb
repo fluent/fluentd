@@ -238,7 +238,7 @@ module Fluent
           begin
             log.debug "calling #{method} on #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
             instance.__send__(method) unless instance.__send__(checker)
-          rescue StandardError => e
+          rescue Exception => e
             log.warn "unexpected error while calling #{method} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
             log.warn_backtrace
           end
@@ -268,7 +268,7 @@ module Fluent
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
                 begin
                   instance.__send__(:before_shutdown) unless instance.__send__(:before_shutdown?)
-                rescue StandardError => e
+                rescue Exception => e
                   log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
                   log.warn_backtrace
                 end
@@ -279,7 +279,7 @@ module Fluent
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
                 instance.__send__(method) unless instance.__send__(checker)
               end
-            rescue StandardError => e
+            rescue Exception => e
               log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
               log.warn_backtrace
             end

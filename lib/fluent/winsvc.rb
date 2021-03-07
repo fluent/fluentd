@@ -98,6 +98,6 @@ begin
 
   FluentdService.new(opts[:service_name]).mainloop
 
-rescue StandardError => err
+rescue Exception => err
   raise
 end
