@@ -371,6 +371,26 @@ EOL
     assert_equal 2, d.instance.ack_response_timeout
   end
 
+  test 'suspend_flush is disable before before_shutdown' do
+    @d = d = create_driver(CONFIG + %[
+      require_ack_response true
+      ack_response_timeout 2s
+    ])
+    d.instance_start
+    assert_false d.instance.instance_variable_get(:@suspend_flush)
+  end
+
+  test 'suspend_flush should be enabled and try_flush returns nil after before_shutdown' do
+    @d = d = create_driver(CONFIG + %[
+      require_ack_response true
+      ack_response_timeout 2s
+    ])
+    d.instance_start
+    d.instance.before_shutdown
+    assert_true d.instance.instance_variable_get(:@suspend_flush)
+    assert_nil d.instance.try_flush
+  end
+
   test 'verify_connection_at_startup is disabled in default' do
     @d = d = create_driver(CONFIG)
     assert_false d.instance.verify_connection_at_startup
@@ -588,6 +608,53 @@ EOL
       d.end_if { acked_chunk_ids.size > 0 }
       d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
         d.feed([[time, records[0]], [time,records[1]]])
+      end
+    end
+
+    events = target_input_driver.events
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal ['test', time, records[1]], events[1]
+
+    assert_equal 1, acked_chunk_ids.size
+    assert_equal d.instance.sent_chunk_ids.first, acked_chunk_ids.first
+  end
+
+  test 'a node supporting responses after stop' do
+    target_input_driver = create_target_input_driver
+
+    @d = d = create_driver(CONFIG + %[
+      require_ack_response true
+      ack_response_timeout 1s
+      <buffer tag>
+        flush_mode immediate
+        retry_type periodic
+        retry_wait 30s
+        flush_at_shutdown false # suppress errors in d.instance_shutdown
+      </buffer>
+    ])
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+
+    acked_chunk_ids = []
+    mock.proxy(d.instance.ack_handler).read_ack_from_sock(anything) do |info, success|
+      if success
+        acked_chunk_ids << info.chunk_id
+      end
+      [chunk_id, success]
+    end
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    target_input_driver.run(expect_records: 2) do
+      d.end_if { acked_chunk_ids.size > 0 }
+      d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
+        d.instance.stop
+        d.feed([[time, records[0]], [time,records[1]]])
+        d.instance.before_shutdown
+        d.instance.shutdown
+        d.instance.after_shutdown
       end
     end
 
