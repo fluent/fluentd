@@ -367,7 +367,7 @@ module Fluent::Plugin
 
     def last_ack
       overwrite_delayed_commit_timeout
-      ack_check(set_interval)
+      ack_check(ack_select_interval)
     end
 
     def write(chunk)
@@ -506,7 +506,7 @@ module Fluent::Plugin
       @connection_manager.purge_obsolete_socks
     end
 
-    def set_interval
+    def ack_select_interval
       if @delayed_commit_timeout > 3
         1
       else
@@ -515,7 +515,7 @@ module Fluent::Plugin
     end
 
     def ack_reader
-      select_interval = set_interval
+      select_interval = ack_select_interval
 
       while thread_current_running?
         ack_check(select_interval)
