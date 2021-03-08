@@ -39,7 +39,10 @@ module Fluent::Plugin
       super
 
       @copy_proc = gen_copy_proc
-      @stores.each { |store|
+      @stores.each_with_index { |store, i|
+        if i == 0 && store.arg.include?('ignore_if_prev_success')
+          raise Fluent::ConfigError, "ignore_if_prev_success must specify 2nd or later <store> directives"
+        end
         @ignore_errors << (store.arg.include?('ignore_error'))
         @ignore_if_prev_successes << (store.arg.include?('ignore_if_prev_success'))
       }

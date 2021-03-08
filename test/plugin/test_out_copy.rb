@@ -57,6 +57,26 @@ class CopyOutputTest < Test::Unit::TestCase
     assert_equal :no_copy, d.instance.copy_mode
   end
 
+  ERRORNEOUS_IGNORE_IF_PREV_SUCCESS_CONFIG = %[
+    <store ignore_if_prev_success ignore_error>
+      @type test
+      name c0
+    </store>
+    <store ignore_if_prev_success ignore_error>
+      @type test
+      name c1
+    </store>
+    <store ignore_if_prev_success>
+      @type test
+      name c2
+    </store>
+  ]
+  def test_configure_with_errorneus_ignore_if_prev_success
+    assert_raise(Fluent::ConfigError) do
+      create_driver(ERRORNEOUS_IGNORE_IF_PREV_SUCCESS_CONFIG)
+    end
+  end
+
   def test_configure_with_deep_copy_and_use_shallow_copy_mode
     d = create_driver(%[
       deep_copy true
