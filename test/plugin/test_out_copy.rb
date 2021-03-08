@@ -246,7 +246,7 @@ class CopyOutputTest < Test::Unit::TestCase
 
     # check ingore_if_prev_success functionality:
     # 1. output 2 is succeeded.
-    # 2. output 3 is not cailed.
+    # 2. output 3 is not called.
     flexstub(d.instance.outputs[1]) do |output|
       output.should_receive(:process).once
     end
