@@ -30,7 +30,6 @@ module Fluent
       config_param :replacement, :string, default: " ".freeze
       config_param :add_newline, :bool, default: true
 
-      # TODO: escaping for \t in values
       def format(tag, time, record)
         formatted = ""
         record.each do |label, value|
