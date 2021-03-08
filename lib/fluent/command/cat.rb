@@ -101,7 +101,6 @@ rescue
   usage $!.to_s
 end
 
-require 'thread'
 require 'socket'
 require 'yajl'
 require 'msgpack'

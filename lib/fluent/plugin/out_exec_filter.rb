@@ -159,9 +159,9 @@ module Fluent::Plugin
         @added_prefix_string = @add_prefix + '.'
       end
 
-      @respawns = if @child_respawn.nil? or @child_respawn == 'none' or @child_respawn == '0'
+      @respawns = if @child_respawn.nil? || (@child_respawn == 'none') || (@child_respawn == '0')
                     0
-                  elsif @child_respawn == 'inf' or @child_respawn == '-1'
+                  elsif (@child_respawn == 'inf') || (@child_respawn == '-1')
                     -1
                   elsif @child_respawn =~ /^\d+$/
                     @child_respawn.to_i
@@ -251,7 +251,7 @@ module Fluent::Plugin
 
     def tag_remove_prefix(tag)
       if @remove_prefix
-        if (tag[0, @removed_length] == @removed_prefix_string and tag.length > @removed_length) or tag == @removed_prefix_string
+        if ((tag[0, @removed_length] == @removed_prefix_string) && (tag.length > @removed_length)) || (tag == @removed_prefix_string)
           tag = tag[@removed_length..-1] || ''
         end
       end

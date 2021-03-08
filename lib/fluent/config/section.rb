@@ -179,7 +179,7 @@ module Fluent
             end
 
             if section_params[varname].nil?
-              unless proxy.defaults.has_key?(varname) and proxy.defaults[varname].nil?
+              unless proxy.defaults.has_key?(varname) && proxy.defaults[varname].nil?
                 logger.error "config error in:\n#{conf}" if logger
                 raise ConfigError, "'#{name}' parameter is required but nil is specified"
               end

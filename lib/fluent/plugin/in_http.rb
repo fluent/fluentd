@@ -503,7 +503,7 @@ module Fluent::Plugin
         # For every incoming request, we check if we have some CORS
         # restrictions and allow listed origins through @cors_allow_origins.
         unless @cors_allow_origins.nil?
-          unless @cors_allow_origins.include?('*') or include_cors_allow_origin
+          unless @cors_allow_origins.include?('*') || include_cors_allow_origin
             send_response_and_close(RES_403_STATUS, {'Connection' => 'close'}, "")
             return
           end

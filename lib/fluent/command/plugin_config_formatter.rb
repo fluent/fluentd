@@ -162,7 +162,7 @@ class FluentPluginConfigFormatter
     else
       sections, params = base_section.partition {|_name, value| value[:section] }
     end
-    if @table and not params.empty?
+    if @table && (not params.empty?)
       dumped << "### Configuration\n\n"
       dumped << "|parameter|type|description|default|\n"
       dumped << "|---|---|---|---|\n"

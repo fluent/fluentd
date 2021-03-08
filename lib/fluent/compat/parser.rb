@@ -244,10 +244,10 @@ module Fluent
         end
 
         def convert_value_to_nil(value)
-          if value and @null_empty_string
+          if value && @null_empty_string
             value = (value == '') ? nil : value
           end
-          if value and @null_value_pattern
+          if value && @null_value_pattern
             value = ::Fluent::StringUtil.match_regexp(@null_value_pattern, value) ? nil : value
           end
           value
