@@ -2,8 +2,11 @@ require_relative '../helper'
 require 'fluent/test/driver/multi_output'
 require 'fluent/plugin/out_copy'
 require 'fluent/event'
+require 'flexmock/test_unit'
 
 class CopyOutputTest < Test::Unit::TestCase
+  include FlexMock::TestCase
+
   class << self
     def startup
       $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts'))
@@ -239,6 +242,16 @@ class CopyOutputTest < Test::Unit::TestCase
     # override to raise an error
     d.instance.outputs[0].define_singleton_method(:process) do |tag, es|
       raise ArgumentError, 'Failed'
+    end
+
+    # check ingore_if_prev_success functionality:
+    # 1. output 2 is succeeded.
+    # 2. output 3 is not cailed.
+    flexstub(d.instance.outputs[1]) do |output|
+      output.should_receive(:process).once
+    end
+    flexstub(d.instance.outputs[2]) do |output|
+      output.should_receive(:process).never
     end
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
