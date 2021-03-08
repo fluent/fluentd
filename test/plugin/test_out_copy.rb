@@ -77,6 +77,28 @@ class CopyOutputTest < Test::Unit::TestCase
     end
   end
 
+  ALL_IGNORE_ERROR_WITHOUT_IGNORE_IF_PREV_SUCCESS_CONFIG = %[
+    @log_level info
+    <store ignore_error>
+      @type test
+      name c0
+    </store>
+    <store ignore_error>
+      @type test
+      name c1
+    </store>
+    <store ignore_error>
+      @type test
+      name c2
+    </store>
+  ]
+  def test_configure_all_ignore_errors_without_ignore_if_prev_success
+    d = create_driver(ALL_IGNORE_ERROR_WITHOUT_IGNORE_IF_PREV_SUCCESS_CONFIG)
+    expected = /ignore_errors are specified in all <store>, but ignore_if_prev_success is not specified./
+    matches = d.logs.grep(expected)
+    assert_equal(1, matches.length, "Logs do not contain '#{expected}' '#{d.logs}'")
+  end
+
   def test_configure_with_deep_copy_and_use_shallow_copy_mode
     d = create_driver(%[
       deep_copy true

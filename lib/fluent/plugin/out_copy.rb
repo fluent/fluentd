@@ -46,6 +46,9 @@ module Fluent::Plugin
         @ignore_errors << (store.arg.include?('ignore_error'))
         @ignore_if_prev_successes << (store.arg.include?('ignore_if_prev_success'))
       }
+      if @ignore_errors.uniq.size == 1 && @ignore_errors.include?(true) && @ignore_if_prev_successes.include?(false)
+        log.warn "ignore_errors are specified in all <store>, but ignore_if_prev_success is not specified. Is this intended?"
+      end
     end
 
     def multi_workers_ready?
