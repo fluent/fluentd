@@ -2,8 +2,11 @@ require_relative '../helper'
 require 'fluent/test/driver/multi_output'
 require 'fluent/plugin/out_copy'
 require 'fluent/event'
+require 'flexmock/test_unit'
 
 class CopyOutputTest < Test::Unit::TestCase
+  include FlexMock::TestCase
+
   class << self
     def startup
       $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts'))
@@ -52,6 +55,48 @@ class CopyOutputTest < Test::Unit::TestCase
     assert_equal "c2", outputs[2].name
     assert_false d.instance.deep_copy
     assert_equal :no_copy, d.instance.copy_mode
+  end
+
+  ERRORNEOUS_IGNORE_IF_PREV_SUCCESS_CONFIG = %[
+    <store ignore_if_prev_success ignore_error>
+      @type test
+      name c0
+    </store>
+    <store ignore_if_prev_success ignore_error>
+      @type test
+      name c1
+    </store>
+    <store ignore_if_prev_success>
+      @type test
+      name c2
+    </store>
+  ]
+  def test_configure_with_errorneus_ignore_if_prev_success
+    assert_raise(Fluent::ConfigError) do
+      create_driver(ERRORNEOUS_IGNORE_IF_PREV_SUCCESS_CONFIG)
+    end
+  end
+
+  ALL_IGNORE_ERROR_WITHOUT_IGNORE_IF_PREV_SUCCESS_CONFIG = %[
+    @log_level info
+    <store ignore_error>
+      @type test
+      name c0
+    </store>
+    <store ignore_error>
+      @type test
+      name c1
+    </store>
+    <store ignore_error>
+      @type test
+      name c2
+    </store>
+  ]
+  def test_configure_all_ignore_errors_without_ignore_if_prev_success
+    d = create_driver(ALL_IGNORE_ERROR_WITHOUT_IGNORE_IF_PREV_SUCCESS_CONFIG)
+    expected = /ignore_errors are specified in all <store>, but ignore_if_prev_success is not specified./
+    matches = d.logs.grep(expected)
+    assert_equal(1, matches.length, "Logs do not contain '#{expected}' '#{d.logs}'")
   end
 
   def test_configure_with_deep_copy_and_use_shallow_copy_mode
@@ -217,5 +262,47 @@ class CopyOutputTest < Test::Unit::TestCase
       end
     end
   end
+
+  IGNORE_IF_PREV_SUCCESS_CONFIG = %[
+    <store ignore_error>
+      @type test
+      name c0
+    </store>
+    <store ignore_if_prev_success ignore_error>
+      @type test
+      name c1
+    </store>
+    <store ignore_if_prev_success>
+      @type test
+      name c2
+    </store>
+  ]
+
+  def test_ignore_if_prev_success
+    d = create_driver(IGNORE_IF_PREV_SUCCESS_CONFIG)
+
+    # override to raise an error
+    d.instance.outputs[0].define_singleton_method(:process) do |tag, es|
+      raise ArgumentError, 'Failed'
+    end
+
+    # check ingore_if_prev_success functionality:
+    # 1. output 2 is succeeded.
+    # 2. output 3 is not called.
+    flexstub(d.instance.outputs[1]) do |output|
+      output.should_receive(:process).once
+    end
+    flexstub(d.instance.outputs[2]) do |output|
+      output.should_receive(:process).never
+    end
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    assert_nothing_raised do
+      d.run(default_tag: 'test') do
+        d.feed(time, {"a"=>1})
+      end
+    end
+  end
+
 end
 
