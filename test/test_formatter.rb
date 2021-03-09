@@ -193,7 +193,7 @@ module FormatterTest
       @formatter.configure({})
       formatted = @formatter.format(tag, @time, record_with_tab)
 
-      assert_equal("message:awe some\tgreeting:hello \n", formatted)
+      assert_equal("message:awe some\tgreeting:hello #{@newline}", formatted)
     end
 
     def test_format_suppresses_tab_custom_replacement
@@ -202,7 +202,7 @@ module FormatterTest
       )
       formatted = @formatter.format(tag, @time, record_with_tab)
 
-      assert_equal("message:aweXsome\tgreeting:helloX\n", formatted)
+      assert_equal("message:aweXsome\tgreeting:helloX#{@newline}", formatted)
     end
 
     def test_format_suppresses_custom_delimiter
@@ -212,7 +212,7 @@ module FormatterTest
       )
       formatted = @formatter.format(tag, @time, record)
 
-      assert_equal("message=a esomewgreeting=hello\n", formatted)
+      assert_equal("message=a esomewgreeting=hello#{@newline}", formatted)
     end
   end
 
