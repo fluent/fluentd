@@ -184,6 +184,36 @@ module FormatterTest
 
       assert_equal("message=awesome,greeting=hello#{@newline}", formatted)
     end
+
+    def record_with_tab
+      {'message' => "awe\tsome", 'greeting' => "hello\t"}
+    end
+
+    def test_format_suppresses_tab
+      @formatter.configure({})
+      formatted = @formatter.format(tag, @time, record_with_tab)
+
+      assert_equal("message:awe some\tgreeting:hello \n", formatted)
+    end
+
+    def test_format_suppresses_tab_custom_replacement
+      @formatter.configure(
+        'replacement'      => 'X',
+      )
+      formatted = @formatter.format(tag, @time, record_with_tab)
+
+      assert_equal("message:aweXsome\tgreeting:helloX\n", formatted)
+    end
+
+    def test_format_suppresses_custom_delimiter
+      @formatter.configure(
+        'delimiter'       => 'w',
+        'label_delimiter' => '=',
+      )
+      formatted = @formatter.format(tag, @time, record)
+
+      assert_equal("message=a esomewgreeting=hello\n", formatted)
+    end
   end
 
   class CsvFormatterTest < ::Test::Unit::TestCase
