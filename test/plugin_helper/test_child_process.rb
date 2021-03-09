@@ -1,3 +1,4 @@
+# coding: utf-8
 require_relative '../helper'
 require 'fluent/plugin_helper/child_process'
 require 'fluent/plugin/base'
@@ -269,10 +270,12 @@ class ChildProcessTest < Test::Unit::TestCase
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
       @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep 0.1; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
-        m.lock
-        ran = true
         begin
           while line = io.readline
+            unless ran
+              m.lock
+              ran = true
+            end
             ary << line
           end
         rescue
