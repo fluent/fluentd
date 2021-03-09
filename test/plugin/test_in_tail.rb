@@ -6,6 +6,7 @@ require 'fluent/system_config'
 require 'net/http'
 require 'flexmock/test_unit'
 require 'timecop'
+require 'tmpdir'
 require 'securerandom'
 
 class TailInputTest < Test::Unit::TestCase
