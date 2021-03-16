@@ -184,6 +184,7 @@ module Fluent::Plugin
       @capability = Fluent::Capability.new(:current_process)
       # Need to create thread pool because #sleep should pause entire thread on enabling log throttling feature.
       @thread_pool = nil
+      @enable_read_bytes_limit_thread_pool = false
       if @read_bytes_limit_per_second > 0
         if @max_thread_pool_size < 0
           raise Fluent::ConfigError, "Specify positive number"
@@ -198,6 +199,7 @@ module Fluent::Plugin
         if @max_thread_pool_size < 2
           raise Fluent::ConfigError, "Specify 2 or more on max_thread_pool_size"
         end
+        @enable_read_bytes_limit_thread_pool = true
       end
     end
 
@@ -413,39 +415,49 @@ module Fluent::Plugin
       raise e
     end
 
+    def construct_watcher(target_info)
+      pe = nil
+      if @pf
+        pe = @pf[target_info]
+        if @read_from_head && pe.read_inode.zero?
+          begin
+            pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
+          rescue Errno::ENOENT
+            $log.warn "#{target_info.path} not found. Continuing without tailing it."
+          end
+        end
+      end
+
+      begin
+        tw = setup_watcher(target_info, pe)
+      rescue WatcherSetupError => e
+        log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
+        return
+      end
+
+      begin
+        target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
+        @tails[target_info] = tw
+      rescue Errno::ENOENT
+        $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
+        # explicitly detach and unwatch watcher `tw`.
+        tw.unwatched = true
+        detach_watcher(tw, target_info.ino, false)
+      end
+    end
+
     def start_watchers(targets_info)
-      @thread_pool = TailThread::Pool.new(@max_thread_pool_size) do |pool|
-        targets_info.each_value { |target_info|
-          pool.run {
-            pe = nil
-            if @pf
-              pe = @pf[target_info]
-              if @read_from_head && pe.read_inode.zero?
-                begin
-                  pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
-                rescue Errno::ENOENT
-                  $log.warn "#{target_info.path} not found. Continuing without tailing it."
-                end
-              end
-            end
-
-            begin
-              tw = setup_watcher(target_info, pe)
-            rescue WatcherSetupError => e
-              log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
-              next
-            end
-
-            begin
-              target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
-              @tails[target_info] = tw
-            rescue Errno::ENOENT
-              $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
-              # explicitly detach and unwatch watcher `tw`.
-              tw.unwatched = true
-              detach_watcher(tw, target_info.ino, false)
-            end
+      if @enable_read_bytes_limit_thread_pool
+        @thread_pool = TailThread::Pool.new(@max_thread_pool_size) do |pool|
+          targets_info.each_value {|target_info|
+            pool.run {
+              construct_watcher(target_info)
+            }
           }
+        end
+      else
+        targets_info.each_value {|target_info|
+          construct_watcher(target_info)
         }
       end
     end
