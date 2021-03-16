@@ -780,16 +780,22 @@ module Fluent::Plugin
           end
 
           if watcher_needs_update
-            # No need to update a watcher if stat is nil (file not present), because moving to inodes will create
-            # new watcher, and old watcher will be closed by stop_watcher in refresh_watchers method
-            if stat
-              target_info = TargetInfo.new(@path, stat.ino)
-              if @follow_inodes
-                # don't want to swap state because we need latest read offset in pos file even after rotate_wait
+            if @follow_inodes
+              # No need to update a watcher if stat is nil (file not present), because moving to inodes will create
+              # new watcher, and old watcher will be closed by stop_watcher in refresh_watchers method
+              # don't want to swap state because we need latest read offset in pos file even after rotate_wait
+              if stat
+                target_info = TargetInfo.new(@path, stat)
                 @update_watcher.call(target_info, @pe)
-              else
-                @update_watcher.call(target_info, swap_state(@pe))
               end
+            else
+              # Permit to handle if stat is nil (file not present).
+              # If a file is mv-ed and a new file is created during
+              # calling `#refresh_watchers`s, and `#refresh_watchers` won't run `#start_watchers`
+              # and `#stop_watchers()` for the path because `target_paths_hash`
+              # always contains the path.
+              target_info = TargetInfo.new(@path, stat ? stat.ino : nil)
+              @update_watcher.call(target_info, swap_state(@pe))
             end
           else
             @log.info "detected rotation of #{@path}"
