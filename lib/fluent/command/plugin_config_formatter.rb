@@ -44,6 +44,7 @@ class FluentPluginConfigFormatter
     @verbose = false
     @libs = []
     @plugin_dirs = []
+    @table = false
     @options = {}
 
     prepare_option_parser
