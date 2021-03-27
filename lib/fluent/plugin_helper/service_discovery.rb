@@ -66,11 +66,19 @@ module Fluent
             @config.elements(name: static_default_service_directive.to_s).map{|e| Fluent::Config::Element.new('service', e.arg, e.dup, e.elements, e.unused) }
           )
         end
-        service_discovery_create_manager(title, configurations: configs)
+        service_discovery_create_manager(title, configurations: configs, load_balancer: load_balancer, custom_build_method: custom_build_method, interval: interval)
       end
 
       def service_discovery_select_service(&block)
         @discovery_manager.select_service(&block)
+      end
+
+      def service_discovery_services
+        @discovery_manager.services
+      end
+
+      def service_discovery_rebalance
+        @discovery_manager.rebalance
       end
 
       # @param title [Symbol] the thread name. this value should be unique.
