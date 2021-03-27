@@ -53,6 +53,27 @@ module Fluent
       private
 
       # @param title [Symbol] the thread name. this value should be unique.
+      # @param static_default_service_directive [String] the directive name of each service when "static" service discovery is enabled in default
+      # @param load_balancer [Object] object which has two methods #rebalance and #select_service
+      # @param custom_build_method [Proc]
+      def service_discovery_configure(title, static_default_service_directive: nil, load_balancer: nil, custom_build_method: nil, interval: 3)
+        configs = @service_discovery_configs.map(&:corresponding_config_element)
+        if static_default_service_directive
+          configs << Fluent::Config::Element.new(
+            'service_discovery',
+            '',
+            {'@type' => 'static'},
+            @config.elements(name: static_default_service_directive.to_s).map{|e| Fluent::Config::Element.new('service', e.arg, e.dup, e.elements, e.unused) }
+          )
+        end
+        service_discovery_create_manager(title, configurations: configs)
+      end
+
+      def service_discovery_select_service(&block)
+        @discovery_manager.select_service(&block)
+      end
+
+      # @param title [Symbol] the thread name. this value should be unique.
       # @param configurations [Hash] hash which must has discivery_service type and its configuration like `{ type: :static, conf: <Fluent::Config::Element> }`
       # @param load_balancer [Object] object which has two methods #rebalance and #select_service
       # @param custom_build_method [Proc]
@@ -78,7 +99,7 @@ module Fluent
       module ServiceDiscoveryParams
         include Fluent::Configurable
 
-        config_section :service_discovery do
+        config_section :service_discovery, multi: true, param_name: :service_discovery_configs do
           config_param :@type, :string
         end
       end
