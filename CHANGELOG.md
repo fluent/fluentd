@@ -1,5 +1,52 @@
 # v1.12
 
+## Release v1.12.2 - 2021/03/29
+
+### Enhancement
+
+* out_copy: Add ignore_if_prev_successes
+  https://github.com/fluent/fluentd/pull/3190
+  https://github.com/fluent/fluentd/pull/3287
+* Support multiple kind of timestamp format
+  https://github.com/fluent/fluentd/pull/3252
+* formatter_ltsv: suppress delimiters in output
+  https://github.com/fluent/fluentd/pull/1666
+  https://github.com/fluent/fluentd/pull/3288
+  https://github.com/fluent/fluentd/pull/3289
+
+### Bug fix
+
+* in_tail: Expect ENOENT during stat
+  https://github.com/fluent/fluentd/pull/3275
+* out_forward: Prevent transferring duplicate logs on restart
+  https://github.com/fluent/fluentd/pull/3267
+  https://github.com/fluent/fluentd/pull/3285
+* in_tail: Handle to send rotated logs when mv is used for rotating
+  https://github.com/fluent/fluentd/pull/3294
+* fluent-plugin-config-format: Fill an uninitialized instance variable
+  https://github.com/fluent/fluentd/pull/3297
+* Fix MessagePackEventStream issue with Enumerable methods
+  https://github.com/fluent/fluentd/pull/2116
+
+### Misc
+
+* Add webrick to support Ruby 3.0
+  https://github.com/fluent/fluentd/pull/3257
+* Suggest Discource instead of Google Groups
+  https://github.com/fluent/fluentd/pull/3261
+* Update MAINTAINERS.md
+  https://github.com/fluent/fluentd/pull/3282
+* Introduce DeepSource to check code quality
+  https://github.com/fluent/fluentd/pull/3286
+  https://github.com/fluent/fluentd/pull/3259
+  https://github.com/fluent/fluentd/pull/3291
+* Migrate to GitHub Actions and stabilize tests
+  https://github.com/fluent/fluentd/pull/3266
+  https://github.com/fluent/fluentd/pull/3268
+  https://github.com/fluent/fluentd/pull/3281
+  https://github.com/fluent/fluentd/pull/3283
+  https://github.com/fluent/fluentd/pull/3290
+
 ## Release v1.12.1 - 2021/02/18
 
 ### Enhancement
