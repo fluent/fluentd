@@ -22,8 +22,17 @@ module Fluent
     module ServiceDiscovery
       include Fluent::PluginHelper::Timer
 
+      # For the compatibility with older versions without `param_name: :service_discovery_configs`
+      attr_reader :service_discovery
+
       def self.included(mod)
         mod.include ServiceDiscoveryParams
+      end
+
+      def configure(conf)
+        super
+        # For the compatibility with older versions without `param_name: :service_discovery_configs`
+        @service_discovery = @service_discovery_configs
       end
 
       def start
