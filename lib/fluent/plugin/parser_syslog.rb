@@ -56,7 +56,7 @@ module Fluent
       desc 'Specify time format for event time for rfc5424 protocol'
       config_param :rfc5424_time_format, :string, default: "%Y-%m-%dT%H:%M:%S.%L%z"
       desc 'The parser type used to parse syslog message'
-      config_param :parser_type, :enum, list: [:regexp, :string], default: :regexp
+      config_param :parser_engine, :enum, list: [:regexp, :string], default: :regexp, alias: :parser_type
       desc 'support colonless ident in string parser'
       config_param :support_colonless_ident, :bool, default: true
 
@@ -79,7 +79,7 @@ module Fluent
       def configure(conf)
         super
 
-        @regexp_parser = @parser_type == :regexp
+        @regexp_parser = @parser_engine == :regexp
         @regexp = case @message_format
                   when :rfc3164
                     if @regexp_parser

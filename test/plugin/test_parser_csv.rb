@@ -183,4 +183,18 @@ class CSVParserTest < ::Test::Unit::TestCase
       # And more...
     end
   end
+
+  # "parser_type" config shouldn't hide Fluent::Plugin::Parser#plugin_type
+  # https://github.com/fluent/fluentd/issues/3296
+  data('normal' => :normal, 'fast' => :fast)
+  def test_parser_type_method(engine)
+    d = create_driver('keys' => '["time"]','time_key' => 'time', 'parser_type' => engine.to_s)
+    assert_equal(:text_per_line, d.instance.parser_type)
+  end
+
+  data('normal' => :normal, 'fast' => :fast)
+  def test_parser_engine(engine)
+    d = create_driver('keys' => '["time"]', 'time_key' => 'time', 'parser_engine' => engine.to_s)
+    assert_equal(engine, d.instance.parser_engine)
+  end
 end

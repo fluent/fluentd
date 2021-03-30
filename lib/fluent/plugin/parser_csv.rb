@@ -28,13 +28,13 @@ module Fluent
       desc 'The delimiter character (or string) of CSV values'
       config_param :delimiter, :string, default: ','
       desc 'The parser type used to parse CSV line'
-      config_param :parser_type, :enum, list: [:normal, :fast], default: :normal
+      config_param :parser_engine, :enum, list: [:normal, :fast], default: :normal, alias: :parser_type
 
       def configure(conf)
         super
 
 
-        if @parser_type == :fast
+        if @parser_engine == :fast
           @quote_char = '"'
           @escape_pattern = Regexp.compile(@quote_char * 2)
 
