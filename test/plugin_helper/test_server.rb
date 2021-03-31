@@ -313,6 +313,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       # 'server_create_connection unix' => [:server_create, :unix, {}],
     )
     test 'cannot create 2 or more servers using same bind address and port if shared option is false' do |(m, proto, kwargs)|
+      omit "enable test when fiddle is fixed https://github.com/ruby/fiddle/issues/72" if RUBY_VERSION.split(".").first.to_i >= 3
       begin
         d2 = Dummy.new; d2.start; d2.after_start
 
