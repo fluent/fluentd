@@ -105,7 +105,7 @@ Generate a project skeleton for creating a Fluentd plugin
 
 Arguments:
 \ttype: #{SUPPORTED_TYPES.join(",")}
-\tname: Your plugin name
+\tname: Your plugin name (fluent-plugin- prefix will be added to <name>)
 
 Options:
 BANNER
