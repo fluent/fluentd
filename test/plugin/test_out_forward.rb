@@ -1294,7 +1294,13 @@ EOL
 
         begin
           chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, linger_timeout: anything, send_timeout: anything, recv_timeout: anything, connect_timeout: anything) { |sock| mock(sock).close.once; sock }.twice
+          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT,
+                                                   linger_timeout: anything,
+                                                   send_timeout: anything,
+                                                   recv_timeout: anything,
+                                                   connect_timeout: anything) { |sock|
+            mock(sock).close.once; sock
+          }.twice
 
           target_input_driver.run(timeout: 15) do
             d.run(shutdown: false) do
