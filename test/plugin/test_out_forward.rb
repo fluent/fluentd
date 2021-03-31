@@ -1061,11 +1061,9 @@ EOL
   end
 
   test 'when out_forward has @id' do
-    omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
-
     # cancel https://github.com/fluent/fluentd/blob/077508ac817b7637307434d0c978d7cdc3d1c534/lib/fluent/plugin_id.rb#L43-L53
     # it always return true in test
-    mock.proxy(Fluent::Plugin).new_sd(:static, anything) { |v|
+    mock.proxy(Fluent::Plugin).new_sd(:static, parent: anything) { |v|
       stub(v).plugin_id_for_test? { false }
     }.once
 
@@ -1296,7 +1294,7 @@ EOL
 
         begin
           chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.twice
+          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, linger_timeout: anything, send_timeout: anything, recv_timeout: anything, connect_timeout: anything) { |sock| mock(sock).close.once; sock }.twice
 
           target_input_driver.run(timeout: 15) do
             d.run(shutdown: false) do
