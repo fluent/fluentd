@@ -354,7 +354,7 @@ class HttpHelperTest < Test::Unit::TestCase
           watcher.should_receive(:stop).once
         end
 
-        stub(Fluent::PluginHelper::HttpServer::Server).new(anything) { server }
+        stub(Fluent::PluginHelper::HttpServer::Server).new(addr: anything, port: anything, logger: anything, default_app: anything) { server }
         driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do
           # nothing
         end

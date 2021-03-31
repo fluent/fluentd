@@ -71,7 +71,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
     test 'if new service added and deleted' do
       sdm = Fluent::PluginHelper::ServiceDiscovery::Manager.new(log: $log)
       t = TestSdPlugin.new
-      mock(Fluent::Plugin).new_sd(:sd_test, anything) { t }
+      mock(Fluent::Plugin).new_sd(:sd_test, parent: anything) { t }
       sdm.configure([{ type: :sd_test, conf: config_element('service_discovery', '', {})}])
       sdm.start
 
