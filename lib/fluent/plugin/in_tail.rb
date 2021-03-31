@@ -738,7 +738,7 @@ module Fluent::Plugin
           end
           begin
             Timeout.timeout(1) do
-              @threads.join
+              @threads.each{|th| th.join }
             end
           rescue Timeout::Error
             @threads.each {|th| th.kill }
