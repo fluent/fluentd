@@ -1002,7 +1002,7 @@ module Fluent::Plugin
           with_io do |io|
             begin
               number_bytes_read = 0
-              start_reading = Fluent::EventTime.now
+              start_reading = Fluent::Clock.now
               read_more = false
 
               if !io.nil? && @lines.empty?
