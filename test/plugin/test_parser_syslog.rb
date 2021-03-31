@@ -633,4 +633,18 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
   end
+
+  # "parser_type" config shouldn't hide Fluent::Plugin::Parser#plugin_type
+  # https://github.com/fluent/fluentd/issues/3296
+  data('regexp' => :regexp, 'fast' => :string)
+  def test_parser_type_method(engine)
+    @parser.configure({'parser_type' => engine.to_s})
+    assert_equal(:text_per_line, @parser.instance.parser_type)
+  end
+
+  data('regexp' => :regexp, 'string' => :string)
+  def test_parser_engine(engine)
+    d = @parser.configure({'parser_engine' => engine.to_s})
+    assert_equal(engine, @parser.instance.parser_engine)
+  end
 end
