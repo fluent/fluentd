@@ -38,8 +38,8 @@ module Fluent
           end
         end
         if send_keepalive_packet
-          if protocol != :tcp
-            raise ArgumentError, "BUG: send_keepalive_packet is available for tcp"
+          if protocol != :tcp && protocol != :tls
+            raise ArgumentError, "BUG: send_keepalive_packet is available for tcp/tls"
           end
         end
       end

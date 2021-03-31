@@ -234,7 +234,13 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       assert_raise(ArgumentError.new("BUG: backlog is available for tcp/tls")) do
         @d.__send__(m, :myserver, PORT, proto: proto, backlog: 500){|x| x }
       end
-      assert_raise(ArgumentError.new("BUG: send_keepalive_packet is available for tcp")) do
+    end
+
+    data(
+      'server_create udp' => [:server_create, :udp],
+    )
+    test 'raise error if tcp/tls send_keepalive_packet option is specified for udp' do |(m, proto)|
+      assert_raise(ArgumentError.new("BUG: send_keepalive_packet is available for tcp/tls")) do
         @d.__send__(m, :myserver, PORT, proto: proto, send_keepalive_packet: true){|x| x }
       end
     end
@@ -1300,7 +1306,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     test 'can accept all keyword arguments valid for tcp/tls server' do
       assert_nothing_raised do
-        @d.server_create_tls(:s, PORT, bind: '127.0.0.1', shared: false, resolve_name: true, linger_timeout: 10, backlog: 500, tls_options: @tls_options) do |data, conn|
+        @d.server_create_tls(:s, PORT, bind: '127.0.0.1', shared: false, resolve_name: true, linger_timeout: 10, backlog: 500, tls_options: @tls_options, send_keepalive_packet: true) do |data, conn|
           # ...
         end
       end
