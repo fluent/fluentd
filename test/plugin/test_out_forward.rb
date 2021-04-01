@@ -587,30 +587,35 @@ EOL
         flush_mode immediate
         retry_type periodic
         retry_wait 30s
-        flush_at_shutdown false # suppress errors in d.instance_shutdown
+        flush_at_shutdown true
       </buffer>
     ])
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
     acked_chunk_ids = []
+    nacked = false
     mock.proxy(d.instance.ack_handler).read_ack_from_sock(anything) do |info, success|
       if success
         acked_chunk_ids << info.chunk_id
+      else
+        nacked = true
       end
-      [chunk_id, success]
+      [info, success]
     end
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    target_input_driver.run(expect_records: 2) do
-      d.end_if { acked_chunk_ids.size > 0 }
+    target_input_driver.run(expect_records: 2, timeout: 5) do
+      d.end_if { acked_chunk_ids.size > 0 || nacked }
       d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
         d.feed([[time, records[0]], [time,records[1]]])
       end
     end
+
+    assert(!nacked, d.instance.log.logs.join)
 
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
@@ -630,26 +635,29 @@ EOL
         flush_mode immediate
         retry_type periodic
         retry_wait 30s
-        flush_at_shutdown false # suppress errors in d.instance_shutdown
+        flush_at_shutdown true
       </buffer>
     ])
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
     acked_chunk_ids = []
+    nacked = false
     mock.proxy(d.instance.ack_handler).read_ack_from_sock(anything) do |info, success|
       if success
         acked_chunk_ids << info.chunk_id
+      else
+        nacked = true
       end
-      [chunk_id, success]
+      [info, success]
     end
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    target_input_driver.run(expect_records: 2) do
-      d.end_if { acked_chunk_ids.size > 0 }
+    target_input_driver.run(expect_records: 2, timeout: 5) do
+      d.end_if { acked_chunk_ids.size > 0 || nacked }
       d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
         d.instance.stop
         d.feed([[time, records[0]], [time,records[1]]])
@@ -658,6 +666,8 @@ EOL
         d.instance.after_shutdown
       end
     end
+
+    assert(!nacked, d.instance.log.logs.join)
 
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
