@@ -589,6 +589,7 @@ class TailInputTest < Test::Unit::TestCase
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
       f.puts "test1"
       f.puts "test2"
+      f.flush
     }
 
     d = create_driver(config)
@@ -598,19 +599,23 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test3\ntest4"
         f.flush
       }
-      sleep 1
+      waiting(2) { sleep 0.1 until d.events.length == 2 }
       File.truncate("#{TMP_DIR}/tail.txt", 6)
     end
 
-    events = d.events
-    assert_equal(3, events.length)
-    assert_equal({"message" => "test3"}, events[0][2])
-    assert_equal({"message" => "test4"}, events[1][2])
-    assert_equal({"message" => "test1"}, events[2][2])
-    assert(events[0][1].is_a?(Fluent::EventTime))
-    assert(events[1][1].is_a?(Fluent::EventTime))
-    assert(events[2][1].is_a?(Fluent::EventTime))
-    assert_equal(2, d.emit_count)
+    expected = {
+      emit_count: 2,
+      events: [
+        [Fluent::EventTime, {"message" => "test3"}],
+        [Fluent::EventTime, {"message" => "test4"}],
+        [Fluent::EventTime, {"message" => "test1"}],
+      ]
+    }
+    actual = {
+      emit_count: d.emit_count,
+      events: d.events.collect{|event| [event[1].class, event[2]]}
+    }
+    assert_equal(expected, actual)
   end
 
   def test_move_truncate_move_back
