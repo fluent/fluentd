@@ -20,6 +20,10 @@ require 'fluent/config/error'
 
 module Fluent
   module Config
+    def self.reformatted_value(type, val, opts = {}, name = nil)
+      REFORMAT_VALUE.call(type, val, opts, name)
+    end
+
     def self.size_value(str, opts = {}, name = nil)
       return nil if str.nil?
 
@@ -104,6 +108,16 @@ module Fluent
       Config.string_value(val, opts, name)
     }
 
+    def self.symbol_value(val, opts = {}, name = nil)
+      return nil if val.nil?
+
+      val[0] == ":" ? val[1..-1].to_sym : val.to_sym
+    end
+
+    SYMBOL_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.symbol_value(val, opts, name)
+    }
+
     def self.enum_value(val, opts = {}, name = nil)
       return nil if val.nil?
 
@@ -130,7 +144,13 @@ module Fluent
           raise ConfigError, "#{name}: #{e.message}"
         end
       else
-        val.to_i
+        i = val.to_i
+        # string will convert to 0, return nil if not actually "0"
+        if i == 0 && val != "0"
+          nil
+        else
+          i
+        end
       end
     }
 
@@ -176,6 +196,7 @@ module Fluent
         when :bool then Config.bool_value(value, opts, name)
         when :time then Config.time_value(value, opts, name)
         when :regexp then Config.regexp_value(value, opts, name)
+        when :symbol then SYMBOL_TYPE.call(value, opts, name)
         else
           raise "unknown type in REFORMAT: #{type}"
         end
