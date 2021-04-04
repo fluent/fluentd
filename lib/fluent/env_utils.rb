@@ -16,12 +16,12 @@ module Fluent
   
       OJ_OPTIONS_ALLOWED_VALUES = {
         'bigdecimal_load': %i[bigdecimal float auto],
-        'mode': %i[strict null concat json rails object custom]
+        'mode': %i[strict null compat json rails object custom]
       }
   
       OJ_OPTIONS_DEFAULTS = {
         'bigdecimal_load': :float,
-        'mode': :concat,
+        'mode': :compat,
         'use_to_json': true
       }
 
