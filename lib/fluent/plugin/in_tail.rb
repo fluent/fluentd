@@ -747,8 +747,7 @@ module Fluent::Plugin
 
         protected def create_thread
           Thread.start(@queue) do |q|
-            loop do
-              task = q.pop
+            while task = q.pop
               task.call
             end
           end
