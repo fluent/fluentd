@@ -1027,7 +1027,6 @@ module Fluent::Plugin
                           @log.debug("sleep: #{needed_sleeping_time}")
                           sleep(needed_sleeping_time)
                         end
-                        start_reading = Fluent::Clock.now
                       end
 
                       break
