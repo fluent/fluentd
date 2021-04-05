@@ -352,7 +352,7 @@ class TailInputTest < Test::Unit::TestCase
 
     sub_test_case "log throttling per file" do
       teardown do
-        FileUtils.rm_f("#{TMP_DIR}/tail.txt")
+        cleanup_file("#{TMP_DIR}/tail.txt")
       end
 
       def count_thread_pool_object
