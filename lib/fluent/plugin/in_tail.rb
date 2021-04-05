@@ -480,6 +480,7 @@ module Fluent::Plugin
       }
       if @thread_pool
         @thread_pool.stop
+        @thread_pool = nil
       end
     end
 
