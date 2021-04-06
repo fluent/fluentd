@@ -173,6 +173,8 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
       waiting(5) {
         target_dir = File.join(File.dirname(target_file), "*")
         while Dir.glob(target_dir).size.zero?
+          # Avoid to lose globbed entries on Windows in busy loop
+          sleep 0.1 if Fluent.windows?
         end
       }
     end
