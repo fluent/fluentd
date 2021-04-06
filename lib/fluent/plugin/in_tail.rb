@@ -1008,10 +1008,11 @@ module Fluent::Plugin
               if !io.nil? && @lines.empty?
                 begin
                   while true
-                    @fifo << io.readpartial(BYTES_TO_READ, @iobuf)
+                    data = io.readpartial(BYTES_TO_READ, @iobuf)
+                    number_bytes_read += data.bytesize
+                    @fifo << data
                     @fifo.read_lines(@lines)
 
-                    number_bytes_read += BYTES_TO_READ
                     limit_bytes_per_second_reached = (number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0)
                     @log.debug("reading file: #{@path}")
                     if @lines.size >= @read_lines_limit || limit_bytes_per_second_reached
