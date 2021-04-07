@@ -722,7 +722,7 @@ module Fluent::Plugin
           session.call(self)
           @running = true
         ensure
-          stop
+          terminate
         end
 
         def run(&task)
@@ -730,13 +730,11 @@ module Fluent::Plugin
           @threads << create_thread if @threads.size < @max_size
         end
 
-        def stop
-          return unless @running
-          @running = false
-
+        def terminate
           until @queue.num_waiting == @threads.size
             sleep 0.01
           end
+          @queue.close
           begin
             Timeout.timeout(1) do
               @threads.each{|th| th.join }
@@ -746,12 +744,23 @@ module Fluent::Plugin
           end
         end
 
+        def stop
+          return unless running?
+          @running = false
+
+          terminate
+        end
+
         protected def create_thread
           Thread.start(@queue) do |q|
             while task = q.pop
               task.call
             end
           end
+        end
+
+        protected def running?
+          !@queue.closed? && @running
         end
       end
     end
