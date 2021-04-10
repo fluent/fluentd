@@ -718,9 +718,7 @@ module Fluent::Plugin
           @max_size = max_size
           @queue = Queue.new
           @threads = []
-          @running = false
           session.call(self)
-          @running = true
         ensure
           terminate
         end
@@ -746,7 +744,6 @@ module Fluent::Plugin
 
         def stop
           return unless running?
-          @running = false
 
           terminate
         end
@@ -760,7 +757,7 @@ module Fluent::Plugin
         end
 
         protected def running?
-          !@queue.closed? && @running
+          !@queue.closed?
         end
       end
     end
