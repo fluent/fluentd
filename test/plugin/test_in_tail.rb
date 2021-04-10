@@ -363,22 +363,22 @@ class TailInputTest < Test::Unit::TestCase
         num
       end
 
-      data("flat 8192 bytes, 21 events"        => [:flat, 100, 8192, 21],
-           "flat 8192 bytes, 21 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 21],
-           "flat #{8192*10} bytes, 32 events"  => [:flat, 100, (8192 * 10), 32],
-           "flat #{8192*10} bytes, 32 events w/o stat watcher"  => [:flat_without_stat, 100, (8192 * 10), 32],
-           "parse #{8192*3} bytes, 48 events"  => [:parse, 100, (8192 * 3), 48],
-           "parse #{8192*3} bytes, 48 events w/o stat watcher"  => [:parse_without_stat, 100, (8192 * 3), 48],
-           "parse #{8192*10} bytes, 32 events" => [:parse, 100, (8192 * 10), 32],
-           "parse #{8192*10} bytes, 32 events w/o stat watcher" => [:parse_without_stat, 100, (8192 * 10), 32],
-           "flat 8k bytes with unit, 21 events"        => [:flat, 100, "8k", 21],
-           "flat 8k bytes with unit, 21 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 21],
-           "flat #{8*10}k bytes with unit, 32 events"  => [:flat, 100, "#{8*10}k", 32],
-           "flat #{8*10}k bytes with unit, 32 events w/o stat watcher"  => [:flat_without_stat, 100, "#{8*10}k", 32],
-           "parse #{8*3}k bytes with unit, 48 events"  => [:parse, 100, "#{8*3}k", 48],
-           "parse #{8*3}k bytes with unit, 48 events w/o stat watcher"  => [:parse_without_stat, 100, "#{8*3}k", 48],
-           "parse #{8*10}k bytes with unit, 32 events" => [:parse, 100, "#{8*10}k", 32],
-           "parse #{8*10}k bytes with unit, 32 events w/o stat watcher" => [:parse_without_stat, 100, "#{8*10}k", 32])
+      data("flat 8192 bytes, 2 events"        => [:flat, 100, 8192, 2],
+           "flat 8192 bytes, 2 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 2],
+           "flat #{8192*10} bytes, 20 events"  => [:flat, 100, (8192 * 10), 20],
+           "flat #{8192*10} bytes, 20 events w/o stat watcher"  => [:flat_without_stat, 100, (8192 * 10), 20],
+           "parse #{8192*4} bytes, 8 events"  => [:parse, 100, (8192 * 4), 8],
+           "parse #{8192*4} bytes, 8 events w/o stat watcher"  => [:parse_without_stat, 100, (8192 * 4), 8],
+           "parse #{8192*10} bytes, 20 events" => [:parse, 100, (8192 * 10), 20],
+           "parse #{8192*10} bytes, 20 events w/o stat watcher" => [:parse_without_stat, 100, (8192 * 10), 20],
+           "flat 8k bytes with unit, 2 events"        => [:flat, 100, "8k", 2],
+           "flat 8k bytes with unit, 2 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 2],
+           "flat #{8*10}k bytes with unit, 20 events"  => [:flat, 100, "#{8*10}k", 20],
+           "flat #{8*10}k bytes with unit, 20 events w/o stat watcher"  => [:flat_without_stat, 100, "#{8*10}k", 20],
+           "parse #{8*4}k bytes with unit, 8 events"  => [:parse, 100, "#{8*4}k", 8],
+           "parse #{8*4}k bytes with unit, 8 events w/o stat watcher"  => [:parse_without_stat, 100, "#{8*4}k", 8],
+           "parse #{8*10}k bytes with unit, 20 events" => [:parse, 100, "#{8*10}k", 20],
+           "parse #{8*10}k bytes with unit, 20 events w/o stat watcher" => [:parse_without_stat, 100, "#{8*10}k", 20])
       def test_emit_with_read_bytes_limit_per_second(data)
         config_style, limit, limit_bytes, num_events = data
         case config_style
@@ -394,9 +394,10 @@ class TailInputTest < Test::Unit::TestCase
         d = create_driver(config)
         msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
 
-        d.run(expect_emits: 2) do
+        # We should not do shutdown here due to hard timeout.
+        d.run(expect_emits: 2, shutdown: false) do
           File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-            for _x in 0..20
+            for _x in 0..30
               f.puts msg
             end
           }
@@ -410,6 +411,9 @@ class TailInputTest < Test::Unit::TestCase
         assert_true(events.length <= num_events)
         assert_equal({"message" => msg}, events[0][2])
         assert_equal({"message" => msg}, events[1][2])
+
+        # Teardown in_tail plugin instance here.
+        d.instance.shutdown
       end
     end
 
