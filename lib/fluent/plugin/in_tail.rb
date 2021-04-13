@@ -419,7 +419,8 @@ module Fluent::Plugin
         rescue Errno::ENOENT
           $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
           # explicitly detach and unwatch watcher `tw`.
-          stop_watchers(target_info, immediate: true, unwatched: true)
+          tw.unwatched = true
+          detach_watcher(tw, target_info.ino, false)
         end
       }
     end
