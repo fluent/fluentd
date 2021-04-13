@@ -46,6 +46,34 @@ module Fluent
     end
   end
 
+  class Win32Error < StandardError
+    require 'windows/error'
+    include Windows::Error
+
+    attr_reader :errcode
+
+    def initialize(errcode)
+      @errcode = errcode
+    end
+
+    def format_english_message(errcode)
+      buf = 0.chr * 260
+      flags = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY
+      english_lang_id = 1033 # The result of MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US)
+      FormatMessageA.call(flags, 0, errcode, english_lang_id, buf, buf.size, 0)
+      buf.force_encoding(Encoding.default_external).strip
+    end
+
+    def message
+      "code: #{@errcode}, #{format_english_message(@errcode)}"
+    end
+
+    def ==(other)
+      return false if other.class != Win32Error
+      @errcode == other.errcode
+    end
+  end
+
   # To open and get stat with setting FILE_SHARE_DELETE
   class WindowsFile
     require 'windows/file'
@@ -79,9 +107,9 @@ module Fluent
       if @file_handle == INVALID_HANDLE_VALUE
         err = GetLastError.call
         if err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND || err == ERROR_ACCESS_DENIED
-          raise SystemCallError.new(2)
+          raise Errno::ENOENT
         end
-        raise SystemCallError.new(err)
+        raise Win32Error.new(err)
       end
     end
 
