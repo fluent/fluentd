@@ -19,13 +19,18 @@ class FileWrapperTest < Test::Unit::TestCase
 
   sub_test_case 'Win32Error' do
     test 'equal' do
-      assert_equal(Fluent::Win32Error.new(ERROR_SHARING_VIOLATION),
-                   Fluent::Win32Error.new(ERROR_SHARING_VIOLATION))
+      assert_equal(Fluent::Win32Error.new(ERROR_SHARING_VIOLATION, "message"),
+                   Fluent::Win32Error.new(ERROR_SHARING_VIOLATION, "message"))
     end
 
     test 'different error code' do
       assert_not_equal(Fluent::Win32Error.new(ERROR_FILE_NOT_FOUND),
                        Fluent::Win32Error.new(ERROR_SHARING_VIOLATION))
+    end
+
+    test 'different error message' do
+      assert_not_equal(Fluent::Win32Error.new(ERROR_FILE_NOT_FOUND, "message1"),
+                       Fluent::Win32Error.new(ERROR_FILE_NOT_FOUND, "message2"))
     end
 
     test 'different class' do
@@ -36,6 +41,12 @@ class FileWrapperTest < Test::Unit::TestCase
     test 'ERROR_SHARING_VIOLATION message' do
       assert_equal(Fluent::Win32Error.new(ERROR_SHARING_VIOLATION).message,
                    "code: 32, The process cannot access the file because it is being used by another process.")
+    end
+
+    test 'ERROR_SHARING_VIOLATION with a message' do
+      assert_equal(Fluent::Win32Error.new(ERROR_SHARING_VIOLATION, "cannot open the file").message,
+                   "code: 32, The process cannot access the file because it is being used by another process." +
+                   ": cannot open the file")
     end
   end
 
@@ -71,7 +82,7 @@ class FileWrapperTest < Test::Unit::TestCase
         path = "#{TMP_DIR}/test_windows_file.txt"
         file1 = file2 = nil
         file1 = File.open(path, "wb")
-        assert_raise(Fluent::Win32Error.new(ERROR_SHARING_VIOLATION)) do
+        assert_raise(Fluent::Win32Error.new(ERROR_SHARING_VIOLATION, path)) do
           file2 = Fluent::WindowsFile.new(path, 'r', FILE_SHARE_READ)
         ensure
           file2.close if file2

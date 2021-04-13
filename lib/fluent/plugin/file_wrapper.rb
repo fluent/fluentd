@@ -50,10 +50,11 @@ module Fluent
     require 'windows/error'
     include Windows::Error
 
-    attr_reader :errcode
+    attr_reader :errcode, :msg
 
-    def initialize(errcode)
+    def initialize(errcode, msg = nil)
       @errcode = errcode
+      @msg = msg
     end
 
     def format_english_message(errcode)
@@ -65,12 +66,14 @@ module Fluent
     end
 
     def message
-      "code: #{@errcode}, #{format_english_message(@errcode)}"
+      msg = "code: #{@errcode}, #{format_english_message(@errcode)}"
+      msg << ": #{@msg}" if @msg
+      msg
     end
 
     def ==(other)
       return false if other.class != Win32Error
-      @errcode == other.errcode
+      @errcode == other.errcode && @msg == other.msg
     end
   end
 
@@ -109,7 +112,7 @@ module Fluent
         if err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND || err == ERROR_ACCESS_DENIED
           raise Errno::ENOENT
         end
-        raise Win32Error.new(err)
+        raise Win32Error.new(err, path)
       end
     end
 
