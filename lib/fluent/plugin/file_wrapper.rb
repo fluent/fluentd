@@ -65,10 +65,15 @@ module Fluent
       buf.force_encoding(Encoding.default_external).strip
     end
 
-    def message
-      msg = "code: #{@errcode}, #{format_english_message(@errcode)}"
-      msg << ": #{@msg}" if @msg
+    def to_s
+      msg = super
+      msg << ": code: #{@errcode}, #{format_english_message(@errcode)}"
+      msg << " - #{@msg}" if @msg
       msg
+    end
+
+    def inspect
+      "#<#{to_s}>"
     end
 
     def ==(other)
