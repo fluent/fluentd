@@ -40,13 +40,23 @@ class FileWrapperTest < Test::Unit::TestCase
 
     test 'ERROR_SHARING_VIOLATION message' do
       assert_equal(Fluent::Win32Error.new(ERROR_SHARING_VIOLATION).message,
-                   "code: 32, The process cannot access the file because it is being used by another process.")
+                   "Fluent::Win32Error: code: 32, The process cannot access the file because it is being used by another process.")
     end
 
     test 'ERROR_SHARING_VIOLATION with a message' do
       assert_equal(Fluent::Win32Error.new(ERROR_SHARING_VIOLATION, "cannot open the file").message,
-                   "code: 32, The process cannot access the file because it is being used by another process." +
-                   ": cannot open the file")
+                   "Fluent::Win32Error: code: 32, The process cannot access the file because it is being used by another process." +
+                   " - cannot open the file")
+    end
+
+    test 'to_s' do
+      assert_equal("Fluent::Win32Error: code: 32, The process cannot access the file because it is being used by another process. - C:\file.txt",
+                   Fluent::Win32Error.new(ERROR_SHARING_VIOLATION, "C:\file.txt").to_s)
+    end
+
+    test 'inspect' do
+      assert_equal("#<Fluent::Win32Error: code: 32, The process cannot access the file because it is being used by another process. - C:\file.txt>",
+                   Fluent::Win32Error.new(ERROR_SHARING_VIOLATION, "C:\file.txt").inspect)
     end
   end
 
