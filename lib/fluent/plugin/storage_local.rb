@@ -130,7 +130,7 @@ module Fluent
 
       def save
         return if @on_memory
-        tmp_path = @path + '.tmp'
+        tmp_path = @path + '.tmp.' + Fluent::UniqueId.hex(Fluent::UniqueId.generate)
         begin
           json_string = Yajl::Encoder.encode(@store, pretty: @pretty_print)
           File.open(tmp_path, 'w:utf-8', @mode) { |io| io.write json_string; io.fsync }
