@@ -1,8 +1,11 @@
 Fluentd: Open-Source Log Collector
 ===================================
-Travis CI:
+GitHub Actions:
 
-[<img src="https://travis-ci.org/fluent/fluentd.svg" />](https://travis-ci.org/fluent/fluentd) [![Code Climate](https://codeclimate.com/github/fluent/fluentd/badges/gpa.svg)](https://codeclimate.com/github/fluent/fluentd)
+[![Testing on Ubuntu](https://github.com/fluent/fluentd/actions/workflows/linux-test.yaml/badge.svg?branch=master)](https://github.com/fluent/fluentd/actions/workflows/linux-test.yaml)
+[![Testing on Windows](https://github.com/fluent/fluentd/actions/workflows/windows-test.yaml/badge.svg?branch=master)](https://github.com/fluent/fluentd/actions/workflows/windows-test.yaml)
+[![Testing on macOS](https://github.com/fluent/fluentd/actions/workflows/macos-test.yaml/badge.svg?branch=master)](https://github.com/fluent/fluentd/actions/workflows/macos-test.yaml)
+[![Code Climate](https://codeclimate.com/github/fluent/fluentd/badges/gpa.svg)](https://codeclimate.com/github/fluent/fluentd)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1189/badge)](https://bestpractices.coreinfrastructure.org/projects/1189)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd.svg?type=shield)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd?ref=badge_shield)
 
