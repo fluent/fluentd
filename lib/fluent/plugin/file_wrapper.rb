@@ -113,7 +113,7 @@ module Fluent
       @file_handle = CreateFile.call(@path, access, sharemode,
                      0, creationdisposition, FILE_ATTRIBUTE_NORMAL, 0)
       if @file_handle == INVALID_HANDLE_VALUE
-        err = GetLastError.call
+        err = Win32::API.last_error
         if err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND || err == ERROR_ACCESS_DENIED
           raise Errno::ENOENT
         end
