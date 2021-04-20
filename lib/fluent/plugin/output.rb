@@ -754,7 +754,17 @@ module Fluent
               log.warn "tag placeholder '#{$1}' not replaced. tag:#{metadata.tag}, template:#{str}"
             end
           end
-          # ${a_chunk_key}, ...
+
+          # First we replace ${chunk_id} with chunk.unique_id (hexlified).
+          rvalue = rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
+            if chunk_passed
+              dump_unique_id_hex(chunk.unique_id)
+            else
+              log.warn "${chunk_id} is not allowed in this plugin. Pass Chunk instead of metadata in extract_placeholders's 2nd argument"
+            end
+          }
+
+          # Then, replace other ${chunk_key}s.
           if !@chunk_keys.empty? && metadata.variables
             hash = {'${tag}' => '${tag}'} # not to erase this wrongly
             @chunk_keys.each do |key|
@@ -768,14 +778,6 @@ module Fluent
               end
             end
           end
-
-          rvalue = rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
-            if chunk_passed
-              dump_unique_id_hex(chunk.unique_id)
-            else
-              log.warn "${chunk_id} is not allowed in this plugin. Pass Chunk instead of metadata in extract_placeholders's 2nd argument"
-            end
-          }
 
           if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
             log.warn "chunk key placeholder '#{$1}' not replaced. template:#{str}"
