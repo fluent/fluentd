@@ -1,5 +1,47 @@
 # v1.12
 
+## Release v1.12.3 - 2021/04/23
+
+### Enhancement
+
+* plugin_helper: Allow TLS to use keep-alive socket option
+  https://github.com/fluent/fluentd/pull/3308
+
+### Bug fix
+
+* parser_csv, parser_syslog: Fix a naming conflict on parser_type
+  https://github.com/fluent/fluentd/pull/3302
+* in_tail: Fix incorrect error code & message on Windows
+  https://github.com/fluent/fluentd/pull/3325
+  https://github.com/fluent/fluentd/pull/3329
+  https://github.com/fluent/fluentd/pull/3331
+  https://github.com/fluent/fluentd/pull/3337
+* in_tail: Fix a crash bug on catching a short-lived log
+  https://github.com/fluent/fluentd/pull/3328
+* storage_local: Fix position file corruption issue on concurrent gracefulReloads
+  https://github.com/fluent/fluentd/pull/3335
+* Fix incorrect warnings about ${chunk_id} with out_s3
+  https://github.com/fluent/fluentd/pull/3339
+* TLS Server: Add peer information to error log message
+  https://github.com/fluent/fluentd/pull/3330
+
+### Misc
+
+* fluent-plugin-generate: add note about plugin name
+  https://github.com/fluent/fluentd/pull/3303
+* fluent-plugin-generate: Use same depended gem version with fluentd
+  https://github.com/fluent/fluentd/pull/3305
+* Fix some broken unit tests and improve CI's stability
+  https://github.com/fluent/fluentd/pull/3304
+  https://github.com/fluent/fluentd/pull/3307
+  https://github.com/fluent/fluentd/pull/3312
+  https://github.com/fluent/fluentd/pull/3313
+  https://github.com/fluent/fluentd/pull/3314
+  https://github.com/fluent/fluentd/pull/3316
+  https://github.com/fluent/fluentd/pull/3336
+* Permit to install with win32-service 2.2.0 on Windows
+  https://github.com/fluent/fluentd/pull/3343
+
 ## Release v1.12.2 - 2021/03/29
 
 ### Enhancement
