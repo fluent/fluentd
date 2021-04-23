@@ -55,6 +55,20 @@ module Fluent
     config_section :log, required: false, init: true, multi: false do
       config_param :format, :enum, list: [:text, :json], default: :text
       config_param :time_format, :string, default: '%Y-%m-%d %H:%M:%S %z'
+      config_param :rotate_age, default: nil do |v|
+        if %w(daily weekly monthly).include?(v)
+          v.to_sym
+        else
+          begin
+            Integer(v)
+          rescue ArgumentError => e
+            raise Fluent::ConfigError, e.message
+          else
+            v.to_i
+          end
+        end
+      end
+      config_param :rotate_size, :size, default: nil
     end
 
     config_section :counter_server, multi: false do
