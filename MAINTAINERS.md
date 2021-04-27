@@ -2,7 +2,7 @@
 
 - [Naotoshi Seo](https://github.com/sonots), [ZOZO Technologies](https://tech.zozo.com/en/)
 - [Okkez](https://github.com/okkez)
-- [Hiroshi Hatake](https://github.com/cosmo0920), [ClearCode](https://www.clear-code.com/)
+- [Hiroshi Hatake](https://github.com/cosmo0920), [Calyptia](https://www.calyptia.com/)
 - [Masahiro Nakagawa](https://github.com/repeatedly), [Treasure Data](https://www.treasuredata.com/)
 - [Satoshi Tagomori](https://github.com/tagomoris), [Treasure Data](https://www.treasuredata.com/)
 - [Eduardo Silva](https://github.com/edsiper), [Arm Treasure Data](https://www.treasuredata.com/)
