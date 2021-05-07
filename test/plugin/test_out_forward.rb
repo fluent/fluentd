@@ -277,11 +277,16 @@ EOL
 </service_discovery>
     ])
 
-    assert_equal 2, d.instance.discovery_manager.services.size
-    assert_equal '127.0.0.1', d.instance.discovery_manager.services[0].host
-    assert_equal 1234, d.instance.discovery_manager.services[0].port
-    assert_equal '127.0.0.1', d.instance.discovery_manager.services[1].host
-    assert_equal 1235, d.instance.discovery_manager.services[1].port
+
+    assert_equal(
+      [
+        { host: '127.0.0.1', port: 1234 },
+        { host: '127.0.0.1', port: 1235 },
+      ],
+      d.instance.discovery_manager.services.collect do |service|
+        { host: service.host, port: service.port }
+      end
+    )
   end
 
   test 'pass username and password as empty string to HandshakeProtocol' do
