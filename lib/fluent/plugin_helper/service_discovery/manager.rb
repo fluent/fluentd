@@ -32,17 +32,23 @@ module Fluent
           @static_config = true
         end
 
-        def configure(opts, parent: nil)
-          opts.each do |opt|
-            sd = Fluent::Plugin.new_sd(opt[:type], parent: parent)
-            sd.configure(opt[:conf])
+        def configure(configs, parent: nil)
+          configs.each do |config|
+            type, conf = if config.has_key?(:conf) # for compatibility with initial API
+                           [config[:type], config[:conf]]
+                         else
+                           [config['@type'], config]
+                         end
+
+            sd = Fluent::Plugin.new_sd(type, parent: parent)
+            sd.configure(conf)
 
             sd.services.each do |s|
               @services[s.discovery_id] = build_service(s)
             end
             @discoveries << sd
 
-            if @static_config && opt[:type] != :static
+            if @static_config && type.to_sym != :static
               @static_config = false
             end
           end
