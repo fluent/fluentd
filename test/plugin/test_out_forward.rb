@@ -1073,7 +1073,7 @@ EOL
   test 'when out_forward has @id' do
     # cancel https://github.com/fluent/fluentd/blob/077508ac817b7637307434d0c978d7cdc3d1c534/lib/fluent/plugin_id.rb#L43-L53
     # it always return true in test
-    mock.proxy(Fluent::Plugin).new_sd(:static, parent: anything) { |v|
+    mock.proxy(Fluent::Plugin).new_sd('static', parent: anything) { |v|
       stub(v).plugin_id_for_test? { false }
     }.once
 
