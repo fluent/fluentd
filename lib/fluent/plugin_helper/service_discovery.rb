@@ -68,7 +68,7 @@ module Fluent
       def service_discovery_configure(title, static_default_service_directive: nil, load_balancer: nil, custom_build_method: nil, interval: 3)
         configs = @service_discovery_configs.map(&:corresponding_config_element)
         if static_default_service_directive
-          configs << Fluent::Config::Element.new(
+          configs.prepend Fluent::Config::Element.new(
             'service_discovery',
             '',
             {'@type' => 'static'},
