@@ -277,11 +277,16 @@ EOL
 </service_discovery>
     ])
 
-    assert_equal 2, d.instance.discovery_manager.services.size
-    assert_equal '127.0.0.1', d.instance.discovery_manager.services[0].host
-    assert_equal 1234, d.instance.discovery_manager.services[0].port
-    assert_equal '127.0.0.1', d.instance.discovery_manager.services[1].host
-    assert_equal 1235, d.instance.discovery_manager.services[1].port
+
+    assert_equal(
+      [
+        { host: '127.0.0.1', port: 1234 },
+        { host: '127.0.0.1', port: 1235 },
+      ],
+      d.instance.discovery_manager.services.collect do |service|
+        { host: service.host, port: service.port }
+      end
+    )
   end
 
   test 'pass username and password as empty string to HandshakeProtocol' do
@@ -1073,7 +1078,7 @@ EOL
   test 'when out_forward has @id' do
     # cancel https://github.com/fluent/fluentd/blob/077508ac817b7637307434d0c978d7cdc3d1c534/lib/fluent/plugin_id.rb#L43-L53
     # it always return true in test
-    mock.proxy(Fluent::Plugin).new_sd(:static, parent: anything) { |v|
+    mock.proxy(Fluent::Plugin).new_sd('static', parent: anything) { |v|
       stub(v).plugin_id_for_test? { false }
     }.once
 
