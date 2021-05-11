@@ -1004,15 +1004,16 @@ module Fluent::Plugin
 
         private
 
-        def sleep_for_log_ingestion(start_reading)
+        def need_to_get_out_for_log_ingestion_loop?(start_reading)
           # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
           time_spent_reading = Fluent::Clock.now - start_reading
           @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
           if time_spent_reading < 1
             needed_sleeping_time = 1 - time_spent_reading
-            @log.debug("sleep: #{needed_sleeping_time}")
-            sleep(needed_sleeping_time)
+            @log.debug("log ingestion for `#{@path}' is suspended temporary. Read it again later.")
+            return true
           end
+          false
         end
 
         def handle_notify
@@ -1036,7 +1037,7 @@ module Fluent::Plugin
                       # not to use too much memory in case the file is very large
                       read_more = true
 
-                      sleep_for_log_ingestion(start_reading) if limit_bytes_per_second_reached
+                      read_more = false if limit_bytes_per_second_reached && need_to_get_out_for_log_ingestion_loop?(start_reading)
 
                       break
                     end
