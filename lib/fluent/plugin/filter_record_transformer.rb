@@ -40,7 +40,11 @@ module Fluent::Plugin
     desc 'When set to true, the full Ruby syntax is enabled in the ${...} expression.'
     config_param :enable_ruby, :bool, default: false
     desc 'Use original value type.'
-    config_param :auto_typecast, :bool, default: true
+    config_param :auto_typecast, :bool, default: false # false for lower version compatibility
+    desc 'Add forward tracking info.'
+    config_param :track_key, :string, default: nil
+    desc 'Add record length info.'
+    config_param :record_size_key, :string, default: nil
 
     def configure(conf)
       super
@@ -103,6 +107,21 @@ module Fluent::Plugin
             time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
           end
           @key_deleters.each { |deleter| deleter.delete(new_record) } if @key_deleters
+
+          # add track information
+          if @track_key
+            if new_record.has_key?(@track_key)
+              new_record[@track_key] = "#{new_record[@track_key]},#{@hostname},#{Time.new.to_i}"
+            else
+              new_record[@track_key] = "#{@hostname},#{Time.new.to_i}"
+            end
+          end
+
+          # add record length information
+          if @record_size_key
+            new_record[@record_size_key] = new_record.to_s.size
+          end
+
           new_es.add(time, new_record)
         rescue => e
           router.emit_error_event(tag, time, record, e)
