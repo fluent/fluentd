@@ -184,9 +184,10 @@ module Fluent::Plugin
         if !@enable_watch_timer
           raise Fluent::ConfigError, "Need to enable watch timer when using log throttling feature"
         end
-        if @read_bytes_limit_per_second < 8192
-          log.warn "Should specify greater equal than 8192. Use 8192 for read_bytes_limit_per_second"
-          @read_bytes_limit_per_second = 8192
+        min_bytes = TailWatcher::IOHandler::BYTES_TO_READ
+        if @read_bytes_limit_per_second < min_bytes
+          log.warn "Should specify greater equal than #{min_bytes}. Use #{min_bytes} for read_bytes_limit_per_second"
+          @read_bytes_limit_per_second = min_bytes
         end
       end
     end
