@@ -81,6 +81,8 @@ module Fluent::Plugin
     config_param :refresh_interval, :time, default: 60
     desc 'The number of reading lines at each IO.'
     config_param :read_lines_limit, :integer, default: 1000
+    desc 'The number of reading bytes per second'
+    config_param :read_bytes_limit_per_second, :size, default: -1
     desc 'The interval of flushing the buffer for multiline format'
     config_param :multiline_flush_interval, :time, default: nil
     desc 'Enable the option to emit unmatched lines.'
@@ -178,6 +180,16 @@ module Fluent::Plugin
       # parser is already created by parser helper
       @parser = parser_create(usage: parser_config['usage'] || @parser_configs.first.usage)
       @capability = Fluent::Capability.new(:current_process)
+      if @read_bytes_limit_per_second > 0
+        if !@enable_watch_timer
+          raise Fluent::ConfigError, "Need to enable watch timer when using log throttling feature"
+        end
+        min_bytes = TailWatcher::IOHandler::BYTES_TO_READ
+        if @read_bytes_limit_per_second < min_bytes
+          log.warn "Should specify greater equal than #{min_bytes}. Use #{min_bytes} for read_bytes_limit_per_second"
+          @read_bytes_limit_per_second = min_bytes
+        end
+      end
     end
 
     def configure_tag
@@ -392,36 +404,40 @@ module Fluent::Plugin
       raise e
     end
 
-    def start_watchers(targets_info)
-      targets_info.each_value { |target_info|
-        pe = nil
-        if @pf
-          pe = @pf[target_info]
-          if @read_from_head && pe.read_inode.zero?
-            begin
-              pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
-            rescue Errno::ENOENT
-              $log.warn "#{target_info.path} not found. Continuing without tailing it."
-            end
+    def construct_watcher(target_info)
+      pe = nil
+      if @pf
+        pe = @pf[target_info]
+        if @read_from_head && pe.read_inode.zero?
+          begin
+            pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
+          rescue Errno::ENOENT
+            $log.warn "#{target_info.path} not found. Continuing without tailing it."
           end
         end
+      end
 
-        begin
-          tw = setup_watcher(target_info, pe)
-        rescue WatcherSetupError => e
-          log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
-          next
-        end
+      begin
+        tw = setup_watcher(target_info, pe)
+      rescue WatcherSetupError => e
+        log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
+        return
+      end
 
-        begin
-          target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
-          @tails[target_info] = tw
-        rescue Errno::ENOENT
-          $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
-          # explicitly detach and unwatch watcher `tw`.
-          tw.unwatched = true
-          detach_watcher(tw, target_info.ino, false)
-        end
+      begin
+        target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
+        @tails[target_info] = tw
+      rescue Errno::ENOENT
+        $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
+        # explicitly detach and unwatch watcher `tw`.
+        tw.unwatched = true
+        detach_watcher(tw, target_info.ino, false)
+      end
+    end
+
+    def start_watchers(targets_info)
+      targets_info.each_value {|target_info|
+        construct_watcher(target_info)
       }
     end
 
@@ -633,6 +649,7 @@ module Fluent::Plugin
         path: path,
         log: log,
         read_lines_limit: @read_lines_limit,
+        read_bytes_limit_per_second: @read_bytes_limit_per_second,
         open_on_every_update: @open_on_every_update,
         from_encoding: @from_encoding,
         encoding: @encoding,
@@ -876,10 +893,13 @@ module Fluent::Plugin
       end
 
       class IOHandler
-        def initialize(watcher, path:, read_lines_limit:, log:, open_on_every_update:, from_encoding: nil, encoding: nil, &receive_lines)
+        BYTES_TO_READ = 8192
+
+        def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, log:, open_on_every_update:, from_encoding: nil, encoding: nil, &receive_lines)
           @watcher = watcher
           @path = path
           @read_lines_limit = read_lines_limit
+          @read_bytes_limit_per_second = read_bytes_limit_per_second
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
           @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT)
@@ -909,19 +929,49 @@ module Fluent::Plugin
 
         private
 
+        def read_bytes_limits_reached?(number_bytes_read)
+          number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0
+        end
+
+        def limit_bytes_per_second_reached?(start_reading, number_bytes_read)
+          return false unless read_bytes_limits_reached?(number_bytes_read)
+
+          # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
+          time_spent_reading = Fluent::Clock.now - start_reading
+          @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
+          if time_spent_reading < 1
+            needed_sleeping_time = 1 - time_spent_reading
+            @log.debug("log ingestion for `#{@path}' is suspended temporary. Read it again later.")
+            return true
+          end
+
+          false
+        end
+
         def handle_notify
           with_io do |io|
             begin
+              number_bytes_read = 0
+              start_reading = Fluent::Clock.now
               read_more = false
 
               if !io.nil? && @lines.empty?
                 begin
                   while true
-                    @fifo << io.readpartial(8192, @iobuf)
+                    data = io.readpartial(BYTES_TO_READ, @iobuf)
+                    number_bytes_read += data.bytesize
+                    @fifo << data
                     @fifo.read_lines(@lines)
+
+                    @log.debug("reading file: #{@path}")
                     if @lines.size >= @read_lines_limit
                       # not to use too much memory in case the file is very large
                       read_more = true
+                      break
+                    end
+                    if limit_bytes_per_second_reached?(start_reading, number_bytes_read)
+                      # Just get out from tailing loop.
+                      read_more = false
                       break
                     end
                   end
