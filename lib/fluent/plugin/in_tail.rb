@@ -109,8 +109,6 @@ module Fluent::Plugin
     config_param :path_timezone, :string, default: nil
     desc 'Follow inodes instead of following file names. Guarantees more stable delivery and allows to use * in path pattern with rotating files'
     config_param :follow_inodes, :bool, default: false
-    desc 'Specify max size of thread pool'
-    config_param :max_thread_pool_size, :integer, default: 1
 
     config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
       config_argument :usage, :string, default: 'in_tail_parser'
@@ -182,13 +180,7 @@ module Fluent::Plugin
       # parser is already created by parser helper
       @parser = parser_create(usage: parser_config['usage'] || @parser_configs.first.usage)
       @capability = Fluent::Capability.new(:current_process)
-      # Need to create thread pool because #sleep should pause entire thread on enabling log throttling feature.
-      @thread_pool = nil
-      @enable_read_bytes_limit_thread_pool = false
       if @read_bytes_limit_per_second > 0
-        if @max_thread_pool_size < 0
-          raise Fluent::ConfigError, "Specify positive number"
-        end
         if !@enable_watch_timer
           raise Fluent::ConfigError, "Need to enable watch timer when using log throttling feature"
         end
@@ -196,10 +188,6 @@ module Fluent::Plugin
           log.warn "Should specify greater equal than 8192. Use 8192 for read_bytes_limit_per_second"
           @read_bytes_limit_per_second = 8192
         end
-        if @max_thread_pool_size < 2
-          raise Fluent::ConfigError, "Specify 2 or more on max_thread_pool_size"
-        end
-        @enable_read_bytes_limit_thread_pool = true
       end
     end
 
@@ -447,19 +435,9 @@ module Fluent::Plugin
     end
 
     def start_watchers(targets_info)
-      if @enable_read_bytes_limit_thread_pool
-        @thread_pool = TailThread::Pool.new(@max_thread_pool_size) do |pool|
-          targets_info.each_value {|target_info|
-            pool.run {
-              construct_watcher(target_info)
-            }
-          }
-        end
-      else
-        targets_info.each_value {|target_info|
-          construct_watcher(target_info)
-        }
-      end
+      targets_info.each_value {|target_info|
+        construct_watcher(target_info)
+      }
     end
 
     def stop_watchers(targets_info, immediate: false, unwatched: false, remove_watcher: true)
@@ -478,10 +456,6 @@ module Fluent::Plugin
           end
         end
       }
-      if @thread_pool
-        @thread_pool.stop
-        @thread_pool = nil
-      end
     end
 
     def close_watcher_handles
@@ -709,56 +683,6 @@ module Fluent::Plugin
       rescue => e
         @log.error e.to_s
         @log.error_backtrace
-      end
-    end
-
-    class TailThread
-      class Pool
-        def initialize(max_size, &session)
-          @max_size = max_size
-          @queue = Queue.new
-          @threads = []
-          session.call(self)
-        ensure
-          terminate
-        end
-
-        def run(&task)
-          @queue.push(task)
-          @threads << create_thread if @threads.size < @max_size
-        end
-
-        def terminate
-          until @queue.num_waiting == @threads.size
-            sleep 0.01
-          end
-          @queue.close
-          begin
-            Timeout.timeout(1) do
-              @threads.each{|th| th.join }
-            end
-          rescue Timeout::Error
-            @threads.each {|th| th.kill }
-          end
-        end
-
-        def stop
-          return unless running?
-
-          terminate
-        end
-
-        protected def create_thread
-          Thread.start(@queue) do |q|
-            while task = q.pop
-              task.call
-            end
-          end
-        end
-
-        protected def running?
-          !@queue.closed?
-        end
       end
     end
 

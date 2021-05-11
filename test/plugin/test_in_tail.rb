@@ -8,7 +8,6 @@ require 'flexmock/test_unit'
 require 'timecop'
 require 'tmpdir'
 require 'securerandom'
-require 'etc'
 
 class TailInputTest < Test::Unit::TestCase
   include FlexMock::TestCase
@@ -103,7 +102,6 @@ class TailInputTest < Test::Unit::TestCase
   CONFIG_ENABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
   CONFIG_DISABLE_STAT_WATCHER = config_element("", "", { "enable_stat_watcher" => false })
   CONFIG_OPEN_ON_EVERY_UPDATE = config_element("", "", { "open_on_every_update" => true })
-  CONFIG_MAX_THREAD_POOL_SIZE = config_element("", "", { "max_thread_pool_size" => (Etc.nprocessors / 1.5).ceil })
   COMMON_FOLLOW_INODE_CONFIG = config_element("ROOT", "", {
                                                 "path" => "#{TMP_DIR}/tail.txt*",
                                                 "pos_file" => "#{TMP_DIR}/tail.pos",
@@ -159,7 +157,6 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
       assert_equal 1000, d.instance.read_lines_limit
       assert_equal -1, d.instance.read_bytes_limit_per_second
-      assert_equal 1, d.instance.max_thread_pool_size
       assert_equal false, d.instance.ignore_repeated_permission_error
       assert_nothing_raised do
         d.instance.have_read_capability?
@@ -201,21 +198,14 @@ class TailInputTest < Test::Unit::TestCase
 
     sub_test_case "log throttling per file" do
       test "w/o watcher timer is invalid" do
-        conf = CONFIG_ENABLE_WATCH_TIMER + CONFIG_MAX_THREAD_POOL_SIZE + config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
-        assert_raise(Fluent::ConfigError) do
-          create_driver(conf)
-        end
-      end
-
-      test "w/o 2 or more thread pool size is invalid" do
-        conf = config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
+        conf = CONFIG_ENABLE_WATCH_TIMER + config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
         assert_raise(Fluent::ConfigError) do
           create_driver(conf)
         end
       end
 
       test "valid" do
-        conf = CONFIG_MAX_THREAD_POOL_SIZE + config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
+        conf = config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
         assert_raise(Fluent::ConfigError) do
           create_driver(conf)
         end
@@ -355,14 +345,6 @@ class TailInputTest < Test::Unit::TestCase
         cleanup_file("#{TMP_DIR}/tail.txt")
       end
 
-      def count_thread_pool_object
-        num = 0
-        ObjectSpace.each_object(Fluent::Plugin::TailInput::TailThread::Pool) { |obj|
-          num += 1
-        }
-        num
-      end
-
       data("flat 8192 bytes, 2 events"        => [:flat, 100, 8192, 2],
            "flat 8192 bytes, 2 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 2],
            "flat #{8192*10} bytes, 20 events"  => [:flat, 100, (8192 * 10), 20],
@@ -383,13 +365,13 @@ class TailInputTest < Test::Unit::TestCase
         config_style, limit, limit_bytes, num_events = data
         case config_style
         when :flat
-          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + CONFIG_MAX_THREAD_POOL_SIZE
+          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes })
         when :parse
-          config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG + CONFIG_MAX_THREAD_POOL_SIZE
+          config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
         when :flat_without_stat
-          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + CONFIG_MAX_THREAD_POOL_SIZE
+          config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes })
         when :parse_without_stat
-          config = CONFIG_READ_FROM_HEAD + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG + CONFIG_MAX_THREAD_POOL_SIZE
+          config = CONFIG_READ_FROM_HEAD + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
         end
         d = create_driver(config)
         msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
@@ -401,10 +383,6 @@ class TailInputTest < Test::Unit::TestCase
               f.puts msg
             end
           }
-        end
-
-        assert do
-          count_thread_pool_object >= 1
         end
 
         events = d.events
