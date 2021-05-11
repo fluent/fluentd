@@ -928,21 +928,23 @@ module Fluent::Plugin
 
         private
 
-        def limit_bytes_per_second_reached?(start_reading, number_bytes_read)
-          if number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0
-            # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
-            time_spent_reading = Fluent::Clock.now - start_reading
-            @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
-            if time_spent_reading < 1
-              needed_sleeping_time = 1 - time_spent_reading
-              @log.debug("log ingestion for `#{@path}' is suspended temporary. Read it again later.")
-              return true
-            end
+        def read_bytes_limits_reached?(number_bytes_read)
+          number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0
+        end
 
-            false
-          else
-            false
+        def limit_bytes_per_second_reached?(start_reading, number_bytes_read)
+          return false unless read_bytes_limits_reached?(number_bytes_read)
+
+          # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
+          time_spent_reading = Fluent::Clock.now - start_reading
+          @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
+          if time_spent_reading < 1
+            needed_sleeping_time = 1 - time_spent_reading
+            @log.debug("log ingestion for `#{@path}' is suspended temporary. Read it again later.")
+            return true
           end
+
+          false
         end
 
         def handle_notify
