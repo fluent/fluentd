@@ -40,7 +40,7 @@ module Fluent::Plugin
     desc 'When set to true, the full Ruby syntax is enabled in the ${...} expression.'
     config_param :enable_ruby, :bool, default: false
     desc 'Use original value type.'
-    config_param :auto_typecast, :bool, default: false # false for lower version compatibility
+    config_param :auto_typecast, :bool, default: true
     desc 'Add forward tracking info.'
     config_param :track_key, :string, default: nil
     desc 'Add record length info.'
