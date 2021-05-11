@@ -908,8 +908,7 @@ module Fluent::Plugin
           @io = nil
           @notify_mutex = Mutex.new
           @log = log
-          @start_reading = 0
-          @last_read_time = 0
+          @start_reading_time = nil
           @number_bytes_read = 0
 
           @log.info "following tail of #{@path}"
@@ -932,49 +931,36 @@ module Fluent::Plugin
 
         private
 
-        def read_bytes_limits_reached?
-          @number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0
-        end
-
         def limit_bytes_per_second_reached?
-          return false unless read_bytes_limits_reached?
+          return false if @read_bytes_limit_per_second < 0 # not enabled by conf
+          return false if @number_bytes_read < @read_bytes_limit_per_second
 
-          # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
-          time_spent_reading = Fluent::Clock.now - @start_reading
+          @start_reading_time ||= Fluent::Clock.now
+          time_spent_reading = Fluent::Clock.now - @start_reading_time
           @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
+
           if time_spent_reading < 1
-            estimated_waiting_ingestion_time = 1 - time_spent_reading
-            @log.debug("log ingestion for `#{@path}' is suspended temporary. Read it again after #{estimated_waiting_ingestion_time} second(s) or later.")
-            return true
-          end
-
-          false
-        end
-
-        def refresh_bytes_read_counter
-          if Fluent::Clock.now - @last_read_time > 1
+            true
+          else
+            @start_reading_time = nil
             @number_bytes_read = 0
-            @start_reading = Fluent::Clock.now
+            false
           end
-
-          yield
         end
 
         def handle_notify
-          with_io do |io|
-            return if limit_bytes_per_second_reached?
+          return if limit_bytes_per_second_reached?
 
+          with_io do |io|
             begin
-              @start_reading = Fluent::Clock.now
               read_more = false
 
               if !io.nil? && @lines.empty?
                 begin
                   while true
+                    @start_reading_time ||= Fluent::Clock.now
                     data = io.readpartial(BYTES_TO_READ, @iobuf)
-                    refresh_bytes_read_counter do
-                      @number_bytes_read += data.bytesize
-                    end
+                    @number_bytes_read += data.bytesize
                     @fifo << data
                     @fifo.read_lines(@lines)
 
@@ -989,7 +975,6 @@ module Fluent::Plugin
                       read_more = false
                       break
                     end
-                    @last_read_time = Fluent::Clock.now
                   end
                 rescue EOFError
                 end
