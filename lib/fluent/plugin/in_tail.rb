@@ -908,6 +908,8 @@ module Fluent::Plugin
           @io = nil
           @notify_mutex = Mutex.new
           @log = log
+          @last_read_time = 0
+          @number_bytes_read = 0
 
           @log.info "following tail of #{@path}"
         end
@@ -948,10 +950,17 @@ module Fluent::Plugin
           false
         end
 
+        def refresh_bytes_read_counter
+          if Fluent::Clock.now - @last_read_time > 1
+            @number_bytes_read = 0
+          end
+
+          yield
+        end
+
         def handle_notify
           with_io do |io|
             begin
-              number_bytes_read = 0
               start_reading = Fluent::Clock.now
               read_more = false
 
@@ -959,7 +968,9 @@ module Fluent::Plugin
                 begin
                   while true
                     data = io.readpartial(BYTES_TO_READ, @iobuf)
-                    number_bytes_read += data.bytesize
+                    refresh_bytes_read_counter do
+                      @number_bytes_read += data.bytesize
+                    end
                     @fifo << data
                     @fifo.read_lines(@lines)
 
@@ -969,11 +980,12 @@ module Fluent::Plugin
                       read_more = true
                       break
                     end
-                    if limit_bytes_per_second_reached?(start_reading, number_bytes_read)
+                    if limit_bytes_per_second_reached?(start_reading, @number_bytes_read)
                       # Just get out from tailing loop.
                       read_more = false
                       break
                     end
+                    @last_read_time = Fluent::Clock.now
                   end
                 rescue EOFError
                 end
