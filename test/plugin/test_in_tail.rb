@@ -422,7 +422,11 @@ class TailInputTest < Test::Unit::TestCase
             require 'fluent/config/types'
             limit_bytes_value = Fluent::Config.size_value(limit_bytes)
             io_handler.instance_variable_set(:@number_bytes_read, limit_bytes_value)
-            mock.proxy(io_handler).handle_notify.at_least(5)
+            if Fluent.linux?
+              mock.proxy(io_handler).handle_notify.at_least(5)
+            else
+              mock.proxy(io_handler).handle_notify.twice
+            end
             io_handler
           end
 
