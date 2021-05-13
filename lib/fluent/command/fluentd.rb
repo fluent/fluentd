@@ -85,9 +85,8 @@ op.on('-o', '--log PATH', "log file path") {|s|
   opts[:log_path] = s
 }
 
-ROTATE_AGE = %w(daily weekly monthly)
 op.on('--log-rotate-age AGE', 'generations to keep rotated log files') {|age|
-  if ROTATE_AGE.include?(age)
+  if Fluent::Log::LOG_ROTATE_AGE.include?(age)
     opts[:log_rotate_age] = age
   else
     begin

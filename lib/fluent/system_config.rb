@@ -56,7 +56,7 @@ module Fluent
       config_param :format, :enum, list: [:text, :json], default: :text
       config_param :time_format, :string, default: '%Y-%m-%d %H:%M:%S %z'
       config_param :rotate_age, default: nil do |v|
-        if %w(daily weekly monthly).include?(v)
+        if Fluent::Log::LOG_ROTATE_AGE.include?(v)
           v.to_sym
         else
           begin

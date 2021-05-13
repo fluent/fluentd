@@ -49,6 +49,7 @@ module Fluent
     LOG_TYPE_DEFAULT = :default # show logs in all supervisor/workers, with worker id in workers (default)
 
     LOG_TYPES = [LOG_TYPE_SUPERVISOR, LOG_TYPE_WORKER0, LOG_TYPE_DEFAULT].freeze
+    LOG_ROTATE_AGE = %w(daily weekly monthly)
 
     def self.str_to_level(log_level_str)
       case log_level_str.downcase
