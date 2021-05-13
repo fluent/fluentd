@@ -378,19 +378,20 @@ class TailInputTest < Test::Unit::TestCase
           d = create_driver(config)
           msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
 
+          start_time = Fluent::Clock.now
+
           # We should not do shutdown here due to hard timeout.
           d.run(expect_emits: 2, shutdown: false) do
             File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-              for x in 0..30
+              100.times do
                 f.puts msg
               end
             }
           end
 
-          events = d.events
-          assert_true(events.length <= num_events)
-          assert_equal({"message" => msg}, events[0][2])
-          assert_equal({"message" => msg}, events[1][2])
+          assert_true(Fluent::Clock.now - start_time > 1)
+          assert_equal(num_events.times.map { {"message" => msg} },
+                       d.events.collect { |event| event[2] })
 
           # Teardown in_tail plugin instance here.
           d.instance.shutdown
@@ -421,81 +422,29 @@ class TailInputTest < Test::Unit::TestCase
             require 'fluent/config/types'
             limit_bytes_value = Fluent::Config.size_value(limit_bytes)
             io_handler.instance_variable_set(:@number_bytes_read, limit_bytes_value)
+            mock.proxy(io_handler).handle_notify.at_least(5)
             io_handler
           end
 
-          # We should not do shutdown here due to hard timeout.
-          d.run(expect_emits: 2, shutdown: false) do
-            File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-              for _x in 0..30
-                f.puts msg
-              end
-            }
-          end
-
-          events = d.events
-          assert_true(events.length <= num_events)
-          assert_equal({"message" => msg}, events[0][2])
-          assert_equal({"message" => msg}, events[1][2])
-
-          # Teardown in_tail plugin instance here.
-          d.instance.shutdown
-        end
-      end
-
-      sub_test_case "reads_bytes_per_second with several writing points" do
-        class Fluent::Plugin::TailInput::TailWatcher::IOHandler
-          alias_method :orig_limit_bytes_per_second_reached?, :limit_bytes_per_second_reached?
-          def limit_bytes_per_second_reached?(&block)
-            yield if block_given?
-
-            orig_limit_bytes_per_second_reached?
-          end
-        end
-
-        data("flat 8192 bytes, 2 events"        => [:flat, 100, 8192, 2],
-             "flat #{8192*10} bytes, 20 events"  => [:flat, 100, (8192 * 10), 20],
-             "parse #{8192*4} bytes, 8 events"  => [:parse, 100, (8192 * 4), 8],
-             "parse #{8192*10} bytes, 20 events" => [:parse, 100, (8192 * 10), 20],
-             "flat 8k bytes with unit, 2 events"        => [:flat, 100, "8k", 2],
-             "flat #{8*10}k bytes with unit, 20 events"  => [:flat, 100, "#{8*10}k", 20],
-             "parse #{8*4}k bytes with unit, 8 events"  => [:parse, 100, "#{8*4}k", 8],
-             "parse #{8*10}k bytes with unit, 20 events" => [:parse, 100, "#{8*10}k", 20])
-        def test_emit_with_read_bytes_limit_per_second(data)
-          config_style, limit, limit_bytes, num_events = data
-          case config_style
-          when :flat
-            config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes })
-          when :parse
-            config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
-          end
-          d = create_driver(config)
-          msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
-
-          mock.proxy(d.instance).io_handler(anything, anything) do |io_handler|
-            io_handler.limit_bytes_per_second_reached? do
-              File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-                for _x in 0..5
-                  f.puts msg
-                end
-              }
+          File.open("#{TMP_DIR}/tail.txt", "ab") do |f|
+            100.times do
+              f.puts msg
             end
-            io_handler
           end
 
           # We should not do shutdown here due to hard timeout.
-          d.run(expect_emits: 2, shutdown: false) do
-            File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-              for _x in 0..30
+          d.run(shutdown: false) do
+            start_time = Fluent::Clock.now
+            while Fluent::Clock.now - start_time < 0.8 do
+              File.open("#{TMP_DIR}/tail.txt", "ab") do |f|
                 f.puts msg
+                f.flush
               end
-            }
+              sleep 0.05
+            end
           end
 
-          events = d.events
-          assert_true(events.length <= num_events)
-          assert_equal({"message" => msg}, events[0][2])
-          assert_equal({"message" => msg}, events[1][2])
+          assert_equal([], d.events)
 
           # Teardown in_tail plugin instance here.
           d.instance.shutdown
