@@ -143,5 +143,51 @@ module Fluent::Config
       sc.overwrite_variables(**s.for_system_config)
       assert_equal(level, sc.log_level)
     end
+
+    sub_test_case "log rotation" do
+      data('daily' => "daily",
+           'weekly' => 'weekly',
+           'monthly' => 'monthly')
+      test "symbols for rotate_age" do |age|
+        conf = parse_text(<<-EOS)
+          <system>
+            <log>
+              rotate_age #{age}
+            </log>
+          </system>
+        EOS
+        sc = Fluent::SystemConfig.new(conf)
+        assert_equal(age.to_sym, sc.log.rotate_age)
+      end
+
+      test "numeric number for rotate age" do
+        conf = parse_text(<<-EOS)
+          <system>
+            <log>
+              rotate_age 3
+            </log>
+          </system>
+        EOS
+        s = FakeSupervisor.new
+        sc = Fluent::SystemConfig.new(conf)
+        assert_equal(3, sc.log.rotate_age)
+      end
+
+      data(h: ['100', 100],
+           k: ['1k', 1024],
+           m: ['1m', 1024 * 1024],
+           g: ['1g', 1024 * 1024 * 1024])
+      test "numeric and SI prefix for rotate_size" do |(label, size)|
+        conf = parse_text(<<-EOS)
+          <system>
+            <log>
+              rotate_size #{label}
+            </log>
+          </system>
+        EOS
+        sc = Fluent::SystemConfig.new(conf)
+        assert_equal(size, sc.log.rotate_size)
+      end
+    end
   end
 end

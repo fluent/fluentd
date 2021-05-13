@@ -518,6 +518,8 @@ module Fluent
         dl_opts = {}
         # subtract 1 to match serverengine daemon logger side logging severity.
         dl_opts[:log_level] = @level - 1
+        dl_opts[:log_rotate_age] = @log_rotate_age if @log_rotate_age
+        dl_opts[:log_rotate_size] = @log_rotate_size if @log_rotate_size
         logger = ServerEngine::DaemonLogger.new(@logdev, dl_opts)
         $log = Fluent::Log.new(logger, @opts)
         $log.enable_color(false) if @path
@@ -606,6 +608,19 @@ module Fluent
 
       @cl_opt = opt
       @conf = nil
+      # parse configuration immediately to initialize logger in early stage
+      if @config_path and File.exist?(@config_path)
+        @conf = Fluent::Config.build(config_path: @config_path,
+                                     encoding: @conf_encoding ? @conf_encoding : 'utf-8',
+                                     additional_config: @inline_config ? @inline_config : nil,
+                                     use_v1_config: !!@use_v1_config)
+        @system_config = build_system_config(@conf)
+        if @system_config.log
+          @log_rotate_age ||= @system_config.log.rotate_age
+          @log_rotate_size ||= @system_config.log.rotate_size
+        end
+        @conf = nil
+      end
 
       log_opts = {suppress_repeated_stacktrace: opt[:suppress_repeated_stacktrace], ignore_repeated_log_interval: opt[:ignore_repeated_log_interval],
                   ignore_same_log_interval: opt[:ignore_same_log_interval]}
