@@ -770,6 +770,15 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_get_request
+    d = create_driver(CONFIG)
+
+    d.run do
+      res = get("/cors.test", {}, {})
+      assert_equal "200", res.code
+    end
+  end
+
   def test_cors_preflight
     d = create_driver(CONFIG + 'cors_allow_origins ["*"]')
 
@@ -983,6 +992,12 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal(['application/json', ''], $test_in_http_content_types)
     # Asserting keepalive
     assert_equal $test_in_http_connection_object_ids[0], $test_in_http_connection_object_ids[1]
+  end
+
+  def get(path, params, header = {})
+    http = Net::HTTP.new("127.0.0.1", PORT)
+    req = Net::HTTP::Get.new(path, header)
+    http.request(req)
   end
 
   def options(path, params, header = {})

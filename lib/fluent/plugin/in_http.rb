@@ -461,6 +461,12 @@ module Fluent::Plugin
       RES_200_STATUS = "200 OK".freeze
       RES_403_STATUS = "403 Forbidden".freeze
 
+      # Azure App Service sends GET requests for health checking purpose.
+      # Respond with `200 OK` to accommodate it.
+      def handle_get_request
+          return send_response_and_close(RES_200_STATUS, {}, "")
+      end
+
       # Web browsers can send an OPTIONS request before performing POST
       # to check if cross-origin requests are supported.
       def handle_options_request
@@ -493,6 +499,10 @@ module Fluent::Plugin
 
       def on_message_complete
         return if closing?
+
+        if @parser.http_method == 'GET'.freeze
+          return handle_get_request()
+        end
 
         if @parser.http_method == 'OPTIONS'.freeze
           return handle_options_request()
