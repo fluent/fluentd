@@ -908,6 +908,8 @@ module Fluent::Plugin
           @io = nil
           @notify_mutex = Mutex.new
           @log = log
+          @start_reading_time = nil
+          @number_bytes_read = 0
 
           @log.info "following tail of #{@path}"
         end
@@ -929,37 +931,36 @@ module Fluent::Plugin
 
         private
 
-        def read_bytes_limits_reached?(number_bytes_read)
-          number_bytes_read >= @read_bytes_limit_per_second && @read_bytes_limit_per_second > 0
-        end
+        def limit_bytes_per_second_reached?
+          return false if @read_bytes_limit_per_second < 0 # not enabled by conf
+          return false if @number_bytes_read < @read_bytes_limit_per_second
 
-        def limit_bytes_per_second_reached?(start_reading, number_bytes_read)
-          return false unless read_bytes_limits_reached?(number_bytes_read)
-
-          # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
-          time_spent_reading = Fluent::Clock.now - start_reading
+          @start_reading_time ||= Fluent::Clock.now
+          time_spent_reading = Fluent::Clock.now - @start_reading_time
           @log.debug("time_spent_reading: #{time_spent_reading} #{ @watcher.path}")
-          if time_spent_reading < 1
-            needed_sleeping_time = 1 - time_spent_reading
-            @log.debug("log ingestion for `#{@path}' is suspended temporary. Read it again later.")
-            return true
-          end
 
-          false
+          if time_spent_reading < 1
+            true
+          else
+            @start_reading_time = nil
+            @number_bytes_read = 0
+            false
+          end
         end
 
         def handle_notify
+          return if limit_bytes_per_second_reached?
+
           with_io do |io|
             begin
-              number_bytes_read = 0
-              start_reading = Fluent::Clock.now
               read_more = false
 
               if !io.nil? && @lines.empty?
                 begin
                   while true
+                    @start_reading_time ||= Fluent::Clock.now
                     data = io.readpartial(BYTES_TO_READ, @iobuf)
-                    number_bytes_read += data.bytesize
+                    @number_bytes_read += data.bytesize
                     @fifo << data
                     @fifo.read_lines(@lines)
 
@@ -969,7 +970,7 @@ module Fluent::Plugin
                       read_more = true
                       break
                     end
-                    if limit_bytes_per_second_reached?(start_reading, number_bytes_read)
+                    if limit_bytes_per_second_reached?
                       # Just get out from tailing loop.
                       read_more = false
                       break
