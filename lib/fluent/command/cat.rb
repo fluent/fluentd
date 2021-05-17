@@ -152,14 +152,30 @@ class Writer
     super()
   end
 
+  def secondary_record?(record)
+    record.class != Hash &&
+      record.size == 2 &&
+      record.first.class == Fluent::EventTime &&
+      record.last.class == Hash
+  end
+
   def write(record)
-    if record.class != Hash
-      raise ArgumentError, "Input must be a map (got #{record.class})"
+    unless secondary_record?(record)
+      if record.class != Hash
+        raise ArgumentError, "Input must be a map (got #{record.class})"
+      end
     end
 
     time = Fluent::EventTime.now
     time = time.to_i if @time_as_integer
-    entry = [time, record]
+    entry = if secondary_record?(record)
+              # Even though secondary contains Fluent::EventTime in record,
+              # fluent-cat just ignore it and set Fluent::EventTime.now instead.
+              # This specification is adopted to keep consistency.
+              [time, record.last]
+            else
+              [time, record]
+            end
     synchronize {
       unless write_impl([entry])
         # write failed
