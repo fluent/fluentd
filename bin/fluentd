@@ -1,7 +1,9 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
 
-RubyVM::InstructionSequence.compile_option = {trace_instruction: false} rescue nil
+if defined?(RubyVM::InstructionSequence)
+  RubyVM::InstructionSequence.compile_option = {trace_instruction: false}
+end
 
 here = File.dirname(__FILE__)
 $LOAD_PATH << File.expand_path(File.join(here, '..', 'lib'))
