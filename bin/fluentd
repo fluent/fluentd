@@ -1,6 +1,11 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
 
+# In recent CRuby, RubyVM::InstructionSequence is always defined.
+# This optimization aims to reduce memory (avg 0.5 megabytes) at startup.
+# ref: http://atdot.net/~ko1/activities/2017_fukuoka_rubykaigi_02.pdf
+# But other implementation such as truffleruby does not provide such
+# class.
 if defined?(RubyVM::InstructionSequence)
   RubyVM::InstructionSequence.compile_option = {trace_instruction: false}
 end
