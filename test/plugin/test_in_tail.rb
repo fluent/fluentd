@@ -2068,6 +2068,50 @@ class TailInputTest < Test::Unit::TestCase
       d.run(shutdown: false) {}
     end
     d.instance_shutdown
-    assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with ENOENT. Drop tail watcher for now.\n") })
+    assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::ENOENT. Drop tail watcher for now.\n") })
+  end
+
+  def test_EACCES_error_after_setup_watcher
+    path = "#{TMP_DIR}/noaccess/tail.txt"
+    begin
+      FileUtils.mkdir_p("#{TMP_DIR}/noaccess")
+      FileUtils.chmod(0755, "#{TMP_DIR}/noaccess")
+      FileUtils.touch(path)
+      config = config_element('', '', {
+                                'tag' => "tail",
+                                'path' => path,
+                                'format' => 'none',
+                              })
+      d = create_driver(config, false)
+      mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
+        FileUtils.chmod(0000, "#{TMP_DIR}/noaccess")
+        tw
+      end
+      assert_nothing_raised do
+        d.run(shutdown: false) {}
+      end
+      d.instance_shutdown
+      assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::EACCES. Drop tail watcher for now.\n") })
+    end
+  ensure
+    FileUtils.chmod(0755, "#{TMP_DIR}/noaccess")
+    FileUtils.rm_rf("#{TMP_DIR}/noaccess")
+  end unless Fluent.windows?
+
+  def test_EACCES
+    path = "#{TMP_DIR}/tail.txt"
+    FileUtils.touch(path)
+    config = config_element('', '', {
+                              'format' => 'none',
+                            })
+    d = create_driver(config)
+    mock.proxy(Fluent::FileWrapper).stat(path) do |stat|
+      raise Errno::EACCES
+    end.at_least(1)
+    assert_nothing_raised do
+      d.run(shutdown: false) {}
+    end
+    d.instance_shutdown
+    assert($log.out.logs.any?{|log| log.include?("expand_paths: stat() for #{path} failed with Errno::EACCES. Skip file.\n") })
   end
 end

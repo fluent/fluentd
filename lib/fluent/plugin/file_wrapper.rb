@@ -52,6 +52,8 @@ module Fluent
 
     attr_reader :errcode, :msg
 
+    WSABASEERR = 10000
+
     def initialize(errcode, msg = nil)
       @errcode = errcode
       @msg = msg
@@ -79,6 +81,10 @@ module Fluent
     def ==(other)
       return false if other.class != Win32Error
       @errcode == other.errcode && @msg == other.msg
+    end
+
+    def wsaerr?
+      @errcode >= WSABASEERR
     end
   end
 
@@ -113,11 +119,14 @@ module Fluent
       @file_handle = CreateFile.call(@path, access, sharemode,
                      0, creationdisposition, FILE_ATTRIBUTE_NORMAL, 0)
       if @file_handle == INVALID_HANDLE_VALUE
-        err = Win32::API.last_error
-        if err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND || err == ERROR_ACCESS_DENIED
-          raise Errno::ENOENT
+        win32err = Win32Error.new(Win32::API.last_error, path)
+        errno = ServerEngine::RbWinSock.rb_w32_map_errno(win32err.errcode)
+        if errno == Errno::EINVAL::Errno || win32err.wsaerr?
+          # maybe failed to map
+          raise win32err
+        else
+          raise SystemCallError.new(win32err.message, errno)
         end
-        raise Win32Error.new(err, path)
       end
     end
 
