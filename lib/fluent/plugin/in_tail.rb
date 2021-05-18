@@ -302,7 +302,7 @@ module Fluent::Plugin
                 end
                 false
               end
-            rescue Errno::ENOENT
+            rescue Errno::ENOENT, Errno::EACCES
               log.debug("#{p} is missing after refresh file list")
               false
             end
@@ -334,8 +334,8 @@ module Fluent::Plugin
           else
             hash[target_info.path] = target_info
           end
-        rescue Errno::ENOENT
-          $log.warn "expand_paths: stat() for #{path} failed with ENOENT. Skip file."
+        rescue Errno::ENOENT, Errno::EACCES  => e
+          $log.warn "expand_paths: stat() for #{path} failed with #{e.class.name}. Skip file."
         end
       }
       hash
@@ -411,8 +411,8 @@ module Fluent::Plugin
         if @read_from_head && pe.read_inode.zero?
           begin
             pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
-          rescue Errno::ENOENT
-            $log.warn "#{target_info.path} not found. Continuing without tailing it."
+          rescue Errno::ENOENT, Errno::EACCES
+            $log.warn "stat() for #{target_info.path} failed. Continuing without tailing it."
           end
         end
       end
@@ -427,8 +427,8 @@ module Fluent::Plugin
       begin
         target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
         @tails[target_info] = tw
-      rescue Errno::ENOENT
-        $log.warn "stat() for #{target_info.path} failed with ENOENT. Drop tail watcher for now."
+      rescue Errno::ENOENT, Errno::EACCES => e
+        $log.warn "stat() for #{target_info.path} failed with #{e.class.name}. Drop tail watcher for now."
         # explicitly detach and unwatch watcher `tw`.
         tw.unwatched = true
         detach_watcher(tw, target_info.ino, false)
@@ -732,7 +732,7 @@ module Fluent::Plugin
       def on_notify
         begin
           stat = Fluent::FileWrapper.stat(@path)
-        rescue Errno::ENOENT
+        rescue Errno::ENOENT, Errno::EACCES
           # moved or deleted
           stat = nil
         end
@@ -999,7 +999,7 @@ module Fluent::Plugin
         rescue RangeError
           io.close if io
           raise WatcherSetupError, "seek error with #{@path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.bytesize.to_s(16)}"
-        rescue Errno::ENOENT
+        rescue Errno::ENOENT, Errno::EACCES
           nil
         end
 
