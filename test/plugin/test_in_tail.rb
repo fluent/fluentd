@@ -396,6 +396,29 @@ class TailInputTest < Test::Unit::TestCase
           # Teardown in_tail plugin instance here.
           d.instance.shutdown
         end
+
+        def test_read_bytes_limit_precede_read_lines_limit
+          config = CONFIG_READ_FROM_HEAD +
+                   SINGLE_LINE_CONFIG +
+                   config_element("", "", {
+                                    "read_lines_limit" => 1000,
+                                    "read_bytes_limit_per_second" => 8192
+                                  })
+          msg = 'abc'
+          start_time = Fluent::Clock.now
+          d = create_driver(config)
+          d.run(expect_emits: 2) do
+            File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+              8000.times do
+                f.puts msg
+              end
+            }
+          end
+
+          assert_true(Fluent::Clock.now - start_time > 1)
+          assert_equal(4096.times.map { {"message" => msg} },
+                       d.events.collect { |event| event[2] })
+        end
       end
 
       sub_test_case "reads_bytes_per_second w/ throttled already" do
