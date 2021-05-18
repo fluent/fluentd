@@ -2130,4 +2130,33 @@ class TailInputTest < Test::Unit::TestCase
     d.instance_shutdown
     assert($log.out.logs.any?{|log| log.include?("expand_paths: stat() for #{path} failed with Errno::EACCES. Skip file.\n") })
   end
+
+  def test_shutdown_timeout
+    path = "#{TMP_DIR}/tail.txt"
+    File.open("#{TMP_DIR}/tail.txt", "wb") do |f|
+      (1024 * 1024 * 5).times do
+        f.puts "{\"test\":\"fizzbuzz\"}"
+      end
+    end
+
+    config =
+      CONFIG_READ_FROM_HEAD +
+      config_element('', '', {
+                              'format' => 'json',
+                              'skip_refresh_on_startup' => true,
+                            })
+    d = create_driver(config)
+    mock.proxy(d.instance).io_handler(anything, anything) do |io_handler|
+      io_handler.shutdown_timeout = 0.5
+      io_handler
+    end
+
+    start_time = Fluent::Clock.now
+    assert_nothing_raised do
+      d.run(expect_emits: 1)
+    end
+
+    elapsed = Fluent::Clock.now - start_time
+    assert_true(elapsed > 0.5 && elapsed < 2.5)
+  end
 end
