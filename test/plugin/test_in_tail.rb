@@ -375,13 +375,12 @@ class TailInputTest < Test::Unit::TestCase
           when :parse_without_stat
             config = CONFIG_READ_FROM_HEAD + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
           end
-          d = create_driver(config)
-          msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
 
+          msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
           start_time = Fluent::Clock.now
 
-          # We should not do shutdown here due to hard timeout.
-          d.run(expect_emits: 2, shutdown: false) do
+          d = create_driver(config)
+          d.run(expect_emits: 2) do
             File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
               100.times do
                 f.puts msg
@@ -392,9 +391,29 @@ class TailInputTest < Test::Unit::TestCase
           assert_true(Fluent::Clock.now - start_time > 1)
           assert_equal(num_events.times.map { {"message" => msg} },
                        d.events.collect { |event| event[2] })
+        end
 
-          # Teardown in_tail plugin instance here.
-          d.instance.shutdown
+        def test_read_bytes_limit_precede_read_lines_limit
+          config = CONFIG_READ_FROM_HEAD +
+                   SINGLE_LINE_CONFIG +
+                   config_element("", "", {
+                                    "read_lines_limit" => 1000,
+                                    "read_bytes_limit_per_second" => 8192
+                                  })
+          msg = 'abc'
+          start_time = Fluent::Clock.now
+          d = create_driver(config)
+          d.run(expect_emits: 2) do
+            File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+              8000.times do
+                f.puts msg
+              end
+            }
+          end
+
+          assert_true(Fluent::Clock.now - start_time > 1)
+          assert_equal(4096.times.map { {"message" => msg} },
+                       d.events.collect { |event| event[2] })
         end
       end
 
@@ -437,7 +456,7 @@ class TailInputTest < Test::Unit::TestCase
           end
 
           # We should not do shutdown here due to hard timeout.
-          d.run(shutdown: false) do
+          d.run do
             start_time = Fluent::Clock.now
             while Fluent::Clock.now - start_time < 0.8 do
               File.open("#{TMP_DIR}/tail.txt", "ab") do |f|
@@ -449,9 +468,6 @@ class TailInputTest < Test::Unit::TestCase
           end
 
           assert_equal([], d.events)
-
-          # Teardown in_tail plugin instance here.
-          d.instance.shutdown
         end
       end
     end

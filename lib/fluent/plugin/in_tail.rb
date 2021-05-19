@@ -965,14 +965,14 @@ module Fluent::Plugin
                     @fifo.read_lines(@lines)
 
                     @log.debug("reading file: #{@path}")
-                    if @lines.size >= @read_lines_limit
-                      # not to use too much memory in case the file is very large
-                      read_more = true
-                      break
-                    end
                     if limit_bytes_per_second_reached?
                       # Just get out from tailing loop.
                       read_more = false
+                      break
+                    end
+                    if @lines.size >= @read_lines_limit
+                      # not to use too much memory in case the file is very large
+                      read_more = true
                       break
                     end
                   end
