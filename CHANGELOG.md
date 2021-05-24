@@ -1,3 +1,45 @@
+# v1.13
+
+## Release v1.13.0 - 2021/05/29
+
+### Enhancement
+
+* in_tail: Handle log throttling per file feature
+  https://github.com/fluent/fluentd/pull/3185
+  https://github.com/fluent/fluentd/pull/3364
+  https://github.com/fluent/fluentd/pull/3379
+* Extend to support service discovery manager in simpler way
+  https://github.com/fluent/fluentd/pull/3299
+  https://github.com/fluent/fluentd/pull/3362
+* in_http: HTTP GET requests has been supported
+  https://github.com/fluent/fluentd/pull/3373
+* The log rotate settings in system configuration has been supported
+  https://github.com/fluent/fluentd/pull/3352
+
+### Bug fix
+
+* Fix to disable `trace_instruction` when
+  `RubyVM::InstructionSequence` is available. It improves
+  compatibility with `truffleruby` some extent.
+  https://github.com/fluent/fluentd/pull/3376
+* in_tail: Safely skip files which are used by another process on
+  Windows. It improves exception handling about
+  `ERROR_SHARING_VIOLATION` on Windows.
+  https://github.com/fluent/fluentd/pull/3378
+* fluent-cat: the issue resending secondary file in specific format
+  has been fixed
+  https://github.com/fluent/fluentd/pull/3368
+* in_tail: Shutdown immediately & safely even if reading huge files
+  Note that `skip_refresh_on_startup` must be enabled.
+  https://github.com/fluent/fluentd/pull/3380
+
+### Misc
+
+* example: Change a path to backup_path in counter_server correctly
+  https://github.com/fluent/fluentd/pull/3359
+* README: Update link to community forum to discuss.fluentd.org
+  https://github.com/fluent/fluentd/pull/3360
+
 # v1.12
 
 ## Release v1.12.4 - 2021/05/26
