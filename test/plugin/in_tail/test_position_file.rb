@@ -282,4 +282,29 @@ class IntailPositionFileTest < Test::Unit::TestCase
       assert_equal 2, f.read_inode
     end
   end
+
+  sub_test_case "TargetInfo" do
+    def test_equal
+      t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
+      t2 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1235)
+
+      assert_equal t1, t2
+    end
+
+    def test_eql?
+      t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
+      t2 = Fluent::Plugin::TailInput::TargetInfo.new("test", 5321)
+
+      assert do
+        t1.eql? t2
+      end
+    end
+
+    def test_hash
+      t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
+      t2 = Fluent::Plugin::TailInput::TargetInfo.new("test", 7321)
+
+      assert_equal t1.hash, t2.hash
+    end
+  end
 end
