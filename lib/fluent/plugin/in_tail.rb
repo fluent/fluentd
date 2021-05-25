@@ -522,8 +522,25 @@ module Fluent::Plugin
     def detach_watcher_after_rotate_wait(tw, ino)
       # Call event_loop_attach/event_loop_detach is high-cost for short-live object.
       # If this has a problem with large number of files, use @_event_loop directly instead of timer_execute.
-      timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
+      if @open_on_every_update
+        # Detach now because it's already closed, waiting it doesn't make sense.
         detach_watcher(tw, ino)
+      elsif @read_bytes_limit_per_second < 0
+        # throttling isn't enabled, just wait @rotate_wait
+        timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
+          detach_watcher(tw, ino)
+        end
+      else
+        # When the throttling feature is enabled, it might not reach EOF yet.
+        # Should ensure to read all contents before closing it, with keeping throttling.
+        start_time_to_wait = Fluent::Clock.now
+        timer = timer_execute(:in_tail_close_watcher, 1, repeat: true) do
+          elapsed = Fluent::Clock.now - start_time_to_wait
+          if tw.eof? && elapsed >= @rotate_wait
+            timer.detach
+            detach_watcher(tw, ino)
+          end
+        end
       end
     end
 
@@ -736,6 +753,10 @@ module Fluent::Plugin
         end
       end
 
+      def eof?
+        @io_handler.eof?
+      end
+
       def on_notify
         begin
           stat = Fluent::FileWrapper.stat(@path)
@@ -923,6 +944,7 @@ module Fluent::Plugin
           @shutdown_start_time = nil
           @shutdown_timeout = SHUTDOWN_TIMEOUT
           @shutdown_mutex = Mutex.new
+          @eof = false
 
           @log.info "following tail of #{@path}"
         end
@@ -947,6 +969,10 @@ module Fluent::Plugin
 
         def opened?
           !!@io
+        end
+
+        def eof?
+          @eof
         end
 
         private
@@ -989,6 +1015,7 @@ module Fluent::Plugin
                   while true
                     @start_reading_time ||= Fluent::Clock.now
                     data = io.readpartial(BYTES_TO_READ, @iobuf)
+                    @eof = false
                     @number_bytes_read += data.bytesize
                     @fifo << data
                     @fifo.read_lines(@lines)
@@ -1005,6 +1032,7 @@ module Fluent::Plugin
                     end
                   end
                 rescue EOFError
+                  @eof = true
                 end
               end
 
@@ -1042,14 +1070,17 @@ module Fluent::Plugin
           else
             @io ||= open
             yield @io
+            @eof = true if @io.nil?
           end
         rescue WatcherSetupError => e
           close
+          @eof = true
           raise e
         rescue
           @log.error $!.to_s
           @log.error_backtrace
           close
+          @eof = true
         end
       end
 
