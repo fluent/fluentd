@@ -1,5 +1,11 @@
 # v1.12
 
+## Release v1.12.4 - 2021/05/26
+
+### Bug fix
+
+* in_tail: Fix a bug that refresh_watcher fails to handle file rotations
+
 ## Release v1.12.3 - 2021/04/23
 
 ### Enhancement
