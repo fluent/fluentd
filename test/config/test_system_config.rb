@@ -80,6 +80,7 @@ module Fluent::Config
       assert_nil(sc.enable_msgpack_time_support)
       assert_equal(:text, sc.log.format)
       assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
+      assert_equal(Fluent::SystemConfig::DEFAULT_BLOCKING_RELOAD_INTERVAL, sc.blocking_reload_interval)
     end
 
     data(
@@ -93,6 +94,7 @@ module Fluent::Config
       'without_source' => ['without_source', true],
       'strict_config_value' => ['strict_config_value', true],
       'enable_msgpack_time_support' => ['enable_msgpack_time_support', true],
+      'blocking_reload_interval' => ['blocking_reload_interval', 10],
     )
     test "accepts parameters" do |(k, v)|
       conf = parse_text(<<-EOS)

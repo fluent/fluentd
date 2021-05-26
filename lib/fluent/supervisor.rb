@@ -48,6 +48,8 @@ module Fluent
       @rpc_endpoint = nil
       @rpc_server = nil
       @counter = nil
+      @blocking_reload_interval = config[:blocking_reload_interval]
+      @block_reload_until = nil
 
       if config[:rpc_endpoint]
         @rpc_endpoint = config[:rpc_endpoint]
@@ -83,6 +85,7 @@ module Fluent
 
     def run_rpc_server
       @rpc_server = RPC::Server.new(@rpc_endpoint, $log)
+      @block_reload_until = Fluent::Clock.now + @blocking_reload_interval
 
       # built-in RPC for signals
       @rpc_server.mount_proc('/api/processes.interruptWorkers') { |req, res|
@@ -134,13 +137,21 @@ module Fluent
 
       @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
         $log.debug "fluentd RPC got /api/config.gracefulReload request"
-        if Fluent.windows?
-          supervisor_sigusr2_handler
+        if @block_reload_until > Fluent::Clock.now
+          $log.warn "block gracefulReload until: #{Time.now + @block_reload_until - Fluent::Clock.now} " +
+                    "remaining: #{(@block_reload_until - Fluent::Clock.now).to_i} seconds"
+          [422, nil, {'message': 'failed to reload config'}]
         else
-          Process.kill :USR2, $$
-        end
+          @block_reload_until = Fluent::Clock.now + @blocking_reload_interval
+          $log.debug("accept next gracefulReload after: #{Time.now + @block_reload_until - Fluent::Clock.now}")
+          if Fluent.windows?
+            supervisor_sigusr2_handler
+          else
+            Process.kill :USR2, $$
+          end
 
-        nil
+          nil
+        end
       }
 
       @rpc_server.mount_proc('/api/config.getDump') { |req, res|
@@ -457,7 +468,8 @@ module Fluent
         config_path: path,
         main_cmd: params['main_cmd'],
         signame: params['signame'],
-        disable_shared_socket: params['disable_shared_socket']
+        disable_shared_socket: params['disable_shared_socket'],
+        blocking_reload_interval: params['blocking_reload_interval']
       }
       if daemonize
         se_config[:pid_path] = pid_path
@@ -817,7 +829,8 @@ module Fluent
         'counter_server' => @system_config.counter_server,
         'log_format' => @system_config.log.format,
         'log_time_format' => @system_config.log.time_format,
-        'disable_shared_socket' => @system_config.disable_shared_socket
+        'disable_shared_socket' => @system_config.disable_shared_socket,
+        'blocking_reload_interval' => @system_config.blocking_reload_interval
       }
 
       se = ServerEngine.create(ServerModule, WorkerModule){
