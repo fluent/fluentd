@@ -58,6 +58,9 @@ module Fluent
           header = {'Content-Type' => 'application/json'} if header.nil?
           body = if response.nil?
                    '{"ok":true}'
+                 elsif response.is_a?(Hash)
+                   response['ok'] = code == 200
+                   response.to_json
                  else
                    response.body['ok'] = code == 200
                    response.body.to_json
