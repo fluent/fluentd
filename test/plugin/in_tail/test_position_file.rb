@@ -283,40 +283,57 @@ class IntailPositionFileTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case "TargetInfo" do
-    def test_equal
-      t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
-      t2 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1235)
+  sub_test_case "TargetInfo equality rules" do
+    sub_test_case "== operator" do
+      def test_equal
+        t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
+        t2 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1235)
 
-      assert_equal t1, t2
-    end
+        assert_equal t1, t2
+      end
 
-    def test_not_equal
-      t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
-      t2 = Fluent::Plugin::TailInput::TargetInfo.new("test2", 1234)
+      def test_not_equal
+        t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
+        t2 = Fluent::Plugin::TailInput::TargetInfo.new("test2", 1234)
 
-      assert_not_equal t1, t2
-    end
-
-    def test_eql?
-      t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
-      t2 = Fluent::Plugin::TailInput::TargetInfo.new("test", 5321)
-
-      assert do
-        t1.eql? t2
+        assert_not_equal t1, t2
       end
     end
 
-    def test_not_eql?
-      t1 = Fluent::Plugin::TailInput::TargetInfo.new("test2", 1234)
-      t2 = Fluent::Plugin::TailInput::TargetInfo.new("test3", 1234)
+    sub_test_case "eql? method" do
+      def test_eql?
+        t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
+        t2 = Fluent::Plugin::TailInput::TargetInfo.new("test", 5321)
 
-      assert do
-        !t1.eql? t2
+        assert do
+          t1.eql? t2
+        end
+      end
+
+      def test_not_eql?
+        t1 = Fluent::Plugin::TailInput::TargetInfo.new("test2", 1234)
+        t2 = Fluent::Plugin::TailInput::TargetInfo.new("test3", 1234)
+
+        assert do
+          !t1.eql? t2
+        end
       end
     end
 
-      assert_equal t1.hash, t2.hash
+    sub_test_case "hash" do
+      def test_equal
+        t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
+        t2 = Fluent::Plugin::TailInput::TargetInfo.new("test", 7321)
+
+        assert_equal t1.hash, t2.hash
+      end
+
+      def test_not_equal
+        t1 = Fluent::Plugin::TailInput::TargetInfo.new("test", 1234)
+        t2 = Fluent::Plugin::TailInput::TargetInfo.new("test2", 1234)
+
+        assert_not_equal t1.hash, t2.hash
+      end
     end
   end
 end
