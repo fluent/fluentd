@@ -50,6 +50,11 @@ module Fluent
         "<Fluent::Config::Section #{@params.to_json}>"
       end
 
+      # Used by PP and Pry
+      def pretty_print(q)
+        q.text(inspect)
+      end
+
       def nil?
         false
       end
