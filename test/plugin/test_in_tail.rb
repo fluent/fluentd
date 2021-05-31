@@ -2088,6 +2088,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_EACCES_error_after_setup_watcher
+    omit "Cannot test with root user" if Process::UID.eid == 0
     path = "#{TMP_DIR}/noaccess/tail.txt"
     begin
       FileUtils.mkdir_p("#{TMP_DIR}/noaccess")
@@ -2110,8 +2111,10 @@ class TailInputTest < Test::Unit::TestCase
       assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::EACCES. Drop tail watcher for now.\n") })
     end
   ensure
-    FileUtils.chmod(0755, "#{TMP_DIR}/noaccess")
-    FileUtils.rm_rf("#{TMP_DIR}/noaccess")
+    if File.exist?("#{TMP_DIR}/noaccess")
+      FileUtils.chmod(0755, "#{TMP_DIR}/noaccess")
+      FileUtils.rm_rf("#{TMP_DIR}/noaccess")
+    end
   end unless Fluent.windows?
 
   def test_EACCES
