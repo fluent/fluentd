@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/config/section'
+require 'pp'
 
 module Fluent::Config
   class TestSection < ::Test::Unit::TestCase
@@ -175,6 +176,14 @@ module Fluent::Config
           h1 = {name: "s1", num: 10, klass: "A"}
           s1 = Fluent::Config::Section.new(h1)
           assert_equal(expected, s1.respond_to?(method))
+        end
+
+        test '#pretty_print' do
+          q = PP.new
+          h1 = {name: "s1", klass: "A"}
+          s1 = Fluent::Config::Section.new(h1)
+          s1.pretty_print(q)
+          assert_equal s1.inspect, q.output
         end
       end
     end
