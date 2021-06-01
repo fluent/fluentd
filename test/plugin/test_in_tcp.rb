@@ -5,21 +5,33 @@ require 'fluent/plugin/in_tcp'
 class TcpInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
+    @port = unused_port
   end
 
-  PORT = unused_port
-  BASE_CONFIG = %[
-    port #{PORT}
-    tag tcp
-  ]
-  CONFIG = BASE_CONFIG + %[
-    bind 127.0.0.1
-    format none
-  ]
-  IPv6_CONFIG = BASE_CONFIG + %[
-    bind ::1
-    format none
-  ]
+  def teardown
+    @port = nil
+  end
+
+  def base_config
+    %[
+      port #{@port}
+      tag tcp
+    ]
+  end
+
+  def ipv4_config
+    base_config + %[
+      bind 127.0.0.1
+      format none
+    ]
+  end
+
+  def ipv6_config
+    base_config + %[
+      bind ::1
+      format none
+    ]
+  end
 
   def create_driver(conf)
     Fluent::Test::Driver::Input.new(Fluent::Plugin::TcpInput).configure(conf)
@@ -35,22 +47,23 @@ class TcpInputTest < Test::Unit::TestCase
 
 
   data(
-    'ipv4' => [CONFIG, '127.0.0.1', :ipv4],
-    'ipv6' => [IPv6_CONFIG, '::1', :ipv6],
+    'ipv4' => ['127.0.0.1', :ipv4],
+    'ipv6' => ['::1', :ipv6],
   )
   test 'configure' do |data|
-    conf, bind, protocol = data
+    bind, protocol = data
+    conf = send("#{protocol}_config")
     omit "IPv6 is not supported on this environment" if protocol == :ipv6 && !ipv6_enabled?
 
     d = create_driver(conf)
-    assert_equal PORT, d.instance.port
+    assert_equal @port, d.instance.port
     assert_equal bind, d.instance.bind
     assert_equal "\n", d.instance.delimiter
   end
 
   test ' configure w/o parse section' do
     assert_raise(Fluent::ConfigError.new("<parse> section is required.")) {
-      create_driver(BASE_CONFIG)
+      create_driver(base_config)
     }
   end
 
@@ -82,10 +95,10 @@ class TcpInputTest < Test::Unit::TestCase
     payloads = data['payloads']
     expecteds = data['expecteds']
 
-    d = create_driver(BASE_CONFIG + "format #{format}")
+    d = create_driver(base_config + "format #{format}")
     d.run(expect_records: 2) do
       payloads.each do |payload|
-        create_tcp_socket('127.0.0.1', PORT) do |sock|
+        create_tcp_socket('127.0.0.1', @port) do |sock|
           sock.send(payload, 0)
         end
       end
@@ -105,9 +118,9 @@ class TcpInputTest < Test::Unit::TestCase
     payloads = data['payloads']
     expecteds = data['expecteds']
 
-    d = create_driver(BASE_CONFIG + "format #{format}")
+    d = create_driver(base_config + "format #{format}")
     d.run(expect_records: 2) do
-      create_tcp_socket('127.0.0.1', PORT) do |sock|
+      create_tcp_socket('127.0.0.1', @port) do |sock|
         payloads.each do |payload|
           sock.send(payload, 0)
         end
@@ -123,13 +136,13 @@ class TcpInputTest < Test::Unit::TestCase
   end
 
   test 'source_hostname_key' do
-    d = create_driver(BASE_CONFIG + %!
+    d = create_driver(base_config + %!
       format none
       source_hostname_key host
     !)
     hostname = nil
     d.run(expect_records: 1) do
-      create_tcp_socket('127.0.0.1', PORT) do |sock|
+      create_tcp_socket('127.0.0.1', @port) do |sock|
         sock.do_not_reverse_lookup = false
         hostname = sock.peeraddr[2]
         sock.send("test\n", 0)
@@ -144,13 +157,13 @@ class TcpInputTest < Test::Unit::TestCase
   end
 
   test 'source_address_key' do
-    d = create_driver(BASE_CONFIG + %!
+    d = create_driver(base_config + %!
       format none
       source_address_key addr
     !)
     address = nil
     d.run(expect_records: 1) do
-      create_tcp_socket('127.0.0.1', PORT) do |sock|
+      create_tcp_socket('127.0.0.1', @port) do |sock|
         address = sock.peeraddr[3]
         sock.send("test\n", 0)
       end
@@ -165,7 +178,7 @@ class TcpInputTest < Test::Unit::TestCase
 
   sub_test_case '<security>' do
     test 'accept from allowed client' do
-      d = create_driver(CONFIG + %!
+      d = create_driver(ipv4_config + %!
         <security>
           <client>
             network 127.0.0.1
@@ -173,7 +186,7 @@ class TcpInputTest < Test::Unit::TestCase
         </security>
       !)
       d.run(expect_records: 1) do
-        create_tcp_socket('127.0.0.1', PORT) do |sock|
+        create_tcp_socket('127.0.0.1', @port) do |sock|
           sock.send("hello\n", 0)
         end
       end
@@ -185,7 +198,7 @@ class TcpInputTest < Test::Unit::TestCase
     end
 
     test 'deny from disallowed client' do
-      d = create_driver(CONFIG + %!
+      d = create_driver(ipv4_config + %!
         <security>
           <client>
             network 200.0.0.0
@@ -193,7 +206,7 @@ class TcpInputTest < Test::Unit::TestCase
         </security>
       !)
       d.run(shutdown: false, expect_records: 1, timeout: 2) do
-        create_tcp_socket('127.0.0.1', PORT) do |sock|
+        create_tcp_socket('127.0.0.1', @port) do |sock|
           sock.send("hello\n", 0)
         end
       end
@@ -205,7 +218,7 @@ class TcpInputTest < Test::Unit::TestCase
 
   sub_test_case '<extract>' do
     test 'extract tag from record field' do
-      d = create_driver(BASE_CONFIG + %!
+      d = create_driver(base_config + %!
         <parse>
           @type json
         </parse>
@@ -214,7 +227,7 @@ class TcpInputTest < Test::Unit::TestCase
         </extract>
       !)
       d.run(expect_records: 1) do
-        create_tcp_socket('127.0.0.1', PORT) do |sock|
+        create_tcp_socket('127.0.0.1', @port) do |sock|
           data = {'msg' => 'hello', 'tag' => 'helper_test'}
           sock.send("#{data.to_json}\n", 0)
         end
