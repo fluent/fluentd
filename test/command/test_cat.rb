@@ -18,20 +18,23 @@ class TestFluentCat < ::Test::Unit::TestCase
     @primary = create_primary
     metadata = @primary.buffer.new_metadata
     @chunk = create_chunk(@primary, metadata, @es)
+    @port = unused_port
   end
 
   def teardown
     FileUtils.rm_rf(TMP_DIR)
+    @port = nil
   end
 
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/command/fluent_cat#{ENV['TEST_ENV_NUMBER']}")
   FLUENT_CAT_COMMAND = File.expand_path(File.dirname(__FILE__) + "/../../bin/fluent-cat")
 
-  PORT = unused_port
-  CONFIG = %[
-    port #{PORT}
-    bind 127.0.0.1
-  ]
+  def config
+    %[
+      port #{@port}
+      bind 127.0.0.1
+    ]
+  end
 
   SECONDARY_CONFIG = %[
     directory #{TMP_DIR}
@@ -41,7 +44,7 @@ class TestFluentCat < ::Test::Unit::TestCase
     def write(chunk); end
   end
 
-  def create_driver(conf=CONFIG)
+  def create_driver(conf=config)
     Fluent::Test::Driver::Input.new(Fluent::Plugin::ForwardInput).configure(conf)
   end
 
@@ -66,7 +69,7 @@ class TestFluentCat < ::Test::Unit::TestCase
     def test_cat_json
       d = create_driver
       d.run(expect_records: 1) do
-        Open3.pipeline_w("ruby #{FLUENT_CAT_COMMAND} --port #{PORT} json") do |stdin|
+        Open3.pipeline_w("ruby #{FLUENT_CAT_COMMAND} --port #{@port} json") do |stdin|
           stdin.puts('{"key":"value"}')
           stdin.close
         end
@@ -83,7 +86,7 @@ class TestFluentCat < ::Test::Unit::TestCase
       path = d.instance.write(@chunk)
       d = create_driver
       d.run(expect_records: 1) do
-        Open3.pipeline_w("ruby #{FLUENT_CAT_COMMAND} --port #{PORT} --format msgpack secondary") do |stdin|
+        Open3.pipeline_w("ruby #{FLUENT_CAT_COMMAND} --port #{@port} --format msgpack secondary") do |stdin|
           stdin.write(File.read(path))
           stdin.close
         end
