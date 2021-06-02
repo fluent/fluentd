@@ -1014,7 +1014,9 @@ EOL
     end
 
     logs = d.logs
-    assert_false(logs.any? { |log| log.include?("invalid format for PONG message") || log.include?("shared key mismatch") }, "'#{logs.last.strip}' happens")
+    assert_false(logs.any? { |log|
+                   log.include?("invalid format for PONG message") || log.include?("shared key mismatch")
+                 }, "Actual log:\n#{logs.join}")
   end
 
   def create_target_input_driver(response_stub: nil, disconnect: false, conf: target_config)
