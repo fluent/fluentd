@@ -611,8 +611,7 @@ module Fluent::Plugin
               sleep @sender.read_interval
               next
             end
-            unpacker = Fluent::MessagePackFactory.thread_local_msgpack_unpacker
-            unpacker.feed_each(buf) do |data|
+            Fluent::MessagePackFactory.msgpack_unpacker.feed_each(buf) do |data|
               if @handshake.invoke(sock, ri, data) == :established
                 @log.debug "connection established", host: @host, port: @port
               end
