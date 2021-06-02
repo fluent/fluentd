@@ -9,10 +9,17 @@ require 'openssl'
 require 'async'
 
 class HttpHelperTest < Test::Unit::TestCase
-  PORT = unused_port
   NULL_LOGGER = Logger.new(nil)
   CERT_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/without_ca')
   CERT_CA_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/with_ca')
+
+  def setup
+    @port = unused_port
+  end
+
+  def teardown
+    @port = nil
+  end
 
   class Dummy < Fluent::Plugin::TestBase
     helpers :http_server
@@ -147,7 +154,7 @@ class HttpHelperTest < Test::Unit::TestCase
   sub_test_case 'Create a HTTP server' do
     test 'monunt given path' do
       on_driver do |driver|
-        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
           s.post('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello post'] }
           s.head('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello head'] }
@@ -158,13 +165,13 @@ class HttpHelperTest < Test::Unit::TestCase
           s.options('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello options'] }
         end
 
-        resp = head("http://127.0.0.1:#{PORT}/example/hello")
+        resp = head("http://127.0.0.1:#{@port}/example/hello")
         assert_equal('200', resp.code)
         assert_equal(nil, resp.body)
         assert_equal('text/plain', resp['Content-Type'])
 
         %w[get put post put delete options trace].each do |n|
-          resp = send(n, "http://127.0.0.1:#{PORT}/example/hello")
+          resp = send(n, "http://127.0.0.1:#{@port}/example/hello")
           assert_equal('200', resp.code)
           assert_equal("hello #{n}", resp.body)
           assert_equal('text/plain', resp['Content-Type'])
@@ -174,44 +181,44 @@ class HttpHelperTest < Test::Unit::TestCase
 
     test 'when path does not start with `/` or ends with `/`' do
       on_driver do |driver|
-        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
           s.get('example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
           s.get('/example/hello2/') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
         end
 
-        resp = get("http://127.0.0.1:#{PORT}/example/hello")
+        resp = get("http://127.0.0.1:#{@port}/example/hello")
         assert_equal('404', resp.code)
 
-        resp = get("http://127.0.0.1:#{PORT}/example/hello2")
+        resp = get("http://127.0.0.1:#{@port}/example/hello2")
         assert_equal('200', resp.code)
       end
     end
 
     test 'when error raised' do
       on_driver do |driver|
-        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') { raise 'error!' }
         end
 
-        resp = get("http://127.0.0.1:#{PORT}/example/hello")
+        resp = get("http://127.0.0.1:#{@port}/example/hello")
         assert_equal('500', resp.code)
       end
     end
 
     test 'when path is not found' do
       on_driver do |driver|
-        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
         end
 
-        resp = get("http://127.0.0.1:#{PORT}/example/hello/not_found")
+        resp = get("http://127.0.0.1:#{@port}/example/hello/not_found")
         assert_equal('404', resp.code)
       end
     end
 
     test 'params and body' do
       on_driver do |driver|
-        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') do |req|
             assert_equal(req.query_string, nil)
             assert_equal(req.body, nil)
@@ -237,16 +244,16 @@ class HttpHelperTest < Test::Unit::TestCase
           end
         end
 
-        resp = get("http://127.0.0.1:#{PORT}/example/hello")
+        resp = get("http://127.0.0.1:#{@port}/example/hello")
         assert_equal('200', resp.code)
 
-        resp = post("http://127.0.0.1:#{PORT}/example/hello", 'this is body')
+        resp = post("http://127.0.0.1:#{@port}/example/hello", 'this is body')
         assert_equal('200', resp.code)
 
-        resp = get("http://127.0.0.1:#{PORT}/example/hello/params?test=true")
+        resp = get("http://127.0.0.1:#{@port}/example/hello/params?test=true")
         assert_equal('200', resp.code)
 
-        resp = post("http://127.0.0.1:#{PORT}/example/hello/params?test=true", 'this is body')
+        resp = post("http://127.0.0.1:#{@port}/example/hello/params?test=true", 'this is body')
         assert_equal('200', resp.code)
       end
     end
@@ -265,11 +272,11 @@ class HttpHelperTest < Test::Unit::TestCase
         test 'can overwrite settings by using tls_context' do
           on_driver_transport({ 'insecure' => 'false' }) do |driver|
             tls = { 'insecure' => 'true' } # overwrite
-            driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER, tls_opts: tls) do |s|
+            driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER, tls_opts: tls) do |s|
               s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
             end
 
-            resp = secure_get("https://127.0.0.1:#{PORT}/example/hello", verify: false)
+            resp = secure_get("https://127.0.0.1:#{@port}/example/hello", verify: false)
             assert_equal('200', resp.code)
             assert_equal('hello get', resp.body)
           end
@@ -277,17 +284,17 @@ class HttpHelperTest < Test::Unit::TestCase
 
         test 'with insecure in transport section' do
           on_driver_transport({ 'insecure' => 'true' }) do |driver|
-            driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+            driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
               s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
             end
             omit "TLS connection should be aborted due to `Errno::ECONNABORTED`. Need to debug." if Fluent.windows?
 
-            resp = secure_get("https://127.0.0.1:#{PORT}/example/hello", verify: false)
+            resp = secure_get("https://127.0.0.1:#{@port}/example/hello", verify: false)
             assert_equal('200', resp.code)
             assert_equal('hello get', resp.body)
 
             assert_raise OpenSSL::SSL::SSLError do
-              secure_get("https://127.0.0.1:#{PORT}/example/hello")
+              secure_get("https://127.0.0.1:#{@port}/example/hello")
             end
           end
         end
@@ -306,11 +313,11 @@ class HttpHelperTest < Test::Unit::TestCase
           end
 
           on_driver_transport(opt) do |driver|
-            driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+            driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
               s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
             end
 
-            resp = secure_get("https://127.0.0.1:#{PORT}/example/hello", cert_path: cert_path)
+            resp = secure_get("https://127.0.0.1:#{@port}/example/hello", cert_path: cert_path)
             assert_equal('200', resp.code)
             assert_equal('hello get', resp.body)
           end
@@ -333,11 +340,11 @@ class HttpHelperTest < Test::Unit::TestCase
           end
 
           on_driver_transport(opt) do |driver|
-            driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+            driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
               s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
             end
 
-            resp = secure_get("https://127.0.0.1:#{PORT}/example/hello", cert_path: ca_cert_path)
+            resp = secure_get("https://127.0.0.1:#{@port}/example/hello", cert_path: ca_cert_path)
             assert_equal('200', resp.code)
             assert_equal('hello get', resp.body)
           end
@@ -355,7 +362,7 @@ class HttpHelperTest < Test::Unit::TestCase
         end
 
         stub(Fluent::PluginHelper::HttpServer::Server).new(addr: anything, port: anything, logger: anything, default_app: anything) { server }
-        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do
           # nothing
         end
         driver.stop
