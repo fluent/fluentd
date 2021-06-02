@@ -52,20 +52,30 @@ end
 class TcpOutputTest < Test::Unit::TestCase
   include StreamOutputTest
 
-  PORT = unused_port
-  CONFIG = %[
-    port #{PORT}
-    host 127.0.0.1
-    send_timeout 51
-  ]
+  def setup
+    super
+    @port = unused_port
+  end
 
-  def create_driver(conf=CONFIG)
+  def teardown
+    @port = nil
+  end
+
+  def config
+    %[
+      port #{@port}
+      host 127.0.0.1
+      send_timeout 51
+    ]
+  end
+
+  def create_driver(conf=config)
     super(Fluent::TcpOutput, conf)
   end
 
   def test_configure
     d = create_driver
-    assert_equal PORT, d.instance.port
+    assert_equal @port, d.instance.port
     assert_equal '127.0.0.1', d.instance.host
     assert_equal 51, d.instance.send_timeout
   end
