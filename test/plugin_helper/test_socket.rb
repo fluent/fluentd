@@ -6,17 +6,24 @@ require 'socket'
 require 'openssl'
 
 class SocketHelperTest < Test::Unit::TestCase
-  PORT = unused_port
   CERT_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/without_ca')
   CA_CERT_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/with_ca')
   CERT_CHAINS_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/cert_chains')
+
+  def setup
+    @port = unused_port
+  end
+
+  def teardown
+    @port = nil
+  end
 
   class SocketHelperTestPlugin < Fluent::Plugin::TestBase
     helpers :socket
   end
 
   class EchoTLSServer
-    def initialize(host = '127.0.0.1', port = PORT, cert_path: nil, private_key_path: nil, ca_path: nil)
+    def initialize(port, host: '127.0.0.1', cert_path: nil, private_key_path: nil, ca_path: nil)
       server = TCPServer.open(host, port)
       ctx = OpenSSL::SSL::SSLContext.new
       ctx.cert = OpenSSL::X509::Certificate.new(File.open(cert_path)) if cert_path
@@ -91,8 +98,8 @@ class SocketHelperTest < Test::Unit::TestCase
     cert_path = File.join(CERT_DIR, 'cert.pem')
     private_key_path = File.join(CERT_DIR, 'cert-key.pem')
 
-    EchoTLSServer.new(cert_path: cert_path, private_key_path: private_key_path).start do
-      client = SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', PORT, verify_fqdn: false, cert_paths: [cert_path])
+    EchoTLSServer.new(@port, cert_path: cert_path, private_key_path: private_key_path).start do
+      client = SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', @port, verify_fqdn: false, cert_paths: [cert_path])
       client.write('hello')
       assert_equal 'hello', client.readpartial(100)
       client.close
@@ -105,8 +112,8 @@ class SocketHelperTest < Test::Unit::TestCase
 
     ca_cert_path = File.join(CA_CERT_DIR, 'ca-cert.pem')
 
-    EchoTLSServer.new(cert_path: cert_path, private_key_path: private_key_path).start do
-      client = SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', PORT, verify_fqdn: false, cert_paths: [ca_cert_path])
+    EchoTLSServer.new(@port, cert_path: cert_path, private_key_path: private_key_path).start do
+      client = SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', @port, verify_fqdn: false, cert_paths: [ca_cert_path])
       client.write('hello')
       assert_equal 'hello', client.readpartial(100)
       client.close
@@ -121,8 +128,8 @@ class SocketHelperTest < Test::Unit::TestCase
     client_cert_path = File.join(CERT_CHAINS_DIR, 'cert.pem')
     client_private_key_path = File.join(CERT_CHAINS_DIR, 'cert-key.pem')
 
-    EchoTLSServer.new(cert_path: cert_path, private_key_path: private_key_path, ca_path: client_ca_cert_path).start do
-      client = SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', PORT, verify_fqdn: false, cert_path: client_cert_path, private_key_path: client_private_key_path, cert_paths: [cert_path])
+    EchoTLSServer.new(@port, cert_path: cert_path, private_key_path: private_key_path, ca_path: client_ca_cert_path).start do
+      client = SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', @port, verify_fqdn: false, cert_path: client_cert_path, private_key_path: client_private_key_path, cert_paths: [cert_path])
       client.write('hello')
       assert_equal 'hello', client.readpartial(100)
       client.close
@@ -133,7 +140,7 @@ class SocketHelperTest < Test::Unit::TestCase
     cert_path = File.expand_path(File.dirname(__FILE__) + '/data/cert/empty.pem')
 
     assert_raise Fluent::ConfigError do
-      SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', PORT, cert_path: cert_path)
+      SocketHelperTestPlugin.new.socket_create_tls('127.0.0.1', @port, cert_path: cert_path)
     end
   end
 end
