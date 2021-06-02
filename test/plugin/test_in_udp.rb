@@ -5,21 +5,33 @@ require 'fluent/plugin/in_udp'
 class UdpInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
+    @port = unused_port
   end
 
-  PORT = unused_port
-  BASE_CONFIG = %[
-    port #{PORT}
-    tag udp
-  ]
-  CONFIG = BASE_CONFIG + %!
-    bind 127.0.0.1
-    format /^\\[(?<time>[^\\]]*)\\] (?<message>.*)/
-  !
-  IPv6_CONFIG = BASE_CONFIG + %!
-    bind ::1
-    format /^\\[(?<time>[^\\]]*)\\] (?<message>.*)/
-  !
+  def teardown
+    @port = nil
+  end
+
+  def base_config
+    %[
+      port #{@port}
+      tag udp
+    ]
+  end
+
+  def ipv4_config
+    base_config + %!
+      bind 127.0.0.1
+      format /^\\[(?<time>[^\\]]*)\\] (?<message>.*)/
+    !
+  end
+
+  def ipv6_config
+    base_config + %!
+      bind ::1
+      format /^\\[(?<time>[^\\]]*)\\] (?<message>.*)/
+    !
+  end
 
   def create_driver(conf)
     Fluent::Test::Driver::Input.new(Fluent::Plugin::UdpInput).configure(conf)
@@ -45,15 +57,16 @@ class UdpInputTest < Test::Unit::TestCase
   end
 
   data(
-    'ipv4' => [CONFIG, '127.0.0.1', :ipv4],
-    'ipv6' => [IPv6_CONFIG, '::1', :ipv6],
+    'ipv4' => ['127.0.0.1', :ipv4],
+    'ipv6' => ['::1', :ipv6],
   )
   test 'configure' do |data|
-    conf, bind, protocol = data
+    bind, protocol = data
+    conf = send("#{protocol}_config")
     omit "IPv6 is not supported on this environment" if protocol == :ipv6 && !ipv6_enabled?
 
     d = create_driver(conf)
-    assert_equal PORT, d.instance.port
+    assert_equal @port, d.instance.port
     assert_equal bind, d.instance.bind
     assert_equal 4096, d.instance.message_length_limit
     assert_equal nil, d.instance.receive_buffer_size
@@ -61,16 +74,17 @@ class UdpInputTest < Test::Unit::TestCase
 
   test ' configure w/o parse section' do
     assert_raise(Fluent::ConfigError.new("<parse> section is required.")) {
-      create_driver(BASE_CONFIG)
+      create_driver(base_config)
     }
   end
 
   data(
-    'ipv4' => [CONFIG, '127.0.0.1', :ipv4],
-    'ipv6' => [IPv6_CONFIG, '::1', :ipv6],
+    'ipv4' => ['127.0.0.1', :ipv4],
+    'ipv6' => ['::1', :ipv6],
   )
   test 'time_format' do |data|
-    conf, bind, protocol = data
+    bind, protocol = data
+    conf = send("#{protocol}_config")
     omit "IPv6 is not supported on this environment" if protocol == :ipv6 && !ipv6_enabled?
 
     d = create_driver(conf)
@@ -81,7 +95,7 @@ class UdpInputTest < Test::Unit::TestCase
     ]
 
     d.run(expect_records: 2) do
-      create_udp_socket(bind, PORT) do |u|
+      create_udp_socket(bind, @port) do |u|
         tests.each do |test|
           u.send(test['msg'], 0)
         end
@@ -100,7 +114,7 @@ class UdpInputTest < Test::Unit::TestCase
   )
   test 'message_length_limit/body_size_limit compatibility' do |param|
 
-    d = create_driver(CONFIG + param)
+    d = create_driver(ipv4_config + param)
     assert_equal 2048, d.instance.message_length_limit
   end
 
@@ -141,9 +155,9 @@ class UdpInputTest < Test::Unit::TestCase
     payloads = data['payloads']
     expecteds = data['expecteds']
 
-    d = create_driver(BASE_CONFIG + "format #{format}")
+    d = create_driver(base_config + "format #{format}")
     d.run(expect_records: 2) do
-      create_udp_socket('127.0.0.1', PORT) do |u|
+      create_udp_socket('127.0.0.1', @port) do |u|
         payloads.each do |payload|
           u.send(payload, 0)
         end
@@ -159,13 +173,13 @@ class UdpInputTest < Test::Unit::TestCase
   end
 
   test 'remove_newline' do
-    d = create_driver(BASE_CONFIG + %!
+    d = create_driver(base_config + %!
       format none
       remove_newline false
     !)
     payloads = ["test1\n", "test2\n"]
     d.run(expect_records: 2) do
-      create_udp_socket('127.0.0.1', PORT) do |u|
+      create_udp_socket('127.0.0.1', @port) do |u|
         payloads.each do |payload|
           u.send(payload, 0)
         end
@@ -182,13 +196,13 @@ class UdpInputTest < Test::Unit::TestCase
   end
 
   test 'source_hostname_key' do
-    d = create_driver(BASE_CONFIG + %!
+    d = create_driver(base_config + %!
       format none
       source_hostname_key host
     !)
     hostname = nil
     d.run(expect_records: 1) do
-      create_udp_socket('127.0.0.1', PORT) do |u|
+      create_udp_socket('127.0.0.1', @port) do |u|
         u.send("test", 0)
         hostname = u.peeraddr[2]
       end
@@ -201,13 +215,13 @@ class UdpInputTest < Test::Unit::TestCase
   end
 
   test 'source_address_key' do
-    d = create_driver(BASE_CONFIG + %!
+    d = create_driver(base_config + %!
       format none
       source_address_key addr
     !)
     address = nil
     d.run(expect_records: 1) do
-      create_udp_socket('127.0.0.1', PORT) do |u|
+      create_udp_socket('127.0.0.1', @port) do |u|
         u.send("test", 0)
         address = u.peeraddr[3]
       end
@@ -223,7 +237,7 @@ class UdpInputTest < Test::Unit::TestCase
     # doesn't check exact value because it depends on platform and condition
 
     # check if default socket and in_udp's one without receive_buffer_size have same size buffer
-    d0 = create_driver(BASE_CONFIG + %!
+    d0 = create_driver(base_config + %!
       format none
     !)
     d0.run do
@@ -237,7 +251,7 @@ class UdpInputTest < Test::Unit::TestCase
     end
 
     # check if default socket and in_udp's one with receive_buffer_size have different size buffer
-    d1 = create_driver(BASE_CONFIG + %!
+    d1 = create_driver(base_config + %!
       format none
       receive_buffer_size 1001
     !)

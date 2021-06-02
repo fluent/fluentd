@@ -18,52 +18,55 @@ class ForwardInputTest < Test::Unit::TestCase
     Fluent::Test.setup
     @responses = []  # for testing responses after sending data
     @d = nil
+    @port = unused_port
   end
 
   def teardown
     @d.instance_shutdown if @d
+    @port = nil
   end
-
-  PORT = unused_port
 
   SHARED_KEY = 'foobar1'
   USER_NAME = 'tagomoris'
   USER_PASSWORD = 'fluentd'
 
-  CONFIG = %[
-    port #{PORT}
-    bind 127.0.0.1
-  ]
+  def base_config
+    %[
+      port #{@port}
+      bind 127.0.0.1
+    ]
+  end
   LOCALHOST_HOSTNAME_GETTER = ->(){sock = UDPSocket.new(::Socket::AF_INET); sock.do_not_reverse_lookup = false; sock.connect("127.0.0.1", 2048); sock.peeraddr[2] }
   LOCALHOST_HOSTNAME = LOCALHOST_HOSTNAME_GETTER.call
   DUMMY_SOCK = Struct.new(:remote_host, :remote_addr, :remote_port).new(LOCALHOST_HOSTNAME, "127.0.0.1", 0)
-  CONFIG_AUTH = %[
-    port #{PORT}
-    bind 127.0.0.1
-    <security>
-      self_hostname localhost
-      shared_key foobar1
-      user_auth true
-      <user>
-        username #{USER_NAME}
-        password #{USER_PASSWORD}
-      </user>
-      <client>
-        network 127.0.0.0/8
-        shared_key #{SHARED_KEY}
-        users ["#{USER_NAME}"]
-      </client>
-    </security>
-  ]
 
-  def create_driver(conf=CONFIG)
+  def config_auth
+    base_config + %[
+      <security>
+        self_hostname localhost
+        shared_key foobar1
+        user_auth true
+        <user>
+          username #{USER_NAME}
+          password #{USER_PASSWORD}
+        </user>
+        <client>
+          network 127.0.0.0/8
+          shared_key #{SHARED_KEY}
+          users ["#{USER_NAME}"]
+        </client>
+      </security>
+    ]
+  end
+
+  def create_driver(conf=base_config)
     Fluent::Test::Driver::Input.new(Fluent::Plugin::ForwardInput).configure(conf)
   end
 
   sub_test_case '#configure' do
     test 'simple' do
       @d = d = create_driver
-      assert_equal PORT, d.instance.port
+      assert_equal @port, d.instance.port
       assert_equal '127.0.0.1', d.instance.bind
       assert_equal 0, d.instance.linger_timeout
       assert_equal 0.5, d.instance.blocking_timeout
@@ -71,8 +74,8 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     test 'auth' do
-      @d = d = create_driver(CONFIG_AUTH)
-      assert_equal PORT, d.instance.port
+      @d = d = create_driver(config_auth)
+      assert_equal @port, d.instance.port
       assert_equal '127.0.0.1', d.instance.bind
       assert_equal 0, d.instance.linger_timeout
       assert !d.instance.backlog
@@ -86,17 +89,17 @@ class ForwardInputTest < Test::Unit::TestCase
          add_tag_prefix: "add_tag_prefix")
     test 'tag parameters' do |data|
       assert_raise(Fluent::ConfigError.new("'#{data}' parameter must not be empty")) {
-        create_driver(CONFIG + "#{data} ''")
+        create_driver(base_config + "#{data} ''")
       }
     end
 
     test 'send_keepalive_packet is disabled by default' do
-      @d = d = create_driver(CONFIG_AUTH)
+      @d = d = create_driver(config_auth)
       assert_false d.instance.send_keepalive_packet
     end
 
     test 'send_keepalive_packet can be enabled' do
-      @d = d = create_driver(CONFIG_AUTH + %[
+      @d = d = create_driver(config_auth + %[
         send_keepalive_packet true
       ])
       assert_true d.instance.send_keepalive_packet
@@ -104,7 +107,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     test 'both send_keepalive_packet and deny_keepalive cannot be enabled' do
       assert_raise(Fluent::ConfigError.new("both 'send_keepalive_packet' and 'deny_keepalive' cannot be set to true")) do
-        create_driver(CONFIG_AUTH + %[
+        create_driver(config_auth + %[
           send_keepalive_packet true
           deny_keepalive true
         ])
@@ -173,7 +176,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     test 'skip_invalid_event' do
-      @d = d = create_driver(CONFIG + "skip_invalid_event true")
+      @d = d = create_driver(base_config + "skip_invalid_event true")
 
       time = event_time("2011-01-02 13:14:15 UTC")
 
@@ -243,20 +246,18 @@ class ForwardInputTest < Test::Unit::TestCase
 
   sub_test_case 'forward' do
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'plain' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -285,7 +286,7 @@ class ForwardInputTest < Test::Unit::TestCase
            result: "new_prefix.tag1"
          })
     test 'tag parameters' do |data|
-      @d = create_driver(CONFIG + data[:param])
+      @d = create_driver(base_config + data[:param])
       time = event_time("2011-01-02 13:14:15 UTC")
       options = {auth: false}
 
@@ -305,20 +306,18 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'time_as_integer' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time_i = event_time("2011-01-02 13:14:15 UTC")
@@ -340,20 +339,18 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'skip_invalid_event' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config + "skip_invalid_event true")
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -380,20 +377,18 @@ class ForwardInputTest < Test::Unit::TestCase
 
   sub_test_case 'packed forward' do
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'plain' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -422,7 +417,7 @@ class ForwardInputTest < Test::Unit::TestCase
            result: "new_prefix.tag1"
          })
     test 'tag parameters' do |data|
-      @d = create_driver(CONFIG + data[:param])
+      @d = create_driver(base_config + data[:param])
       time = event_time("2011-01-02 13:14:15 UTC")
       options = {auth: false}
 
@@ -442,20 +437,18 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'time_as_integer' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time_i = event_time("2011-01-02 13:14:15 UTC").to_i
@@ -476,20 +469,18 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'skip_invalid_event' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config + "skip_invalid_event true")
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -577,7 +568,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
   sub_test_case 'warning' do
     test 'send_large_chunk_warning' do
-      @d = d = create_driver(CONFIG + %[
+      @d = d = create_driver(base_config + %[
         chunk_size_warn_limit 16M
         chunk_size_limit 32M
       ])
@@ -613,7 +604,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     test 'send_large_chunk_only_warning' do
-      @d = d = create_driver(CONFIG + %[
+      @d = d = create_driver(base_config + %[
         chunk_size_warn_limit 16M
       ])
       time = event_time("2014-04-25 13:14:15 UTC")
@@ -639,7 +630,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     test 'send_large_chunk_limit' do
-      @d = d = create_driver(CONFIG + %[
+      @d = d = create_driver(base_config + %[
         chunk_size_warn_limit 16M
         chunk_size_limit 32M
       ])
@@ -697,20 +688,18 @@ class ForwardInputTest < Test::Unit::TestCase
 
   sub_test_case 'respond to required ack' do
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'message' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -736,20 +725,18 @@ class ForwardInputTest < Test::Unit::TestCase
 
     # FIX: response is not pushed into @responses because IO.select has been blocked until InputForward shutdowns
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'forward' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -776,20 +763,18 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'packed_forward' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -817,22 +802,20 @@ class ForwardInputTest < Test::Unit::TestCase
 
     data(
       tcp: {
-        config: CONFIG,
         options: {
           auth: false
         }
       },
       ### Auth is not supported with json
       # auth: {
-      #   config: CONFIG_AUTH,
       #   options: {
       #     auth: true
       #   }
       # },
     )
     test 'message_json' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time_i = event_time("2011-01-02 13:14:15 UTC")
@@ -859,20 +842,18 @@ class ForwardInputTest < Test::Unit::TestCase
 
   sub_test_case 'not respond without required ack' do
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'message' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -893,20 +874,18 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'forward' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -929,20 +908,18 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     data(tcp: {
-           config: CONFIG,
            options: {
              auth: false
            }
          },
          auth: {
-           config: CONFIG_AUTH,
            options: {
              auth: true
            }
          })
     test 'packed_forward' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -966,22 +943,21 @@ class ForwardInputTest < Test::Unit::TestCase
 
     data(
       tcp: {
-        config: CONFIG,
         options: {
           auth: false
         }
       },
       ### Auth is not supported with json
       # auth: {
-      #   config: CONFIG_AUTH,
+      #   config: config_auth,
       #   options: {
       #     auth: true
       #   }
       # },
     )
     test 'message_json' do |data|
-      config = data[:config]
       options = data[:options]
+      config = options[:auth] ? config_auth : base_config
       @d = d = create_driver(config)
 
       time_i = event_time("2011-01-02 13:14:15 UTC").to_i
@@ -1096,7 +1072,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   def connect
-    TCPSocket.new('127.0.0.1', PORT)
+    TCPSocket.new('127.0.0.1', @port)
   end
 
   # Data ordering is not assured:
@@ -1165,7 +1141,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   def execute_test_with_source_hostname_key(*keys, &block)
-    conf = CONFIG.dup
+    conf = base_config.dup
     if keys.include?(:hostname)
       conf << <<EOL
 source_hostname_key source_hostname
