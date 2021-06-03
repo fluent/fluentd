@@ -106,7 +106,9 @@ EOC
         "plugin_category"=> "input",
         "plugin_id"      => "test_in",
         "retry_count"    => nil,
-        "type"           => "test_in"
+        "type"           => "test_in",
+        "emit_records"   => 0,
+        "emit_size"      => 0,
       }
       input_info.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       filter_info = {
@@ -322,7 +324,7 @@ EOC
 ")
       d.instance.start
       expected_test_in_response = "\
-plugin_id:test_in\tplugin_category:input\ttype:test_in\toutput_plugin:false\tretry_count:"
+plugin_id:test_in\tplugin_category:input\ttype:test_in\toutput_plugin:false\tretry_count:\temit_records:0\temit_size:0"
       expected_test_filter_response = "\
 plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:false\tretry_count:"
 
@@ -350,7 +352,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_category" => "input",
         "plugin_id"       => "test_in",
         "retry_count"     => nil,
-        "type"            => "test_in"
+        "type"            => "test_in",
+        "emit_records"    => 0,
+        "emit_size"       => 0,
       }
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       expected_null_response = {
@@ -412,7 +416,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_category" => "input",
         "plugin_id"       => "test_in",
         "retry_count"     => nil,
-        "type"            => "test_in"
+        "type"            => "test_in",
+        "emit_records"   => 0,
+        "emit_size"      => 0,
       }
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       expected_null_response = {
@@ -458,7 +464,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_id"       => "test_in",
         "retry_count"     => nil,
         "type"            => "test_in",
-        "instance_variables" => {"id" => "test_in"}
+        "instance_variables" => {"id" => "test_in"},
+        "emit_records"   => 0,
+        "emit_size"      => 0,
       }
       expected_null_response = {
         "buffer_queue_length" => 0,
