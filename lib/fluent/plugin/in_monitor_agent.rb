@@ -335,7 +335,8 @@ module Fluent::Plugin
       }
 
       if pe.respond_to?(:statistics)
-        obj.merge!(pe.statistics['output'] || {})
+        obj.merge!(pe.statistics.dig('output') || {})
+        obj.merge!(pe.statistics.dig('input') || {})
       end
 
       obj['retry'] = get_retry_info(pe.retry) if opts[:with_retry] && pe.instance_variable_defined?(:@retry)

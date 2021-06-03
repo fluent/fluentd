@@ -29,6 +29,27 @@ module Fluent
 
       helpers_internal :event_emitter
 
+      def initialize
+        super
+        @emit_records = 0
+        @emit_size = 0
+        @counter_mutex = Mutex.new
+      end
+
+      def statistics
+        stats = {
+          'emit_records' => @emit_records,
+          'emit_size' => @emit_size,
+        }
+
+        { 'input' => stats }
+      end
+
+      def metric_callback(es)
+        @counter_mutex.synchronize { @emit_records += 1 }
+        @counter_mutex.synchronize { @emit_size += es.to_msgpack_stream.bytesize }
+      end
+
       def multi_workers_ready?
         false
       end
