@@ -346,23 +346,15 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       sub_test_case "reads_bytes_per_second w/o throttled" do
-        data("flat 8192 bytes, 2 events"        => [:flat, 100, 8192, 2, false],
-             "flat 8192 bytes, 2 events already read limit reached" => [:flat, 100, 8192, 2, true],
-             "flat 8192 bytes, 2 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 2, false],
+        data("flat 8192 bytes, 2 events"        => [:flat, 100, 8192, 2],
+             "flat 8192 bytes, 2 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 2],
              "flat #{8192*10} bytes, 20 events"  => [:flat, 100, (8192 * 10), 20],
              "flat #{8192*10} bytes, 20 events w/o stat watcher"  => [:flat_without_stat, 100, (8192 * 10), 20],
              "parse #{8192*4} bytes, 8 events"  => [:parse, 100, (8192 * 4), 8],
              "parse #{8192*4} bytes, 8 events w/o stat watcher"  => [:parse_without_stat, 100, (8192 * 4), 8],
              "parse #{8192*10} bytes, 20 events" => [:parse, 100, (8192 * 10), 20],
              "parse #{8192*10} bytes, 20 events w/o stat watcher" => [:parse_without_stat, 100, (8192 * 10), 20],
-             "flat 8k bytes with unit, 2 events"        => [:flat, 100, "8k", 2],
-             "flat 8k bytes with unit, 2 events w/o stat watcher"        => [:flat_without_stat, 100, "8k", 2],
-             "flat #{8*10}k bytes with unit, 20 events"  => [:flat, 100, "#{8*10}k", 20],
-             "flat #{8*10}k bytes with unit, 20 events w/o stat watcher"  => [:flat_without_stat, 100, "#{8*10}k", 20],
-             "parse #{8*4}k bytes with unit, 8 events"  => [:parse, 100, "#{8*4}k", 8],
-             "parse #{8*4}k bytes with unit, 8 events w/o stat watcher"  => [:parse_without_stat, 100, "#{8*4}k", 8],
-             "parse #{8*10}k bytes with unit, 20 events" => [:parse, 100, "#{8*10}k", 20],
-             "parse #{8*10}k bytes with unit, 20 events w/o stat watcher" => [:parse_without_stat, 100, "#{8*10}k", 20])
+             "flat 8k bytes with unit, 2 events" => [:flat, 100, "8k", 2])
         def test_emit_with_read_bytes_limit_per_second(data)
           config_style, limit, limit_bytes, num_events = data
           case config_style
@@ -418,16 +410,10 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       sub_test_case "reads_bytes_per_second w/ throttled already" do
-        data("flat 8192 bytes, 2 events"        => [:flat, 100, 8192, 2],
-             "flat #{8192*10} bytes, 20 events"  => [:flat, 100, (8192 * 10), 20],
-             "parse #{8192*4} bytes, 8 events"  => [:parse, 100, (8192 * 4), 8],
-             "parse #{8192*10} bytes, 20 events" => [:parse, 100, (8192 * 10), 20],
-             "flat 8k bytes with unit, 2 events"        => [:flat, 100, "8k", 2],
-             "flat #{8*10}k bytes with unit, 20 events"  => [:flat, 100, "#{8*10}k", 20],
-             "parse #{8*4}k bytes with unit, 8 events"  => [:parse, 100, "#{8*4}k", 8],
-             "parse #{8*10}k bytes with unit, 20 events" => [:parse, 100, "#{8*10}k", 20])
+        data("flat 8192 bytes"  => [:flat, 100, 8192],
+             "parse 8192 bytes" => [:parse, 100, 8192])
         def test_emit_with_read_bytes_limit_per_second(data)
-          config_style, limit, limit_bytes, num_events = data
+          config_style, limit, limit_bytes = data
           case config_style
           when :flat
             config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes })
