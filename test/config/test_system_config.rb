@@ -77,6 +77,7 @@ module Fluent::Config
       assert_nil(sc.emit_error_log_interval)
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
+      assert_true(sc.without_input_metrics)
       assert_nil(sc.enable_msgpack_time_support)
       assert_equal(:text, sc.log.format)
       assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
@@ -93,6 +94,7 @@ module Fluent::Config
       'without_source' => ['without_source', true],
       'strict_config_value' => ['strict_config_value', true],
       'enable_msgpack_time_support' => ['enable_msgpack_time_support', true],
+      'without_input_metrics' => ['without_input_metrics', false],
     )
     test "accepts parameters" do |(k, v)|
       conf = parse_text(<<-EOS)
