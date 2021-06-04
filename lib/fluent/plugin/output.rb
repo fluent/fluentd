@@ -184,6 +184,7 @@ module Fluent
         @num_errors = 0
         @emit_count = 0
         @emit_records = 0
+        @emit_size = 0
         @write_count = 0
         @rollback_count = 0
         @flush_time_count = 0
@@ -801,6 +802,7 @@ module Fluent
         begin
           process(tag, es)
           @counter_mutex.synchronize{ @emit_records += es.size }
+          @counter_mutex.synchronize{ @emit_size += es.to_msgpack_stream.bytesize }
         rescue
           @counter_mutex.synchronize{ @num_errors += 1 }
           raise
@@ -967,6 +969,7 @@ module Fluent
           @buffer.write(meta_and_data, enqueue: enqueue)
         end
         @counter_mutex.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_size += es.to_msgpack_stream.bytesize }
         true
       end
 
@@ -984,6 +987,7 @@ module Fluent
           @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
         @counter_mutex.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_size += es.to_msgpack_stream.bytesize }
         true
       end
 
@@ -1009,6 +1013,7 @@ module Fluent
           @buffer.write({meta => data}, format: format_proc, enqueue: enqueue)
         end
         @counter_mutex.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_size += es.to_msgpack_stream.bytesize }
         true
       end
 
@@ -1491,6 +1496,7 @@ module Fluent
       def statistics
         stats = {
           'emit_records' => @emit_records,
+          'emit_size' => @emit_size,
           # Respect original name
           # https://github.com/fluent/fluentd/blob/45c7b75ba77763eaf87136864d4942c4e0c5bfcd/lib/fluent/plugin/in_monitor_agent.rb#L284
           'retry_count' => @num_errors,
