@@ -195,7 +195,14 @@ module Fluent
 
       trap :USR2 do
         $log.debug 'fluentd supervisor process got SIGUSR2'
-        supervisor_sigusr2_handler
+        if @block_reload_until > Fluent::Clock.now
+          $log.warn "block gracefulReload until: #{Time.now + @block_reload_until - Fluent::Clock.now} " +
+                    "remaining: #{(@block_reload_until - Fluent::Clock.now).to_i} seconds"
+        else
+          @block_reload_until = Fluent::Clock.now + @blocking_reload_interval
+          $log.debug("accept next gracefulReload after: #{Time.now + @block_reload_until - Fluent::Clock.now}")
+          supervisor_sigusr2_handler
+        end
       end
     end
 

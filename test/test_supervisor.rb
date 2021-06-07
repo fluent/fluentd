@@ -297,7 +297,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
 
     def teardown
-      @server.stop_rpc_server
+      @server.stop_rpc_server unless Fluent.windows?
     end
 
     def test_fail_graceful_reload_immediately
@@ -361,6 +361,46 @@ class SupervisorTest < ::Test::Unit::TestCase
       sleep 3 # Ensure remaining time has passed
       uri = URI.parse("http://127.0.0.1:#{@port}/api/config.gracefulReload")
       assert_equal(SUCCEEDED_RELOADING_RESPONSE, Net::HTTP.get(uri))
+    end
+
+    def test_blocking_signal_handler
+      omit "Windows cannot handle signals" if Fluent.windows?
+
+      conf_data = <<-EOC
+    <system>
+      rpc_endpoint 0.0.0.0:#{@port}
+      blocking_reload_interval 3
+    </system>
+    EOC
+      conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
+      sys_conf = @sv.__send__(:build_system_config, conf)
+      create_debug_dummy_logger
+      @server.rpc_endpoint = sys_conf.rpc_endpoint
+      @server.blocking_reload_interval = sys_conf.blocking_reload_interval
+      @server.install_supervisor_signal_handlers
+      @server.run_rpc_server
+      begin
+        Process.kill :USR2, $$
+      rescue
+      end
+      sleep 3 # Ensure remaining time has passed
+      begin
+        Process.kill :USR2, $$
+      rescue
+      end
+      debug_msg = '[debug]: fluentd supervisor process got SIGUSR2'
+      warn_msg = '[warn]: block gracefulReload until'
+      reloading_msg = '[info]: Reloading new config'
+      logs = $log.out.logs
+      info_logs = logs.collect { |log| log if log =~ /\[info\]:/ }.compact
+      warn_logs = logs.collect { |log| log if log =~ /\[warn\]:/ }.compact
+      debug_logs = logs.collect { |log| log if log =~ /\[debug\]:/ }.compact
+      assert_equal([true, true, true],
+                   [debug_logs.any? { |log| log.include?(debug_msg) },
+                    info_logs.all? { |log| log.include?(reloading_msg) },
+                    warn_logs.any? { |log| log.include?(warn_msg) }])
+    ensure
+      $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
     end
   end
 
