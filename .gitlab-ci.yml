@@ -13,16 +13,6 @@ stages:
   - build
   - tests
 
-2-5-8:
-  image: "ruby:2.5.8"
-  stage: build
-  extends: .install-template
-  script:
-    - bundle install --jobs=3 --retry=3
-  cache:
-    key: "$CI_COMMIT_REF_SLUG 2-5-8"
-    paths:
-
 2-6-6:
   image: "ruby:2.6.6"
   stage: build
@@ -61,18 +51,6 @@ rubyhead:
     - bundle install --jobs=3 --retry=3
   cache:
     key: "$CI_COMMIT_REF_SLUG latest"
-    paths:
-      - ./*
-
-2-5-8-test:
-  image: "ruby:2.5.8"
-  stage: tests
-  allow_failure: true
-  extends: .test-template
-  script:
-    - bundle exec rake test
-  cache:
-    key: "$CI_COMMIT_REF_SLUG 2-5-8"
     paths:
       - ./*
 
