@@ -317,7 +317,7 @@ module Fluent
       # See also 'fluentd/plugin/input.rb'
       input.context_router = @event_router
       input.configure(conf)
-      unless @enable_input_metrics
+      if @enable_input_metrics
         @event_router.add_metric_callbacks(input.plugin_id, Proc.new {|es| input.metric_callback(es) })
       end
       @inputs << input
