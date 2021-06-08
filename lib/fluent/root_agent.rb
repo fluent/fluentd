@@ -55,11 +55,11 @@ module Fluent
       @suppress_emit_error_log_interval = 0
       @next_emit_error_log_time = nil
       @without_source = false
-      @without_input_metrics = true
+      @enable_input_metrics = false
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
-      @without_input_metrics = system_config.without_input_metrics unless system_config.without_input_metrics.nil?
+      @enable_input_metrics = system_config.enable_input_metrics unless system_config.enable_input_metrics.nil?
     end
 
     attr_reader :inputs
@@ -317,7 +317,7 @@ module Fluent
       # See also 'fluentd/plugin/input.rb'
       input.context_router = @event_router
       input.configure(conf)
-      unless @without_input_metrics
+      unless @enable_input_metrics
         @event_router.add_metric_callbacks(input.plugin_id, Proc.new {|es| input.metric_callback(es) })
       end
       @inputs << input
