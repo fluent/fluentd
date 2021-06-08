@@ -59,7 +59,7 @@ module Fluent
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
-      @enable_input_metrics = system_config.enable_input_metrics unless system_config.enable_input_metrics.nil?
+      @enable_input_metrics = !!system_config.enable_input_metrics
     end
 
     attr_reader :inputs
