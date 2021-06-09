@@ -47,7 +47,7 @@ module Fluent
 
       def metric_callback(es)
         @counter_mutex.synchronize do
-          @emit_records += 1
+          @emit_records += es.size
           @emit_size += es.to_msgpack_stream.bytesize
         end
       end
