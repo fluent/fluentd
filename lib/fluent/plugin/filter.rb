@@ -35,6 +35,25 @@ module Fluent
       def initialize
         super
         @has_filter_with_time = has_filter_with_time?
+        @emit_records = 0
+        @emit_size = 0
+        @counter_mutex = Mutex.new
+      end
+
+      def statistics
+        stats = {
+          'emit_records' => @emit_records,
+          'emit_size' => @emit_size,
+        }
+
+        { 'filter' => stats }
+      end
+
+      def measure_metrics(es)
+        @counter_mutex.synchronize do
+          @emit_records += es.size
+          @emit_size += es.to_msgpack_stream.bytesize
+        end
       end
 
       def filter(tag, time, record)

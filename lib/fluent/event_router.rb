@@ -196,7 +196,11 @@ module Fluent
           if optimizable?
             optimized_filter_stream(tag, es)
           else
-            @filters.reduce(es) { |acc, filter| filter.filter_stream(tag, acc) }
+            @filters.reduce(es) { |acc, filter|
+              filtered_es = filter.filter_stream(tag, acc)
+              filter.measure_metrics(filtered_es)
+              filtered_es
+            }
           end
         end
 
@@ -214,6 +218,7 @@ module Fluent
                   begin
                     filtered_time, filtered_record = filter.filter_with_time(tag, filtered_time, filtered_record)
                     throw :break_loop unless filtered_record && filtered_time
+                    filter.measure_metrics(OneEventStream.new(time, record))
                   rescue => e
                     filter.router.emit_error_event(tag, filtered_time, filtered_record, e)
                   end
@@ -221,6 +226,7 @@ module Fluent
                   begin
                     filtered_record = filter.filter(tag, filtered_time, filtered_record)
                     throw :break_loop unless filtered_record
+                    filter.measure_metrics(OneEventStream.new(time, record))
                   rescue => e
                     filter.router.emit_error_event(tag, filtered_time, filtered_record, e)
                   end
