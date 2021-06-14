@@ -1228,8 +1228,6 @@ EOL
   end
 
   test 'Create new connection per send_data' do
-    omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
-
     target_input_driver = create_target_input_driver(conf: target_config)
     output_conf = config
     d = create_driver(output_conf)
@@ -1237,7 +1235,12 @@ EOL
 
     begin
       chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-      mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, @target_port, anything) { |sock| mock(sock).close.once; sock }.twice
+      mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, @target_port,
+                                               linger_timeout: anything,
+                                               send_timeout: anything,
+                                               recv_timeout: anything,
+                                               connect_timeout: anything
+                                              ) { |sock| mock(sock).close.once; sock }.twice
 
       target_input_driver.run(timeout: 15) do
         d.run(shutdown: false) do
@@ -1268,8 +1271,6 @@ EOL
 
   sub_test_case 'keepalive' do
     test 'Do not create connection per send_data' do
-      omit "Proxy of RR doesn't support kwargs of Ruby 3 yet" if RUBY_VERSION.split('.')[0].to_i >= 3
-
       target_input_driver = create_target_input_driver(conf: target_config)
       output_conf = config + %[
         keepalive true
@@ -1280,7 +1281,12 @@ EOL
 
       begin
         chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-        mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, @target_port, anything) { |sock| mock(sock).close.once; sock }.once
+        mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, @target_port,
+                                                 linger_timeout: anything,
+                                                 send_timeout: anything,
+                                                 recv_timeout: anything,
+                                                 connect_timeout: anything
+                                                ) { |sock| mock(sock).close.once; sock }.once
 
         target_input_driver.run(timeout: 15) do
           d.run(shutdown: false) do
