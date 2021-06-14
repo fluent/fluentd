@@ -22,7 +22,7 @@ module Fluent
       class Router
         class NotFoundApp
           def self.call(req)
-            [404, { 'Content-Type' => 'text/plain' }, "404 Not Found: #{req.path}\n"]
+            [404, { 'Content-Type' => 'text/plain' }, "404 Not Found\n"]
           end
         end
 
