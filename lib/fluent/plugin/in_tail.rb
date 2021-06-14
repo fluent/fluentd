@@ -993,7 +993,6 @@ module Fluent::Plugin
                     @fifo << data
                     @fifo.read_lines(@lines)
 
-                    @log.debug("reading file: #{@path}")
                     if limit_bytes_per_second_reached? || should_shutdown_now?
                       # Just get out from tailing loop.
                       read_more = false
