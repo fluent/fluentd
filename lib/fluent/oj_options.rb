@@ -11,12 +11,12 @@ module Fluent
 
     OJ_OPTIONS_ALLOWED_VALUES = {
       'bigdecimal_load': %i[bigdecimal float auto],
-      'mode': %i[strict null concat json rails object custom]
+      'mode': %i[strict null compat json rails object custom]
     }
 
     OJ_OPTIONS_DEFAULTS = {
       'bigdecimal_load': :float,
-      'mode': :concat,
+      'mode': :compat,
       'use_to_json': true
     }
 
@@ -30,7 +30,7 @@ module Fluent
         env_value = ENV["FLUENT_OJ_OPTION_#{key.upcase}"]
         next if env_value.nil?
 
-        cast_value = Fluent::Config.reformatted_value(OJ_OPTIONS[key], env_value, { 'strict': true })
+        cast_value = Fluent::Config.reformatted_value(OJ_OPTIONS[key], env_value, { strict: true })
         next if cast_value.nil?
 
         next if OJ_OPTIONS_ALLOWED_VALUES[key] && !OJ_OPTIONS_ALLOWED_VALUES[key].include?(cast_value)
