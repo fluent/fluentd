@@ -180,6 +180,13 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal Encoding::UTF_8, actual.encoding
     end
 
+    data('starts_with_semicolon' => [:conor, ':conor'],
+         'simple_string' => [:conor, 'conor'],
+         'empty_string' => [nil, ''])
+    test 'symbol' do |(expected, val)|
+      assert_equal Config::SYMBOL_TYPE.call(val, {}), expected
+    end
+
     data("val" => [:val, 'val'],
          "v" => [:v, 'v'],
          "value" => [:value, 'value'])

@@ -109,7 +109,7 @@ module Fluent
     }
 
     def self.symbol_value(val, opts = {}, name = nil)
-      return nil if val.nil?
+      return nil if val.nil? || val.empty?
 
       val.delete_prefix(":").to_sym
     end
