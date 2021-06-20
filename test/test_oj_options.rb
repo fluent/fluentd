@@ -1,26 +1,16 @@
 require_relative 'helper'
 require 'fluent/test'
-require 'fluent/env_utils'
+require 'fluent/oj_options'
 
-class EnvUtilsTest < ::Test::Unit::TestCase
+class OjOptionsTest < ::Test::Unit::TestCase
   setup do
-    @oj = Fluent::EnvUtils::OjOptions.new
-  end
-
-  sub_test_case "module methods" do
-    test "convert_env_var_to_type" do
-      assert_equal :conor, Fluent::EnvUtils.convert_env_var_to_type("conor", :symbol)
-      assert_equal 8933, Fluent::EnvUtils.convert_env_var_to_type("8933", :integer)
-      assert_equal nil, Fluent::EnvUtils.convert_env_var_to_type("conor", :integer)
-      assert_equal true, Fluent::EnvUtils.convert_env_var_to_type("true", :bool)
-      assert_equal nil, Fluent::EnvUtils.convert_env_var_to_type("conor", :bool)
-    end
+    @oj = Fluent::OjOptions.new
   end
 
   sub_test_case "OjOptions" do
     test "when no env vars set, returns default options" do
       ENV.clear
-      assert_equal Fluent::EnvUtils::OjOptions::OJ_OPTIONS_DEFAULTS, @oj.get_options
+      assert_equal Fluent::OjOptions::OJ_OPTIONS_DEFAULTS, @oj.get_options
     end
 
     test "valid env var passed with valid value, default is overridden" do
