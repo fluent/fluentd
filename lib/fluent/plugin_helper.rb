@@ -32,6 +32,7 @@ require 'fluent/plugin_helper/retry_state'
 require 'fluent/plugin_helper/record_accessor'
 require 'fluent/plugin_helper/compat_parameters'
 require 'fluent/plugin_helper/service_discovery'
+require 'fluent/plugin_helper/metrics'
 
 module Fluent
   module PluginHelper
