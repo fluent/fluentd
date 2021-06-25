@@ -1,3 +1,29 @@
+# v1.13.1
+
+## Release v1.13.1 - 2021/06/25
+
+### Bug fix
+
+* out_forward: Fixed a race condition on handshake
+  It's caused by using a same unpacker from multiple threads.
+  https://github.com/fluent/fluentd/pull/3405
+  https://github.com/fluent/fluentd/pull/3406
+* in_tail: Fixed to remove too much verbose debugging logs
+  It was unexpectedly introduced by #3185 log throttling feature.
+  https://github.com/fluent/fluentd/pull/3418
+* Fixed not to echo back the provides path as is on a 404 error
+  There was a potential cross-site scripting vector even though
+  it is quite difficult to exploit.
+  https://github.com/fluent/fluentd/pull/3427
+
+### Misc
+
+* Pretty print for Fluent::Config::Section has been supported
+  for debugging
+  https://github.com/fluent/fluentd/pull/3398
+* CI: Dropped to run CI for Ruby 2.5
+  https://github.com/fluent/fluentd/pull/3412
+
 # v1.13
 
 ## Release v1.13.0 - 2021/05/29
