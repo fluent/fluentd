@@ -23,6 +23,8 @@ require 'fluent/plugin_helper'
 module Fluent
   module Plugin
     class BareOutput < Base
+      include PluginHelper::Mixin # for metrics
+
       # DO NOT USE THIS plugin for normal output plugin. Use Output instead.
       # This output plugin base class is only for meta-output plugins
       # which cannot be implemented on MultiOutput.
@@ -57,6 +59,8 @@ module Fluent
         @num_errors_metrics = metrics_create(namespace: "Fluentd", subsystem: "bare_output", name: "num_errors", help_text: "Number of count num errors")
         @emit_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "bare_output", name: "emit_records", help_text: "Number of count emits")
         @emit_records_metrics = metrics_create(namespace: "Fluentd", subsystem: "bare_output", name: "emit_records", help_text: "Number of emit records")
+        @emit_size_metrics =  metrics_create(namespace: "Fluentd", subsystem: "bare_output", name: "emit_size", help_text: "Total size of emit events")
+        @enable_size_metrics = !!system_config.enable_size_metrics
       end
 
       def statistics
@@ -64,6 +68,7 @@ module Fluent
           'num_errors' => @num_errors_metrics.get,
           'emit_records' => @emit_records_metrics.get,
           'emit_count' => @emit_count_metrics.get,
+          'emit_size' => @emit_size_metrics.get,
         }
 
         { 'bare_output' => stats }
@@ -73,7 +78,10 @@ module Fluent
         @emit_count_metrics.inc
         begin
           process(tag, es)
-          @emit_records_metrics.add(es.size)
+          @counter_mutex.synchronize do
+            @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
+            @emit_records_metrics.add(es.size)
+          end
         rescue
           @num_errors_metrics.inc
           raise
