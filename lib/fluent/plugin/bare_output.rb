@@ -28,32 +28,54 @@ module Fluent
       # which cannot be implemented on MultiOutput.
       # E.g,: forest, config-expander
 
+      helpers_internal :metrics
+
       include PluginId
       include PluginLoggerMixin
       include PluginHelper::Mixin
 
-      attr_reader :num_errors, :emit_count, :emit_records
-
       def process(tag, es)
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
+      end
+
+      def num_errors
+        @num_errors_metrics.get
+      end
+
+      def emit_count
+        @emit_count_metrics.get
+      end
+
+      def emit_records
+        @emit_records_metrics.get
       end
 
       def initialize
         super
         @counter_mutex = Mutex.new
         # TODO: well organized counters
-        @num_errors = 0
-        @emit_count = 0
-        @emit_records = 0
+        @num_errors_metrics = metrics_create(namespace: "Fluentd", subsystem: "bare_output", name: "num_errors", help_text: "Number of count num errors")
+        @emit_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "bare_output", name: "emit_records", help_text: "Number of count emits")
+        @emit_records_metrics = metrics_create(namespace: "Fluentd", subsystem: "bare_output", name: "emit_records", help_text: "Number of emit records")
+      end
+
+      def statistics
+        stats = {
+          'num_errors' => @num_errors_metrics.get,
+          'emit_records' => @emit_records_metrics.get,
+          'emit_count' => @emit_count_metrics.get,
+        }
+
+        { 'bare_output' => stats }
       end
 
       def emit_sync(tag, es)
-        @counter_mutex.synchronize{ @emit_count += 1 }
+        @emit_count_metrics.inc
         begin
           process(tag, es)
-          @counter_mutex.synchronize{ @emit_records += es.size }
+          @emit_records_metrics.add(es.size)
         rescue
-          @counter_mutex.synchronize{ @num_errors += 1 }
+          @num_errors_metrics.inc
           raise
         end
       end
