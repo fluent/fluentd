@@ -37,7 +37,7 @@ module Fluent
       include PluginHelper::Mixin
       include UniqueId::Mixin
 
-      helpers_internal :thread, :retry_state
+      helpers_internal :thread, :retry_state, :metrics
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{([-_.@$a-zA-Z0-9]+)\}/
@@ -164,13 +164,32 @@ module Fluent
       end
 
       attr_reader :as_secondary, :delayed_commit, :delayed_commit_timeout, :timekey_zone
-      attr_reader :num_errors, :emit_count, :emit_records, :write_count, :rollback_count
 
       # for tests
       attr_reader :buffer, :retry, :secondary, :chunk_keys, :chunk_key_accessors, :chunk_key_time, :chunk_key_tag
       attr_accessor :output_enqueue_thread_waiting, :dequeued_chunks, :dequeued_chunks_mutex
       # output_enqueue_thread_waiting: for test of output.rb itself
       attr_accessor :retry_for_error_chunk # if true, error flush will be retried even if under_plugin_development is true
+
+      def num_errors
+        @num_errors_metrics.get
+      end
+
+      def emit_count
+        @emit_count_metrics.get
+      end
+
+      def emit_records
+        @emit_records_metrics.get
+      end
+
+      def write_count
+        @write_count_metrics.get
+      end
+
+      def rollback_count
+        @rollback_count_metrics.get
+      end
 
       def initialize
         super
@@ -181,14 +200,14 @@ module Fluent
         @primary_instance = nil
 
         # TODO: well organized counters
-        @num_errors = 0
-        @emit_count = 0
-        @emit_records = 0
-        @emit_size = 0
-        @write_count = 0
-        @rollback_count = 0
-        @flush_time_count = 0
-        @slow_flush_count = 0
+        @num_errors_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "num_errors", help_text: "Number of count num errors")
+        @emit_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_records", help_text: "Number of count emits")
+        @emit_records_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_records", help_text: "Number of emit records")
+        @emit_size_metrics =  metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_size", help_text: "Total size of emit events")
+        @write_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "write_count", help_text: "Number of writing events")
+        @rollback_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "rollback_count", help_text: "Number of rollbacking operations")
+        @flush_time_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "flush_time_count", help_text: "Count of flush time")
+        @slow_flush_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "slow_flush_count", help_text: "Count of slow flush occurred time(s)")
         @enable_size_metrics = false
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
@@ -801,21 +820,21 @@ module Fluent
       end
 
       def emit_sync(tag, es)
-        @counter_mutex.synchronize{ @emit_count += 1 }
+        @emit_count_metrics.inc
         begin
           process(tag, es)
           @counter_mutex.synchronize do
-            @emit_records += es.size
-            @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
+            @emit_records_metrics.add(es.size)
+            @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
           end
         rescue
-          @counter_mutex.synchronize{ @num_errors += 1 }
+          @num_errors_metrics.inc
           raise
         end
       end
 
       def emit_buffered(tag, es)
-        @counter_mutex.synchronize{ @emit_count += 1 }
+        @emit_count_metrics.inc
         begin
           execute_chunking(tag, es, enqueue: (@flush_mode == :immediate))
           if !@retry && @buffer.queued?(nil, optimistic: true)
@@ -823,7 +842,7 @@ module Fluent
           end
         rescue
           # TODO: separate number of errors into emit errors and write/flush errors
-          @counter_mutex.synchronize{ @num_errors += 1 }
+          @num_errors_metrics.inc
           raise
         end
       end
@@ -974,8 +993,8 @@ module Fluent
           @buffer.write(meta_and_data, enqueue: enqueue)
         end
         @counter_mutex.synchronize do
-          @emit_records += records
-          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
+          @emit_records_metrics.add(es.size)
+          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         end
         true
       end
@@ -994,8 +1013,8 @@ module Fluent
           @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
         @counter_mutex.synchronize do
-          @emit_records += records
-          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
+          @emit_records_metrics.add(es.size)
+          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         end
         true
       end
@@ -1022,8 +1041,8 @@ module Fluent
           @buffer.write({meta => data}, format: format_proc, enqueue: enqueue)
         end
         @counter_mutex.synchronize do
-          @emit_records += records
-          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
+          @emit_records_metrics.add(es.size)
+          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         end
         true
       end
@@ -1062,7 +1081,7 @@ module Fluent
         #         false if chunk was already flushed and couldn't be rollbacked unexpectedly
         # in many cases, false can be just ignored
         if @buffer.takeback_chunk(chunk_id)
-          @counter_mutex.synchronize{ @rollback_count += 1 }
+          @rollback_count_metrics.inc
           if update_retry
             primary = @as_secondary ? @primary_instance : self
             primary.update_retry_state(chunk_id, @as_secondary)
@@ -1078,7 +1097,7 @@ module Fluent
           while @dequeued_chunks.first && @dequeued_chunks.first.expired?
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
-              @counter_mutex.synchronize{ @rollback_count += 1 }
+              @rollback_count_metrics.inc
               log.warn "failed to flush the buffer chunk, timeout to commit.", chunk_id: dump_unique_id_hex(info.chunk_id), flushed_at: info.time
               primary = @as_secondary ? @primary_instance : self
               primary.update_retry_state(info.chunk_id, @as_secondary)
@@ -1093,7 +1112,7 @@ module Fluent
           until @dequeued_chunks.empty?
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
-              @counter_mutex.synchronize{ @rollback_count += 1 }
+              @rollback_count_metrics.inc
               log.info "delayed commit for buffer chunks was cancelled in shutdown", chunk_id: dump_unique_id_hex(info.chunk_id)
               primary = @as_secondary ? @primary_instance : self
               primary.update_retry_state(info.chunk_id, @as_secondary)
@@ -1136,7 +1155,7 @@ module Fluent
 
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
-            @counter_mutex.synchronize{ @write_count += 1 }
+            @write_count_metrics.inc
             @dequeued_chunks_mutex.synchronize do
               # delayed_commit_timeout for secondary is configured in <buffer> of primary (<secondary> don't get <buffer>)
               @dequeued_chunks << DequeuedChunkInfo.new(chunk.unique_id, Time.now, self.delayed_commit_timeout)
@@ -1148,7 +1167,7 @@ module Fluent
             chunk_id = chunk.unique_id
             dump_chunk_id = dump_unique_id_hex(chunk_id)
             log.trace "adding write count", instance: self.object_id
-            @counter_mutex.synchronize{ @write_count += 1 }
+            @write_count_metrics.inc
             log.trace "executing sync write", chunk: dump_chunk_id
 
             output.write(chunk)
@@ -1204,7 +1223,7 @@ module Fluent
           end
 
           if @buffer.takeback_chunk(chunk.unique_id)
-            @counter_mutex.synchronize { @rollback_count += 1 }
+            @rollback_count_metrics.inc
           end
 
           update_retry_state(chunk.unique_id, using_secondary, e)
@@ -1235,9 +1254,9 @@ module Fluent
       def check_slow_flush(start)
         elapsed_time = Fluent::Clock.now - start
         elapsed_millsec = (elapsed_time * 1000).to_i
-        @counter_mutex.synchronize { @flush_time_count += elapsed_millsec }
+        @flush_time_count_metrics.add(elapsed_millsec)
         if elapsed_time > @slow_flush_log_threshold
-          @counter_mutex.synchronize { @slow_flush_count += 1 }
+          @slow_flush_count_metrics.inc
           log.warn "buffer flush took longer time than slow_flush_log_threshold:",
                    elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold, plugin_id: self.plugin_id
         end
@@ -1245,7 +1264,7 @@ module Fluent
 
       def update_retry_state(chunk_id, using_secondary, error = nil)
         @retry_mutex.synchronize do
-          @counter_mutex.synchronize{ @num_errors += 1 }
+          @num_errors_metrics.inc
           chunk_id_hex = dump_unique_id_hex(chunk_id)
 
           unless @retry
@@ -1506,16 +1525,16 @@ module Fluent
 
       def statistics
         stats = {
-          'emit_records' => @emit_records,
-          'emit_size' => @emit_size,
+          'emit_records' => @emit_records_metrics.get,
+          'emit_size' => @emit_size_metrics.get,
           # Respect original name
           # https://github.com/fluent/fluentd/blob/45c7b75ba77763eaf87136864d4942c4e0c5bfcd/lib/fluent/plugin/in_monitor_agent.rb#L284
-          'retry_count' => @num_errors,
-          'emit_count' => @emit_count,
-          'write_count' => @write_count,
-          'rollback_count' => @rollback_count,
-          'slow_flush_count' => @slow_flush_count,
-          'flush_time_count' => @flush_time_count,
+          'retry_count' => @num_errors_metrics.get,
+          'emit_count' => @emit_count_metrics.get,
+          'write_count' => @write_count_metrics.get,
+          'rollback_count' => @rollback_count_metrics.get,
+          'slow_flush_count' => @slow_flush_count_metrics.get,
+          'flush_time_count' => @flush_time_count_metrics.get,
         }
 
         if @buffer && @buffer.respond_to?(:statistics)
