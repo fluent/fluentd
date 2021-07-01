@@ -673,7 +673,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_id"       => "null",
         "retry_count"     => 0,
         "type"            => "null",
-        "instance_variables" => {"id" => "null", "num_errors" => 0},
+        "instance_variables" => {"id" => "null"},
         "buffer_available_buffer_space_ratios" => Float,
         "buffer_queue_byte_size" => Integer,
         "buffer_stage_byte_size" => Integer,
