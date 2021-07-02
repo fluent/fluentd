@@ -1,0 +1,40 @@
+<%= preamble %>
+
+require "fluent/plugin/storage"
+
+module Fluent
+  module Plugin
+    class <%= class_name %> < Fluent::Plugin::Storage
+      Fluent::Plugin.register_storage("<%= plugin_name %>", self)
+
+      def initialize
+        super
+      end
+
+      def configure(conf)
+        super
+      end
+
+      def load
+      end
+
+      def save
+      end
+
+      def get(key)
+      end
+
+      def fetch(key, defval)
+      end
+
+      def put(key, value)
+      end
+
+      def delete(key)
+      end
+
+      def update(key, &block)
+      end
+    end
+  end
+end

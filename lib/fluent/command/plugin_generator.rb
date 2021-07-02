@@ -27,7 +27,7 @@ class FluentPluginGenerator
   attr_reader :type, :name
   attr_reader :license_name
 
-  SUPPORTED_TYPES = ["input", "output", "filter", "parser", "formatter"]
+  SUPPORTED_TYPES = ["input", "output", "filter", "parser", "formatter", "storage"]
 
   def initialize(argv = ARGV)
     @argv = argv

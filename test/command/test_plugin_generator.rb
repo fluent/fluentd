@@ -29,7 +29,8 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
          output: ["output", "out"],
          filter: ["filter", "filter"],
          parser: ["parser", "parser"],
-         formatter: ["formatter", "formatter"])
+         formatter: ["formatter", "formatter"],
+         storage: ["storage", "storage"])
     test "generate plugin" do |(type, part)|
       generator = FluentPluginGenerator.new([type, "fake"])
       stub_git_process(generator)
