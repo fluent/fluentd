@@ -47,7 +47,7 @@ module Fluent
 
       def event_emitter_router(label_name)
         if label_name
-          if label_name == ""
+          if label_name == "@ROOT"
             Engine.root_agent.event_router
           else
             Engine.root_agent.find_label(label_name).event_router
