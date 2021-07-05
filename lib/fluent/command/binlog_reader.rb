@@ -18,6 +18,7 @@ require 'optparse'
 require 'msgpack'
 
 require 'fluent/msgpack_factory'
+require 'fluent/env'
 require 'fluent/formatter'
 require 'fluent/plugin'
 require 'fluent/config/element'
