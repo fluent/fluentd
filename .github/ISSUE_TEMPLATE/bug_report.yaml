@@ -1,0 +1,69 @@
+name: Bug Report
+description: Create a report with a procedure for reproducing the bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check [CONTRIBUTING guideline](https://github.com/fluent/fluentd/blob/master/CONTRIBUTING.md) first and here is the list to help us investigate the problem.
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: To Reproduce
+      description: Steps to reproduce the behavior
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Your Environment
+      description: |
+        - Fluentd or td-agent version: `fluentd --version` or `td-agent --version`
+        - Operating system: `cat /etc/os-release`
+        - Kernel version: `uname -r`
+
+        Tip: If you hit the problem with older fluentd version, try latest version first.
+      value: |
+        - Fluentd version:
+        - TD Agent version:
+        - Operating system:
+        - Kernel version:
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Your Configuration
+      description: |
+        Write your configuration here. Minimum reproducible fluentd.conf is recommended.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Your Error Log
+      description: Write your ALL error log here
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: addtional-context
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here.
+    validations:
+      required: false
