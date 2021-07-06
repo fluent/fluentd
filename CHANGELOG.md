@@ -1,3 +1,40 @@
+# v1.13.2
+
+## Release v1.13.2 - 2021/07/12
+
+### Enhancement
+
+* fluent-plugin-generate: Storage plugin was supported.
+  https://github.com/fluent/fluentd/pull/3426
+* parser_json: Added support to customize configuration of oj options.
+  Use `FLUENT_OJ_OPTION_BIGDECIMAL_LOAD`, `FLUENT_OJ_OPTION_MAX_NESTING`,
+  `FLUENT_OJ_OPTION_MODE`, and `FLUENT_OJ_OPTION_USE_TO_JSON` environment
+  variable to configure it.
+  https://github.com/fluent/fluentd/pull/3315
+
+### Bug fix
+
+* binlog_reader: Fixed a crash bug by missing "fluent/env" dependency.
+  https://github.com/fluent/fluentd/pull/3443
+* Fixed a crash bug on outputting log at the early stage when parsing
+  config file.  This is a regression since v1.13.0. If you use invalid
+  '@' prefix parameter, remove it as a workaround.
+  https://github.com/fluent/fluentd/pull/3451
+* in_tail: Fixed a bug that when rotation is occurred, remaining lines
+  will be discarded if the throttling feature is enabled.
+  https://github.com/fluent/fluentd/pull/3390
+* fluent-plugin-generate: Fixed a crash bug during gemspec generation.
+  It was unexpectedly introduced by #3305, thus this bug was a
+  regression since 1.12.3.
+  https://github.com/fluent/fluentd/pull/3444
+
+### Misc
+
+* Fixed the runtime dependency version of http_parse.rb to 0.7.0.
+  It was fixed because false positive detection is occurred frequently
+  by security scanning tools.
+  https://github.com/fluent/fluentd/pull/3450
+
 # v1.13.1
 
 ## Release v1.13.1 - 2021/06/25
