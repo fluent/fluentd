@@ -20,12 +20,10 @@ module Fluent
       'use_to_json': true
     }
 
-    def initialize
-      @options = {}
-      DEFAULTS.each { |key, value| @options[key] = value }
-    end
+    def self.get_options
+      options = {}
+      DEFAULTS.each { |key, value| options[key] = value }
 
-    def get_options
       OPTIONS.each do |key, type|
         env_value = ENV["FLUENT_OJ_OPTION_#{key.upcase}"]
         next if env_value.nil?
@@ -35,10 +33,10 @@ module Fluent
 
         next if ALLOWED_VALUES[key] && !ALLOWED_VALUES[key].include?(cast_value)
 
-        @options[key.to_sym] = cast_value
+        options[key.to_sym] = cast_value
       end
 
-      @options
+      options
     end
   end
 end
