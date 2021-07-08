@@ -5,11 +5,20 @@ require 'fluent/oj_options'
 class OjOptionsTest < ::Test::Unit::TestCase
   setup do
     @oj = Fluent::OjOptions.new
+    @orig_env = {}
+    ENV.each do |key, value|
+      @orig_env[key] = value if key.start_with?("FLUENT_OJ_OPTION_")
+    end
+  end
+
+  teardown do
+    ENV.delete_if { |key| key.start_with?("FLUENT_OJ_OPTION_") }
+    @orig_env.each { |key, value| ENV[key] = value }
   end
 
   sub_test_case "OjOptions" do
     test "when no env vars set, returns default options" do
-      ENV.clear
+      ENV.delete_if { |key| key.start_with?("FLUENT_OJ_OPTION_") }
       assert_equal Fluent::OjOptions::OJ_OPTIONS_DEFAULTS, @oj.get_options
     end
 
