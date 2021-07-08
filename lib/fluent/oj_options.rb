@@ -20,6 +20,26 @@ module Fluent
       'use_to_json': true
     }
 
+    @@available = false
+
+    def self.available?
+      @@available
+    end
+
+    def self.load_env
+      options = self.get_options
+      begin
+        require 'oj'
+        Oj.default_options = options
+        @@available = true
+      rescue LoadError
+        @@available = false
+      end
+      options
+    end
+
+    private
+
     def self.get_options
       options = {}
       DEFAULTS.each { |key, value| options[key] = value }

@@ -15,7 +15,7 @@
 #
 
 require 'fluent/plugin/formatter'
-require 'fluent/env'
+require 'fluent/oj_options'
 
 module Fluent
   module Plugin
@@ -30,12 +30,14 @@ module Fluent
       def configure(conf)
         super
 
-        begin
-          raise LoadError unless @json_parser == 'oj'
-          require 'oj'
-          Oj.default_options = Fluent::DEFAULT_OJ_OPTIONS
-          @dump_proc = Oj.method(:dump)
-        rescue LoadError
+        if @json_parser == 'oj'
+          if Fluent::OjOptions.available?
+            @dump_proc = Oj.method(:dump)
+          else
+            log.info "Oj isn't installed, fallback to Yajl as json parser"
+            @dump_proc = Yajl.method(:dump)
+          end
+        else
           @dump_proc = Yajl.method(:dump)
         end
 
