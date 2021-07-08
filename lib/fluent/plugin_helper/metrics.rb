@@ -35,6 +35,12 @@ module Fluent
 
       def configure(conf)
         super
+
+        @plugin_type_or_id = if self.plugin_id_configured?
+                               self.plugin_id
+                             else
+                               "#{conf["@type"] || conf["type"]}.#{self.plugin_id}"
+                             end
       end
 
       def metrics_create(namespace: "fluentd", subsystem: "metrics", name:, help_text:, labels: {}, prefer_gauge: false)
@@ -54,9 +60,10 @@ module Fluent
         if Fluent::Engine.system_config.workers > 1
           labels.merge!(worker_id: fluentd_worker_id.to_s)
         end
+        labels.merge!(plugin: @plugin_type_or_id)
         metrics.create(namespace: namespace, subsystem: subsystem, name: name, help_text: help_text, labels: labels)
 
-        @_metrics["#{self.plugin_id}_#{namespace}_#{subsystem}_#{name}"] = metrics
+        @_metrics["#{@plugin_type_or_id}_#{namespace}_#{subsystem}_#{name}"] = metrics
 
         metrics
       end
