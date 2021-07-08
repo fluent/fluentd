@@ -19,7 +19,7 @@ class OjOptionsTest < ::Test::Unit::TestCase
   sub_test_case "OjOptions" do
     test "when no env vars set, returns default options" do
       ENV.delete_if { |key| key.start_with?("FLUENT_OJ_OPTION_") }
-      assert_equal Fluent::OjOptions::OJ_OPTIONS_DEFAULTS, @oj.get_options
+      assert_equal Fluent::OjOptions::DEFAULTS, @oj.get_options
     end
 
     test "valid env var passed with valid value, default is overridden" do
