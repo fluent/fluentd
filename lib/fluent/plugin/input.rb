@@ -31,16 +31,10 @@ module Fluent
 
       def initialize
         super
-        @emit_records_metrics = metrics_create(namespace: "Fluentd", subsystem: "input", name: "emit_records", help_text: "Number of count emit records")
-        @emit_size_metrics =  metrics_create(namespace: "Fluentd", subsystem: "input", name: "emit_size", help_text: "Total size of emit events")
+        @emit_records_metrics = nil
+        @emit_size_metrics = nil
         @counter_mutex = Mutex.new
         @enable_size_metrics = false
-      end
-
-      def configure(conf)
-        super
-
-        @enable_size_metrics = !!system_config.enable_size_metrics
       end
 
       def emit_records
@@ -49,6 +43,14 @@ module Fluent
 
       def emit_size
         @emit_size_metrics.get
+      end
+
+      def configure(conf)
+        super
+
+        @emit_records_metrics = metrics_create(namespace: "Fluentd", subsystem: "input", name: "emit_records", help_text: "Number of count emit records")
+        @emit_size_metrics = metrics_create(namespace: "Fluentd", subsystem: "input", name: "emit_size", help_text: "Total size of emit events")
+        @enable_size_metrics = !!system_config.enable_size_metrics
       end
 
       def statistics

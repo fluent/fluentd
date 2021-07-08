@@ -204,14 +204,14 @@ module Fluent
         @primary_instance = nil
 
         # TODO: well organized counters
-        @num_errors_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "num_errors", help_text: "Number of count num errors")
-        @emit_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_records", help_text: "Number of count emits")
-        @emit_records_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_records", help_text: "Number of emit records")
-        @emit_size_metrics =  metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_size", help_text: "Total size of emit events")
-        @write_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "write_count", help_text: "Number of writing events")
-        @rollback_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "rollback_count", help_text: "Number of rollbacking operations")
-        @flush_time_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "flush_time_count", help_text: "Count of flush time")
-        @slow_flush_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "slow_flush_count", help_text: "Count of slow flush occurred time(s)")
+        @num_errors_metrics = nil
+        @emit_count_metrics = nil
+        @emit_records_metrics = nil
+        @emit_size_metrics = nil
+        @write_count_metrics = nil
+        @rollback_count_metrics = nil
+        @flush_time_count_metrics = nil
+        @slow_flush_count_metrics = nil
         @enable_size_metrics = false
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
@@ -270,6 +270,15 @@ module Fluent
         has_flush_interval = conf.has_key?('flush_interval')
 
         super
+
+        @num_errors_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "num_errors", help_text: "Number of count num errors")
+        @emit_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_records", help_text: "Number of count emits")
+        @emit_records_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_records", help_text: "Number of emit records")
+        @emit_size_metrics =  metrics_create(namespace: "Fluentd", subsystem: "output", name: "emit_size", help_text: "Total size of emit events")
+        @write_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "write_count", help_text: "Number of writing events")
+        @rollback_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "rollback_count", help_text: "Number of rollbacking operations")
+        @flush_time_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "flush_time_count", help_text: "Count of flush time")
+        @slow_flush_count_metrics = metrics_create(namespace: "Fluentd", subsystem: "output", name: "slow_flush_count", help_text: "Count of slow flush occurred time(s)")
 
         if has_buffer_section
           unless implement?(:buffered) || implement?(:delayed_commit)
