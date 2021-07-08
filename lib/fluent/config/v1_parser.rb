@@ -37,6 +37,7 @@ module Fluent
         super(strscan, eval_context)
         @include_basepath = include_basepath
         @fname = fname
+        @logger = defined?($log) ? $log : nil
       end
 
       def parse!
@@ -99,7 +100,7 @@ module Fluent
 
           elsif root_element && skip(/(\@include|include)#{SPACING}/)
             if !prev_match.start_with?('@')
-              $log.warn "'include' is deprecated. Use '@include' instead"
+              @logger.warn "'include' is deprecated. Use '@include' instead" if @logger
             end
             parse_include(attrs, elems)
 
@@ -123,7 +124,7 @@ module Fluent
                     parse_error! "'@' is the system reserved prefix. Don't use '@' prefix parameter in the configuration: #{k}"
                   else
                     # TODO: This is for backward compatibility. It will throw an error in the future.
-                    $log.warn "'@' is the system reserved prefix. It works in the nested configuration for now but it will be rejected: #{k}"
+                    @logger.warn "'@' is the system reserved prefix. It works in the nested configuration for now but it will be rejected: #{k}" if @logger
                   end
                 end
 

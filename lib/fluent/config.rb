@@ -62,7 +62,7 @@ module Fluent
         Parser.parse(str, fname, basepath)
       when :ruby
         require 'fluent/config/dsl'
-        $log.warn("Ruby DSL configuration format is deprecated. Please use original configuration format. https://docs.fluentd.org/configuration/config-file")
+        $log.warn("Ruby DSL configuration format is deprecated. Please use original configuration format. https://docs.fluentd.org/configuration/config-file") if $log
         Config::DSL::Parser.parse(str, File.join(basepath, fname))
       else
         raise "[BUG] unknown configuration parser specification:'#{parser}'"
