@@ -176,5 +176,22 @@ class MultiOutputTest < Test::Unit::TestCase
 
       assert_equal 2, @i.events.size
     end
+
+    test 'can use metrics plugins and fallback methods' do
+      conf = config_element('ROOT', '', { '@type' => 'dummy_test_multi_output' },
+        [
+          config_element('store', '', { 'type' => 'dummy_test_multi_output_1' }),
+          config_element('store', '', { 'type' => 'dummy_test_multi_output_2' }),
+          config_element('store', '', { 'type' => 'dummy_test_multi_output_3' }),
+          config_element('store', '', { 'type' => 'dummy_test_multi_output_4' }),
+        ]
+      )
+      @i.configure(conf)
+
+      assert_equal 0, @i.num_errors
+      assert_equal 0, @i.emit_count
+      assert_equal 0, @i.emit_size
+      assert_equal 0, @i.emit_records
+    end
   end
 end

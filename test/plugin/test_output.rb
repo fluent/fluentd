@@ -223,6 +223,17 @@ class OutputTest < Test::Unit::TestCase
       assert @i.terminated?
     end
 
+    test 'can use metrics plugins and fallback methods' do
+      @i.configure(config_element())
+
+      assert_equal 0, @i.num_errors
+      assert_equal 0, @i.emit_count
+      assert_equal 0, @i.emit_size
+      assert_equal 0, @i.emit_records
+      assert_equal 0, @i.write_count
+      assert_equal 0, @i.rollback_count
+    end
+
     data(:new_api => :chunk,
          :old_api => :metadata)
     test '#extract_placeholders does nothing if chunk key is not specified' do |api|

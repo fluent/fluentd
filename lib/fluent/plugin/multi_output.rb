@@ -56,6 +56,22 @@ module Fluent
         @enable_size_metrics = false
       end
 
+      def num_errors
+        @num_errors_metrics.get
+      end
+
+      def emit_count
+        @emit_count_metrics.get
+      end
+
+      def emit_size
+        @emit_size_metrics.get
+      end
+
+      def emit_records
+        @emit_records_metrics.get
+      end
+
       def statistics
         stats = {
           'num_errors' => @num_errors_metrics.get,

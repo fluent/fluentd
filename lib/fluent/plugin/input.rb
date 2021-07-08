@@ -43,6 +43,14 @@ module Fluent
         @enable_size_metrics = !!system_config.enable_size_metrics
       end
 
+      def emit_records
+        @emit_records_metrics.get
+      end
+
+      def emit_size
+        @emit_size_metrics.get
+      end
+
       def statistics
         stats = {
           'emit_records' => @emit_records_metrics.get,

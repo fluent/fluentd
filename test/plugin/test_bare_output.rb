@@ -95,6 +95,15 @@ class BareOutputTest < Test::Unit::TestCase
     end
   end
 
+  test 'can use metrics plugins and fallback methods' do
+    @p.configure(config_element('ROOT', '', {'@log_level' => 'debug'}))
+
+    assert_equal 0, @p.num_errors
+    assert_equal 0, @p.emit_count
+    assert_equal 0, @p.emit_size
+    assert_equal 0, @p.emit_records
+  end
+
   test 'can get input event stream to write' do
     @p.configure(config_element('ROOT'))
     @p.start

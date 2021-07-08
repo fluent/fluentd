@@ -85,6 +85,13 @@ class InputTest < Test::Unit::TestCase
     end
   end
 
+  test 'can use metrics plugins and fallback methods' do
+    @p.configure(config_element('ROOT', '', {'@log_level' => 'debug'}))
+
+    assert_equal 0, @p.emit_size
+    assert_equal 0, @p.emit_records
+  end
+
   test 'are not available with multi workers configuration in default' do
     assert_false @p.multi_workers_ready?
   end
