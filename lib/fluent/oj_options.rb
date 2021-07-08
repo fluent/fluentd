@@ -1,4 +1,4 @@
-require 'fluent/config'
+require 'fluent/config/types'
 
 module Fluent
   class OjOptions
