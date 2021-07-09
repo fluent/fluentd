@@ -28,8 +28,11 @@ module Fluent
     module Metrics
       include Fluent::SystemConfig::Mixin
 
+      attr_reader :_metrics # For tests.
+
       def initialize
         super
+        @_metrics_started = false
         @_metrics = {} # usage => metrics_state
       end
 
@@ -68,7 +71,52 @@ module Fluent
         metrics
       end
 
+      def metrics_operate(method_name, &block)
+        @_metrics.each_pair do |key, m|
+          begin
+            block.call(s) if block_given?
+            m.__send__(method_name)
+          rescue => e
+            log.error "unexpected error while #{method_name}", key: key, metrics: m, error: e
+          end
+        end
+      end
+
+      def start
+        super
+
+        metrics_operate(:start)
+        @_metrics_started = true
+      end
+
+      def stop
+        super
+        # timer stops automatically in super
+        metrics_operate(:stop)
+      end
+
+      def before_shutdown
+        metrics_operate(:before_shutdown)
+        super
+      end
+
+      def shutdown
+        metrics_operate(:shutdown)
+        super
+      end
+
+      def after_shutdown
+        metrics_operate(:after_shutdown)
+        super
+      end
+
+      def close
+        metrics_operate(:close)
+        super
+      end
+
       def terminate
+        metrics_operate(:terminate)
         @_metrics = {}
         super
       end
