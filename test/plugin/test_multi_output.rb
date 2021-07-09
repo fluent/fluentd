@@ -146,8 +146,11 @@ class MultiOutputTest < Test::Unit::TestCase
       @i.configure(conf)
       assert_equal 4, @i.outputs.size
 
+      log_size_for_multi_output_itself = 4
+      log_size_for_metrics_plugin_helper = 4
+      expected_warn_log_size = log_size_for_multi_output_itself + log_size_for_metrics_plugin_helper
       logs = @i.log.out.logs
-      assert{ logs.select{|log| log.include?('[warn]') && log.include?("'type' is deprecated parameter name. use '@type' instead.") }.size == 4 }
+      assert{ logs.select{|log| log.include?('[warn]') && log.include?("'type' is deprecated parameter name. use '@type' instead.") }.size == expected_warn_log_size }
     end
 
     test '#emit_events calls #process always' do
