@@ -52,8 +52,8 @@ module Fluent
       def configure(conf)
         super
 
-        @emit_records_metrics = metrics_create(namespace: "Fluentd", subsystem: "filter", name: "emit_records", help_text: "Number of count emit records")
-        @emit_size_metrics = metrics_create(namespace: "Fluentd", subsystem: "filter", name: "emit_size", help_text: "Total size of emit events")
+        @emit_records_metrics = metrics_create(namespace: "fluentd", subsystem: "filter", name: "emit_records", help_text: "Number of count emit records")
+        @emit_size_metrics = metrics_create(namespace: "fluentd", subsystem: "filter", name: "emit_size", help_text: "Total size of emit events")
         @enable_size_metrics = !!system_config.enable_size_metrics
       end
 
