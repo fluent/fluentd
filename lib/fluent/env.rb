@@ -15,13 +15,14 @@
 #
 
 require 'serverengine/utils'
+require 'fluent/oj_options'
 
 module Fluent
   DEFAULT_CONFIG_PATH = ENV['FLUENT_CONF'] || '/etc/fluent/fluent.conf'
   DEFAULT_PLUGIN_DIR = ENV['FLUENT_PLUGIN'] || '/etc/fluent/plugin'
   DEFAULT_SOCKET_PATH = ENV['FLUENT_SOCKET'] || '/var/run/fluent/fluent.sock'
   DEFAULT_BACKUP_DIR = ENV['FLUENT_BACKUP_DIR'] || '/tmp/fluent'
-  DEFAULT_OJ_OPTIONS = {bigdecimal_load: :float, mode: :compat, use_to_json: true}
+  DEFAULT_OJ_OPTIONS = Fluent::OjOptions.load_env
   DEFAULT_DIR_PERMISSION = 0755
   DEFAULT_FILE_PERMISSION = 0644
 
