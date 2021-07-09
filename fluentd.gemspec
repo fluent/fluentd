@@ -23,7 +23,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("yajl-ruby", ["~> 1.0"])
   gem.add_runtime_dependency("cool.io", [">= 1.4.5", "< 2.0.0"])
   gem.add_runtime_dependency("serverengine", [">= 2.2.2", "< 3.0.0"])
-  gem.add_runtime_dependency("http_parser.rb", [">= 0.5.1", "< 0.7.0"])
+  gem.add_runtime_dependency("http_parser.rb", [">= 0.5.1", "< 0.8.0"])
   gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
   gem.add_runtime_dependency("tzinfo", [">= 1.0", "< 3.0"])
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
