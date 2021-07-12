@@ -456,6 +456,91 @@ class TailInputTest < Test::Unit::TestCase
           assert_equal([], d.events)
         end
       end
+
+      sub_test_case "EOF with reads_bytes_per_second" do
+        def test_longer_than_rotate_wait
+          limit_bytes = 8192
+          num_lines = 1024 * 3
+          msg = "08bytes"
+
+          File.open("#{TMP_DIR}/tail.txt", "wb") do |f|
+            f.write("#{msg}\n" * num_lines)
+          end
+
+          config = CONFIG_READ_FROM_HEAD +
+                   SINGLE_LINE_CONFIG +
+                   config_element("", "", {
+                                    "read_bytes_limit_per_second" => limit_bytes,
+                                    "rotate_wait" => 0.1,
+                                    "refresh_interval" => 0.5,
+                                  })
+
+          rotated = false
+          d = create_driver(config)
+          d.run(timeout: 10) do
+            while d.events.size < num_lines do
+              if d.events.size > 0 && !rotated
+                cleanup_file("#{TMP_DIR}/tail.txt")
+                FileUtils.touch("#{TMP_DIR}/tail.txt")
+                rotated = true
+              end
+              sleep 0.3
+            end
+          end
+
+          assert_equal(num_lines,
+                       d.events.count do |event|
+                         event[2]["message"] == msg
+                       end)
+        end
+
+        def test_shorter_than_rotate_wait
+          limit_bytes = 8192
+          num_lines = 1024 * 2
+          msg = "08bytes"
+
+          File.open("#{TMP_DIR}/tail.txt", "wb") do |f|
+            f.write("#{msg}\n" * num_lines)
+          end
+
+          config = CONFIG_READ_FROM_HEAD +
+                   SINGLE_LINE_CONFIG +
+                   config_element("", "", {
+                                    "read_bytes_limit_per_second" => limit_bytes,
+                                    "rotate_wait" => 2,
+                                    "refresh_interval" => 0.5,
+                                  })
+
+          start_time = Fluent::Clock.now
+          rotated = false
+          detached = false
+          d = create_driver(config)
+          mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
+            mock.proxy(tw).detach(anything) do |v|
+              detached = true
+              v
+            end
+            tw
+          end.twice
+
+          d.run(timeout: 10) do
+            until detached do
+              if d.events.size > 0 && !rotated
+                cleanup_file("#{TMP_DIR}/tail.txt")
+                FileUtils.touch("#{TMP_DIR}/tail.txt")
+                rotated = true
+              end
+              sleep 0.3
+            end
+          end
+
+          assert_true(Fluent::Clock.now - start_time > 2)
+          assert_equal(num_lines,
+                       d.events.count do |event|
+                         event[2]["message"] == msg
+                       end)
+        end
+      end
     end
 
     data(flat: CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG,
