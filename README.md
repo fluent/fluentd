@@ -25,9 +25,9 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
 
 Use Case | Description | Diagram
 -------- | ------------|:---------:
-Centralizing Apache/Nginx Server Logs | Fluentd can be used to tail access/error logs and transport them reliably to remote systems. | <img src="https://www.fluentd.org/assets/img/recipes/elasticsearch-s3-fluentd.png" height="150"/>
+Centralizing Apache/Nginx Server Logs | Fluentd can be used to tail access/error logs and transport them reliably to remote systems. | <img src="https://www.fluentd.org/images/recipes/elasticsearch-s3-fluentd.png" height="150"/>
 Syslog Alerting | Fluentd can "grep" for events and send out alerts. | <img src="https://www.fluentd.org/images/syslog-fluentd-alert.png" height="100"/>
-Mobile/Web Application Logging | Fluentd can function as middleware to enable asynchronous, scalable logging for user action events. | <img src="https://www.fluentd.org/assets/img/datasources/asynchronous_logging.png" height="150"/>
+Mobile/Web Application Logging | Fluentd can function as middleware to enable asynchronous, scalable logging for user action events. | <img src="https://www.fluentd.org/images/datasources/asynchronous_logging.png" height="150"/>
 
 ## Quick Start
 
