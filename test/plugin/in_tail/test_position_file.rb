@@ -48,7 +48,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
   sub_test_case '#try_compact' do
     test 'compact invalid and convert 32 bit inode value' do
       write_data(@file, TEST_CONTENT)
-      Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log}).try_compact
+      Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log}).try_compact
 
       @file.seek(0)
       lines = @file.readlines
@@ -62,7 +62,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
         valid_path\t0000000000000002\t0000000000000001
         valid_path\t0000000000000003\t0000000000000004
       EOF
-      Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log}).try_compact
+      Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log}).try_compact
 
       @file.seek(0)
       lines = @file.readlines
@@ -71,7 +71,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
 
     test 'does not change when the file is changed' do
       write_data(@file, TEST_CONTENT)
-      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log})
+      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log})
 
       mock.proxy(pf).fetch_compacted_entries do |r|
         @file.write("unwatched\t#{UNWATCHED_STR}\t0000000000000000\n")
@@ -86,7 +86,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
     end
 
     test 'update seek position of remained position entry' do
-      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log})
+      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log})
       target_info1 = Fluent::Plugin::TailInput::TargetInfo.new('path1', -1)
       target_info2 = Fluent::Plugin::TailInput::TargetInfo.new('path2', -1)
       target_info3 = Fluent::Plugin::TailInput::TargetInfo.new('path3', -1)
@@ -152,7 +152,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
         valid_path\t0000000000000002\t0000000000000001
         valid_path\t0000000000000003\t0000000000000004
       EOF
-      Fluent::Plugin::TailInput::PositionFile.new(@file, false, {}, **{logger: $log}).load
+      Fluent::Plugin::TailInput::PositionFile.new(@file, false, **{logger: $log}).load
 
       @file.seek(0)
       lines = @file.readlines
