@@ -151,9 +151,9 @@ module Fluent::Plugin
             end
 
             if @follow_inodes
-              entries[ino] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+              entries[ino] = Entry.new(path, pos, ino, file_pos + path.bytesize + 1)
             else
-              entries[path] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+              entries[path] = Entry.new(path, pos, ino, file_pos + path.bytesize + 1)
             end
             file_pos += line.size
           end
