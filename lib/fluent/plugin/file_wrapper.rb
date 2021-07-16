@@ -155,7 +155,29 @@ module Fluent
       by_handle_file_information.unpack("I11Q1")[11] # fileindex
     end
 
+    # DeletePending is a Windows-specific file state that roughly means
+    # "this file is queued for deletion, so close any open handlers"
+    #
+    # This flag can be retrieved via GetFileInformationByHandleEx().
+    #
+    # https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex
+    #
+    def delete_pending
+      file_standard_info = 0x01
+      bufsize = 1024
+      buf = '\0' * bufsize
+
+      unless GetFileInformationByHandleEx.call(@file_handle, file_standard_info, buf, bufsize)
+        return false
+      end
+
+      return buf.unpack("QQICC")[3] != 0
+    end
+
+    private :delete_pending
+
     def stat
+      raise Errno::ENOENT if delete_pending
       s = File.stat(@path)
       s.instance_variable_set :@ino, self.ino
       def s.ino; @ino; end
