@@ -96,6 +96,17 @@ class FileWrapperTest < Test::Unit::TestCase
       end
     end
 
+    test 'Errno::ENOENT raised on DeletePending' do
+      path = "#{TMP_DIR}/deletepending.txt"
+      file = Fluent::WindowsFile.new(path, mode='w')
+      File.delete(path)
+      assert_raise(Errno::ENOENT) do
+        file.stat
+      ensure
+        file.close if file
+      end
+    end
+
     test 'ERROR_SHARING_VIOLATION raised' do
       begin
         path = "#{TMP_DIR}/test_windows_file.txt"
