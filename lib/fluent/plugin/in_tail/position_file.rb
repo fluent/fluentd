@@ -22,19 +22,18 @@ module Fluent::Plugin
       UNWATCHED_POSITION = 0xffffffffffffffff
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
 
-      def self.load(file, follow_inodes, existing_paths, logger:)
-        pf = new(file, follow_inodes, existing_paths, logger: logger)
-        pf.load
+      def self.load(file, follow_inodes, existing_targets, logger:)
+        pf = new(file, follow_inodes, logger: logger)
+        pf.load(existing_targets)
         pf
       end
 
-      def initialize(file, follow_inodes, existing_paths, logger: nil)
+      def initialize(file, follow_inodes, logger: nil)
         @file = file
         @logger = logger
         @file_mutex = Mutex.new
         @map = {}
         @follow_inodes = follow_inodes
-        @existing_paths = existing_paths
       end
 
       def [](target_info)
@@ -60,8 +59,8 @@ module Fluent::Plugin
         end
       end
 
-      def load
-        compact
+      def load(existing_targets = nil)
+        compact(existing_targets)
 
         map = {}
         @file_mutex.synchronize do
@@ -118,9 +117,9 @@ module Fluent::Plugin
 
       private
 
-      def compact
+      def compact(existing_targets = nil)
         @file_mutex.synchronize do
-          entries = fetch_compacted_entries.values.map(&:to_entry_fmt)
+          entries = fetch_compacted_entries(existing_targets).values.map(&:to_entry_fmt)
 
           @file.pos = 0
           @file.truncate(0)
@@ -128,7 +127,7 @@ module Fluent::Plugin
         end
       end
 
-      def fetch_compacted_entries
+      def fetch_compacted_entries(existing_targets = nil)
         entries = {}
 
         @file.pos = 0
@@ -151,23 +150,26 @@ module Fluent::Plugin
             end
 
             if @follow_inodes
-              entries[ino] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+              entries[ino] = Entry.new(path, pos, ino, file_pos + path.bytesize + 1)
             else
-              entries[path] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+              entries[path] = Entry.new(path, pos, ino, file_pos + path.bytesize + 1)
             end
             file_pos += line.size
           end
         end
 
-        entries = remove_deleted_files_entries(entries, @existing_paths) if @follow_inodes
+        entries = remove_deleted_files_entries(entries, existing_targets) if @follow_inodes
         entries
       end
 
-      def remove_deleted_files_entries(existent_entries, existing_paths)
-        filtered_entries = existent_entries.select {|file_entry|
-          existing_paths.key?(file_entry)
-        }
-        filtered_entries
+      def remove_deleted_files_entries(existent_entries, existing_targets)
+        if existing_targets
+          existent_entries.select { |path_or_ino|
+            existing_targets.key?(path_or_ino)
+          }
+        else
+          existent_entries
+        end
       end
     end
 
