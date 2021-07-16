@@ -37,6 +37,186 @@ class MonitorAgentInputTest < Test::Unit::TestCase
     assert_true d.instance.include_config
   end
 
+  sub_test_case "collect in_monitor_agent plugin statistics" do
+    # Input Test Driver does not register metric callbacks.
+    # We should stub them here.
+    class TestEventMetricRouter < Fluent::Test::Driver::TestEventRouter
+      def initialize(driver)
+        super
+
+        raise ArgumentError, "plugin does not respond metric_callback method" unless @driver.instance.respond_to?(:metric_callback)
+      end
+
+      def emit(tag, time, record)
+        super
+        @driver.instance.metric_callback(OneEventStream.new(time, record))
+      end
+
+      def emit_array(tag, array)
+        super
+        @driver.instance.metric_callback(ArrayEventStream.new(array))
+      end
+
+      def emit_stream(tag, es)
+        super
+        @driver.instance.metric_callback(es)
+      end
+    end
+
+    class MetricInputDriver < Fluent::Test::Driver::Input
+      def configure(conf, syntax: :v1)
+        if conf.is_a?(Fluent::Config::Element)
+          @config = conf
+        else
+          @config = Fluent::Config.parse(conf, "(test)", "(test_dir)", syntax: syntax)
+        end
+
+        if @instance.respond_to?(:router=)
+          @event_streams = []
+          @error_events = []
+
+          driver = self
+          mojule =  Module.new do
+            define_method(:event_emitter_router) do |label_name|
+              TestEventMetricRouter.new(driver)
+            end
+          end
+          @instance.singleton_class.prepend mojule
+        end
+
+        @instance.configure(@config)
+        self
+      end
+    end
+
+    setup do
+      # check @type and type in one configuration
+      conf = <<-EOC
+<source>
+  @type test_in_gen
+  @id test_in_gen
+  num 10
+</source>
+<filter>
+  @type test_filter
+  @id test_filter
+</filter>
+<match **>
+  @type relabel
+  @id test_relabel
+  @label @test
+</match>
+<label @test>
+  <match **>
+    @type test_out
+    @id test_out
+  </match>
+</label>
+<label @copy>
+  <match **>
+    @type copy
+    <store>
+      @type test_out
+      @id copy_out_1
+    </store>
+    <store>
+      @type test_out
+      @id copy_out_2
+    </store>
+  </match>
+</label>
+<label @ERROR>
+  <match>
+    @type null
+    @id null
+  </match>
+</label>
+EOC
+      @ra = Fluent::RootAgent.new(log: $log)
+      stub(Fluent::Engine).root_agent { @ra }
+      @ra = configure_ra(@ra, conf)
+    end
+
+    data(:with_config_yes => true,
+         :with_config_no => false)
+    def test_enable_input_metrics(with_config)
+      monitor_agent_conf = <<-CONF
+        tag test.monitor
+        emit_interval 1
+CONF
+      d = MetricInputDriver.new(Fluent::Plugin::MonitorAgentInput).configure(monitor_agent_conf)
+      d.run(expect_emits: 1, timeout: 3)
+
+      test_label = @ra.labels['@test']
+      error_label = @ra.labels['@ERROR']
+      input_info = {
+        "output_plugin"  => false,
+        "plugin_category"=> "input",
+        "plugin_id"      => "test_in_gen",
+        "retry_count"    => nil,
+        "type"           => "test_in_gen",
+        "emit_records"   => 0, # This field is not updated due to not to be assigned metric callback.
+        "emit_size"      => 0, # Ditto.
+      }
+      input_info.merge!("config" => {"@id" => "test_in_gen", "@type" => "test_in_gen", "num" => "10"}) if with_config
+      filter_info = {
+        "output_plugin"   => false,
+        "plugin_category" => "filter",
+        "plugin_id"       => "test_filter",
+        "retry_count"     => nil,
+        "type"            => "test_filter"
+      }
+      filter_info.merge!("config" => {"@id" => "test_filter", "@type" => "test_filter"}) if with_config
+      output_info = {
+        "output_plugin"   => true,
+        "plugin_category" => "output",
+        "plugin_id"       => "test_out",
+        "retry_count"     => 0,
+        "type"            => "test_out",
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "emit_size"       => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
+      }
+      output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
+      error_label_info = {
+        "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
+        "buffer_total_queued_size" => 0,
+        "output_plugin"   => true,
+        "plugin_category" => "output",
+        "plugin_id"       => "null",
+        "retry_count"     => 0,
+        "type"            => "null",
+        "buffer_available_buffer_space_ratios" => Float,
+        "buffer_queue_byte_size" => Integer,
+        "buffer_stage_byte_size" => Integer,
+        "buffer_stage_length" => Integer,
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "emit_size"       => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
+      }
+      error_label_info.merge!("config" => {"@id"=>"null", "@type" => "null"}) if with_config
+      opts = {with_config: with_config}
+      assert_equal(input_info, d.instance.get_monitor_info(@ra.inputs.first, opts))
+      assert_fuzzy_equal(filter_info, d.instance.get_monitor_info(@ra.filters.first, opts))
+      assert_fuzzy_equal(output_info, d.instance.get_monitor_info(test_label.outputs.first, opts))
+      assert_fuzzy_equal(error_label_info, d.instance.get_monitor_info(error_label.outputs.first, opts))
+      monitor_agent_emit_info = {
+        "emit_records" => Integer,
+        "emit_size" => Integer,
+      }
+      assert_fuzzy_equal(monitor_agent_emit_info, d.instance.statistics["input"])
+    end
+  end
+
   sub_test_case "collect plugin information" do
     setup do
       # check @type and type in one configuration
@@ -106,7 +286,9 @@ EOC
         "plugin_category"=> "input",
         "plugin_id"      => "test_in",
         "retry_count"    => nil,
-        "type"           => "test_in"
+        "type"           => "test_in",
+        "emit_records"   => 0,
+        "emit_size"      => 0,
       }
       input_info.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       filter_info = {
@@ -125,6 +307,7 @@ EOC
         "type"            => "test_out",
         "emit_count"      => Integer,
         "emit_records"    => Integer,
+        "emit_size"       => Integer,
         "write_count"     => Integer,
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
@@ -146,6 +329,7 @@ EOC
         "buffer_stage_length" => Integer,
         "emit_count"      => Integer,
         "emit_records"    => Integer,
+        "emit_size"       => Integer,
         "write_count"     => Integer,
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
@@ -220,6 +404,7 @@ EOC
         "retry_count"     => 0,
         "emit_count"      => Integer,
         "emit_records"    => Integer,
+        "emit_size"       => Integer,
         "write_count"     => Integer,
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
@@ -233,6 +418,7 @@ EOC
         "retry_count"     => 0,
         "emit_count"      => Integer,
         "emit_records"    => Integer,
+        "emit_size"       => Integer,
         "write_count"     => Integer,
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
@@ -322,7 +508,7 @@ EOC
 ")
       d.instance.start
       expected_test_in_response = "\
-plugin_id:test_in\tplugin_category:input\ttype:test_in\toutput_plugin:false\tretry_count:"
+plugin_id:test_in\tplugin_category:input\ttype:test_in\toutput_plugin:false\tretry_count:\temit_records:0\temit_size:0"
       expected_test_filter_response = "\
 plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:false\tretry_count:"
 
@@ -350,7 +536,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_category" => "input",
         "plugin_id"       => "test_in",
         "retry_count"     => nil,
-        "type"            => "test_in"
+        "type"            => "test_in",
+        "emit_records"    => 0,
+        "emit_size"       => 0,
       }
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       expected_null_response = {
@@ -368,6 +556,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "buffer_stage_length" => Integer,
         "emit_count"      => Integer,
         "emit_records"    => Integer,
+        "emit_size"       => Integer,
         "write_count"     => Integer,
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
@@ -412,7 +601,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_category" => "input",
         "plugin_id"       => "test_in",
         "retry_count"     => nil,
-        "type"            => "test_in"
+        "type"            => "test_in",
+        "emit_records"   => 0,
+        "emit_size"      => 0,
       }
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       expected_null_response = {
@@ -430,6 +621,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "buffer_stage_length" => Integer,
         "emit_count"      => Integer,
         "emit_records"    => Integer,
+        "emit_size"       => Integer,
         "write_count"     => Integer,
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
@@ -458,7 +650,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_id"       => "test_in",
         "retry_count"     => nil,
         "type"            => "test_in",
-        "instance_variables" => {"id" => "test_in"}
+        "instance_variables" => {"id" => "test_in"},
+        "emit_records"   => 0,
+        "emit_size"      => 0,
       }
       expected_null_response = {
         "buffer_queue_length" => 0,
@@ -476,6 +670,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "buffer_stage_length" => Integer,
         "emit_count"      => Integer,
         "emit_records"    => Integer,
+        "emit_size"       => Integer,
         "write_count"     => Integer,
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
@@ -606,6 +801,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
           "buffer_stage_length" => Integer,
           "emit_count" => Integer,
           "emit_records" => Integer,
+          "emit_size" => Integer,
           "write_count" => Integer,
           "rollback_count" => Integer,
           'slow_flush_count' => Integer,

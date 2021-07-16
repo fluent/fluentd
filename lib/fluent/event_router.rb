@@ -47,6 +47,8 @@ module Fluent
       @match_cache = MatchCache.new
       @default_collector = default_collector
       @emit_error_handler = emit_error_handler
+      @metric_callbacks = {}
+      @caller_plugin_id = nil
     end
 
     attr_accessor :default_collector
@@ -83,6 +85,22 @@ module Fluent
       @match_rules << Rule.new(pattern, collector)
     end
 
+    def add_metric_callbacks(caller_plugin_id, callback)
+      @metric_callbacks[caller_plugin_id] = callback
+    end
+
+    def caller_plugin_id=(caller_plugin_id)
+      @caller_plugin_id = caller_plugin_id
+    end
+
+    def find_callback
+      if @caller_plugin_id
+        @metric_callbacks[@caller_plugin_id]
+      else
+        nil
+      end
+    end
+
     def emit(tag, time, record)
       unless record.nil?
         emit_stream(tag, OneEventStream.new(time, record))
@@ -95,6 +113,9 @@ module Fluent
 
     def emit_stream(tag, es)
       match(tag).emit_events(tag, es)
+      if callback = find_callback
+        callback.call(es)
+      end
     rescue => e
       @emit_error_handler.handle_emits_error(tag, es, e)
     end

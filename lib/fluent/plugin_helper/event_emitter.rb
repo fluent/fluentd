@@ -29,6 +29,9 @@ module Fluent
         if @_event_emitter_lazy_init
           @router = @primary_instance.router
         end
+        if @router.respond_to?(:caller_plugin_id=)
+          @router.caller_plugin_id = self.plugin_id
+        end
         @router
       end
 
