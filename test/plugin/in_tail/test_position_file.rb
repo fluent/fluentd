@@ -115,6 +115,24 @@ class IntailPositionFileTest < Test::Unit::TestCase
       assert_equal "path3\t#{UNWATCHED_STR}\t0000000000000000\n", lines[1]
       assert_equal 2, lines.size
     end
+
+    test 'should ignore initial existing files on follow_inode' do
+      write_data(@file, TEST_CONTENT)
+      pos_file = Fluent::Plugin::TailInput::PositionFile.load(@file, true, {}, **{logger: $log})
+      @file.seek(0)
+      assert_equal([], @file.readlines)
+
+      @file.seek(0)
+      write_data(@file, TEST_CONTENT)
+      pos_file.try_compact
+
+      @file.seek(0)
+      assert_equal([
+                     "valid_path\t0000000000000002\t0000000000000001\n",
+                     "inode23bit\t0000000000000000\t0000000000000000\n",
+                   ],
+                   @file.readlines)
+    end
   end
 
   sub_test_case '#load' do
