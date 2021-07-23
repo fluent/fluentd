@@ -138,6 +138,10 @@ op.on('--enable-input-metrics', "Enable input plugin metrics on fluentd", TrueCl
   opts[:enable_input_metrics] = b
 }
 
+op.on('--enable-size-metrics', "Enable plugin record size metrics on fluentd", TrueClass) {|b|
+  opts[:enable_size_metrics] = b
+}
+
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
     opts[:log_level] = [opts[:log_level] - 1, Fluent::Log::LEVEL_TRACE].max
