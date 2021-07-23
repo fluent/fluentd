@@ -189,6 +189,7 @@ module Fluent
         @rollback_count = 0
         @flush_time_count = 0
         @slow_flush_count = 0
+        @enable_size_metrics = false
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
         if implement?(:synchronous)
@@ -272,6 +273,8 @@ module Fluent
             @buffering = true
           end
         end
+        # Enable to update record size metrics or not
+        @enable_size_metrics = !!system_config.enable_size_metrics
 
         if @as_secondary
           if !@buffering && !@buffering.nil?
@@ -803,7 +806,7 @@ module Fluent
           process(tag, es)
           @counter_mutex.synchronize do
             @emit_records += es.size
-            @emit_size += es.to_msgpack_stream.bytesize
+            @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
           end
         rescue
           @counter_mutex.synchronize{ @num_errors += 1 }
@@ -972,7 +975,7 @@ module Fluent
         end
         @counter_mutex.synchronize do
           @emit_records += records
-          @emit_size += es.to_msgpack_stream.bytesize
+          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
         end
         true
       end
@@ -992,7 +995,7 @@ module Fluent
         end
         @counter_mutex.synchronize do
           @emit_records += records
-          @emit_size += es.to_msgpack_stream.bytesize
+          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
         end
         true
       end
@@ -1020,7 +1023,7 @@ module Fluent
         end
         @counter_mutex.synchronize do
           @emit_records += records
-          @emit_size += es.to_msgpack_stream.bytesize
+          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
         end
         true
       end
