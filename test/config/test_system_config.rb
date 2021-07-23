@@ -29,6 +29,7 @@ module Fluent::Config
         log_event_verbose: nil,
         without_source: nil,
         enable_input_metrics: nil,
+        enable_size_metrics: nil,
         emit_error_log_interval: nil,
         file_permission: nil,
         dir_permission: nil,
@@ -79,6 +80,7 @@ module Fluent::Config
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
       assert_nil(sc.enable_input_metrics)
+      assert_nil(sc.enable_size_metrics)
       assert_nil(sc.enable_msgpack_time_support)
       assert_equal(:text, sc.log.format)
       assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
@@ -96,6 +98,7 @@ module Fluent::Config
       'strict_config_value' => ['strict_config_value', true],
       'enable_msgpack_time_support' => ['enable_msgpack_time_support', true],
       'enable_input_metrics' => ['enable_input_metrics', true],
+      'enable_size_metrics' => ['enable_size_metrics', true],
     )
     test "accepts parameters" do |(k, v)|
       conf = parse_text(<<-EOS)
