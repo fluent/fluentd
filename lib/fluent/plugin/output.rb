@@ -184,10 +184,12 @@ module Fluent
         @num_errors = 0
         @emit_count = 0
         @emit_records = 0
+        @emit_size = 0
         @write_count = 0
         @rollback_count = 0
         @flush_time_count = 0
         @slow_flush_count = 0
+        @enable_size_metrics = false
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
         if implement?(:synchronous)
@@ -271,6 +273,8 @@ module Fluent
             @buffering = true
           end
         end
+        # Enable to update record size metrics or not
+        @enable_size_metrics = !!system_config.enable_size_metrics
 
         if @as_secondary
           if !@buffering && !@buffering.nil?
@@ -800,7 +804,10 @@ module Fluent
         @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           process(tag, es)
-          @counter_mutex.synchronize{ @emit_records += es.size }
+          @counter_mutex.synchronize do
+            @emit_records += es.size
+            @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
+          end
         rescue
           @counter_mutex.synchronize{ @num_errors += 1 }
           raise
@@ -966,7 +973,10 @@ module Fluent
         write_guard do
           @buffer.write(meta_and_data, enqueue: enqueue)
         end
-        @counter_mutex.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize do
+          @emit_records += records
+          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
+        end
         true
       end
 
@@ -983,7 +993,10 @@ module Fluent
         write_guard do
           @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
-        @counter_mutex.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize do
+          @emit_records += records
+          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
+        end
         true
       end
 
@@ -1008,7 +1021,10 @@ module Fluent
         write_guard do
           @buffer.write({meta => data}, format: format_proc, enqueue: enqueue)
         end
-        @counter_mutex.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize do
+          @emit_records += records
+          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
+        end
         true
       end
 
@@ -1491,6 +1507,7 @@ module Fluent
       def statistics
         stats = {
           'emit_records' => @emit_records,
+          'emit_size' => @emit_size,
           # Respect original name
           # https://github.com/fluent/fluentd/blob/45c7b75ba77763eaf87136864d4942c4e0c5bfcd/lib/fluent/plugin/in_monitor_agent.rb#L284
           'retry_count' => @num_errors,
