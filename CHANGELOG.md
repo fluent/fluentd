@@ -1,3 +1,27 @@
+# v1.13.3
+
+## Release v1.13.3 - 2021/07/27
+
+### Bug fix
+
+* in_tail: Care DeletePending state on Windows
+  https://github.com/fluent/fluentd/pull/3457
+  https://github.com/fluent/fluentd/pull/3460
+* in_tail: Fix some pos_file bugs.
+  Avoid deleting pos_file entries unexpectedly when both
+  `pos_file_compaction_interval` and `follow_inode` are enabled.
+  Use `bytesize` instead of `size` for path length.
+  https://github.com/fluent/fluentd/pull/3459
+* in_tail: Fix detecting rotation twice on `follow_inode`.
+  https://github.com/fluent/fluentd/pull/3466
+
+### Misc
+
+* Remove needless spaces in a sample config file
+  https://github.com/fluent/fluentd/pull/3456
+
+### Enhancement
+
 # v1.13.2
 
 ## Release v1.13.2 - 2021/07/12
