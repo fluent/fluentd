@@ -1739,7 +1739,7 @@ class TailInputTest < Test::Unit::TestCase
       d.instance_shutdown
     end
 
-    def test_should_keep_and_update_existing_file_pos_entry_for_deleted_file_when_new_file_with_same_name_created
+    def test_should_remove_deleted_file
       config = config_element("", "", {"format" => "none"})
 
       path = "#{TMP_DIR}/tail.txt"
@@ -1750,30 +1750,11 @@ class TailInputTest < Test::Unit::TestCase
       }
 
       d = create_driver(config)
-      d.run(shutdown: false)
-
-      pos_file = File.open("#{TMP_DIR}/tail.pos", "r")
-      pos_file.pos = 0
-
-      path_pos_ino = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(pos_file.readline)
-      assert_equal(path, path_pos_ino[1])
-      assert_equal(pos, path_pos_ino[2].to_i(16))
-      assert_equal(ino, path_pos_ino[3].to_i(16))
-
-      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
-        f.puts "test1"
-        f.puts "test2"
-      }
-      Timecop.travel(Time.now + 10) do
-        sleep 5
+      d.run do
+        pos_file = File.open("#{TMP_DIR}/tail.pos", "r")
         pos_file.pos = 0
-        tuple = create_target_info("#{TMP_DIR}/tail.txt")
-        path_pos_ino = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(pos_file.readline)
-        assert_equal(tuple.path, path_pos_ino[1])
-        assert_equal(12, path_pos_ino[2].to_i(16))
-        assert_equal(tuple.ino, path_pos_ino[3].to_i(16))
+        assert_equal([], pos_file.readlines)
       end
-      d.instance_shutdown
     end
 
     def test_should_mark_file_unwatched_after_limit_recently_modified_and_rotate_wait

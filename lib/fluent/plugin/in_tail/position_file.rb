@@ -158,7 +158,7 @@ module Fluent::Plugin
           end
         end
 
-        entries = remove_deleted_files_entries(entries, existing_targets) if @follow_inodes
+        entries = remove_deleted_files_entries(entries, existing_targets)
         entries
       end
 
