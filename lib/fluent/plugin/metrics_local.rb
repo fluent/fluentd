@@ -24,7 +24,7 @@ module Fluent
 
       def initialize
         super
-        @store = Hash.new(0)
+        @store = 0
         @monitor = Monitor.new
       end
 
@@ -48,47 +48,47 @@ module Fluent
         true
       end
 
-      def get(key)
+      def get
         @monitor.synchronize do
-          @store[key.to_s]
+          @store
         end
       end
 
-      def inc(key)
+      def inc
         @monitor.synchronize do
-          @store[key.to_s] += 1
+          @store += 1
         end
       end
 
-      def dec_gauge(key)
+      def dec_gauge
         @monitor.synchronize do
-          @store[key.to_s] -= 1
+          @store -= 1
         end
       end
 
-      def add(key, value)
+      def add(value)
         @monitor.synchronize do
-          @store[key.to_s] += value
+          @store += value
         end
       end
 
-      def sub_gauge(key, value)
+      def sub_gauge(value)
         @monitor.synchronize do
-          @store[key.to_s] -= value
+          @store -= value
         end
       end
 
-      def set_counter(key, value)
-        return if @store[key.to_s] > value
+      def set_counter(value)
+        return if @store > value
 
         @monitor.synchronize do
-          @store[key.to_s] = value
+          @store = value
         end
       end
 
-      def set_gauge(key, value)
+      def set_gauge(value)
         @monitor.synchronize do
-          @store[key.to_s] = value
+          @store = value
         end
       end
     end

@@ -67,27 +67,27 @@ module Fluent
         # This API is for cmetrics type.
       end
 
-      def get(key)
+      def get
         raise NotImplementedError, "Implement this method in child class"
       end
 
-      def inc(key)
+      def inc
         raise NotImplementedError, "Implement this method in child class"
       end
 
-      def dec(key)
+      def dec
         raise NotImplementedError, "Implement this method in child class"
       end
 
-      def add(key, value)
+      def add(value)
         raise NotImplementedError, "Implement this method in child class"
       end
 
-      def sub(key, value)
+      def sub(value)
         raise NotImplementedError, "Implement this method in child class"
       end
 
-      def set(key, value)
+      def set(value)
         raise NotImplementedError, "Implement this method in child class"
       end
 
