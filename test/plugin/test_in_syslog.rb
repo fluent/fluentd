@@ -467,4 +467,39 @@ EOS
     assert_equal tests.size, d.events.size
     compare_unmatched_lines_test_result(d.events, tests, {address: address})
   end
+
+  def test_send_keepalive_packet_is_disabled_by_default
+    d = create_driver(ipv4_config + %[
+      <transport tcp>
+      </transport>
+      protocol tcp
+    ])
+    assert_false d.instance.send_keepalive_packet
+  end
+
+  def test_send_keepalive_packet_can_be_enabled
+    addr = "127.0.0.1"
+    d = create_driver(ipv4_config + %[
+      <transport tcp>
+      </transport>
+      send_keepalive_packet true
+    ])
+    assert_true d.instance.send_keepalive_packet
+    mock.proxy(d.instance).server_create_connection(
+      :in_syslog_tcp_server, @port,
+      bind: addr,
+      resolve_name: nil,
+      send_keepalive_packet: true)
+    d.run do
+      TCPSocket.open(addr, @port)
+    end
+  end
+
+  def test_send_keepalive_packet_can_not_be_enabled_for_udp
+    assert_raise(Fluent::ConfigError) do
+      d = create_driver(ipv4_config + %[
+        send_keepalive_packet true
+      ])
+    end
+  end
 end
