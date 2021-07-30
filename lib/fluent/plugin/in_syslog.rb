@@ -184,7 +184,7 @@ module Fluent::Plugin
         tls ? :in_syslog_tls_server : :in_syslog_tcp_server, @port,
         bind: @bind,
         resolve_name: @resolve_hostname,
-        send_keepalive_packet: @send_keepalive_packet,
+        send_keepalive_packet: @send_keepalive_packet
       ) do |conn|
         conn.data do |data|
           buffer = conn.buffer
