@@ -56,8 +56,8 @@ class EventEmitterTest < Test::Unit::TestCase
   end
 
   test 'should have event_emitter_router' do
-    d0 = Dummy.new
-    assert d0.respond_to?(:event_emitter_router)
+    d = Dummy.new
+    assert d.respond_to?(:event_emitter_router)
   end
 
   test 'get router' do
