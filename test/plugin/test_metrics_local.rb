@@ -41,22 +41,22 @@ class LocalMetricsTest < ::Test::Unit::TestCase
       end
 
       test 'all local counter operations work well' do
-        assert_equal 0, @m.get('key')
-        assert_equal 1, @m.inc('key')
+        assert_equal 0, @m.get
+        assert_equal 1, @m.inc
 
-        @m.add('key', 20)
-        assert_equal 21, @m.get('key')
+        @m.add(20)
+        assert_equal 21, @m.get
         assert_raise NotImplementedError do
-          @m.dec('key')
+          @m.dec
         end
 
-        @m.set('key', 100)
-        assert_equal 100, @m.get('key')
+        @m.set(100)
+        assert_equal 100, @m.get
 
-        @m.set('key', 10)
-        assert_equal 100, @m.get('key') # On counter, value should be overwritten bigger than stored one.
+        @m.set(10)
+        assert_equal 100, @m.get # On counter, value should be overwritten bigger than stored one.
         assert_raise NotImplementedError do
-          @m.sub('key', 11)
+          @m.sub(11)
         end
       end
     end
@@ -74,22 +74,22 @@ class LocalMetricsTest < ::Test::Unit::TestCase
       end
 
       test 'all local gauge operations work well' do
-        assert_equal 0, @m.get('key')
-        assert_equal 1, @m.inc('key')
+        assert_equal 0, @m.get
+        assert_equal 1, @m.inc
 
-        @m.add('key', 20)
-        assert_equal 21, @m.get('key')
-        @m.dec('key')
-        assert_equal 20, @m.get('key')
+        @m.add(20)
+        assert_equal 21, @m.get
+        @m.dec
+        assert_equal 20, @m.get
 
-        @m.set('key', 100)
-        assert_equal 100, @m.get('key')
+        @m.set(100)
+        assert_equal 100, @m.get
 
-        @m.sub('key', 11)
-        assert_equal 89, @m.get('key')
+        @m.sub(11)
+        assert_equal 89, @m.get
 
-        @m.set('key', 10)
-        assert_equal 10, @m.get('key') # On gauge, value always should be overwritten.
+        @m.set(10)
+        assert_equal 10, @m.get # On gauge, value always should be overwritten.
       end
     end
   end

@@ -21,22 +21,22 @@ class BasicCounterMetrics < Fluent::Plugin::Metrics
 
   def initialize
     super
-    @data = Hash.new(0)
+    @data = 0
   end
-  def get(key)
-    @data[key.to_s]
+  def get
+    @data
   end
-  def inc(key)
-    @data[key.to_s] +=1
+  def inc
+    @data +=1
   end
-  def add(key, value)
-    @data[key.to_s] += value
+  def add(value)
+    @data += value
   end
-  def set(key, value)
-    @data[key.to_s] = value
+  def set(value)
+    @data = value
   end
   def close
-    @data = {}
+    @data = 0
     super
   end
 end
@@ -48,7 +48,7 @@ class AliasedCounterMetrics < Fluent::Plugin::Metrics
 
   def initialize
     super
-    @data = Hash.new(0)
+    @data = 0
   end
   def configure(conf)
     super
@@ -56,20 +56,20 @@ class AliasedCounterMetrics < Fluent::Plugin::Metrics
       alias_method :set, :set_counter
     end
   end
-  def get(key)
-    @data[key.to_s]
+  def get
+    @data
   end
-  def inc(key)
-    @data[key.to_s] +=1
+  def inc
+    @data +=1
   end
-  def add(key, value)
-    @data[key.to_s] += value
+  def add(value)
+    @data += value
   end
-  def set_counter(key, value)
-    @data[key.to_s] = value
+  def set_counter(value)
+    @data = value
   end
   def close
-    @data = {}
+    @data = 0
     super
   end
 end
@@ -81,28 +81,28 @@ class BasicGaugeMetrics < Fluent::Plugin::Metrics
 
   def initialize
     super
-    @data = Hash.new(0)
+    @data = 0
   end
-  def get(key)
-    @data[key.to_s]
+  def get
+    @data
   end
-  def inc(key)
-    @data[key.to_s] +=1
+  def inc
+    @data +=1
   end
-  def dec(key)
-    @data[key.to_s] -=1
+  def dec
+    @data -=1
   end
-  def add(key, value)
-    @data[key.to_s] += value
+  def add(value)
+    @data += value
   end
-  def sub(key, value)
-    @data[key.to_s] -= value
+  def sub(value)
+    @data -= value
   end
-  def set(key, value)
-    @data[key.to_s] = value
+  def set(value)
+    @data = value
   end
   def close
-    @data = {}
+    @data = 0
     super
   end
 end
@@ -114,7 +114,7 @@ class AliasedGaugeMetrics < Fluent::Plugin::Metrics
 
   def initialize
     super
-    @data = Hash.new(0)
+    @data = 0
   end
   def configure(conf)
     super
@@ -124,26 +124,26 @@ class AliasedGaugeMetrics < Fluent::Plugin::Metrics
       alias_method :sub, :sub_gauge
     end
   end
-  def get(key)
-    @data[key.to_s]
+  def get
+    @data
   end
-  def inc(key)
-    @data[key.to_s] +=1
+  def inc
+    @data +=1
   end
-  def dec_gauge(key)
-    @data[key.to_s] -=1
+  def dec_gauge
+    @data -=1
   end
-  def add(key, value)
-    @data[key.to_s] += value
+  def add(value)
+    @data += value
   end
-  def sub_gauge(key, value)
-    @data[key.to_s] -= value
+  def sub_gauge(value)
+    @data -= value
   end
-  def set_gauge(key, value)
-    @data[key.to_s] = value
+  def set_gauge(value)
+    @data = value
   end
   def close
-    @data = {}
+    @data = 0
     super
   end
 end
@@ -166,22 +166,22 @@ class StorageTest < Test::Unit::TestCase
 
     test 'all bare operations are not defined yet' do
       assert_raise NotImplementedError do
-        @m.get('key')
+        @m.get
       end
       assert_raise NotImplementedError do
-        @m.inc('key')
+        @m.inc
       end
       assert_raise NotImplementedError do
-        @m.dec('key')
+        @m.dec
       end
       assert_raise NotImplementedError do
-        @m.add('key', 10)
+        @m.add(10)
       end
       assert_raise NotImplementedError do
-        @m.sub('key', 11)
+        @m.sub(11)
       end
       assert_raise NotImplementedError do
-        @m.set('key', 123)
+        @m.set(123)
       end
     end
   end
@@ -196,19 +196,19 @@ class StorageTest < Test::Unit::TestCase
       assert_true @m.has_methods_for_counter
       assert_false @m.has_methods_for_gauge
 
-      assert_equal 0, @m.get('key')
-      assert_equal 1, @m.inc('key')
+      assert_equal 0, @m.get
+      assert_equal 1, @m.inc
 
-      @m.add('key', 20)
-      assert_equal 21, @m.get('key')
+      @m.add(20)
+      assert_equal 21, @m.get
       assert_raise NotImplementedError do
-        @m.dec('key')
+        @m.dec
       end
 
-      @m.set('key', 100)
-      assert_equal 100, @m.get('key')
+      @m.set(100)
+      assert_equal 100, @m.get
       assert_raise NotImplementedError do
-        @m.sub('key', 11)
+        @m.sub(11)
       end
     end
   end
@@ -223,19 +223,19 @@ class StorageTest < Test::Unit::TestCase
       assert_true @m.has_methods_for_counter
       assert_false @m.has_methods_for_gauge
 
-      assert_equal 0, @m.get('key')
-      assert_equal 1, @m.inc('key')
+      assert_equal 0, @m.get
+      assert_equal 1, @m.inc
 
-      @m.add('key', 20)
-      assert_equal 21, @m.get('key')
+      @m.add(20)
+      assert_equal 21, @m.get
       assert_raise NotImplementedError do
-        @m.dec('key')
+        @m.dec
       end
 
-      @m.set('key', 100)
-      assert_equal 100, @m.get('key')
+      @m.set(100)
+      assert_equal 100, @m.get
       assert_raise NotImplementedError do
-        @m.sub('key', 11)
+        @m.sub(11)
       end
     end
   end
@@ -251,18 +251,18 @@ class StorageTest < Test::Unit::TestCase
       assert_false @m.has_methods_for_counter
       assert_true @m.has_methods_for_gauge
 
-      assert_equal 0, @m.get('key')
-      assert_equal 1, @m.inc('key')
+      assert_equal 0, @m.get
+      assert_equal 1, @m.inc
 
-      @m.add('key', 20)
-      assert_equal 21, @m.get('key')
-      @m.dec('key')
-      assert_equal 20, @m.get('key')
+      @m.add(20)
+      assert_equal 21, @m.get
+      @m.dec
+      assert_equal 20, @m.get
 
-      @m.set('key', 100)
-      assert_equal 100, @m.get('key')
-      @m.sub('key', 11)
-      assert_equal 89, @m.get('key')
+      @m.set(100)
+      assert_equal 100, @m.get
+      @m.sub(11)
+      assert_equal 89, @m.get
     end
   end
 
@@ -277,18 +277,18 @@ class StorageTest < Test::Unit::TestCase
       assert_false @m.has_methods_for_counter
       assert_true @m.has_methods_for_gauge
 
-      assert_equal 0, @m.get('key')
-      assert_equal 1, @m.inc('key')
+      assert_equal 0, @m.get
+      assert_equal 1, @m.inc
 
-      @m.add('key', 20)
-      assert_equal 21, @m.get('key')
-      @m.dec('key')
-      assert_equal 20, @m.get('key')
+      @m.add(20)
+      assert_equal 21, @m.get
+      @m.dec
+      assert_equal 20, @m.get
 
-      @m.set('key', 100)
-      assert_equal 100, @m.get('key')
-      @m.sub('key', 11)
-      assert_equal 89, @m.get('key')
+      @m.set(100)
+      assert_equal 100, @m.get
+      @m.sub(11)
+      assert_equal 89, @m.get
     end
   end
 end
