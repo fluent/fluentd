@@ -50,7 +50,11 @@ module Fluent
 
       def event_emitter_router(label_name)
         if label_name
-          Engine.root_agent.find_label(label_name).event_router
+          if label_name == "@ROOT"
+            Engine.root_agent.event_router
+          else
+            Engine.root_agent.find_label(label_name).event_router
+          end
         elsif self.respond_to?(:as_secondary) && self.as_secondary
           if @primary_instance.has_router?
             @_event_emitter_lazy_init = true
