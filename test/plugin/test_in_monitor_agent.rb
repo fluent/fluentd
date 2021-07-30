@@ -144,6 +144,7 @@ EOC
         tag test.monitor
         emit_interval 1
 CONF
+      @ra.inputs.first.context_router.emit("test.event", Fluent::Engine.now, {"message":"ok"})
       d = MetricInputDriver.new(Fluent::Plugin::MonitorAgentInput).configure(monitor_agent_conf)
       d.run(expect_emits: 1, timeout: 3)
 
@@ -164,7 +165,9 @@ CONF
         "plugin_category" => "filter",
         "plugin_id"       => "test_filter",
         "retry_count"     => nil,
-        "type"            => "test_filter"
+        "type"            => "test_filter",
+        "emit_records"   => Integer,
+        "emit_size"      => Integer,
       }
       filter_info.merge!("config" => {"@id" => "test_filter", "@type" => "test_filter"}) if with_config
       output_info = {
@@ -213,7 +216,12 @@ CONF
         "emit_records" => Integer,
         "emit_size" => Integer,
       }
+      filter_statistics_info = {
+        "emit_records" => Integer,
+        "emit_size" => Integer,
+      }
       assert_fuzzy_equal(monitor_agent_emit_info, d.instance.statistics["input"])
+      assert_fuzzy_equal(filter_statistics_info, @ra.filters.first.statistics["filter"])
     end
   end
 
@@ -296,7 +304,9 @@ EOC
         "plugin_category" => "filter",
         "plugin_id"       => "test_filter",
         "retry_count"     => nil,
-        "type"            => "test_filter"
+        "type"            => "test_filter",
+        "emit_records"   => 0,
+        "emit_size"      => 0,
       }
       filter_info.merge!("config" => {"@id" => "test_filter", "@type" => "test_filter"}) if with_config
       output_info = {
@@ -510,7 +520,7 @@ EOC
       expected_test_in_response = "\
 plugin_id:test_in\tplugin_category:input\ttype:test_in\toutput_plugin:false\tretry_count:\temit_records:0\temit_size:0"
       expected_test_filter_response = "\
-plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:false\tretry_count:"
+plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:false\tretry_count:\temit_records:0\temit_size:0"
 
       response = get("http://127.0.0.1:#{@port}/api/plugins").body
       test_in = response.split("\n")[0]
