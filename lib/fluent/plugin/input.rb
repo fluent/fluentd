@@ -63,9 +63,13 @@ module Fluent
       end
 
       def metric_callback(es)
-        @counter_mutex.synchronize do
+        if @enable_size_metrics
+          @counter_mutex.synchronize do
+            @emit_records_metrics.add(es.size)
+            @emit_size_metrics.add(es.to_msgpack_stream.bytesize)
+          end
+        else
           @emit_records_metrics.add(es.size)
-          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         end
       end
 

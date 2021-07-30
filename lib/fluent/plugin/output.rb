@@ -836,9 +836,13 @@ module Fluent
         @emit_count_metrics.inc
         begin
           process(tag, es)
-          @counter_mutex.synchronize do
+          if @enable_size_metrics
+            @counter_mutex.synchronize do
+              @emit_records_metrics.add(es.size)
+              @emit_size_metrics.add(es.to_msgpack_stream.bytesize)
+            end
+          else
             @emit_records_metrics.add(es.size)
-            @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
           end
         rescue
           @num_errors_metrics.inc
@@ -1005,9 +1009,13 @@ module Fluent
         write_guard do
           @buffer.write(meta_and_data, enqueue: enqueue)
         end
-        @counter_mutex.synchronize do
+        if @enable_size_metrics
+          @counter_mutex.synchronize do
+            @emit_records_metrics.add(es.size)
+            @emit_size_metrics.add(es.to_msgpack_stream.bytesize)
+          end
+        else
           @emit_records_metrics.add(es.size)
-          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         end
         true
       end
@@ -1025,9 +1033,13 @@ module Fluent
         write_guard do
           @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
-        @counter_mutex.synchronize do
+        if @enable_size_metrics
+          @counter_mutex.synchronize do
+            @emit_records_metrics.add(es.size)
+            @emit_size_metrics.add(es.to_msgpack_stream.bytesize)
+          end
+        else
           @emit_records_metrics.add(es.size)
-          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         end
         true
       end
@@ -1053,9 +1065,13 @@ module Fluent
         write_guard do
           @buffer.write({meta => data}, format: format_proc, enqueue: enqueue)
         end
-        @counter_mutex.synchronize do
+        if @enable_size_metrics
+          @counter_mutex.synchronize do
+            @emit_records_metrics.add(es.size)
+            @emit_size_metrics.add(es.to_msgpack_stream.bytesize)
+          end
+        else
           @emit_records_metrics.add(es.size)
-          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         end
         true
       end
