@@ -1063,7 +1063,7 @@ module Fluent::Plugin
         rescue RangeError
           io.close if io
           raise WatcherSetupError, "seek error with #{@path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.bytesize.to_s(16)}"
-        rescue Errno::ENOENT, Errno::EACCES
+        rescue Errno::ENOENT
           nil
         end
 
