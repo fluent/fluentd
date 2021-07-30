@@ -352,9 +352,13 @@ module Fluent
           write_guard do
             @buffer.write({meta => data}, format: ->(_data){ _data }, size: ->(){ size }, enqueue: enqueue)
           end
-          @counter_mutex.synchronize do
-            @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
-            @emit_records_metrics.add(size)
+          if @enable_size_metrics
+            @counter_mutex.synchronize do
+              @emit_records_metrics.add(es.size)
+              @emit_size_metrics.add(es.to_msgpack_stream.bytesize)
+            end
+          else
+            @emit_records_metrics.add(es.size)
           end
           return [meta]
         end
@@ -366,9 +370,13 @@ module Fluent
           write_guard do
             @buffer.write({meta => bulk}, format: ->(_data){ _data }, size: ->(){ size }, enqueue: enqueue)
           end
-          @counter_mutex.synchronize do
-            @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
-            @emit_records_metrics.add(size)
+          if @enable_size_metrics
+            @counter_mutex.synchronize do
+              @emit_records_metrics.add(es.size)
+              @emit_size_metrics.add(es.to_msgpack_stream.bytesize)
+            end
+          else
+            @emit_records_metrics.add(es.size)
           end
           return [meta]
         end
@@ -379,9 +387,13 @@ module Fluent
         write_guard do
           @buffer.write({meta => data}, enqueue: enqueue)
         end
-        @counter_mutex.synchronize do
-          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
-          @emit_records_metrics.add(size)
+        if @enable_size_metrics
+          @counter_mutex.synchronize do
+            @emit_records_metrics.add(es.size)
+            @emit_size_metrics.add(es.to_msgpack_stream.bytesize)
+          end
+        else
+          @emit_records_metrics.add(es.size)
         end
         [meta]
       end
