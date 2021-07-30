@@ -131,8 +131,7 @@ module Fluent
         end
         name = e.arg
         raise ConfigError, "Missing symbol argument on <label> directive" if name.empty?
-
-        raise ConfigError, "Invalid label name (@ROOT)" if name == '@ROOT'
+        raise ConfigError, "@ROOT for <label> is invalid, reserved for getting root router" if name == '@ROOT'
 
         if name == ERROR_LABEL
           error_label_config = e
