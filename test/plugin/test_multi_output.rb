@@ -191,6 +191,10 @@ class MultiOutputTest < Test::Unit::TestCase
       )
       @i.configure(conf)
 
+      %w[num_errors_metrics emit_count_metrics emit_size_metrics emit_records_metrics].each do |metric_name|
+        assert_true @i.instance_variable_get(:"@#{metric_name}").is_a?(Fluent::Plugin::Metrics)
+      end
+
       assert_equal 0, @i.num_errors
       assert_equal 0, @i.emit_count
       assert_equal 0, @i.emit_size
