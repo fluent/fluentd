@@ -146,8 +146,11 @@ class MultiOutputTest < Test::Unit::TestCase
       @i.configure(conf)
       assert_equal 4, @i.outputs.size
 
+      log_size_for_multi_output_itself = 4
+      log_size_for_metrics_plugin_helper = 4
+      expected_warn_log_size = log_size_for_multi_output_itself + log_size_for_metrics_plugin_helper
       logs = @i.log.out.logs
-      assert{ logs.select{|log| log.include?('[warn]') && log.include?("'type' is deprecated parameter name. use '@type' instead.") }.size == 4 }
+      assert{ logs.select{|log| log.include?('[warn]') && log.include?("'type' is deprecated parameter name. use '@type' instead.") }.size == expected_warn_log_size }
     end
 
     test '#emit_events calls #process always' do
@@ -175,6 +178,27 @@ class MultiOutputTest < Test::Unit::TestCase
       )
 
       assert_equal 2, @i.events.size
+    end
+
+    test 'can use metrics plugins and fallback methods' do
+      conf = config_element('ROOT', '', { '@type' => 'dummy_test_multi_output' },
+        [
+          config_element('store', '', { 'type' => 'dummy_test_multi_output_1' }),
+          config_element('store', '', { 'type' => 'dummy_test_multi_output_2' }),
+          config_element('store', '', { 'type' => 'dummy_test_multi_output_3' }),
+          config_element('store', '', { 'type' => 'dummy_test_multi_output_4' }),
+        ]
+      )
+      @i.configure(conf)
+
+      %w[num_errors_metrics emit_count_metrics emit_size_metrics emit_records_metrics].each do |metric_name|
+        assert_true @i.instance_variable_get(:"@#{metric_name}").is_a?(Fluent::Plugin::Metrics)
+      end
+
+      assert_equal 0, @i.num_errors
+      assert_equal 0, @i.emit_count
+      assert_equal 0, @i.emit_size
+      assert_equal 0, @i.emit_records
     end
   end
 end

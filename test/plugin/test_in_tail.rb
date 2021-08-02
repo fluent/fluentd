@@ -2179,8 +2179,9 @@ class TailInputTest < Test::Unit::TestCase
     assert_nothing_raised do
       d.run(shutdown: false) {}
     end
-    d.instance_shutdown
     assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::ENOENT. Drop tail watcher for now.\n") })
+  ensure
+    d.instance_shutdown if d && d.instance
   end
 
   def test_EACCES_error_after_setup_watcher
@@ -2203,10 +2204,10 @@ class TailInputTest < Test::Unit::TestCase
       assert_nothing_raised do
         d.run(shutdown: false) {}
       end
-      d.instance_shutdown
       assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::EACCES. Drop tail watcher for now.\n") })
     end
   ensure
+    d.instance_shutdown if d && d.instance
     if File.exist?("#{TMP_DIR}/noaccess")
       FileUtils.chmod(0755, "#{TMP_DIR}/noaccess")
       FileUtils.rm_rf("#{TMP_DIR}/noaccess")
@@ -2226,8 +2227,9 @@ class TailInputTest < Test::Unit::TestCase
     assert_nothing_raised do
       d.run(shutdown: false) {}
     end
-    d.instance_shutdown
     assert($log.out.logs.any?{|log| log.include?("expand_paths: stat() for #{path} failed with Errno::EACCES. Skip file.\n") })
+  ensure
+    d.instance_shutdown if d && d.instance
   end
 
   def test_shutdown_timeout

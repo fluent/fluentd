@@ -23,37 +23,78 @@ require 'fluent/plugin_helper'
 module Fluent
   module Plugin
     class BareOutput < Base
+      include PluginHelper::Mixin # for metrics
+
       # DO NOT USE THIS plugin for normal output plugin. Use Output instead.
       # This output plugin base class is only for meta-output plugins
       # which cannot be implemented on MultiOutput.
       # E.g,: forest, config-expander
 
+      helpers_internal :metrics
+
       include PluginId
       include PluginLoggerMixin
       include PluginHelper::Mixin
 
-      attr_reader :num_errors, :emit_count, :emit_records
-
       def process(tag, es)
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
+      end
+
+      def num_errors
+        @num_errors_metrics.get
+      end
+
+      def emit_count
+        @emit_count_metrics.get
+      end
+
+      def emit_size
+        @emit_size_metrics.get
+      end
+
+      def emit_records
+        @emit_records_metrics.get
       end
 
       def initialize
         super
         @counter_mutex = Mutex.new
         # TODO: well organized counters
-        @num_errors = 0
-        @emit_count = 0
-        @emit_records = 0
+        @num_errors_metrics = nil
+        @emit_count_metrics = nil
+        @emit_records_metrics = nil
+        @emit_size_metrics = nil
+      end
+
+      def configure(conf)
+        super
+
+        @num_errors_metrics = metrics_create(namespace: "fluentd", subsystem: "bare_output", name: "num_errors", help_text: "Number of count num errors")
+        @emit_count_metrics = metrics_create(namespace: "fluentd", subsystem: "bare_output", name: "emit_records", help_text: "Number of count emits")
+        @emit_records_metrics = metrics_create(namespace: "fluentd", subsystem: "bare_output", name: "emit_records", help_text: "Number of emit records")
+        @emit_size_metrics =  metrics_create(namespace: "fluentd", subsystem: "bare_output", name: "emit_size", help_text: "Total size of emit events")
+        @enable_size_metrics = !!system_config.enable_size_metrics
+      end
+
+      def statistics
+        stats = {
+          'num_errors' => @num_errors_metrics.get,
+          'emit_records' => @emit_records_metrics.get,
+          'emit_count' => @emit_count_metrics.get,
+          'emit_size' => @emit_size_metrics.get,
+        }
+
+        { 'bare_output' => stats }
       end
 
       def emit_sync(tag, es)
-        @counter_mutex.synchronize{ @emit_count += 1 }
+        @emit_count_metrics.inc
         begin
           process(tag, es)
-          @counter_mutex.synchronize{ @emit_records += es.size }
+          @emit_records_metrics.add(es.size)
+          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         rescue
-          @counter_mutex.synchronize{ @num_errors += 1 }
+          @num_errors_metrics.inc
           raise
         end
       end

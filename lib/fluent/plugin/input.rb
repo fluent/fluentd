@@ -27,36 +27,44 @@ module Fluent
       include PluginLoggerMixin
       include PluginHelper::Mixin
 
-      helpers_internal :event_emitter
+      helpers_internal :event_emitter, :metrics
 
       def initialize
         super
-        @emit_records = 0
-        @emit_size = 0
+        @emit_records_metrics = nil
+        @emit_size_metrics = nil
         @counter_mutex = Mutex.new
         @enable_size_metrics = false
+      end
+
+      def emit_records
+        @emit_records_metrics.get
+      end
+
+      def emit_size
+        @emit_size_metrics.get
       end
 
       def configure(conf)
         super
 
+        @emit_records_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "emit_records", help_text: "Number of count emit records")
+        @emit_size_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "emit_size", help_text: "Total size of emit events")
         @enable_size_metrics = !!system_config.enable_size_metrics
       end
 
       def statistics
         stats = {
-          'emit_records' => @emit_records,
-          'emit_size' => @emit_size,
+          'emit_records' => @emit_records_metrics.get,
+          'emit_size' => @emit_size_metrics.get,
         }
 
         { 'input' => stats }
       end
 
       def metric_callback(es)
-        @counter_mutex.synchronize do
-          @emit_records += es.size
-          @emit_size += es.to_msgpack_stream.bytesize if @enable_size_metrics
-        end
+        @emit_records_metrics.add(es.size)
+        @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
       end
 
       def multi_workers_ready?

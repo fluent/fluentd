@@ -27,6 +27,7 @@ module Fluent
       include PluginHelper::Mixin # for event_emitter
 
       helpers :event_emitter # to get router from agent, which will be supplied to child plugins
+      helpers_internal :metrics
 
       config_section :store, param_name: :stores, multi: true, required: true do
         config_argument :arg, :string, default: ''
@@ -46,11 +47,40 @@ module Fluent
 
         @counter_mutex = Mutex.new
         # TODO: well organized counters
-        @num_errors = 0
-        @emit_count = 0
-        @emit_records = 0
+        @num_errors_metrics = nil
+        @emit_count_metrics = nil
+        @emit_records_metrics = nil
+        @emit_size_metrics = nil
         # @write_count = 0
         # @rollback_count = 0
+        @enable_size_metrics = false
+      end
+
+      def num_errors
+        @num_errors_metrics.get
+      end
+
+      def emit_count
+        @emit_count_metrics.get
+      end
+
+      def emit_size
+        @emit_size_metrics.get
+      end
+
+      def emit_records
+        @emit_records_metrics.get
+      end
+
+      def statistics
+        stats = {
+          'num_errors' => @num_errors_metrics.get,
+          'emit_records' => @emit_records_metrics.get,
+          'emit_count' => @emit_count_metrics.get,
+          'emit_size' => @emit_size_metrics.get,
+        }
+
+        { 'multi_output' => stats }
       end
 
       def multi_output?
@@ -59,6 +89,12 @@ module Fluent
 
       def configure(conf)
         super
+
+        @num_errors_metrics = metrics_create(namespace: "fluentd", subsystem: "multi_output", name: "num_errors", help_text: "Number of count num errors")
+        @emit_count_metrics = metrics_create(namespace: "fluentd", subsystem: "multi_output", name: "emit_records", help_text: "Number of count emits")
+        @emit_records_metrics = metrics_create(namespace: "fluentd", subsystem: "multi_output", name: "emit_records", help_text: "Number of emit records")
+        @emit_size_metrics =  metrics_create(namespace: "fluentd", subsystem: "multi_output", name: "emit_size", help_text: "Total size of emit events")
+        @enable_size_metrics = !!system_config.enable_size_metrics
 
         @stores.each do |store|
           store_conf = store.corresponding_config_element
@@ -143,12 +179,13 @@ module Fluent
       end
 
       def emit_sync(tag, es)
-        @counter_mutex.synchronize{ @emit_count += 1 }
+        @emit_count_metrics.inc
         begin
           process(tag, es)
-          @counter_mutex.synchronize{ @emit_records += es.size }
+          @emit_records_metrics.add(es.size)
+          @emit_size_metrics.add(es.to_msgpack_stream.bytesize) if @enable_size_metrics
         rescue
-          @counter_mutex.synchronize{ @num_errors += 1 }
+          @num_errors_metrics.inc
           raise
         end
       end
