@@ -74,6 +74,8 @@ module Fluent::Plugin
     config_param :blocking_timeout, :time, default: 0.5
     desc 'Set a allow list of domains that can do CORS (Cross-Origin Resource Sharing)'
     config_param :cors_allow_origins, :array, default: nil
+    desc 'Tells browsers whether to expose the response to frontend when the credentials mode is "include".'
+    config_param :cors_allow_credentials, :bool, default: nil
     desc 'Respond with empty gif image of 1x1 pixel.'
     config_param :respond_with_empty_img, :bool, default: false
     desc 'Respond status code with 204.'
@@ -111,6 +113,12 @@ module Fluent::Plugin
       compat_parameters_convert(conf, :parser)
 
       super
+
+      if @cors_allow_credentials
+        if @cors_allow_origins.nil? || @cors_allow_origins.include?('*')
+          raise Fluent::ConfigError, "Cannot enable cors_allow_credentials without specific origins"
+        end
+      end
 
       m = if @parser_configs.first['@type'] == 'in_http'
             @parser_msgpack = parser_create(usage: 'parser_in_http_msgpack', type: 'msgpack')
@@ -279,7 +287,10 @@ module Fluent::Plugin
     private
 
     def on_server_connect(conn)
-      handler = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins, @add_query_params)
+      handler = Handler.new(conn, @km, method(:on_request),
+                            @body_size_limit, @format_name, log,
+                            @cors_allow_origins, @cors_allow_credentials,
+                            @add_query_params)
 
       conn.on(:data) do |data|
         handler.on_read(data)
@@ -356,7 +367,8 @@ module Fluent::Plugin
     class Handler
       attr_reader :content_type
 
-      def initialize(io, km, callback, body_size_limit, format_name, log, cors_allow_origins, add_query_params)
+      def initialize(io, km, callback, body_size_limit, format_name, log,
+                     cors_allow_origins, cors_allow_credentials, add_query_params)
         @io = io
         @km = km
         @callback = callback
@@ -365,6 +377,7 @@ module Fluent::Plugin
         @format_name = format_name
         @log = log
         @cors_allow_origins = cors_allow_origins
+        @cors_allow_credentials = cors_allow_credentials
         @idle = 0
         @add_query_params = add_query_params
         @km.add(self)
@@ -491,6 +504,9 @@ module Fluent::Plugin
           send_response_and_close(RES_200_STATUS, header, "")
         elsif include_cors_allow_origin
           header["Access-Control-Allow-Origin"] = @origin
+          if @cors_allow_credentials
+            header["Access-Control-Allow-Credentials"] = true
+          end
           send_response_and_close(RES_200_STATUS, header, "")
         else
           send_response_and_close(RES_403_STATUS, {}, "")
@@ -576,6 +592,9 @@ module Fluent::Plugin
             header['Access-Control-Allow-Origin'] = '*'
           elsif include_cors_allow_origin
             header['Access-Control-Allow-Origin'] = @origin
+            if @cors_allow_credentials
+              header["Access-Control-Allow-Credentials"] = true
+            end
           end
         end
 

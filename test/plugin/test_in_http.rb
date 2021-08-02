@@ -856,6 +856,46 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_cors_allow_credentials
+    d = create_driver(config + %[
+          cors_allow_origins ["http://foo.com"]
+          cors_allow_credentials
+        ])
+    assert_equal true, d.instance.cors_allow_credentials
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    event = ["tag1", time, {"a"=>1}]
+    res_code = nil
+    res_header = nil
+
+    d.run do
+      res = post("/#{event[0]}", {"json"=>event[2].to_json, "time"=>time.to_i.to_s}, {"Origin"=>"http://foo.com"})
+      res_code = res.code
+      res_header = res["Access-Control-Allow-Credentials"]
+    end
+    assert_equal(
+      {
+        response_code: "200",
+        allow_credentials_header: "true",
+        events: [event]
+      },
+      {
+        response_code: res_code,
+        allow_credentials_header: res_header,
+        events: d.events
+      }
+    )
+  end
+
+  def test_cors_allow_credentials_for_wildcard_origins
+    assert_raise(Fluent::ConfigError) do
+      create_driver(config + %[
+        cors_allow_origins ["*"]
+        cors_allow_credentials
+      ])
+    end
+  end
+
   def test_content_encoding_gzip
     d = create_driver
 
