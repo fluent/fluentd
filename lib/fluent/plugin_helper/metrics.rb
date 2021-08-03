@@ -42,7 +42,11 @@ module Fluent
         @plugin_type_or_id = if self.plugin_id_configured?
                                self.plugin_id
                              else
-                               "#{conf["@type"] || conf["type"]}.#{self.plugin_id}"
+                               if type = (conf["@type"] || conf["type"])
+                                 "#{type}.#{self.plugin_id}"
+                               else
+                                 "#{self.class.to_s.split("::").last.downcase}.#{self.plugin_id}"
+                               end
                              end
       end
 
