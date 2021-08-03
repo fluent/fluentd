@@ -238,8 +238,14 @@ class BufferTest < Test::Unit::TestCase
       assert_nil @p.queue
       assert_nil @p.dequeued
       assert_nil @p.queued_num
-      assert_equal 0, @p.stage_size
-      assert_equal 0, @p.queue_size
+      assert_nil @p.stage_length_metrics
+      assert_nil @p.stage_size_metrics
+      assert_nil @p.queue_length_metrics
+      assert_nil @p.queue_size_metrics
+      assert_nil @p.available_buffer_space_ratios_metrics
+      assert_nil @p.total_queued_size_metrics
+      assert_nil @p.newest_timekey_metrics
+      assert_nil @p.oldest_timekey_metrics
       assert_equal [], @p.timekeys
     end
 
