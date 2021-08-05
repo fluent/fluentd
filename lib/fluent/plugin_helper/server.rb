@@ -709,13 +709,15 @@ module Fluent
                 return true
               end
             rescue Errno::EPIPE, Errno::ECONNRESET, Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH => e
+              peeraddr = (@_handler_socket.peeraddr rescue PEERADDR_FAILED)
               @log.trace "unexpected error before accepting TLS connection",
-                         host: @_handler_socket.peeraddr[3], port: @_handler_socket.peeraddr[1], error: e
+                         addr: peeraddr[3], host: peeraddr[2], port: peeraddr[1], error: e
               close rescue nil
             rescue OpenSSL::SSL::SSLError => e
+              peeraddr = (@_handler_socket.peeraddr rescue PEERADDR_FAILED)
               # Use same log level as on_readable
               @log.warn "unexpected error before accepting TLS connection by OpenSSL",
-                        host: @_handler_socket.peeraddr[3], port: @_handler_socket.peeraddr[1], error: e
+                        addr: peeraddr[3], host: peeraddr[2], port: peeraddr[1], error: e
               close rescue nil
             end
 
