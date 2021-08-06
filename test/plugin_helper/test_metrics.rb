@@ -39,15 +39,21 @@ class MetricsTest < Test::Unit::TestCase
 
   test 'creates metrics instances' do
     d = Dummy.new
-    d.configure(config_element())
     i = d.metrics_create(namespace: "fluentd_test", subsystem: "unit-test", name: "metrics1", help_text: "metrics testing")
+    d.configure(config_element())
+    assert do
+      d.instance_variable_get(:@plugin_type_or_id).include?("dummy.object")
+    end
     assert{ i.is_a?(Fluent::Plugin::LocalMetrics) }
     assert_true i.has_methods_for_counter
     assert_false i.has_methods_for_gauge
 
     d = Dummy.new
-    d.configure(config_element())
     i = d.metrics_create(namespace: "fluentd_test", subsystem: "unit-test", name: "metrics2", help_text: "metrics testing", prefer_gauge: true)
+    d.configure(config_element())
+    assert do
+      d.instance_variable_get(:@plugin_type_or_id).include?("dummy.object")
+    end
     assert{ i.is_a?(Fluent::Plugin::LocalMetrics) }
     assert_false i.has_methods_for_counter
     assert_true i.has_methods_for_gauge
@@ -55,10 +61,13 @@ class MetricsTest < Test::Unit::TestCase
 
   test 'calls lifecycle methods for all plugin instances via owner plugin' do
     @d = d = Dummy.new
-    d.configure(config_element())
     i1 = d.metrics_create(namespace: "fluentd_test", subsystem: "unit-test", name: "metrics1", help_text: "metrics testing")
     i2 = d.metrics_create(namespace: "fluentd_test", subsystem: "unit-test", name: "metrics2", help_text: "metrics testing", prefer_gauge: true)
     i3 = d.metrics_create(namespace: "fluentd_test", subsystem: "unit-test", name: "metrics3", help_text: "metrics testing")
+    d.configure(config_element())
+    assert do
+      d.instance_variable_get(:@plugin_type_or_id).include?("dummy.object")
+    end
     d.start
 
     assert i1.started?
