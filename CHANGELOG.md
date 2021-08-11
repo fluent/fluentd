@@ -1,3 +1,47 @@
+# v1.14.0
+
+## Release v1.14.0 - 2021/08/30
+
+### Enhancement
+
+* Added `enable_input_metrics`, `enable_size_metrics` system
+  configuration parameter
+  This feature might need to pay higher CPU cost, so input event metrics
+  features are disabled by default. These features are also enabled by
+  `--enable-input-metrics`,`--enable-size-metrics` command line
+  option.
+  https://github.com/fluent/fluentd/pull/3440
+* Added reserved word `@ROOT` for getting root router.
+  This is incompatible change. Do not use `@ROOT` for label name.
+  https://github.com/fluent/fluentd/pull/3358
+* in_syslog: Added `send_keepalive_packet` option
+  https://github.com/fluent/fluentd/pull/3474
+* in_http: Added `cors_allow_credentials` option.
+  This option tells browsers whether to expose the response to
+  frontend when the credentials mode is "include".
+  https://github.com/fluent/fluentd/pull/3481
+  https://github.com/fluent/fluentd/pull/3491
+
+### Bug fix
+
+* in_tail: Fixed a bug that deleted paths are not removed
+  from pos file by file compaction at start up
+  https://github.com/fluent/fluentd/pull/3467
+* in_tail: Revived a warning message of retrying unaccessible file
+  https://github.com/fluent/fluentd/pull/3478
+* TLSServer: Fixed a crash bug on logging peer host name errors
+  https://github.com/fluent/fluentd/pull/3483
+
+### Misc
+
+* Added metrics plugin mechanism
+  The implementations is changed to use metrics plugin.
+  In the future, 3rd party plugin will be able to handle these metrics.
+  https://github.com/fluent/fluentd/pull/3471
+  https://github.com/fluent/fluentd/pull/3473
+  https://github.com/fluent/fluentd/pull/3479
+  https://github.com/fluent/fluentd/pull/3484
+
 # v1.13.3
 
 ## Release v1.13.3 - 2021/07/27
