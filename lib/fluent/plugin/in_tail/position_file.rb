@@ -250,20 +250,6 @@ module Fluent::Plugin
       end
     end
 
-    TargetInfo = Struct.new(:path, :ino) do
-      def ==(other)
-        return false unless other.is_a?(TargetInfo)
-        self.path == other.path
-      end
-
-      def hash
-        self.path.hash
-      end
-
-      def eql?(other)
-        return false unless other.is_a?(TargetInfo)
-        self.path == other.path
-      end
-    end
+    TargetInfo = Struct.new(:path, :ino)
   end
 end

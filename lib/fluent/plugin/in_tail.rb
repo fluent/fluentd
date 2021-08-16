@@ -357,11 +357,11 @@ module Fluent::Plugin
 
     def existence_path
       hash = {}
-      @tails.each_key {|target_info|
+      @tails.each {|path, tw|
         if @follow_inodes
-          hash[target_info.ino] = target_info
+          hash[tw.ino] = TargetInfo.new(tw.path, tw.ino)
         else
-          hash[target_info.path] = target_info
+          hash[tw.path] = TargetInfo.new(tw.path, tw.ino)
         end
       }
       hash
@@ -446,8 +446,7 @@ module Fluent::Plugin
 
       begin
         target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
-        @tails.delete(target_info)
-        @tails[target_info] = tw
+        @tails[target_info.path] = tw
         tw.on_notify
       rescue Errno::ENOENT, Errno::EACCES => e
         $log.warn "stat() for #{target_info.path} failed with #{e.class.name}. Drop tail watcher for now."
@@ -469,9 +468,9 @@ module Fluent::Plugin
         remove_path_from_group_watcher(target_info.path)
 
         if remove_watcher
-          tw = @tails.delete(target_info)
+          tw = @tails.delete(target_info.path)
         else
-          tw = @tails[target_info]
+          tw = @tails[target_info.path]
         end
         if tw
           tw.unwatched = unwatched
@@ -485,8 +484,8 @@ module Fluent::Plugin
     end
 
     def close_watcher_handles
-      @tails.keys.each do |target_info|
-        tw = @tails.delete(target_info)
+      @tails.keys.each do |path|
+        tw = @tails.delete(path)
         if tw
           tw.close
         end
@@ -507,7 +506,7 @@ module Fluent::Plugin
       end
 
       rotated_target_info = TargetInfo.new(target_info.path, pe.read_inode)
-      rotated_tw = @tails[rotated_target_info]
+      rotated_tw = @tails[rotated_target_info.path]
       new_target_info = target_info.dup
 
       if @follow_inodes
@@ -517,16 +516,12 @@ module Fluent::Plugin
           # When follow_inodes is true, it's not cleaned up by refresh_watcher.
           # So it should be unwatched here explicitly.
           rotated_tw.unwatched = true
-          # Make sure to delete old key, it has a different ino while the hash key is same.
-          @tails.delete(rotated_target_info)
-          @tails[new_target_info] = setup_watcher(new_target_info, new_position_entry)
-          @tails[new_target_info].on_notify
+          @tails[new_target_info.path] = setup_watcher(new_target_info, new_position_entry)
+          @tails[new_target_info.path].on_notify
         end
       else
-        # Make sure to delete old key, it has a different ino while the hash key is same.
-        @tails.delete(rotated_target_info)
-        @tails[new_target_info] = setup_watcher(new_target_info, pe)
-        @tails[new_target_info].on_notify
+        @tails[new_target_info.path] = setup_watcher(new_target_info, pe)
+        @tails[new_target_info.path].on_notify
       end
       detach_watcher_after_rotate_wait(rotated_tw, pe.read_inode) if rotated_tw
     end
