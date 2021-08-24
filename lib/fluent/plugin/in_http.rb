@@ -75,7 +75,7 @@ module Fluent::Plugin
     desc 'Set a allow list of domains that can do CORS (Cross-Origin Resource Sharing)'
     config_param :cors_allow_origins, :array, default: nil
     desc 'Tells browsers whether to expose the response to frontend when the credentials mode is "include".'
-    config_param :cors_allow_credentials, :bool, default: nil
+    config_param :cors_allow_credentials, :bool, default: false
     desc 'Respond with empty gif image of 1x1 pixel.'
     config_param :respond_with_empty_img, :bool, default: false
     desc 'Respond status code with 204.'
