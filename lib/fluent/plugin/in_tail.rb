@@ -426,34 +426,27 @@ module Fluent::Plugin
 
     def construct_watcher(target_info)
       path = target_info.path
+
+      begin
+        ino = Fluent::FileWrapper.stat(path).ino
+      rescue Errno::ENOENT, Errno::EACCES
+        $log.warn "stat() for #{path} failed. Continuing without tailing it."
+        return
+      end
+
       pe = nil
       if @pf
         pe = @pf[target_info]
-        if @read_from_head && pe.read_inode.zero?
-          begin
-            pe.update(Fluent::FileWrapper.stat(path).ino, 0)
-          rescue Errno::ENOENT, Errno::EACCES
-            $log.warn "stat() for #{path} failed. Continuing without tailing it."
-          end
-        end
+        pe.update(ino, 0) if @read_from_head && pe.read_inode.zero?
       end
 
       begin
         tw = setup_watcher(target_info, pe)
+        @tails[path] = tw
+        tw.on_notify
       rescue WatcherSetupError => e
         log.warn "Skip #{path} because unexpected setup error happens: #{e}"
         return
-      end
-
-      begin
-        target_info = TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
-        @tails[path] = tw
-        tw.on_notify
-      rescue Errno::ENOENT, Errno::EACCES => e
-        $log.warn "stat() for #{path} failed with #{e.class.name}. Drop tail watcher for now."
-        # explicitly detach and unwatch watcher `tw`.
-        tw.unwatched = true
-        detach_watcher(tw, target_info.ino, false)
       end
     end
 

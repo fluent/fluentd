@@ -2457,14 +2457,15 @@ class TailInputTest < Test::Unit::TestCase
                               'format' => 'none',
                             })
     d = create_driver(config)
-    mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
+    mock.proxy(d.instance).existence_path do |hash|
       cleanup_file(path)
-      tw
-    end
+      hash
+    end.at_least(1)
     assert_nothing_raised do
       d.run(shutdown: false) {}
     end
-    assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::ENOENT. Drop tail watcher for now.\n") })
+    assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
+           $log.out.logs.join("\n"))
   ensure
     d.instance_shutdown if d && d.instance
   end
@@ -2482,14 +2483,15 @@ class TailInputTest < Test::Unit::TestCase
                                 'format' => 'none',
                               })
       d = create_driver(config, false)
-      mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
+      mock.proxy(d.instance).existence_path do |hash|
         FileUtils.chmod(0000, "#{TMP_DIR}/noaccess")
-        tw
-      end
+        hash
+      end.at_least(1)
       assert_nothing_raised do
         d.run(shutdown: false) {}
       end
-      assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::EACCES. Drop tail watcher for now.\n") })
+      assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
+             $log.out.logs.join("\n"))
     end
   ensure
     d.instance_shutdown if d && d.instance
