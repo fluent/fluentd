@@ -425,14 +425,15 @@ module Fluent::Plugin
     end
 
     def construct_watcher(target_info)
+      path = target_info.path
       pe = nil
       if @pf
         pe = @pf[target_info]
         if @read_from_head && pe.read_inode.zero?
           begin
-            pe.update(Fluent::FileWrapper.stat(target_info.path).ino, 0)
+            pe.update(Fluent::FileWrapper.stat(path).ino, 0)
           rescue Errno::ENOENT, Errno::EACCES
-            $log.warn "stat() for #{target_info.path} failed. Continuing without tailing it."
+            $log.warn "stat() for #{path} failed. Continuing without tailing it."
           end
         end
       end
@@ -440,16 +441,16 @@ module Fluent::Plugin
       begin
         tw = setup_watcher(target_info, pe)
       rescue WatcherSetupError => e
-        log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
+        log.warn "Skip #{path} because unexpected setup error happens: #{e}"
         return
       end
 
       begin
-        target_info = TargetInfo.new(target_info.path, Fluent::FileWrapper.stat(target_info.path).ino)
-        @tails[target_info.path] = tw
+        target_info = TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+        @tails[path] = tw
         tw.on_notify
       rescue Errno::ENOENT, Errno::EACCES => e
-        $log.warn "stat() for #{target_info.path} failed with #{e.class.name}. Drop tail watcher for now."
+        $log.warn "stat() for #{path} failed with #{e.class.name}. Drop tail watcher for now."
         # explicitly detach and unwatch watcher `tw`.
         tw.unwatched = true
         detach_watcher(tw, target_info.ino, false)
@@ -494,20 +495,20 @@ module Fluent::Plugin
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(target_info, pe)
-      log.info("detected rotation of #{target_info.path}; waiting #{@rotate_wait} seconds")
+      path = target_info.path
+
+      log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
 
       if @pf
         pe_inode = pe.read_inode
-        target_info_from_position_entry = TargetInfo.new(target_info.path, pe_inode)
+        target_info_from_position_entry = TargetInfo.new(path, pe_inode)
         unless pe_inode == @pf[target_info_from_position_entry].read_inode
           log.debug "Skip update_watcher because watcher has been already updated by other inotify event"
           return
         end
       end
 
-      rotated_target_info = TargetInfo.new(target_info.path, pe.read_inode)
-      rotated_tw = @tails[rotated_target_info.path]
-      new_target_info = target_info.dup
+      rotated_tw = @tails[path]
 
       if @follow_inodes
         new_position_entry = @pf[target_info]
@@ -516,12 +517,12 @@ module Fluent::Plugin
           # When follow_inodes is true, it's not cleaned up by refresh_watcher.
           # So it should be unwatched here explicitly.
           rotated_tw.unwatched = true
-          @tails[new_target_info.path] = setup_watcher(new_target_info, new_position_entry)
-          @tails[new_target_info.path].on_notify
+          @tails[path] = setup_watcher(target_info, new_position_entry)
+          @tails[path].on_notify
         end
       else
-        @tails[new_target_info.path] = setup_watcher(new_target_info, pe)
-        @tails[new_target_info.path].on_notify
+        @tails[path] = setup_watcher(target_info, pe)
+        @tails[path].on_notify
       end
       detach_watcher_after_rotate_wait(rotated_tw, pe.read_inode) if rotated_tw
     end
