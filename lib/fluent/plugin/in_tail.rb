@@ -427,8 +427,10 @@ module Fluent::Plugin
     def construct_watcher(target_info)
       path = target_info.path
 
+      # The file might be rotated or removed after collecting paths, so check inode again here.
       begin
         ino = Fluent::FileWrapper.stat(path).ino
+        target_info.ino = ino
       rescue Errno::ENOENT, Errno::EACCES
         $log.warn "stat() for #{path} failed. Continuing without tailing it."
         return
@@ -442,12 +444,13 @@ module Fluent::Plugin
 
       begin
         tw = setup_watcher(target_info, pe)
-        @tails[path] = tw
-        tw.on_notify
       rescue WatcherSetupError => e
         log.warn "Skip #{path} because unexpected setup error happens: #{e}"
         return
       end
+
+      @tails[path] = tw
+      tw.on_notify
     end
 
     def start_watchers(targets_info)
