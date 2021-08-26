@@ -18,7 +18,7 @@ jobs:
           - windows-latest
         experimental: [false]
         include:
-          - ruby-version: '3.0.1'
+          - ruby-version: '3.0.2'
             os: windows-latest
             experimental: true
             # On Ruby 3.0, we need to use fiddle 1.0.8 or later to retrieve correct
@@ -38,7 +38,7 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby-version }}
       - name: Add Fiddle 1.0.8
-        if: ${{ matrix.ruby-version == '3.0.1' }}
+        if: ${{ matrix.ruby-version == '3.0.2' }}
         run: gem install fiddle --version 1.0.8
       - name: Install dependencies
         run: ridk exec bundle install
