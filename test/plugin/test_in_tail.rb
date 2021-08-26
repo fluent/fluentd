@@ -2457,10 +2457,14 @@ class TailInputTest < Test::Unit::TestCase
                               'format' => 'none',
                             })
     d = create_driver(config)
+    file_deleted = false
     mock.proxy(d.instance).existence_path do |hash|
-      cleanup_file(path)
+      unless file_deleted
+        cleanup_file(path)
+        file_deleted = true
+      end
       hash
-    end.at_least(1)
+    end.twice
     assert_nothing_raised do
       d.run(shutdown: false) {}
     end
@@ -2486,7 +2490,7 @@ class TailInputTest < Test::Unit::TestCase
       mock.proxy(d.instance).existence_path do |hash|
         FileUtils.chmod(0000, "#{TMP_DIR}/noaccess")
         hash
-      end.at_least(1)
+      end.twice
       assert_nothing_raised do
         d.run(shutdown: false) {}
       end
