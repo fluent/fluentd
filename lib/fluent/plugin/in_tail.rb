@@ -429,8 +429,7 @@ module Fluent::Plugin
 
       # The file might be rotated or removed after collecting paths, so check inode again here.
       begin
-        ino = Fluent::FileWrapper.stat(path).ino
-        target_info.ino = ino
+        target_info.ino = Fluent::FileWrapper.stat(path).ino
       rescue Errno::ENOENT, Errno::EACCES
         $log.warn "stat() for #{path} failed. Continuing without tailing it."
         return
@@ -439,7 +438,7 @@ module Fluent::Plugin
       pe = nil
       if @pf
         pe = @pf[target_info]
-        pe.update(ino, 0) if @read_from_head && pe.read_inode.zero?
+        pe.update(target_info.ino, 0) if @read_from_head && pe.read_inode.zero?
       end
 
       begin
