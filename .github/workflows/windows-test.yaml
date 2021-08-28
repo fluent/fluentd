@@ -18,7 +18,7 @@ jobs:
           - windows-latest
         experimental: [false]
         include:
-          - ruby-version: '3.0.1'
+          - ruby-version: '3.0.2'
             os: windows-latest
             experimental: true
             # On Ruby 3.0, we need to use fiddle 1.0.8 or later to retrieve correct
@@ -28,7 +28,7 @@ jobs:
             # * https://github.com/ruby/fiddle/issues/72
             # * https://bugs.ruby-lang.org/issues/17813
             # * https://github.com/oneclick/rubyinstaller2/blob/8225034c22152d8195bc0aabc42a956c79d6c712/lib/ruby_installer/build/dll_directory.rb
-            ruby-lib-opt: RUBYLIB=%RUNNER_TOOL_CACHE%/Ruby/3.0.1/x64/lib/ruby/gems/3.0.0/gems/fiddle-1.0.8/lib
+            ruby-lib-opt: RUBYLIB=%RUNNER_TOOL_CACHE%/Ruby/3.0.2/x64/lib/ruby/gems/3.0.0/gems/fiddle-1.0.8/lib
 
     name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
@@ -38,7 +38,7 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby-version }}
       - name: Add Fiddle 1.0.8
-        if: ${{ matrix.ruby-version == '3.0.1' }}
+        if: ${{ matrix.ruby-version == '3.0.2' }}
         run: gem install fiddle --version 1.0.8
       - name: Install dependencies
         run: ridk exec bundle install
