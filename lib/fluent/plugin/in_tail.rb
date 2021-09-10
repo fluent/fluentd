@@ -762,7 +762,7 @@ module Fluent::Plugin
       end
 
       def eof?
-        @io_handler.eof?
+        @io_handler.nil? || @io_handler.eof?
       end
 
       def on_notify
@@ -1110,6 +1110,10 @@ module Fluent::Plugin
 
         def opened?
           false
+        end
+
+        def eof?
+          true
         end
       end
 
