@@ -1524,11 +1524,13 @@ class TailInputTest < Test::Unit::TestCase
     plugin.instance_eval do
       @pf = Fluent::Plugin::TailInput::PositionFile.load(sio, EX_FOLLOW_INODES, {}, logger: $log)
       @loop = Coolio::Loop.new
+      @total_rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
+      @total_rotated_file_metrics.configure(config_element('metrics', '', {}))
     end
 
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
       ex_paths.each do |target_info|
-        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, false, anything, nil, anything).once
+        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, false, anything, nil, anything, anything).once
       end
 
       plugin.refresh_watchers
@@ -1542,7 +1544,7 @@ class TailInputTest < Test::Unit::TestCase
       path = "test/plugin/data/2010/01/20100102-030406.log"
       inode = Fluent::FileWrapper.stat(path).ino
       target_info = Fluent::Plugin::TailInput::TargetInfo.new(path, inode)
-      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, false, anything, nil, anything).once
+      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, false, anything, nil, anything, anything).once
       plugin.refresh_watchers
 
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
@@ -1885,13 +1887,17 @@ class TailInputTest < Test::Unit::TestCase
       config = COMMON_FOLLOW_INODE_CONFIG + config_element('', '', {"rotate_wait" => "1s", "limit_recently_modified" => "1s"})
 
       d = create_driver(config, false)
+      d.instance.instance_eval do
+        @total_rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
+        @total_rotated_file_metrics.configure(config_element('metrics', '', {}))
+      end
 
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
       target_info = create_target_info("#{TMP_DIR}/tail.txt")
-      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, true, anything, nil, anything).once
+      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, true, anything, nil, anything, anything).once
       d.run(shutdown: false)
       assert d.instance.instance_variable_get(:@tails)[target_info]
 
