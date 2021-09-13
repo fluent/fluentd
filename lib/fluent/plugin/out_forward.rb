@@ -167,6 +167,8 @@ module Fluent::Plugin
       @usock = nil
       @keep_alive_watcher_interval = 5 # TODO
       @suspend_flush = false
+      @healthy_nodes_count_metrics = nil
+      @registered_nodes_count_metrics = nil
     end
 
     def configure(conf)
@@ -265,6 +267,9 @@ module Fluent::Plugin
       end
 
       raise Fluent::ConfigError, "ack_response_timeout must be a positive integer" if @ack_response_timeout < 1
+      @healthy_nodes_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "healthy_nodes_count", help_text: "Number of count healthy nodes", prefer_gauge: true)
+      @registered_nodes_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "registered_nodes_count", help_text: "Number of count registered nodes", prefer_gauge: true)
+
     end
 
     def multi_workers_ready?
@@ -418,18 +423,18 @@ module Fluent::Plugin
     def statistics
       stats = super
       services = service_discovery_services
-      healthy_nodes_count = 0
-      registered_nodes_count = services.size
+      @healthy_nodes_count_metrics.set(0)
+      @registered_nodes_count_metrics.set(services.size)
       services.each do |s|
         if s.available?
-          healthy_nodes_count += 1
+          @healthy_nodes_count_metrics.inc
         end
       end
 
       stats = {
         'output' => stats["output"].merge({
-          'healthy_nodes_count' => healthy_nodes_count,
-          'registered_nodes_count' => registered_nodes_count,
+          'healthy_nodes_count' => @healthy_nodes_count_metrics.get,
+          'registered_nodes_count' => @registered_nodes_count_metrics.get,
         })
       }
       stats
