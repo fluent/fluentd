@@ -1524,8 +1524,13 @@ class TailInputTest < Test::Unit::TestCase
     plugin.instance_eval do
       @pf = Fluent::Plugin::TailInput::PositionFile.load(sio, EX_FOLLOW_INODES, {}, logger: $log)
       @loop = Coolio::Loop.new
-      @total_rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
-      @total_rotated_file_metrics.configure(config_element('metrics', '', {}))
+      opened_file_metrics = Fluent::Plugin::LocalMetrics.new
+      opened_file_metrics.configure(config_element('metrics', '', {}))
+      closed_file_metrics = Fluent::Plugin::LocalMetrics.new
+      closed_file_metrics.configure(config_element('metrics', '', {}))
+      rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
+      rotated_file_metrics.configure(config_element('metrics', '', {}))
+      @metrics = Fluent::Plugin::TailInput::MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics)
     end
 
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
@@ -1888,8 +1893,13 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
       d.instance.instance_eval do
-        @total_rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
-        @total_rotated_file_metrics.configure(config_element('metrics', '', {}))
+        opened_file_metrics = Fluent::Plugin::LocalMetrics.new
+        opened_file_metrics.configure(config_element('metrics', '', {}))
+        closed_file_metrics = Fluent::Plugin::LocalMetrics.new
+        closed_file_metrics.configure(config_element('metrics', '', {}))
+        rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
+        rotated_file_metrics.configure(config_element('metrics', '', {}))
+        @metrics = Fluent::Plugin::TailInput::MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics)
       end
 
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
