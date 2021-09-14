@@ -426,12 +426,13 @@ module Fluent::Plugin
         end
       end
 
-      stats.merge(
-        'output' => {
+      stats = {
+        'output' => stats["output"].merge({
           'healthy_nodes_count' => healthy_nodes_count,
           'registered_nodes_count' => registered_nodes_count,
-        },
-      )
+        })
+      }
+      stats
     end
 
     # MessagePack FixArray length is 3
