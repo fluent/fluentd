@@ -678,14 +678,12 @@ module Fluent::Plugin
 
     def statistics
       stats = super
-      opened_file_count = @metrics.opened.get
-      closed_file_count = @metrics.closed.get
-      rotated_file_count = @metrics.rotated.get
+
       stats = {
         'input' => stats["input"].merge({
-          'opened_file_count' => opened_file_count,
-          'closed_file_count' => closed_file_count,
-          'rotated_file_count' => rotated_file_count,
+          'opened_file_count' => @metrics.opened.get,
+          'closed_file_count' => @metrics.closed.get,
+          'rotated_file_count' => @metrics.rotated.get,
         })
       }
       stats
