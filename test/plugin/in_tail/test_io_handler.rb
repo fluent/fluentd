@@ -1,11 +1,19 @@
 require_relative '../../helper'
 
 require 'fluent/plugin/in_tail'
+require 'fluent/plugin/metrics_local'
 require 'tempfile'
 
 class IntailIOHandlerTest < Test::Unit::TestCase
   setup do
     @file = Tempfile.new('intail_io_handler').binmode
+    opened_file_metrics = Fluent::Plugin::LocalMetrics.new
+    opened_file_metrics.configure(config_element('metrics', '', {}))
+    closed_file_metrics = Fluent::Plugin::LocalMetrics.new
+    closed_file_metrics.configure(config_element('metrics', '', {}))
+    rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
+    rotated_file_metrics.configure(config_element('metrics', '', {}))
+    @metrics = Fluent::Plugin::TailInput::MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics)
   end
 
   teardown do
@@ -30,7 +38,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
     end
 
     returned_lines = ''
-    r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false) do |lines, _watcher|
+    r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false, metrics: @metrics) do |lines, _watcher|
       returned_lines << lines.join
       true
     end
@@ -62,7 +70,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       end
 
       returned_lines = ''
-      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: true) do |lines, _watcher|
+      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: true, metrics: @metrics) do |lines, _watcher|
         returned_lines << lines.join
         true
       end
@@ -93,7 +101,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       end
 
       returned_lines = []
-      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false) do |lines, _watcher|
+      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false, metrics: @metrics) do |lines, _watcher|
         returned_lines << lines.dup
         true
       end
@@ -119,7 +127,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       end
 
       returned_lines = []
-      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false) do |lines, _watcher|
+      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false, metrics: @metrics) do |lines, _watcher|
         returned_lines << lines.dup
         true
       end
