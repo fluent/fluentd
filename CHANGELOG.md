@@ -1,3 +1,34 @@
+# v1.14.1
+
+## Release v1.14.1 - 2021/09/29
+
+### Enhancement
+
+* in_tail: Added file related metrics.
+  These metrics should be collected same as fluent-bit's in_tail.
+  https://github.com/fluent/fluentd/pull/3504
+* out_forward: Changed to use metrics mechanism for node statistics
+  https://github.com/fluent/fluentd/pull/3506
+
+### Bug fix
+
+* in_tail: Fixed a crash bug that it raise undefined method of eof? error.
+  This error may happen only when `read_bytes_limit_per_second` was specified.
+  https://github.com/fluent/fluentd/pull/3500
+* out_forward: Fixed a bug that node statistics information is not included correctly.
+  https://github.com/fluent/fluentd/pull/3503
+  https://github.com/fluent/fluentd/pull/3507
+* Fixed a error when using `@include` directive
+  It was occurred when http/https scheme URI is used in `@include` directive with Ruby 3.
+  https://github.com/fluent/fluentd/pull/3517
+* out_copy: Fixed to suppress a wrong warning for `ignore_if_prev_success`
+  It didn't work even if a user set it.
+  https://github.com/fluent/fluentd/pull/3515
+* Fixed not to output nanoseconds field of next retry time in warning log
+  Then, inappropriate labels in log are also fixed. (retry_time -> retry_times,
+  next_retry_seconds -> next_retry_time)
+  https://github.com/fluent/fluentd/pull/3518
+
 # v1.14.0
 
 ## Release v1.14.0 - 2021/08/30
