@@ -93,7 +93,7 @@ module Fluent
           basepath = '/'
           fname = path
           require 'open-uri'
-          open(uri) {|f|
+          URI.open(uri) {|f|
             Parser.new(basepath, f.each_line, fname).parse!(allow_include, nil, attrs, elems)
           }
         end
