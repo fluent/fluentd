@@ -15,6 +15,7 @@
 #
 
 require 'set'
+require 'fluent/env'
 require 'fluent/variable_store'
 
 module Fluent
@@ -76,7 +77,7 @@ module Fluent
 
       # Fluent::Plugin::Base#fluentd_worker_id
       dir = File.join(system_config.root_dir, "worker#{fluentd_worker_id}", plugin_id)
-      FileUtils.mkdir_p(dir, mode: system_config.dir_permission || 0755) unless Dir.exist?(dir)
+      FileUtils.mkdir_p(dir, mode: system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION) unless Dir.exist?(dir)
       @_plugin_root_dir = dir.freeze
       dir
     end

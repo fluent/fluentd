@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/env'
 require 'fluent/plugin'
 require 'fluent/plugin/storage'
 
@@ -25,14 +26,11 @@ module Fluent
     class LocalStorage < Storage
       Fluent::Plugin.register_storage('local', self)
 
-      DEFAULT_DIR_MODE = 0755
-      DEFAULT_FILE_MODE = 0644
-
       config_param :path, :string, default: nil
-      config_param :mode, default: DEFAULT_FILE_MODE do |v|
+      config_param :mode, default: Fluent::DEFAULT_FILE_PERMISSION do |v|
         v.to_i(8)
       end
-      config_param :dir_mode, default: DEFAULT_DIR_MODE do |v|
+      config_param :dir_mode, default: Fluent::DEFAULT_DIR_PERMISSION do |v|
         v.to_i(8)
       end
       config_param :pretty_print, :bool, default: false

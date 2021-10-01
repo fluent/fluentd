@@ -39,8 +39,8 @@ module Fluent
       config_set_default :chunk_limit_size, DEFAULT_CHUNK_LIMIT_SIZE
       config_set_default :total_limit_size, DEFAULT_TOTAL_LIMIT_SIZE
 
-      config_param :file_permission, :string, default: nil # '0644'
-      config_param :dir_permission,  :string, default: nil # '0755'
+      config_param :file_permission, :string, default: nil # '0644' (Fluent::DEFAULT_FILE_PERMISSION)
+      config_param :dir_permission,  :string, default: nil # '0755' (Fluent::DEFAULT_DIR_PERMISSION)
 
       def initialize
         super
