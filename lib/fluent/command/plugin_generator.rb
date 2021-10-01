@@ -20,6 +20,7 @@ require "fileutils"
 require "erb"
 require "open-uri"
 
+require "fluent/env"
 require "fluent/registry"
 require 'fluent/version'
 
@@ -39,7 +40,7 @@ class FluentPluginGenerator
 
   def call
     parse_options!
-    FileUtils.mkdir_p(gem_name)
+    FileUtils.mkdir_p(gem_name, mode: Fluent::DEFAULT_DIR_PERMISSION)
     Dir.chdir(gem_name) do
       copy_license
       template_directory.find do |path|

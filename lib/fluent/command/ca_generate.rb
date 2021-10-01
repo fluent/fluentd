@@ -2,6 +2,7 @@ require 'openssl'
 require 'optparse'
 require 'fileutils'
 require 'fluent/version'
+require 'fluent/env'
 
 module Fluent
   class CaGenerate
@@ -40,7 +41,7 @@ HELP
         exit 1
       end
 
-      FileUtils.mkdir_p(ca_dir)
+      FileUtils.mkdir_p(ca_dir, mode: Fluent::DEFAULT_DIR_PERMISSION)
 
       cert, key = Fluent::CaGenerate.generate_ca_pair(@options)
 

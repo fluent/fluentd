@@ -68,7 +68,7 @@ module Fluent::Plugin
         log.warn "Found existing '#{@path}'. Remove this file for in_unix plugin"
         File.unlink(@path)
       end
-      FileUtils.mkdir_p(File.dirname(@path))
+      FileUtils.mkdir_p(File.dirname(@path), mode: Fluent::DEFAULT_DIR_PERMISSION)
 
       log.info "listening fluent socket on #{@path}"
       s = Coolio::UNIXServer.new(@path, Handler, log, method(:on_message))

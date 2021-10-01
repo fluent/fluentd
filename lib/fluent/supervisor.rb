@@ -496,7 +496,7 @@ module Fluent
 
         if @path && @path != "-"
           unless File.exist?(@path)
-            FileUtils.mkdir_p(File.dirname(@path))
+            FileUtils.mkdir_p(File.dirname(@path), mode: @opts[:dir_permission] || Fluent::DEFAULT_DIR_PERMISSION)
           end
 
           @logdev = if @log_rotate_age || @log_rotate_size

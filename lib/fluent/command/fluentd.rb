@@ -253,7 +253,7 @@ end
 
 if setup_path = opts[:setup_path]
   require 'fileutils'
-  FileUtils.mkdir_p File.join(setup_path, "plugin")
+  FileUtils.mkdir_p File.join(setup_path, "plugin"), mode: Fluent::DEFAULT_DIR_PERMISSION
   confpath = File.join(setup_path, "fluent.conf")
   if File.exist?(confpath)
     puts "#{confpath} already exists."

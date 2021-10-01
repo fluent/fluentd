@@ -17,7 +17,7 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
 
     assert_false File.exist?(TMP_DIR)
     logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {})
-    mock.proxy(File).chmod(0o777, TMP_DIR).never
+    mock.proxy(File).chmod(Fluent::DEFAULT_DIR_PERMISSION, TMP_DIR).once
 
     assert_nothing_raised do
       logger.init(:supervisor, 0)
@@ -34,6 +34,7 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
     assert_false File.exist?(TMP_DIR)
     logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {})
     mock.proxy(File).chmod(0o777, TMP_DIR).once
+    mock.proxy(File).chmod(Fluent::DEFAULT_DIR_PERMISSION, TMP_DIR).once
 
     assert_nothing_raised do
       logger.init(:supervisor, 0)
