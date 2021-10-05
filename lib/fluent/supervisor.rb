@@ -544,7 +544,7 @@ module Fluent
         $log.ignore_same_log_interval = ignore_same_log_interval if ignore_same_log_interval
 
         if @path && log_dir_perm
-          File.chmod(log_dir_perm || 0755, File.dirname(@path))
+          File.chmod(log_dir_perm || Fluent::DEFAULT_DIR_PERMISSION, File.dirname(@path))
         end
       end
 
@@ -651,7 +651,7 @@ module Fluent
           end
         else
           begin
-            FileUtils.mkdir_p(root_dir, mode: @system_config.dir_permission || 0755)
+            FileUtils.mkdir_p(root_dir, mode: @system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION)
           rescue => e
             raise Fluent::InvalidRootDirectory, "failed to create root directory:#{root_dir}, #{e.inspect}"
           end
