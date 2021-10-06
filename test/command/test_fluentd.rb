@@ -477,6 +477,67 @@ CONF
         "error=\"Unknown input plugin ''. Run 'gem search -rd fluent-plugin' to find plugins",
       )
     end
+
+    data(
+      input: ["input",
+              "in_foo",
+              "foo",
+              "<source>\n@type in_foo\n</source>"],
+      output: ["output",
+               "out_foo",
+               "foo",
+               "<source>\n@type dummy\ntag dummy\n</source>\n<match **>\n@type out_foo\n</match>"],
+      filter: ["filter",
+               "filter_foo",
+               "foo",
+               "<filter>\n@type filter_foo\n</filter>"],
+    )
+    test 'error when needless kind prefix is specified for @type (searched from -p option)' do |(kind, prefixed_plugin, plugin, conf)|
+      script =  "require 'fluent/plugin/#{kind}'\n"
+      script << "module Fluent::Plugin\n"
+      script << "  class WithExtraKind#{kind.capitalize} < #{kind.capitalize}\n"
+      script << "    Fluent::Plugin.register_#{kind}(\"#{plugin}\" self)\n"
+      script << "  end\n"
+      plugin_path = create_plugin_file("#{prefixed_plugin}.rb", script)
+      conf_path = create_conf_file('needless_kind.conf', conf)
+
+      assert_fluentd_fails_to_start(
+        create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
+        "config error",
+        "error=\"Unknown #{kind} plugin '#{prefixed_plugin}'. Ensure plugin name! Did you mean? '@type #{plugin}' Check plugin's register_#{kind}(...) for correct plugin name\"",
+      )
+    end
+
+    data(
+      input: ["input",
+              "in_foo",
+              "foo",
+              "<source>\n@type in_foo\n</source>"],
+      output: ["output",
+               "out_foo",
+               "foo",
+               "<source>\n@type dummy\ntag dummy\n</source>\n<match **>\n@type out_foo\n</match>"],
+      filter: ["filter",
+               "filter_foo",
+               "foo",
+               "<filter>\n@type filter_foo\n</filter>"],
+    )
+    test "error when needless kind prefix is specified for @type (searched from LOAD_PATH)" do |(kind, prefixed_plugin, plugin, conf)|
+      script =  "require 'fluent/plugin/#{kind}'\n"
+      script << "module Fluent::Plugin\n"
+      script << "  class WithExtraKind#{kind.capitalize} < #{kind.capitalize}\n"
+      script << "    Fluent::Plugin.register_#{kind}(\"#{prefixed_plugin}\" self)\n"
+      script << "  end\n"
+      script << "end\n"
+      plugin_path = create_plugin_file("#{prefixed_plugin}.rb", script)
+      conf_path = create_conf_file('needless_kind.conf', conf)
+      # Use -I for $LOAD_PATH equivalent operation
+      assert_fluentd_fails_to_start(
+        create_cmdline(conf_path, "-I", File.dirname(plugin_path)),
+        "config error",
+        "error=\"Unknown #{kind} plugin '#{prefixed_plugin}'. Ensure plugin name! Did you mean? '@type #{plugin}' Check plugin's register_#{kind}(...) for correct plugin name\"",
+      )
+    end
   end
 
   sub_test_case 'configuration to load plugin file with syntax error' do

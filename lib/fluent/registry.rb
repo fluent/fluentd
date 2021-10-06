@@ -15,6 +15,7 @@
 #
 
 require 'fluent/config/error'
+require 'fluent/validator/plugin_name'
 
 module Fluent
   class Registry
@@ -27,6 +28,7 @@ module Fluent
       @dir_search_prefix = dir_search_prefix
       @map = {}
       @paths = []
+      @plugin_name_validator = nil
     end
 
     attr_reader :kind, :paths, :map, :dir_search_prefix
@@ -45,7 +47,17 @@ module Fluent
       if value = @map[type]
         return value
       end
-      raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins"  # TODO error class
+      unless @plugin_name_validator
+        @plugin_name_validator = Fluent::Validator::PluginName.new(@paths, @search_prefix, @dir_search_prefix)
+      end
+      unless @plugin_name_validator.valid?(type)
+        # (e.g.@type out_xxx is specified, but it should be @type xxx for out_xxx.rb plugin)
+        assumed_plugin_name = @plugin_name_validator.guess_plugin_name(type)
+        message =  "Unknown %s plugin '%s'. Ensure plugin name! Did you mean? '@type %s' Check plugin's register_%s(...) for correct plugin name" % [@kind, type, assumed_plugin_name, @kind]
+        raise ConfigError, message
+      else
+        raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins"  # TODO error class
+      end
     end
 
     def reverse_lookup(value)
