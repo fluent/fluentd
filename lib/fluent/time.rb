@@ -227,12 +227,15 @@ module Fluent
       format_with_timezone = format && (format.include?("%z") || format.include?("%Z"))
 
       utc_offset = case
-                    when format_with_timezone then nil
-                    when timezone  then
-                      Fluent::Timezone.utc_offset(timezone)
-                    when localtime then Time.now.localtime.utc_offset
-                    else 0 # utc
-                    end
+                   when format_with_timezone then
+                     nil
+                   when timezone then
+                     Fluent::Timezone.utc_offset(timezone)
+                   when localtime then
+                     nil
+                   else
+                     0 # utc
+                   end
 
       strptime = format && (Strptime.new(format) rescue nil)
 
@@ -241,13 +244,17 @@ module Fluent
                when format_with_timezone             then ->(v){ Fluent::EventTime.from_time(Time.strptime(v, format)) }
                when format == '%iso8601'             then ->(v){ Fluent::EventTime.from_time(Time.iso8601(v)) }
                when strptime then
-                 if utc_offset.respond_to?(:call)
+                 if utc_offset.nil?
+                   ->(v){ t = strptime.exec(v); Fluent::EventTime.new(t.to_i, t.nsec) }
+                 elsif utc_offset.respond_to?(:call)
                    ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + t.utc_offset - utc_offset.call(t), t.nsec) }
                  else
                    ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + t.utc_offset - utc_offset, t.nsec) }
                  end
                when format then
-                 if utc_offset.respond_to?(:call)
+                 if utc_offset.nil?
+                   ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i, t.nsec) }
+                 elsif utc_offset.respond_to?(:call)
                    ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + t.utc_offset - utc_offset.call(t), t.nsec) }
                  else
                    ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + t.utc_offset - utc_offset, t.nsec) }
