@@ -337,4 +337,26 @@ class TimeParserTest < ::Test::Unit::TestCase
       assert_equal_event_time(time, parser.parse('2021-01-01T12:00:00+0900'))
     end
   end
+
+  # https://github.com/fluent/fluentd/issues/3195
+  test 'change timezone without zone specifier in a format' do
+    expected = 1607457600 # 2020-12-08T20:00:00Z
+    time1 = time2 = nil
+
+    with_timezone("UTC-05") do # EST
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '', {'time_type' => 'string',
+                                               'time_format' => '%Y-%m-%dT%H:%M:%SZ',
+                                               'utc' => true}))
+      parser = i.time_parser_create
+
+      time1 = parser.parse('2020-12-08T20:00:00Z').to_i
+      time2 = with_timezone("UTC-04") do # EDT
+        # to avoid using cache, increment 1 sec
+        parser.parse('2020-12-08T20:00:01Z').to_i
+      end
+    end
+
+    assert_equal([expected, expected + 1], [time1, time2])
+  end
 end
