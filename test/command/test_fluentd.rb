@@ -19,6 +19,10 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     ENV["TEST_RUBY_PATH"] = nil
   end
 
+  teardown do
+    FileUtils.rm_rf(TMP_DIR)
+  end
+
   def process_exist?(pid)
     begin
       r = Process.waitpid(pid, Process::WNOHANG)
