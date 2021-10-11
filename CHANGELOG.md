@@ -1,3 +1,24 @@
+# v1.14.2
+
+## Release v1.14.2 - 2021/10/29
+
+IMPORTANT: This release contain the fix for CVE-2021-41186 -
+ReDoS vulnerability in `parser_apache2`.
+This vulnerability is affected from Fluentd v0.14.14 to v1.14.1.
+We recommend to upgrade Fluentd to v1.14.2 or use patched version of
+`parser_apache2` plugin.
+
+### Enhancement
+
+* fluent-cat: Add `--event-time` option to send specified event time for testing.
+
+### Bug fix
+
+* Fixed to generate correct epoch timestamp even after switching Daylight Saving Time
+  https://github.com/fluent/fluentd/pull/3524
+* Fixed ReDoS vulnerability in parser_apache2.
+  This vulnerability is caused by a certain pattern of a broken apache log.
+
 # v1.14.1
 
 ## Release v1.14.1 - 2021/09/29
