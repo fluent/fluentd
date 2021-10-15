@@ -69,7 +69,7 @@ class TestFluentCat < ::Test::Unit::TestCase
     def test_cat_json
       d = create_driver
       d.run(expect_records: 1) do
-        Open3.pipeline_w("ruby #{FLUENT_CAT_COMMAND} --port #{@port} json") do |stdin|
+        Open3.pipeline_w("#{ServerEngine.ruby_bin_path} #{FLUENT_CAT_COMMAND} --port #{@port} json") do |stdin|
           stdin.puts('{"key":"value"}')
           stdin.close
         end
@@ -86,7 +86,7 @@ class TestFluentCat < ::Test::Unit::TestCase
       path = d.instance.write(@chunk)
       d = create_driver
       d.run(expect_records: 1) do
-        Open3.pipeline_w("ruby #{FLUENT_CAT_COMMAND} --port #{@port} --format msgpack secondary") do |stdin|
+        Open3.pipeline_w("#{ServerEngine.ruby_bin_path} #{FLUENT_CAT_COMMAND} --port #{@port} --format msgpack secondary") do |stdin|
           stdin.write(File.read(path))
           stdin.close
         end
