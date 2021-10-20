@@ -1,12 +1,87 @@
 require_relative '../helper'
-require_relative './test_in_tail'
+# require_relative './test_in_tail'
 require 'fluent/test'
 require 'fluent/test/helpers'
 require 'fluent/test/driver/input'
 require 'fluent/plugin/in_tail_with_throttle'
 
-class ThrottleInputTest < TailInputTest
-  
+class ThrottleInputTest < Test::Unit::TestCase
+
+  def setup
+    Fluent::Test.setup
+    cleanup_directory(TMP_DIR)
+  end
+
+  def teardown
+    super
+    cleanup_directory(TMP_DIR)
+    Fluent::Engine.stop
+  end
+
+  def cleanup_directory(path)
+    unless Dir.exist?(path)
+      FileUtils.mkdir_p(path)
+      return
+    end
+
+    if Fluent.windows?
+      Dir.glob("*", base: path).each do |name|
+        begin
+          cleanup_file(File.join(path, name))
+        rescue
+          # expect test driver block release already owned file handle.
+        end
+      end
+    else
+      begin
+        FileUtils.rm_f(path, secure:true)
+      rescue ArgumentError
+        FileUtils.rm_f(path) # For Ruby 2.6 or before.
+      end
+      if File.exist?(path)
+        FileUtils.remove_entry_secure(path, true)
+      end
+    end
+    FileUtils.mkdir_p(path)
+  end
+
+  def cleanup_file(path)
+    if Fluent.windows?
+      # On Windows, when the file or directory is removed and created
+      # frequently, there is a case that creating file or directory will
+      # fail. This situation is caused by pending file or directory
+      # deletion which is mentioned on win32 API document [1]
+      # As a workaround, execute rename and remove method.
+      #
+      # [1] https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea#files
+      #
+      file = File.join(Dir.tmpdir, SecureRandom.hex(10))
+      begin
+        FileUtils.mv(path, file)
+        FileUtils.rm_rf(file, secure: true)
+      rescue ArgumentError
+        FileUtils.rm_rf(file) # For Ruby 2.6 or before.
+      end
+      if File.exist?(file)
+        # ensure files are closed for Windows, on which deleted files
+        # are still visible from filesystem
+        GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
+        FileUtils.remove_entry_secure(file, true)
+      end
+    else
+      begin
+        FileUtils.rm_f(path, secure: true)
+      rescue ArgumentError
+        FileUtils.rm_f(path) # For Ruby 2.6 or before.
+      end
+      if File.exist?(path)
+        FileUtils.remove_entry_secure(path, true)
+      end
+    end
+  end
+
+  TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail_with_throttle#{ENV['TEST_ENV_NUMBER']}"
+
   def create_group_directive(pattern, rate_period, *rules)
     config_element("", "", {}, [
       config_element("group", "", {
