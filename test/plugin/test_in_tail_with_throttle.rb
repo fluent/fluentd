@@ -1,5 +1,5 @@
 require_relative '../helper'
-# require_relative './test_in_tail'
+
 require 'fluent/test'
 require 'fluent/test/helpers'
 require 'fluent/test/driver/input'

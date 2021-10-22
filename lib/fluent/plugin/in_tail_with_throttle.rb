@@ -83,17 +83,17 @@ module Fluent::Plugin
       end
     end
 
-    def find_group_from_metadata(path)
-      def find_group(namespace, appname)
-        namespace_key = @group_watchers.keys.find { |regexp| namespace.match?(regexp) && regexp != DEFAULT_NAMESPACE }
-        namespace_key ||= DEFAULT_NAMESPACE
+    def find_group(namespace, appname)
+      namespace_key = @group_watchers.keys.find { |regexp| namespace.match?(regexp) && regexp != DEFAULT_NAMESPACE }
+      namespace_key ||= DEFAULT_NAMESPACE
 
-        appname_key = @group_watchers[namespace_key].keys.find { |regexp| appname.match?(regexp) && regexp != DEFAULT_APPNAME }
-        appname_key ||= DEFAULT_APPNAME
+      appname_key = @group_watchers[namespace_key].keys.find { |regexp| appname.match?(regexp) && regexp != DEFAULT_APPNAME }
+      appname_key ||= DEFAULT_APPNAME
 
-        @group_watchers[namespace_key][appname_key]
-      end
-  
+      @group_watchers[namespace_key][appname_key]
+    end
+
+    def find_group_from_metadata(path)  
       begin
         metadata = @group.pattern.match(path)
         group_watcher = find_group(metadata['namespace'], metadata['appname'])
@@ -120,8 +120,8 @@ module Fluent::Plugin
       tw.group_watcher = group_watcher
 
       tw
-      rescue => e 
-        raise e
+    rescue => e 
+      raise e
     end
 
     def detach_watcher_after_rotate_wait(tw, ino)
