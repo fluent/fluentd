@@ -1,13 +1,13 @@
 kind: pipeline
-name: fluentd-test-arm64-2-6-3
+name: fluentd-test-arm64-3-0
 
 platform:
   os: linux
   arch: arm64
 
 steps:
-- name: fluentd-test-arm64-2-6-3
-  image: arm64v8/ruby:2.6.3
+- name: fluentd-test-arm64-3-0
+  image: arm64v8/ruby:3.0
   commands:
   - apt update
   - apt -y install libgmp3-dev
@@ -17,15 +17,15 @@ steps:
   - bundle exec rake test
 ---
 kind: pipeline
-name: fluentd-test-arm64-latest
+name: fluentd-test-arm64-2-7
 
 platform:
   os: linux
   arch: arm64
 
 steps:
-- name: fluentd-test-arm64-latest
-  image: arm64v8/ruby:latest
+- name: fluentd-test-arm64-2-7
+  image: arm64v8/ruby:2.7
   commands:
   - apt update
   - apt -y install libgmp3-dev
