@@ -88,6 +88,8 @@ You can run specified test via `TEST` environment variable:
 
 A third party security audit was performed by Cure53, you can see the full report [here](docs/SECURITY_AUDIT.pdf).
 
+See [SECURITY](SECURITY.md) to contact us about vulnerability.
+
 ## Contributors:
 
 Patches contributed by [great developers](https://github.com/fluent/fluentd/contributors).
