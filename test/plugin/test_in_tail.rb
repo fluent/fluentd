@@ -596,6 +596,35 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test4"}, events[1][2])
     end
 
+    # https://github.com/fluent/fluentd/pull/3541#discussion_r740197711
+    def test_watch_wildcard_path_without_watch_timer
+      config = config_element("ROOT", "", {
+                                "path" => "#{TMP_DIR}/tail*.txt",
+                                "tag" => "t1",
+                              })
+      config = config + CONFIG_DISABLE_WATCH_TIMER + SINGLE_LINE_CONFIG
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+
+      d = create_driver(config, false)
+
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts "test3"
+          f.puts "test4"
+        }
+      end
+
+      assert_equal(
+        [
+          {"message" => "test3"},
+          {"message" => "test4"},
+        ],
+        d.events.collect { |event| event[2] })
+    end
+
     data(flat: CONFIG_DISABLE_STAT_WATCHER + SINGLE_LINE_CONFIG,
          parse: CONFIG_DISABLE_STAT_WATCHER + PARSE_SINGLE_LINE_CONFIG)
     def test_emit_with_disable_stat_watcher(data)
