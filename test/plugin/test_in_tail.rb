@@ -516,21 +516,13 @@ class TailInputTest < Test::Unit::TestCase
           rotated = false
           detached = false
           d = create_driver(config)
-          mock.proxy(d.instance).setup_watcher(anything, anything, anything) do |tw|
-            mock.proxy(tw).detach(anything) do |v|
-              detached = true
-              v
-            end
-            tw
-          end.once
-
           mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
             mock.proxy(tw).detach(anything) do |v|
               detached = true
               v
             end
             tw
-          end.once
+          end.twice
 
           d.run(timeout: 10) do
             until detached do
@@ -2196,7 +2188,7 @@ class TailInputTest < Test::Unit::TestCase
                               'format' => 'none',
                             })
     d = create_driver(config)
-    mock.proxy(d.instance).setup_watcher(anything, anything, anything) do |tw|
+    mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
       cleanup_file(path)
       tw
     end
@@ -2221,7 +2213,7 @@ class TailInputTest < Test::Unit::TestCase
                                 'format' => 'none',
                               })
       d = create_driver(config, false)
-      mock.proxy(d.instance).setup_watcher(anything, anything, anything) do |tw|
+      mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
         FileUtils.chmod(0000, "#{TMP_DIR}/noaccess")
         tw
       end
