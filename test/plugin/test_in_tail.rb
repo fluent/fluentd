@@ -598,11 +598,14 @@ class TailInputTest < Test::Unit::TestCase
 
     # https://github.com/fluent/fluentd/pull/3541#discussion_r740197711
     def test_watch_wildcard_path_without_watch_timer
+      omit "need inotify" unless Fluent.linux?
+
       config = config_element("ROOT", "", {
                                 "path" => "#{TMP_DIR}/tail*.txt",
                                 "tag" => "t1",
                               })
       config = config + CONFIG_DISABLE_WATCH_TIMER + SINGLE_LINE_CONFIG
+
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
