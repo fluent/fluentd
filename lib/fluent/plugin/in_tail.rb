@@ -250,7 +250,7 @@ module Fluent::Plugin
         end
       end
 
-      refresh_watchers unless @skip_refresh_on_startup
+      refresh_watchers(true) unless @skip_refresh_on_startup
       timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
     end
 
@@ -366,7 +366,7 @@ module Fluent::Plugin
     # It will cause log duplication after updated watch files.
     # In such case, you should separate log directory and specify two paths in path parameter.
     # e.g. path /path/to/dir/*,/path/to/rotated_logs/target_file
-    def refresh_watchers
+    def refresh_watchers(startup = false)
       target_paths_hash = expand_paths
       existence_paths_hash = existence_path
 
@@ -376,12 +376,13 @@ module Fluent::Plugin
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
 
       stop_watchers(unwatched_hash, immediate: false, unwatched: true) unless unwatched_hash.empty?
-      start_watchers(added_hash) unless added_hash.empty?
+      start_watchers(added_hash, startup) unless added_hash.empty?
     end
 
-    def setup_watcher(target_info, pe)
+    def setup_watcher(target_info, pe, startup = false)
       line_buffer_timer_flusher = @multiline_mode ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(target_info, pe, log, @read_from_head, @follow_inodes, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler), @metrics)
+      read_from_head = startup ? @read_from_head : true
+      tw = TailWatcher.new(target_info, pe, log, read_from_head, @follow_inodes, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler), @metrics)
 
       if @enable_watch_timer
         tt = TimerTrigger.new(1, log) { tw.on_notify }
@@ -410,7 +411,7 @@ module Fluent::Plugin
       raise e
     end
 
-    def construct_watcher(target_info)
+    def construct_watcher(target_info, startup)
       pe = nil
       if @pf
         pe = @pf[target_info]
@@ -424,7 +425,7 @@ module Fluent::Plugin
       end
 
       begin
-        tw = setup_watcher(target_info, pe)
+        tw = setup_watcher(target_info, pe, startup)
       rescue WatcherSetupError => e
         log.warn "Skip #{target_info.path} because unexpected setup error happens: #{e}"
         return
@@ -443,9 +444,9 @@ module Fluent::Plugin
       end
     end
 
-    def start_watchers(targets_info)
+    def start_watchers(targets_info, startup)
       targets_info.each_value {|target_info|
-        construct_watcher(target_info)
+        construct_watcher(target_info, startup)
         break if before_shutdown?
       }
     end
