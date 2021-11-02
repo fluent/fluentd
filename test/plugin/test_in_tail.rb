@@ -651,6 +651,23 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test3"}, events[0][2])
       assert_equal({"message" => "test4"}, events[1][2])
     end
+
+    def test_always_read_from_head_on_detecting_a_new_file
+      d = create_driver(SINGLE_LINE_CONFIG)
+
+      d.run(expect_emits: 1, timeout: 3) do
+        File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+          f.puts "test1\ntest2\n"
+        }
+      end
+
+      assert_equal(
+        [
+          {"message" => "test1"},
+          {"message" => "test2"},
+        ],
+        d.events.collect { |event| event[2] })
+    end
   end
 
   class TestWithSystem < self
