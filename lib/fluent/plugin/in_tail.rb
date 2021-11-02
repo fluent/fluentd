@@ -387,7 +387,7 @@ module Fluent::Plugin
 
     def setup_watcher(target_info, pe)
       line_buffer_timer_flusher = @multiline_mode ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      read_from_head = @startup ? @read_from_head : true
+      read_from_head = !@startup || @read_from_head
       tw = TailWatcher.new(target_info, pe, log, read_from_head, @follow_inodes, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler), @metrics)
 
       if @enable_watch_timer
