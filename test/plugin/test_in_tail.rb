@@ -99,7 +99,7 @@ class TailInputTest < Test::Unit::TestCase
                           })
   COMMON_CONFIG = CONFIG + config_element("", "", { "pos_file" => "#{TMP_DIR}/tail.pos" })
   CONFIG_READ_FROM_HEAD = config_element("", "", { "read_from_head" => true })
-  CONFIG_ENABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
+  CONFIG_DISABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
   CONFIG_DISABLE_STAT_WATCHER = config_element("", "", { "enable_stat_watcher" => false })
   CONFIG_OPEN_ON_EVERY_UPDATE = config_element("", "", { "open_on_every_update" => true })
   COMMON_FOLLOW_INODE_CONFIG = config_element("ROOT", "", {
@@ -199,7 +199,7 @@ class TailInputTest < Test::Unit::TestCase
 
     sub_test_case "log throttling per file" do
       test "w/o watcher timer is invalid" do
-        conf = CONFIG_ENABLE_WATCH_TIMER + config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
+        conf = CONFIG_DISABLE_WATCH_TIMER + config_element("ROOT", "", {"read_bytes_limit_per_second" => "8k"})
         assert_raise(Fluent::ConfigError) do
           create_driver(conf)
         end
@@ -215,7 +215,7 @@ class TailInputTest < Test::Unit::TestCase
 
     test "both enable_watch_timer and enable_stat_watcher are false" do
       assert_raise(Fluent::ConfigError) do
-        create_driver(CONFIG_ENABLE_WATCH_TIMER + CONFIG_DISABLE_STAT_WATCHER + PARSE_SINGLE_LINE_CONFIG)
+        create_driver(CONFIG_DISABLE_WATCH_TIMER + CONFIG_DISABLE_STAT_WATCHER + PARSE_SINGLE_LINE_CONFIG)
       end
     end
 
@@ -570,9 +570,9 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test4"}, events[3][2])
     end
 
-    data(flat: CONFIG_ENABLE_WATCH_TIMER + SINGLE_LINE_CONFIG,
-         parse: CONFIG_ENABLE_WATCH_TIMER + PARSE_SINGLE_LINE_CONFIG)
-    def test_emit_with_enable_watch_timer(data)
+    data(flat: CONFIG_DISABLE_WATCH_TIMER + SINGLE_LINE_CONFIG,
+         parse: CONFIG_DISABLE_WATCH_TIMER + PARSE_SINGLE_LINE_CONFIG)
+    def test_emit_without_watch_timer(data)
       config = data
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
         f.puts "test1"
@@ -594,6 +594,38 @@ class TailInputTest < Test::Unit::TestCase
       assert(events.length > 0)
       assert_equal({"message" => "test3"}, events[0][2])
       assert_equal({"message" => "test4"}, events[1][2])
+    end
+
+    # https://github.com/fluent/fluentd/pull/3541#discussion_r740197711
+    def test_watch_wildcard_path_without_watch_timer
+      omit "need inotify" unless Fluent.linux?
+
+      config = config_element("ROOT", "", {
+                                "path" => "#{TMP_DIR}/tail*.txt",
+                                "tag" => "t1",
+                              })
+      config = config + CONFIG_DISABLE_WATCH_TIMER + SINGLE_LINE_CONFIG
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+
+      d = create_driver(config, false)
+
+      d.run(expect_emits: 1, timeout: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts "test3"
+          f.puts "test4"
+        }
+      end
+
+      assert_equal(
+        [
+          {"message" => "test3"},
+          {"message" => "test4"},
+        ],
+        d.events.collect { |event| event[2] })
     end
 
     data(flat: CONFIG_DISABLE_STAT_WATCHER + SINGLE_LINE_CONFIG,
