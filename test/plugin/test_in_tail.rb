@@ -613,7 +613,7 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
 
-      d.run(expect_emits: 1) do
+      d.run(expect_emits: 1, timeout: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
