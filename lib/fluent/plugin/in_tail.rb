@@ -369,8 +369,12 @@ module Fluent::Plugin
     def refresh_watchers
       target_paths_hash = expand_paths
       existence_paths_hash = existence_path
-
-      log.debug { "tailing paths: target = #{target_paths.join(",")} | existing = #{existence_paths.join(",")}" }
+      
+      log.debug {
+        target_paths_str = target_paths_hash.collect { |key, target_info| target_info.path }.join(",")
+        existence_paths_str = existence_paths_hash.collect { |key, target_info| target_info.path }.join(",")
+        "tailing paths: target = #{target_paths_str} | existing = #{existence_paths_str}"
+      }
 
       unwatched_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
@@ -389,7 +393,7 @@ module Fluent::Plugin
       end
 
       if @enable_stat_watcher
-        tt = StatWatcher.new(path, log) { tw.on_notify }
+        tt = StatWatcher.new(target_info.path, log) { tw.on_notify }
         tw.register_watcher(tt)
       end
 
