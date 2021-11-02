@@ -379,7 +379,7 @@ module Fluent::Plugin
 
       unwatched_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
-      
+
       stop_watchers(unwatched_hash, immediate: false, unwatched: true) unless unwatched_hash.empty?
       start_watchers(added_hash) unless added_hash.empty?
       @startup = false if @startup
