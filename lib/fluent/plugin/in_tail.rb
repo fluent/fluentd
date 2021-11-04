@@ -59,6 +59,7 @@ module Fluent::Plugin
       @ignore_list = []
       @shutdown_start_time = nil
       @metrics = nil
+      @startup = true
     end
 
     desc 'The paths to read. Multiple paths can be specified, separated by comma.'
@@ -381,11 +382,13 @@ module Fluent::Plugin
 
       stop_watchers(unwatched_hash, immediate: false, unwatched: true) unless unwatched_hash.empty?
       start_watchers(added_hash) unless added_hash.empty?
+      @startup = false if @startup
     end
 
     def setup_watcher(target_info, pe)
       line_buffer_timer_flusher = @multiline_mode ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(target_info, pe, log, @read_from_head, @follow_inodes, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler), @metrics)
+      read_from_head = !@startup || @read_from_head
+      tw = TailWatcher.new(target_info, pe, log, read_from_head, @follow_inodes, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler), @metrics)
 
       if @enable_watch_timer
         tt = TimerTrigger.new(1, log) { tw.on_notify }
