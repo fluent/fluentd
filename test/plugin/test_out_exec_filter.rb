@@ -524,6 +524,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal pid_list[1], events[1][2]['child_pid']
     assert_equal pid_list[0], events[2][2]['child_pid']
     assert_equal pid_list[1], events[3][2]['child_pid']
+
+  ensure
+    d.run(start: false, shutdown: true)
   end
 
   # child process exits per 3 lines
@@ -597,6 +600,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal 2, logs.select { |l| l.include?('child process exits with error code') }.size
     assert_equal 2, logs.select { |l| l.include?('respawning child process') }.size
 
+  ensure
     d.run(start: false, shutdown: true)
   end
 end
