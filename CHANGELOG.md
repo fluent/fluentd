@@ -1,3 +1,33 @@
+# v1.14.3
+
+## Release v1.14.3 - 2021/11/26
+
+### Enhancement
+
+* Changed to accept `http_parser.rb` 0.8.0.
+  `http_parser.rb` 0.8.0 is ready for Ractor.
+  https://github.com/fluent/fluentd/pull/3544
+
+### Bug fix
+
+* in_tail: Fixed a bug that no new logs are read when
+  `enable_stat_watcher true` and `enable_watch_timer false` is set.
+  https://github.com/fluent/fluentd/pull/3541
+* in_tail: Fixed a bug that the beginning and initial lines are lost
+  after startup when `read_from_head false` and path includes wildcard '*'.
+  https://github.com/fluent/fluentd/pull/3542
+* Fixed a bug that processing messages were lost when
+  BufferChunkOverflowError was thrown even though only a specific
+  message size exceeds chunk_limit_size.
+  https://github.com/fluent/fluentd/pull/3553
+  https://github.com/fluent/fluentd/pull/3562
+
+### Misc
+
+* Bump up required version of `win32-service` gem.
+  newer version is required to implement additional `fluent-ctl` commands.
+  https://github.com/fluent/fluentd/pull/3556
+
 # v1.14.2
 
 ## Release v1.14.2 - 2021/10/29
