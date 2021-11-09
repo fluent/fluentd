@@ -20,6 +20,7 @@ jobs:
           - ruby-version: head
             os: ubuntu-latest
             experimental: true
+            test-opts: 'TESTOPTS="-v --ignore-name=\"test: has plugin logger\""'
 
     name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
@@ -33,4 +34,4 @@ jobs:
       - name: Install dependencies
         run: bundle install
       - name: Run tests
-        run: bundle exec rake test TESTOPTS=-v
+        run: bundle exec rake test ${{ matrix.test-opts }}

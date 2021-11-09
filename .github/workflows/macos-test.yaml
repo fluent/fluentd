@@ -13,9 +13,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: ['head', '2.7']
+        ruby-version: ['2.7']
         os: [macos-latest]
-        experimental: [true]
+        experimental: [false]
+        include:
+          - ruby-version: head
+            os: macos-latest
+            experimental: true
+            test-opts: 'TESTOPTS="-v --ignore-name=\"test: has plugin logger\""'
 
     name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
@@ -27,4 +32,4 @@ jobs:
       - name: Install dependencies
         run: bundle install
       - name: Run tests
-        run: bundle exec rake test TESTOPTS=-v
+        run: bundle exec rake test ${{ matrix.test-opts }}
