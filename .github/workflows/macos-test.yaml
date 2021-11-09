@@ -20,7 +20,7 @@ jobs:
           - ruby-version: head
             os: macos-latest
             experimental: true
-            test-opts: 'TESTOPTS="-v --ignore-name=\"test: has plugin logger\""'
+            test-opts: 'TESTOPTS="-v --ignore-name=\"test: has plugin logger\" --ignore-name=\"test: aborts timer which raises exceptions\""'
 
     name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
