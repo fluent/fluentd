@@ -319,12 +319,12 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command many times, which finishes immediately' do
     ary = []
-    arguments = ["-e", "puts 'okay'; STDOUT.flush rescue nil"]
+    arguments = ["okay"]
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 1, mode: [:read]) do |io|
+      @d.child_process_execute(:t5, "echo", arguments: arguments, interval: 1, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 2.5 # 2sec(second invocation) + 0.5sec
+      sleep 2.9 # 2sec(second invocation) + 0.9sec
       assert_equal [], @d.log.out.logs
       @d.stop
       assert_equal [], @d.log.out.logs
@@ -335,12 +335,12 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command many times, with leading once executed immediately' do
     ary = []
-    arguments = ["-e", "puts 'okay'; STDOUT.flush rescue nil"]
+    arguments = ["okay"]
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t6, "ruby", arguments: arguments, interval: 1, immediate: true, mode: [:read]) do |io|
+      @d.child_process_execute(:t6, "echo", arguments: arguments, interval: 1, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 1.5 # 2sec(second invocation) + 0.5sec
+      sleep 1.9 # 1sec(second invocation) + 0.9sec
       @d.stop; @d.shutdown; @d.close; @d.terminate
       assert_equal 2, ary.size
       assert_equal [], @d.log.out.logs
@@ -722,14 +722,14 @@ class ChildProcessTest < Test::Unit::TestCase
       read_data_list = []
       exit_status_list = []
 
-      args = ['-e', 'puts "yay"']
+      args = ['yay']
       cb = ->(status){ exit_status_list << status }
 
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-        @d.child_process_execute(:st1, "ruby", arguments: args, immediate: true, interval: 1, mode: [:read], on_exit_callback: cb) do |readio|
+        @d.child_process_execute(:st1, "echo", arguments: args, immediate: true, interval: 1, mode: [:read], on_exit_callback: cb) do |readio|
           read_data_list << readio.read.chomp
         end
-        sleep 2
+        sleep 2.5
       end
 
       assert { read_data_list.size >= 2 }
