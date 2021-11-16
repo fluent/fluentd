@@ -18,7 +18,7 @@ module FluentPluginBufferTest
   end
   class DummyMemoryChunkError < StandardError; end
   class DummyMemoryChunk < Fluent::Plugin::Buffer::MemoryChunk
-    attr_reader :append_count, :rollbacked, :closed, :purged
+    attr_reader :append_count, :rollbacked, :closed, :purged, :chunk
     attr_accessor :failing
     def initialize(metadata, compress: :text)
       super
@@ -943,6 +943,52 @@ class BufferTest < Test::Unit::TestCase
       assert_raise Fluent::Plugin::Buffer::BufferChunkOverflowError do
         @p.write({@dm0 => es}, format: @format)
       end
+    end
+
+    data(
+      first_chunk: Fluent::ArrayEventStream.new([[event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * 1_280_000}],
+                                                 [event_time('2016-04-11 16:00:02 +0000'), {"message" => "a"}],
+                                                 [event_time('2016-04-11 16:00:02 +0000'), {"message" => "b"}]]),
+      intermediate_chunk: Fluent::ArrayEventStream.new([[event_time('2016-04-11 16:00:02 +0000'), {"message" => "a"}],
+                                                        [event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * 1_280_000}],
+                                                        [event_time('2016-04-11 16:00:02 +0000'), {"message" => "b"}]]),
+      last_chunk: Fluent::ArrayEventStream.new([[event_time('2016-04-11 16:00:02 +0000'), {"message" => "a"}],
+                                                [event_time('2016-04-11 16:00:02 +0000'), {"message" => "b"}],
+                                                [event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * 1_280_000}]]),
+      multiple_chunks: Fluent::ArrayEventStream.new([[event_time('2016-04-11 16:00:02 +0000'), {"message" => "a"}],
+                                                     [event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * 1_280_000}],
+                                                     [event_time('2016-04-11 16:00:02 +0000'), {"message" => "b"}],
+                                                     [event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * 1_280_000}]])
+    )
+    test '#write exceeds chunk_limit_size, raise BufferChunkOverflowError, but not lost whole messages' do |(es)|
+      assert_equal [@dm0], @p.stage.keys
+      assert_equal [], @p.queue.map(&:metadata)
+
+      assert_equal 1_280_000, @p.chunk_limit_size
+
+      nth = []
+      es.entries.each_with_index do |entry, index|
+        if entry.last["message"].size == @p.chunk_limit_size
+          nth << index
+        end
+      end
+      messages = []
+      nth.each do |n|
+        messages << "a 1280025 bytes record (nth: #{n}) is larger than buffer chunk limit size"
+      end
+
+      assert_raise Fluent::Plugin::Buffer::BufferChunkOverflowError.new(messages.join(", ")) do
+        @p.write({@dm0 => es}, format: @format)
+      end
+      # message a and b are concatenated and staged
+      staged_messages = Fluent::MessagePackFactory.msgpack_unpacker.feed_each(@p.stage[@dm0].chunk).collect do |record|
+        record.last
+      end
+      assert_equal([2, [{"message" => "a"}, {"message" => "b"}]],
+                   [@p.stage[@dm0].size, staged_messages])
+      # only es0 message is queued
+      assert_equal [@dm0], @p.queue.map(&:metadata)
+      assert_equal [5000], @p.queue.map(&:size)
     end
   end
 

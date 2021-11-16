@@ -332,12 +332,14 @@ module Fluent
         unstaged_chunks = {} # metadata => [chunk, chunk, ...]
         chunks_to_enqueue = []
         staged_bytesizes_by_chunk = {}
+        # track internal BufferChunkOverflowError in write_step_by_step
+        buffer_chunk_overflow_errors = []
 
         begin
           # sort metadata to get lock of chunks in same order with other threads
           metadata_and_data.keys.sort.each do |metadata|
             data = metadata_and_data[metadata]
-            write_once(metadata, data, format: format, size: size) do |chunk, adding_bytesize|
+            write_once(metadata, data, format: format, size: size) do |chunk, adding_bytesize, error|
               chunk.mon_enter # add lock to prevent to be committed/rollbacked from other threads
               operated_chunks << chunk
               if chunk.staged?
@@ -351,6 +353,9 @@ module Fluent
               elsif chunk.unstaged?
                 unstaged_chunks[metadata] ||= []
                 unstaged_chunks[metadata] << chunk
+              end
+              if error and not error.empty?
+                buffer_chunk_overflow_errors << error
               end
             end
           end
@@ -443,6 +448,10 @@ module Fluent
               chunk.purge rescue nil # to prevent leakage of unstaged chunks
             end
             chunk.mon_exit rescue nil # this may raise ThreadError for chunks already committed
+          end
+          unless buffer_chunk_overflow_errors.empty?
+            # Notify delayed BufferChunkOverflowError here
+            raise BufferChunkOverflowError, buffer_chunk_overflow_errors.join(", ")
           end
         end
       end
@@ -716,6 +725,7 @@ module Fluent
 
       def write_step_by_step(metadata, data, format, splits_count, &block)
         splits = []
+        errors = []
         if splits_count > data.size
           splits_count = data.size
         end
@@ -761,19 +771,24 @@ module Fluent
             begin
               while writing_splits_index < splits.size
                 split = splits[writing_splits_index]
+                formatted_split = format ? format.call(split) : split.first
+                if split.size == 1 && original_bytesize == 0
+                  big_record_size = formatted_split.bytesize
+                  if chunk.bytesize + big_record_size > @chunk_limit_size
+                    errors << "a #{big_record_size} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size"
+                    writing_splits_index += 1
+                    next
+                  end
+                end
+
                 if format
-                  chunk.concat(format.call(split), split.size)
+                  chunk.concat(formatted_split, split.size)
                 else
                   chunk.append(split, compress: @compress)
                 end
 
                 if chunk_size_over?(chunk) # split size is larger than difference between size_full? and size_over?
                   chunk.rollback
-
-                  if split.size == 1 && original_bytesize == 0
-                    big_record_size = format ? format.call(split).bytesize : split.first.bytesize
-                    raise BufferChunkOverflowError, "a #{big_record_size}bytes record is larger than buffer chunk limit size"
-                  end
 
                   if chunk_size_full?(chunk) || split.size == 1
                     enqueue_chunk_before_retry = true
@@ -795,7 +810,7 @@ module Fluent
               raise
             end
 
-            block.call(chunk, chunk.bytesize - original_bytesize)
+            block.call(chunk, chunk.bytesize - original_bytesize, errors)
           end
         end
       rescue ShouldRetry
