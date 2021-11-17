@@ -1247,6 +1247,7 @@ class BufferTest < Test::Unit::TestCase
   sub_test_case 'when compress is gzip' do
     setup do
       @p = create_buffer({'compress' => 'gzip'})
+      @dm0 = create_metadata(Time.parse('2016-04-11 16:00:00 +0000').to_i, nil, nil)
     end
 
     test '#compress returns :gzip' do
@@ -1256,6 +1257,30 @@ class BufferTest < Test::Unit::TestCase
     test 'create decompressable chunk' do
       chunk = @p.generate_chunk(create_metadata)
       assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::Decompressable)
+    end
+
+    test '#write compressed data which exceeds chunk_limit_size, it raises BufferChunkOverflowError' do
+      @p = create_buffer({'compress' => 'gzip', 'chunk_limit_size' => 70})
+      timestamp = event_time('2016-04-11 16:00:02 +0000')
+      es = Fluent::ArrayEventStream.new([[timestamp, {"message" => "012345"}], # overflow
+                                         [timestamp, {"message" => "aaa"}],
+                                         [timestamp, {"message" => "bbb"}]])
+      assert_equal [], @p.queue.map(&:metadata)
+      assert_equal 70, @p.chunk_limit_size
+
+      # calculate the actual boundary value. it varies on machine
+      c = @p.generate_chunk(create_metadata)
+      c.append(Fluent::ArrayEventStream.new([[timestamp, {"message" => "012345"}]]), compress: :gzip)
+      overflow_bytes = c.bytesize
+
+      messages = "a #{overflow_bytes} bytes record (nth: 0) is larger than buffer chunk limit size"
+      assert_raise Fluent::Plugin::Buffer::BufferChunkOverflowError.new(messages) do
+        # test format == nil && compress == :gzip
+        @p.write({@dm0 => es})
+      end
+      # message a and b occupies each chunks in full, so both of messages are queued (no staged chunk)
+      assert_equal([2, [@dm0, @dm0], [1, 1], nil],
+                   [@p.queue.size, @p.queue.map(&:metadata), @p.queue.map(&:size), @p.stage[@dm0]])
     end
   end
 

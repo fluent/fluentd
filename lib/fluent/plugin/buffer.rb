@@ -354,7 +354,7 @@ module Fluent
                 unstaged_chunks[metadata] ||= []
                 unstaged_chunks[metadata] << chunk
               end
-              if error and not error.empty?
+              if error && !error.empty?
                 buffer_chunk_overflow_errors << error
               end
             end
@@ -773,11 +773,18 @@ module Fluent
                 split = splits[writing_splits_index]
                 formatted_split = format ? format.call(split) : split.first
                 if split.size == 1 && original_bytesize == 0
-                  big_record_size = formatted_split.bytesize
-                  if chunk.bytesize + big_record_size > @chunk_limit_size
-                    errors << "a #{big_record_size} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size"
-                    writing_splits_index += 1
-                    next
+                  if format == nil && @compress != :text
+                    # The actual size of chunk is not determined until after chunk.append.
+                    # so, keep already processed 'split' content here.
+                    # (allow performance regression a bit)
+                    chunk.commit
+                  else
+                    big_record_size = formatted_split.bytesize
+                    if chunk.bytesize + big_record_size > @chunk_limit_size
+                      errors << "a #{big_record_size} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size"
+                      writing_splits_index += 1
+                      next
+                    end
                   end
                 end
 
@@ -788,7 +795,18 @@ module Fluent
                 end
 
                 if chunk_size_over?(chunk) # split size is larger than difference between size_full? and size_over?
+                  adding_bytes = chunk.instance_eval { @adding_bytes } || "N/A" # 3rd party might not have 'adding_bytes'
                   chunk.rollback
+
+                  if split.size == 1 && original_bytesize == 0
+                    # It is obviously case that BufferChunkOverflowError should be raised here,
+                    # but if it raises here, already processed 'split' or
+                    # the proceeding 'split' will be lost completely.
+                    # so it is a last resort to delay raising such a exception
+                    errors << "a #{adding_bytes} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size"
+                    writing_splits_index += 1
+                    next
+                  end
 
                   if chunk_size_full?(chunk) || split.size == 1
                     enqueue_chunk_before_retry = true
@@ -811,6 +829,7 @@ module Fluent
             end
 
             block.call(chunk, chunk.bytesize - original_bytesize, errors)
+            errors = []
           end
         end
       rescue ShouldRetry
