@@ -767,7 +767,7 @@ module Fluent
             raise ShouldRetry unless chunk.writable?
             staged_chunk_used = true if chunk.staged?
 
-            original_bytesize = chunk.bytesize
+            original_bytesize = committed_bytesize = chunk.bytesize
             begin
               while writing_splits_index < splits.size
                 split = splits[writing_splits_index]
@@ -778,12 +778,18 @@ module Fluent
                     # so, keep already processed 'split' content here.
                     # (allow performance regression a bit)
                     chunk.commit
+                    committed_bytesize = chunk.bytesize
                   else
                     big_record_size = formatted_split.bytesize
-                    if chunk.bytesize + big_record_size > @chunk_limit_size
+                    if big_record_size > @chunk_limit_size
+                      # Just skip to next split (current split is ignored)
                       errors << "a #{big_record_size} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
                       writing_splits_index += 1
                       next
+                    elsif chunk.bytesize + big_record_size > @chunk_limit_size
+                      # No doubt that the split is expected to cause size over, keep 'split' content here.
+                      chunk.commit
+                      committed_bytesize = chunk.bytesize
                     end
                   end
                 end
@@ -793,19 +799,29 @@ module Fluent
                 else
                   chunk.append(split, compress: @compress)
                 end
+                adding_bytes = chunk.bytesize - committed_bytesize
 
                 if chunk_size_over?(chunk) # split size is larger than difference between size_full? and size_over?
-                  adding_bytes = chunk.instance_eval { @adding_bytes } || "N/A" # 3rd party might not have 'adding_bytes'
                   chunk.rollback
-
+                  committed_bytesize = chunk.bytesize
                   if split.size == 1 && original_bytesize == 0
-                    # It is obviously case that BufferChunkOverflowError should be raised here,
-                    # but if it raises here, already processed 'split' or
-                    # the proceeding 'split' will be lost completely.
-                    # so it is a last resort to delay raising such a exception
-                    errors << "concatenated/appended a #{adding_bytes} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
-                    writing_splits_index += 1
-                    next
+                    if adding_bytes < @chunk_limit_size
+                      # As already processed content is kept after rollback, then unstaged chunk should be queued.
+                      # After that, re-process current split again.
+                      # New chunk should be allocated, to do it, modify @stage and so on.
+                      synchronize { @stage.delete(modified_metadata) }
+                      staged_chunk_used = false
+                      chunk.unstaged!
+                      break
+                    else
+                      # It is obviously case that BufferChunkOverflowError should be raised here,
+                      # but if it raises here, already processed 'split' or
+                      # the proceeding 'split' will be lost completely.
+                      # so it is a last resort to delay raising such a exception
+                      errors << "concatenated/appended a #{adding_bytes} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
+                      writing_splits_index += 1
+                      next
+                    end
                   end
 
                   if chunk_size_full?(chunk) || split.size == 1
