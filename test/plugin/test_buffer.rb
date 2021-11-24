@@ -974,7 +974,7 @@ class BufferTest < Test::Unit::TestCase
       end
       messages = []
       nth.each do |n|
-        messages << "a 1280025 bytes record (nth: #{n}) is larger than buffer chunk limit size"
+        messages << "a 1280025 bytes record (nth: #{n}) is larger than buffer chunk limit size (1280000)"
       end
 
       assert_raise Fluent::Plugin::Buffer::BufferChunkOverflowError.new(messages.join(", ")) do
@@ -1273,7 +1273,7 @@ class BufferTest < Test::Unit::TestCase
       c.append(Fluent::ArrayEventStream.new([[timestamp, {"message" => "012345"}]]), compress: :gzip)
       overflow_bytes = c.bytesize
 
-      messages = "a #{overflow_bytes} bytes record (nth: 0) is larger than buffer chunk limit size"
+      messages = "concatenated/appended a #{overflow_bytes} bytes record (nth: 0) is larger than buffer chunk limit size (70)"
       assert_raise Fluent::Plugin::Buffer::BufferChunkOverflowError.new(messages) do
         # test format == nil && compress == :gzip
         @p.write({@dm0 => es})

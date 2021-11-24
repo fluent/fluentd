@@ -781,7 +781,7 @@ module Fluent
                   else
                     big_record_size = formatted_split.bytesize
                     if chunk.bytesize + big_record_size > @chunk_limit_size
-                      errors << "a #{big_record_size} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size"
+                      errors << "a #{big_record_size} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
                       writing_splits_index += 1
                       next
                     end
@@ -803,7 +803,7 @@ module Fluent
                     # but if it raises here, already processed 'split' or
                     # the proceeding 'split' will be lost completely.
                     # so it is a last resort to delay raising such a exception
-                    errors << "a #{adding_bytes} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size"
+                    errors << "concatenated/appended a #{adding_bytes} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
                     writing_splits_index += 1
                     next
                   end
