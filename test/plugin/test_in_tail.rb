@@ -1707,6 +1707,41 @@ class TailInputTest < Test::Unit::TestCase
       mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
+
+    data(
+      small: ["128", 128],
+      KiB: ["1k", 1024]
+    )
+    test 'max_line_size' do |(label, size)|
+      config = config_element("", "", {
+                                "tag" => "max_line_size",
+                                "path" => "#{TMP_DIR}/with_long_lines.txt",
+                                "format" => "none",
+                                "read_from_head" => true,
+                                "max_line_size" => label,
+                                "log_level" => "debug"
+                              })
+      File.open("#{TMP_DIR}/with_long_lines.txt", "w+") do |f|
+        f.puts "foo"
+        f.puts "x" * size # 'x' * size + \n > @max_line_size
+        f.puts "bar"
+      end
+      d = create_driver(config, false)
+      timestamp = Time.parse("Mon Nov 29 11:22:33 UTC 2021")
+      Timecop.freeze(timestamp)
+      d.run(expect_records: 2)
+      assert_equal([
+                     [{"message" => "foo"},{"message" => "bar"}],
+                     [
+                       "2021-11-29 11:22:33 +0000 [warn]: received line length is longer than #{size}\n",
+                       "2021-11-29 11:22:33 +0000 [debug]: skipped line: #{'x' * size}\n"
+                     ]
+                   ],
+                   [
+                     d.events.collect { |event| event.last },
+                     d.logs[-2..]
+                   ])
+    end
   end
 
   # Ensure that no fatal exception is raised when a file is missing and that

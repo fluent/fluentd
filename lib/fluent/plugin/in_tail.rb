@@ -113,6 +113,8 @@ module Fluent::Plugin
     config_param :path_timezone, :string, default: nil
     desc 'Follow inodes instead of following file names. Guarantees more stable delivery and allows to use * in path pattern with rotating files'
     config_param :follow_inodes, :bool, default: false
+    desc 'Maximum length of line. The longer line is just skipped.'
+    config_param :max_line_size, :size, default: nil
 
     config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
       config_argument :usage, :string, default: 'in_tail_parser'
@@ -594,6 +596,14 @@ module Fluent::Plugin
 
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
     def receive_lines(lines, tail_watcher)
+      lines = lines.reject do |line|
+        skip_line = @max_line_size ? line.bytesize > @max_line_size : false
+        if skip_line
+          log.warn "received line length is longer than #{@max_line_size}"
+          log.debug "skipped line: #{line.chomp}"
+        end
+        skip_line
+      end
       es = @receive_handler.call(lines, tail_watcher)
       unless es.empty?
         tag = if @tag_prefix || @tag_suffix
