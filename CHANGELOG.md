@@ -1,3 +1,18 @@
+# v1.14.4
+
+## Release v1.14.4 - 2021/12/NN
+
+### Enhancement
+
+* in_tail: Added `max_line_size` option to skip
+  long lines.
+  https://github.com/fluent/fluentd/pull/3565
+
+### Bug fix
+
+
+### Misc
+
 # v1.14.3
 
 ## Release v1.14.3 - 2021/11/26
