@@ -84,6 +84,8 @@ module Fluent::Plugin
     config_param :dump_error_log, :bool, default: true
     desc 'Add QUERY_ prefix query params to record'
     config_param :add_query_params, :bool, default: false
+    desc 'Handle Authroization header authentication with specified secret'
+    config_param :authorization_token, :string, default: nil, secret: true
 
     config_section :parse do
       config_set_default :@type, 'in_http'
@@ -290,7 +292,7 @@ module Fluent::Plugin
       handler = Handler.new(conn, @km, method(:on_request),
                             @body_size_limit, @format_name, log,
                             @cors_allow_origins, @cors_allow_credentials,
-                            @add_query_params)
+                            @add_query_params, @authorization_token)
 
       conn.on(:data) do |data|
         handler.on_read(data)
@@ -368,7 +370,7 @@ module Fluent::Plugin
       attr_reader :content_type
 
       def initialize(io, km, callback, body_size_limit, format_name, log,
-                     cors_allow_origins, cors_allow_credentials, add_query_params)
+                     cors_allow_origins, cors_allow_credentials, add_query_params, authorization_token)
         @io = io
         @km = km
         @callback = callback
@@ -380,6 +382,7 @@ module Fluent::Plugin
         @cors_allow_credentials = cors_allow_credentials
         @idle = 0
         @add_query_params = add_query_params
+        @authorization_token = authorization_token
         @km.add(self)
 
         @remote_port, @remote_addr = io.remote_port, io.remote_addr
@@ -410,6 +413,7 @@ module Fluent::Plugin
       def on_headers_complete(headers)
         expect = nil
         size = nil
+        authorization = nil
 
         if @parser.http_version == [1, 1]
           @keep_alive = true
@@ -446,6 +450,8 @@ module Fluent::Plugin
             @access_control_request_method = v
           when /\AAccess-Control-Request-Headers\Z/i
             @access_control_request_headers = v
+          when /\AAuthorization\Z/i
+            authorization = v
           end
         }
         if expect
@@ -457,6 +463,11 @@ module Fluent::Plugin
             end
           else
             send_response_and_close("417 Expectation Failed", {}, "")
+          end
+        end
+        if authorization
+          if @authorization_token != authorization
+            send_response_and_close("403 Forbidden", {}, "Authorization Failed")
           end
         end
       end

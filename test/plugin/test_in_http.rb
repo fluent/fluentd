@@ -887,6 +887,32 @@ class HttpInputTest < Test::Unit::TestCase
     )
   end
 
+  def test_with_authorization
+    d = create_driver(config + %[
+          authorization_token "Basic Zmx1ZW50OnBhc3N3b3Jk"
+        ])
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    event = ["tag1", time, {"a"=>1}]
+    res_code = nil
+    res_header = nil
+
+    d.run do
+      res = post("/#{event[0]}", {"json"=>event[2].to_json, "time"=>time.to_i.to_s}, {"Authorization"=>"Basic Zmx1ZW50OnBhc3N3b3Jk"})
+      res_code = res.code
+    end
+    assert_equal(
+      {
+        response_code: "200",
+        events: [event]
+      },
+      {
+        response_code: res_code,
+        events: d.events
+      }
+    )
+  end
+
   def test_cors_allow_credentials_for_wildcard_origins
     assert_raise(Fluent::ConfigError) do
       create_driver(config + %[
