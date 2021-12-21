@@ -153,7 +153,7 @@ class FilterPluginTest < Test::Unit::TestCase
 
       @p.configure(config_element('ROOT', '', {'@log_level' => 'debug'}))
 
-      assert{ @p.log.object_id != original_logger.object_id }
+      assert(@p.log.object_id != original_logger.object_id)
       assert_equal Fluent::Log::LEVEL_DEBUG, @p.log.level
     end
 
