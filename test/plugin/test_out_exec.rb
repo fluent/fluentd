@@ -243,7 +243,7 @@ class ExecOutputTest < Test::Unit::TestCase
   sub_test_case 'when executed process dies unexpectedly' do
     setup do
       @gen_config = ->(num){ <<EOC
-    command ruby -e "ARGV.first.to_i == 0 ? open(ARGV[1]){|f| STDOUT.write f.read} : (sleep 1 ; exit ARGV.first.to_i)" #{num} >#{TMP_DIR}/fail_out
+    command ruby -e "ARGV.first.to_i == 0 ? open(ARGV[1]){|f| STDOUT.write(f.read); STDOUT.flush} : (sleep 1 ; exit ARGV.first.to_i)" #{num} >#{TMP_DIR}/fail_out
     <inject>
       tag_key tag
       time_key time
@@ -265,7 +265,7 @@ EOC
       expect_path = "#{TMP_DIR}/fail_out"
 
       d.end_if{ File.exist?(expect_path) }
-      d.run(default_tag: 'test', flush: true, wait_flush_completion: false, shutdown: false) do
+      d.run(default_tag: 'test', flush: true, wait_flush_completion: true, shutdown: false) do
         d.feed(time, records[0])
         d.feed(time, records[1])
       end
@@ -281,7 +281,8 @@ EOC
       assert{ d.instance.buffer.queue.empty? }
       assert{ d.instance.dequeued_chunks.empty? }
 
-      d.instance_shutdown
+    ensure
+      d.instance_shutdown if d && d.instance
     end
 
     test 'flushed chunk will be taken back after child process unexpectedly exits' do
@@ -304,7 +305,8 @@ EOC
 
       assert{ File.exist?(expect_path) && File.size(expect_path) == 0 }
 
-      d.instance_shutdown
+    ensure
+      d.instance_shutdown if d && d.instance
     end
   end
 end
