@@ -223,7 +223,12 @@ module Fluent::Plugin
 
     def write_without_compression(path, chunk)
       File.open(path, "ab", @file_perm) do |f|
-        chunk.write_to(f)
+        if @append
+          content = chunk.read()
+          f.puts content
+        else
+          chunk.write_to(f)
+        end
       end
     end
 
