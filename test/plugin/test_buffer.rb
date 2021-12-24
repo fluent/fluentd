@@ -990,6 +990,51 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0], @p.queue.map(&:metadata)
       assert_equal [5000], @p.queue.map(&:size)
     end
+
+    test "confirm that every message which is smaller than chunk threshold does not raise BufferChunkOverflowError" do
+      assert_equal [@dm0], @p.stage.keys
+      assert_equal [], @p.queue.map(&:metadata)
+      timestamp = event_time('2016-04-11 16:00:02 +0000')
+      es = Fluent::ArrayEventStream.new([[timestamp, {"message" => "a" * 1_000_000}],
+                                         [timestamp, {"message" => "b" * 1_000_000}],
+                                         [timestamp, {"message" => "c" * 1_000_000}]])
+
+      # https://github.com/fluent/fluentd/issues/1849
+      # Even though 1_000_000 < 1_280_000 (chunk_limit_size), it raised BufferChunkOverflowError before.
+      # It should not be raised and message a,b,c should be stored into 3 chunks.
+      assert_nothing_raised do
+        @p.write({@dm0 => es}, format: @format)
+      end
+      messages = []
+      # pick up first letter to check whether chunk is queued in expected order
+      3.times do |index|
+        chunk = @p.queue[index]
+        es = Fluent::MessagePackEventStream.new(chunk.chunk)
+        es.ensure_unpacked!
+        records = es.instance_eval{ @unpacked_records }
+        records.each do |record|
+          messages << record["message"][0]
+        end
+      end
+      es = Fluent::MessagePackEventStream.new(@p.stage[@dm0].chunk)
+      es.ensure_unpacked!
+      staged_message = es.instance_eval{ @unpacked_records }.first["message"]
+      # message a and b are queued, message c is staged
+      assert_equal([
+                     [@dm0],
+                     "c" * 1_000_000,
+                     [@dm0, @dm0, @dm0],
+                     [5000, 1, 1],
+                     [["x"] * 5000, "a", "b"].flatten
+                   ],
+                   [
+                     @p.stage.keys,
+                     staged_message,
+                     @p.queue.map(&:metadata),
+                     @p.queue.map(&:size),
+                     messages
+                   ])
+    end
   end
 
   sub_test_case 'custom format with configuration for test with lower chunk limit size' do
@@ -1077,6 +1122,38 @@ class BufferTest < Test::Unit::TestCase
       assert_raise Fluent::Plugin::Buffer::BufferChunkOverflowError do
         @p.write({@dm0 => es})
       end
+    end
+
+    test 'confirm that every array message which is smaller than chunk threshold does not raise BufferChunkOverflowError' do
+      assert_equal [@dm0], @p.stage.keys
+      assert_equal [], @p.queue.map(&:metadata)
+
+      assert_equal 1_280_000, @p.chunk_limit_size
+
+      es = ["a" * 1_000_000, "b" * 1_000_000, "c" * 1_000_000]
+      assert_nothing_raised do
+        @p.write({@dm0 => es})
+      end
+      queue_messages = @p.queue.collect do |chunk|
+        # collect first character of each message
+        chunk.chunk[0]
+      end
+      assert_equal([
+                     [@dm0],
+                     1,
+                     "c",
+                     [@dm0, @dm0, @dm0],
+                     [5000, 1, 1],
+                     ["x", "a", "b"]
+                   ],
+                   [
+                     @p.stage.keys,
+                     @p.stage[@dm0].size,
+                     @p.stage[@dm0].chunk[0],
+                     @p.queue.map(&:metadata),
+                     @p.queue.map(&:size),
+                     queue_messages
+                   ])
     end
   end
 
