@@ -181,6 +181,13 @@ module Fluent::Plugin
       @dir_perm = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
       @file_perm = system_config.file_permission || Fluent::DEFAULT_FILE_PERMISSION
       @need_lock = system_config.workers > 1
+
+      # https://github.com/fluent/fluentd/issues/3569
+      @need_ruby_on_macos_workaround = false
+      if @append && Fluent.macos?
+        condition = Gem::Dependency.new('', [">= 2.7.0", "< 3.1.0"])
+        @need_ruby_on_macos_workaround = true if condition.match?('', RUBY_VERSION)
+      end
     end
 
     def multi_workers_ready?
@@ -223,7 +230,7 @@ module Fluent::Plugin
 
     def write_without_compression(path, chunk)
       File.open(path, "ab", @file_perm) do |f|
-        if @append
+        if @need_ruby_on_macos_workaround
           content = chunk.read()
           f.puts content
         else
