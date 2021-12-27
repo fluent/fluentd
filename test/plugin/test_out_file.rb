@@ -376,47 +376,6 @@ class FileOutputTest < Test::Unit::TestCase
     end
   end
 
-  def check_events_append(compression)
-    time = event_time("2011-01-02 13:14:15 UTC")
-    formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}#{@default_newline}] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}#{@default_newline}]
-
-    write_once = ->(){
-      config = %[
-        path #{TMP_DIR}/out_file_test
-        utc
-        append true
-        <buffer>
-          timekey_use_utc true
-        </buffer>
-      ]
-      if compression
-        config << "        compress gz"
-      end
-      d = create_driver(config)
-      d.run(default_tag: 'test'){
-        d.feed(time, {"a"=>1})
-        d.feed(time, {"a"=>2})
-      }
-      d.instance.last_written_path
-    }
-
-    log_file_name = "out_file_test.20110102.log"
-    if compression 
-      log_file_name << ".gz"
-    end
-
-    1.upto(3) do |i|
-      path = write_once.call
-      assert_equal "#{TMP_DIR}/#{log_file_name}", path
-      expect = formatted_lines * i
-      if compression
-        check_gzipped_result(path, expect)
-      else
-        check_result(path, expect)
-      end
-    end
-  end
-
   def check_gzipped_result(path, expect)
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520
@@ -581,12 +540,49 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal 3, Dir.glob("#{TMP_DIR}/out_file_test.*").size
   end
 
-  test 'append' do
-    check_events_append(true)
-  end
+  data(
+    "with compression" => true,
+    "without compression" => false,
+  )
+  test 'append' do |compression|
+    time = event_time("2011-01-02 13:14:15 UTC")
+    formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}#{@default_newline}] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}#{@default_newline}]
 
-  test 'append without compression' do
-    check_events_append(false)
+    write_once = ->(){
+      config = %[
+        path #{TMP_DIR}/out_file_test
+        utc
+        append true
+        <buffer>
+          timekey_use_utc true
+        </buffer>
+      ]
+      if compression
+        config << "        compress gz"
+      end
+      d = create_driver(config)
+      d.run(default_tag: 'test'){
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      }
+      d.instance.last_written_path
+    }
+
+    log_file_name = "out_file_test.20110102.log"
+    if compression
+      log_file_name << ".gz"
+    end
+
+    1.upto(3) do |i|
+      path = write_once.call
+      assert_equal "#{TMP_DIR}/#{log_file_name}", path
+      expect = formatted_lines * i
+      if compression
+        check_gzipped_result(path, expect)
+      else
+        check_result(path, expect)
+      end
+    end
   end
 
   test 'append when JST' do
