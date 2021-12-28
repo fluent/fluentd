@@ -394,6 +394,11 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal expect, result
   end
 
+  def check_result(path, expect)
+    result = File.read(path, mode: "rb")
+    assert_equal expect, result
+  end
+
   sub_test_case 'write' do
     test 'basic case' do
       d = create_driver
@@ -535,20 +540,27 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal 3, Dir.glob("#{TMP_DIR}/out_file_test.*").size
   end
 
-  test 'append' do
+  data(
+    "with compression" => true,
+    "without compression" => false,
+  )
+  test 'append' do |compression|
     time = event_time("2011-01-02 13:14:15 UTC")
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}#{@default_newline}] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}#{@default_newline}]
 
     write_once = ->(){
-      d = create_driver %[
+      config = %[
         path #{TMP_DIR}/out_file_test
-        compress gz
         utc
         append true
         <buffer>
           timekey_use_utc true
         </buffer>
       ]
+      if compression
+        config << "        compress gz"
+      end
+      d = create_driver(config)
       d.run(default_tag: 'test'){
         d.feed(time, {"a"=>1})
         d.feed(time, {"a"=>2})
@@ -556,17 +568,21 @@ class FileOutputTest < Test::Unit::TestCase
       d.instance.last_written_path
     }
 
-    path = write_once.call
-    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-    check_gzipped_result(path, formatted_lines)
+    log_file_name = "out_file_test.20110102.log"
+    if compression
+      log_file_name << ".gz"
+    end
 
-    path = write_once.call
-    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-    check_gzipped_result(path, formatted_lines * 2)
-
-    path = write_once.call
-    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-    check_gzipped_result(path, formatted_lines * 3)
+    1.upto(3) do |i|
+      path = write_once.call
+      assert_equal "#{TMP_DIR}/#{log_file_name}", path
+      expect = formatted_lines * i
+      if compression
+        check_gzipped_result(path, expect)
+      else
+        check_result(path, expect)
+      end
+    end
   end
 
   test 'append when JST' do
