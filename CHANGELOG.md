@@ -1,3 +1,22 @@
+# v1.14.4
+
+## Release v1.14.4 - 2022/01/06
+
+### Enhancement
+
+* `in_tail`: Add option to skip long lines (`max_line_size`)
+  https://github.com/fluent/fluentd/pull/3565
+
+### Bug fix
+
+* Incorrect BufferChunkOverflowError when each event size is < `chunk_limit_size`
+  https://github.com/fluent/fluentd/pull/3560
+* On macOS with Ruby 2.7/3.0, `out_file` fails to write events if `append` is true.
+  https://github.com/fluent/fluentd/pull/3579
+* test: Fix unstable test cases
+  https://github.com/fluent/fluentd/pull/3574
+  https://github.com/fluent/fluentd/pull/3577
+
 # v1.14.3
 
 ## Release v1.14.3 - 2021/11/26
