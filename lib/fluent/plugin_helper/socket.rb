@@ -96,6 +96,7 @@ module Fluent
           enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil,
           cert_path: nil, private_key_path: nil, private_key_passphrase: nil,
           cert_thumbprint: nil, cert_logical_store_name: nil, cert_use_enterprise_store: true,
+          connect_timeout: nil,
           **kwargs, &block)
 
         host_is_ipaddress = IPAddr.new(host) rescue false
@@ -158,13 +159,23 @@ module Fluent
         end
         Fluent::TLS.set_version_to_context(context, version, min_version, max_version)
 
-        tcpsock = socket_create_tcp(host, port, **kwargs)
+        tcpsock = socket_create_tcp(host, port, connect_timeout: connect_timeout, **kwargs)
         sock = WrappedSocket::TLS.new(tcpsock, context)
         sock.sync_close = true
         sock.hostname = fqdn if verify_fqdn && fqdn && sock.respond_to?(:hostname=)
 
         log.trace "entering TLS handshake"
-        sock.connect
+        if connect_timeout
+          begin
+            Timeout.timeout(connect_timeout) { sock.connect }
+          rescue Timeout::Error
+            log.warn "timeout while connecting tls session", host: host
+            sock.close rescue nil
+            raise
+          end
+        else
+          sock.connect
+        end
 
         begin
           if verify_fqdn
