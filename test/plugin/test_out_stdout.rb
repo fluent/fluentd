@@ -32,7 +32,7 @@ class StdoutOutputTest < Test::Unit::TestCase
       assert_kind_of Fluent::Plugin::StdoutFormatter, d.instance.formatter
       assert_equal 'hash', d.instance.formatter.output_type
 
-      assert_raise(Fluent::ConfigError) do
+      assert_raise(Fluent::NotFoundPluginError) do
         d = create_driver(CONFIG + "\noutput_type foo")
       end
     end
@@ -126,7 +126,7 @@ class StdoutOutputTest < Test::Unit::TestCase
       assert_kind_of Fluent::Plugin::StdoutFormatter, d.instance.formatter
       assert_equal 'hash', d.instance.formatter.output_type
 
-      assert_raise(Fluent::ConfigError) do
+      assert_raise(Fluent::NotFoundPluginError) do
         create_driver(config_element("ROOT", "", {"output_type" => "foo"}, [config_element("buffer")]))
       end
     end

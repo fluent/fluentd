@@ -63,7 +63,7 @@ class StdoutFilterTest < Test::Unit::TestCase
       end
 
       def test_invalid_output_type
-        assert_raise(Fluent::ConfigError) do
+        assert_raise(Fluent::NotFoundPluginError) do
           d = create_driver(CONFIG + config_element("", "", { "output_type" => "foo" }))
           d.run {}
         end
@@ -139,7 +139,7 @@ class StdoutFilterTest < Test::Unit::TestCase
       def test_invalid_output_type
         conf = config_element
         conf.elements << config_element("format", "", { "@type" => "stdout", "output_type" => "foo" })
-        assert_raise(Fluent::ConfigError) do
+        assert_raise(Fluent::NotFoundPluginError) do
           d = create_driver(conf)
           d.run {}
         end

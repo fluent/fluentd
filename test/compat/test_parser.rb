@@ -22,7 +22,7 @@ class TextParserTest < ::Test::Unit::TestCase
   Fluent::TextParser.register_template('multi_event_test', Proc.new { MultiEventTestParser.new })
 
   def test_lookup_unknown_format
-    assert_raise Fluent::ConfigError do
+    assert_raise Fluent::NotFoundPluginError do
       Fluent::Plugin.new_parser('unknown')
     end
   end

@@ -45,7 +45,8 @@ module Fluent
       if value = @map[type]
         return value
       end
-      raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins"  # TODO error class
+      raise NotFoundPluginError.new("Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins",
+                                    kind: @kind, type: type)
     end
 
     def reverse_lookup(value)

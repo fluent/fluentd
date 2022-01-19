@@ -46,7 +46,7 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_raise(Fluent::ConfigError) {
       create_driver('')
     }
-    assert_raise(Fluent::ConfigError) {
+    assert_raise(Fluent::NotFoundPluginError) {
       create_driver %[
         key_name foo
         <parse>
