@@ -1275,11 +1275,15 @@ module Fluent
 
           unless @retry
             @retry = retry_state(@buffer_config.retry_randomize)
-            if error
-              log.warn "failed to flush the buffer.", retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
-              log.warn_backtrace error.backtrace
+            if @retry.limit?
+              # @retry_max_times == 0, fail imediately by the following block
+            else
+              if error
+                log.warn "failed to flush the buffer.", retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
+                log.warn_backtrace error.backtrace
+              end
+              return
             end
-            return
           end
 
           # @retry exists
