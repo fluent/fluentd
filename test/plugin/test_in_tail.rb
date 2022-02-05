@@ -144,7 +144,10 @@ class TailInputTest < Test::Unit::TestCase
                     })
     ])
   
-  PATTERN = "/#{TMP_DIR}\/(?<appname>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace>[^_]+)_(?<container>.+)-(?<docker_id>[a-z0-9]{6})\.log$/"
+  PATTERN = "/#{TMP_DIR}\/(?<podname>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace>[^_]+)_(?<container>.+)-(?<docker_id>[a-z0-9]{6})\.log$/"
+  DEBUG_LOG_LEVEL = config_element("", "", {
+    "@log_level" => "debug"
+  })
 
   def create_group_directive(pattern, rate_period, *rules)
     config_element("", "", {}, [
@@ -155,12 +158,12 @@ class TailInputTest < Test::Unit::TestCase
     ])
   end
 
-  def create_rule_directive(namespace = [], appname = [], limit)
+  def create_rule_directive(match_named_captures, limit)
     params = {        
       "limit" => limit,
+      "match" => match_named_captures,
     }
-    params["namespace"] = namespace.join(', ') if namespace.size > 0
-    params["appname"] = appname.join(', ') if appname.size > 0
+
     config_element("rule", "", params)
   end
 
@@ -182,21 +185,37 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     test "valid configuration" do
-      rule1 = create_rule_directive(['namespace-a'], ['appname-b','appname-c'], 100)
-      rule2 = create_rule_directive(['namespace-d', 'appname-e'], ['f'], 50)
-      rule3 = create_rule_directive([], ['appname-g'], -1)
-      rule4 = create_rule_directive(['appname-h'], [], 0)
+      rule1 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+        "podname"=> "/podname-[b|c]/"
+      }, 100)
+      rule2 = create_rule_directive({
+        "namespace"=> "/namespace-[d|e]/",
+        "podname"=> "/podname-f/",
+      }, 50)
+      rule3 = create_rule_directive({
+        "podname"=> "/podname-g/",
+      }, -1)
+      rule4 = create_rule_directive({
+        "namespace"=> "/namespace-h/",
+      }, 0)
 
-      conf = create_group_directive('.', '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
+      conf = create_group_directive(PATTERN, '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
       assert_nothing_raised do 
         d = create_driver(conf)
       end
     end
 
-    test "limit should be greater than DEFAULT_LIMIT (-1)" do 
-      rule1 = create_rule_directive(['namespace-a'], ['appname-b','appname-c'], -100)
-      rule2 = create_rule_directive(['namespace-d', 'namespace-e'], ['appname-f'], 50)
-      conf = create_group_directive('.', '1m', rule1, rule2) + SINGLE_LINE_CONFIG
+    test "limit should be greater than DEFAULT_LIMIT (-1)" do
+      rule1 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+        "podname"=> "/podname-[b|c]/",
+      }, -100)
+      rule2 = create_rule_directive({
+        "namespace"=> "/namespace-[d|e]/",
+        "podname"=> "/podname-f/",
+      }, 50)
+      conf = create_group_directive(PATTERN, '1m', rule1, rule2) + SINGLE_LINE_CONFIG
       assert_raise(RuntimeError) do 
         d = create_driver(conf)
       end   
@@ -318,20 +337,52 @@ class TailInputTest < Test::Unit::TestCase
   sub_test_case "group rules line limit resolution" do
 
     test "valid" do
-      rule1 = create_rule_directive(['namespace-a'], ['appname-b', 'appname-c'], 50)
-      rule2 = create_rule_directive([], ['appname-b', 'appname-c'], 400)
-      rule3 = create_rule_directive(['namespace-a'], [], 100)
+      rule1 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+        "podname"=> "/podname-[b|c]/",
+      }, 50)
+      rule2 = create_rule_directive({
+        "podname"=> "/podname-[b|c]/",
+      }, 400)
+      rule3 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+      }, 100)
   
-      conf = create_group_directive('.', '1m', rule1, rule2, rule3) + SINGLE_LINE_CONFIG
+      conf = create_group_directive(PATTERN, '1m', rule3, rule1, rule2) + SINGLE_LINE_CONFIG
       assert_nothing_raised do
         d = create_driver(conf)
+        instance = d.instance
 
-        assert_equal 25, d.instance.group_watchers[/namespace\-a/][/appname\-b/].limit
-        assert_equal 25, d.instance.group_watchers[/namespace\-a/][/appname\-c/].limit
-        assert_equal 100, d.instance.group_watchers[/namespace\-a/][/./].limit
-        assert_equal 200, d.instance.group_watchers[/./][/appname\-b/].limit
-        assert_equal 200, d.instance.group_watchers[/./][/appname\-c/].limit
-        assert_equal -1, d.instance.group_watchers[/./][/./].limit
+        metadata = {
+          "namespace"=> "namespace-a", 
+          "podname"=> "podname-b",
+        }
+        assert_equal 50, instance.find_group(metadata).limit
+        
+        metadata = {
+          "namespace" => "namespace-a",
+          "podname" => "podname-c",
+        }
+        assert_equal 50, instance.find_group(metadata).limit
+
+        metadata = {
+          "namespace" => "namespace-a",
+          "podname" => "podname-d",
+        }
+        assert_equal 100, instance.find_group(metadata).limit
+
+        metadata = {
+          "namespace" => "namespace-f",
+          "podname" => "podname-b",
+        }
+        assert_equal 400, instance.find_group(metadata).limit
+
+        metadata = {
+          "podname" => "podname-c",
+        }
+        assert_equal 400, instance.find_group(metadata).limit
+
+        assert_equal -1, instance.find_group({}).limit
       end
     end
 
@@ -339,8 +390,8 @@ class TailInputTest < Test::Unit::TestCase
 
   sub_test_case "files should be placed in groups" do
     test "invalid regex pattern places files in default group" do
-      rule1 = create_rule_directive([], [], 100) ## limits default groups
-      conf = ROOT_CONFIG + create_group_directive('.', '1m', rule1) + create_path_element("test*.txt") + SINGLE_LINE_CONFIG
+      rule1 = create_rule_directive({}, 100) ## limits default groups
+      conf = ROOT_CONFIG + DEBUG_LOG_LEVEL + create_group_directive(PATTERN, '1m', rule1) + create_path_element("test*.txt") + SINGLE_LINE_CONFIG
 
       d = create_driver(conf, false)
       File.open("#{TMP_DIR}/test1.txt", 'w')
@@ -349,34 +400,51 @@ class TailInputTest < Test::Unit::TestCase
 
       d.run do
         ## checking default group_watcher's paths
-        assert_equal 3, d.instance.group_watchers[/./][/./].size
-        assert_true d.instance.group_watchers[/./][/./].include? File.join(TMP_DIR, 'test1.txt')
-        assert_true d.instance.group_watchers[/./][/./].include? File.join(TMP_DIR, 'test2.txt')
-        assert_true d.instance.group_watchers[/./][/./].include? File.join(TMP_DIR, 'test3.txt')
+        instance = d.instance
+        key = instance.default_group_key
+
+        assert_equal 3, instance.log.logs.count{|a| a.match?("Cannot find group from metadata, Adding file in the default group\n")}
+        assert_equal 3, instance.group_watchers[key].size
+        assert_true instance.group_watchers[key].include? File.join(TMP_DIR, 'test1.txt')
+        assert_true instance.group_watchers[key].include? File.join(TMP_DIR, 'test2.txt')
+        assert_true instance.group_watchers[key].include? File.join(TMP_DIR, 'test3.txt')
       end
     end
     
     test "valid regex pattern places file in their respective groups" do
-      rule1 = create_rule_directive(['test-namespace1'], ['test-appname1'], 100)
-      rule2 = create_rule_directive(['test-namespace1'], [], 200)
-      rule3 = create_rule_directive([], ['test-appname2'], 100)
-      rule4 = create_rule_directive([], [], 100)
+      rule1 = create_rule_directive({
+        "namespace"=> "/test-namespace1/",
+        "podname"=> "/test-podname1/",
+      }, 100)
+      rule2 = create_rule_directive({
+        "namespace"=> "/test-namespace1/",
+      }, 200)
+      rule3 = create_rule_directive({
+        "podname"=> "/test-podname2/",
+      }, 300)
+      rule4 = create_rule_directive({}, 400)
 
-      path_element = create_path_element("test-appname*.log")
+      path_element = create_path_element("test-podname*.log")
 
-      conf = ROOT_CONFIG + create_group_directive(PATTERN, '1m', rule1, rule2, rule3, rule4) + path_element + SINGLE_LINE_CONFIG
+      conf = ROOT_CONFIG + create_group_directive(PATTERN, '1m', rule4, rule3, rule2, rule1) + path_element + SINGLE_LINE_CONFIG
       d = create_driver(conf, false)
 
-      File.open("#{TMP_DIR}/test-appname1_test-namespace1_test-container-15fabq.log", 'w')
-      File.open("#{TMP_DIR}/test-appname3_test-namespace1_test-container-15fabq.log", 'w')
-      File.open("#{TMP_DIR}/test-appname2_test-namespace2_test-container-15fabq.log", 'w')
-      File.open("#{TMP_DIR}/test-appname4_test-namespace3_test-container-15fabq.log", 'w')
+      file1 = File.join(TMP_DIR, "test-podname1_test-namespace1_test-container-15fabq.log")
+      file2 = File.join(TMP_DIR, "test-podname3_test-namespace1_test-container-15fabq.log")
+      file3 = File.join(TMP_DIR, "test-podname2_test-namespace2_test-container-15fabq.log")
+      file4 = File.join(TMP_DIR, "test-podname4_test-namespace3_test-container-15fabq.log")
 
       d.run do
-        assert_true d.instance.group_watchers[/test\-namespace1/][/test\-appname1/].include? File.join(TMP_DIR, "test-appname1_test-namespace1_test-container-15fabq.log")
-        assert_true d.instance.group_watchers[/test\-namespace1/][/./].include? File.join(TMP_DIR, "test-appname3_test-namespace1_test-container-15fabq.log")
-        assert_true d.instance.group_watchers[/./][/test\-appname2/].include? File.join(TMP_DIR, "test-appname2_test-namespace2_test-container-15fabq.log")
-        assert_true d.instance.group_watchers[/./][/./].include? File.join(TMP_DIR, "test-appname4_test-namespace3_test-container-15fabq.log")
+        File.open(file1, 'w')
+        File.open(file2, 'w')
+        File.open(file3, 'w')
+        File.open(file4, 'w')
+
+        instance = d.instance
+        assert_equal 100, instance.find_group_from_metadata(file1).limit
+        assert_equal 200, instance.find_group_from_metadata(file2).limit
+        assert_equal 300, instance.find_group_from_metadata(file3).limit
+        assert_equal 400, instance.find_group_from_metadata(file4).limit
       end
     end
   
@@ -2482,14 +2550,20 @@ class TailInputTest < Test::Unit::TestCase
 
   sub_test_case "throttling logs at in_tail level" do
 
-    data("file test1.log no limit 5120 text: msg" => ["test1.log", 5120, "msg"],
-         "file test2.log no limit 1024 text: test" => ["test2.log", 1024, "test"])
+    data("file test1.log no_limit 5120 text: msg" => ["test1.log", 5120, "msg"],
+         "file test2.log no_limit 1024 text: test" => ["test2.log", 1024, "test"])
     def test_lines_collected_with_no_throttling(data)
       file, num_lines, msg = data
-      rule = create_rule_directive([], [], -1)
+      
+      pattern = "/^#{TMP_DIR}\/(?<file>.+)\.log$/"
+      rule = create_rule_directive({
+        "file" => "/test.*/",
+      }, -1)
+      group = create_group_directive(pattern, '10s', rule)
       path_element = create_path_element(file)
 
-      conf = ROOT_CONFIG + create_group_directive('.', '10s', rule) + path_element + CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG
+      conf = ROOT_CONFIG + group + path_element + CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG
+
       File.open("#{TMP_DIR}/#{file}", 'wb') do |f|
         num_lines.times do 
           f.puts "#{msg}\n"
@@ -2517,19 +2591,23 @@ class TailInputTest < Test::Unit::TestCase
     end
     
     test "lines collected with throttling" do
-      file = "appname1_namespace12_container-123456.log"
+      file = "podname1_namespace12_container-123456.log"
       limit = 1000
       rate_period = '10s'
       num_lines = 3000
       msg = "a"*8190 # Total size = 8190 bytes + 2 (\n) bytes
 
-      rule = create_rule_directive(['namespace'], ['appname'], limit)
+      rule = create_rule_directive({
+        "namespace"=> "/namespace.+/",
+        "podname"=> "/podname.+/",
+      }, limit)
       path_element = create_path_element(file)
       conf = ROOT_CONFIG + create_group_directive(PATTERN, rate_period, rule) + path_element + SINGLE_LINE_CONFIG + CONFIG_READ_FROM_HEAD
 
       d = create_driver(conf, false)
-
-      File.open("#{TMP_DIR}/#{file}", 'wb') do |f|
+      file_path = "#{TMP_DIR}/#{file}"
+  
+      File.open(file_path, 'wb') do |f|
         num_lines.times do 
           f.puts msg
         end
@@ -2539,7 +2617,7 @@ class TailInputTest < Test::Unit::TestCase
         start_time = Fluent::Clock.now
         prev_count = 0
 
-        3.times do
+        (num_lines/limit).times do
           assert_true Fluent::Clock.now - start_time < 10
           ## Check record_count after 10s to check lines reads
           assert_equal limit, d.record_count - prev_count
@@ -2553,7 +2631,9 @@ class TailInputTest < Test::Unit::TestCase
         ## When all the lines are read and rate_period seconds are over
         ## limit will reset and since there are no more logs to be read,
         ## number_lines_read will be 0
-        assert_equal 0, d.instance.group_watchers[/namespace/][/appname/].current_paths["#{TMP_DIR}/#{file}"].number_lines_read
+
+        gw = d.instance.find_group_from_metadata(file_path)
+        assert_equal 0, gw.current_paths[file_path].number_lines_read
       end
     end
   end
