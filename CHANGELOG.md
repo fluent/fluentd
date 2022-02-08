@@ -1,3 +1,27 @@
+# v1.14.5
+
+## Release v1.14.5 - 2022/02/09
+
+### Enhancement
+
+* Add support for "application/x-ndjson" to `in_http`
+  https://github.com/fluent/fluentd/pull/3616
+* Add support for ucrt binary for Windows
+  https://github.com/fluent/fluentd/pull/3613
+
+### Bug fixes
+
+* Don't retry when `retry_max_times == 0`
+  https://github.com/fluent/fluentd/pull/3608
+* Fix hang-up issue during TLS handshake in `out_forward`
+  https://github.com/fluent/fluentd/pull/3601
+* Bump up required ServerEngine to v2.2.5
+  https://github.com/fluent/fluentd/pull/3599
+* Fix "invalid byte sequence is replaced" warning on Kubernetes
+  https://github.com/fluent/fluentd/pull/3596
+* Fix "ArgumentError: unknown keyword: :logger" on Windows with Ruby 3.1
+  https://github.com/fluent/fluentd/pull/3592
+
 # v1.14.4
 
 ## Release v1.14.4 - 2022/01/06
