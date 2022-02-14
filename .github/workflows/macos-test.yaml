@@ -13,9 +13,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: ['head', '2.7']
+        ruby-version: ['3.1', '3.0', '2.7']
         os: [macos-latest]
         experimental: [true]
+        include:
+          - ruby-version: head
+            os: macos-latest
+            experimental: true
 
     name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
