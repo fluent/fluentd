@@ -112,7 +112,14 @@ module Fluent
               end
             elsif val.is_a?(Hash)
               harg = val.delete('$arg')
-              sb.add_section(section_build(key, val, indent: indent + @base_indent, arg: harg))
+              if harg.is_a?(Array)
+                # To prevent to generate invalid configuration for arg.
+                # "arg" should be String object and concatenated by ","
+                # when two or more objects are specified there.
+                sb.add_section(section_build(key, val, indent: indent + @base_indent, arg: harg&.join(',')))
+              else
+                sb.add_section(section_build(key, val, indent: indent + @base_indent, arg: harg))
+              end
             else
               sb.add_line(key, val)
             end
