@@ -580,7 +580,8 @@ module Fluent
         standalone_worker: false,
         signame: nil,
         conf_encoding: 'utf-8',
-        disable_shared_socket: nil
+        disable_shared_socket: nil,
+        guess_config_file_type: true,
       }
     end
 
@@ -594,6 +595,7 @@ module Fluent
 
     def initialize(opt)
       @config_file_type = opt[:config_file_type]
+      @guess_config_file_type = opt[:guess_config_file_type]
       @daemonize = opt[:daemonize]
       @standalone_worker= opt[:standalone_worker]
       @config_path = opt[:config_path]
@@ -751,6 +753,7 @@ module Fluent
         additional_config: @inline_config,
         use_v1_config: @use_v1_config,
         type: @config_file_type,
+        guess_type: @guess_config_file_type,
       )
       @system_config = build_system_config(@conf)
 
@@ -936,6 +939,8 @@ module Fluent
             encoding: @conf_encoding,
             additional_config: @inline_config,
             use_v1_config: @use_v1_config,
+            type: @config_file_type,
+            guess_type: @guess_config_file_type,
           )
 
           Fluent::VariableStore.try_to_reset do

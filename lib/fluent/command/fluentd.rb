@@ -134,6 +134,10 @@ op.on('--config-file-type VALU', 'file type of fluentd. yaml or yml') { |s|
   end
 }
 
+op.on('--guess-config-file-type', "Guess config file type that is yaml or not (default)", TrueClass) {|b|
+  opts[:guess_config_file_type] = b
+}
+
 op.on('--use-v1-config', "Use v1 configuration format (default)", TrueClass) {|b|
   opts[:use_v1_config] = b
 }

@@ -26,8 +26,15 @@ module Fluent
     # @param additional_config [String] config which is added to last of config body
     # @param use_v1_config [Bool] config is formatted with v1 or not
     # @return [Fluent::Config]
-    def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true, type: nil)
-      if type == :yaml
+    def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true, type: nil, guess_type: nil)
+      if guess_type
+        config_fext = File.extname(config_path.dup)
+        if config_fext == '.yaml' || config_fext == '.yml'
+          type = :yaml
+        end
+      end
+
+      if type == :yaml || type == :yml
         return Fluent::Config::YamlParser.parse(config_path)
       end
 
