@@ -328,7 +328,7 @@ class EventRouterTest < ::Test::Unit::TestCase
       end
 
       test 'can pass records modified by filters to handle_emits_error' do
-        filter = Class.new(FluentTestFilter) { |x|
+        filter = Class.new(FluentTestFilter) {
           def filter_stream(_tag, es); end
         }.new
         event_router.add_rule('test', filter)
