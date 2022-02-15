@@ -95,6 +95,7 @@ module Fluent::Plugin
       else
         @parser.parse(io.read, &method(:on_record))
       end
+      io.close if io.eof?
     end
 
     def on_record(time, record)

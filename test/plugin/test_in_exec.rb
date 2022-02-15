@@ -258,4 +258,14 @@ EOC
       assert_match(/LoadError/, event[2]['message'])
     end
   end
+
+  test 'ensure not leaking file descriptor' do
+    omit "/proc/PID is not available on Windows" if Fluent.windows?
+    d = create_driver JSON_CONFIG_COMPAT
+    before_fd_count = Dir.glob("/proc/#{$$}/fd/*").length
+    d.run(expect_records: 10, timeout: 10)
+    after_fd_count =  Dir.glob("/proc/#{$$}/fd/*").length
+
+    assert{ before_fd_count == after_fd_count }
+  end
 end
