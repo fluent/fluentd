@@ -621,7 +621,10 @@ module Fluent
         @conf = Fluent::Config.build(config_path: @config_path,
                                      encoding: @conf_encoding ? @conf_encoding : 'utf-8',
                                      additional_config: @inline_config ? @inline_config : nil,
-                                     use_v1_config: !!@use_v1_config)
+                                     use_v1_config: !!@use_v1_config,
+                                     type: @config_file_type,
+                                     guess_type: @guess_config_file_type,
+                                    )
         @system_config = build_system_config(@conf)
         if @system_config.log
           @log_rotate_age ||= @system_config.log.rotate_age
