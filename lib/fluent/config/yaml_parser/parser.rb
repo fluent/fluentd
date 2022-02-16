@@ -59,6 +59,8 @@ module Fluent
             if (wc = c.delete('worker'))
               sb.add_section(worker_build(wc, indent: indent))
             end
+
+            included_sections_build(c, sb, indent: indent)
           end
 
           sb
@@ -92,6 +94,25 @@ module Fluent
           config = config.dup
           tag = config.delete('$tag')
           section_build('match', config, indent: indent, arg: tag)
+        end
+
+        def included_sections_build(config, section_builder, indent: 0)
+          config.each_entry do |e|
+            k = e.keys.first
+            cc = e.delete(k)
+            case k
+            when 'label'
+              section_builder.add_section(label_build(cc, indent: indent))
+            when 'worker'
+              section_builder.add_section(worker_build(cc, indent: indent))
+            when 'source'
+              section_builder.add_section(source_build(cc, indent: indent))
+            when 'filter'
+              section_builder.add_section(filter_build(cc, indent: indent))
+            when 'match'
+              section_builder.add_section(match_build(cc, indent: indent))
+            end
+          end
         end
 
         def section_build(name, config, indent: 0, arg: nil)

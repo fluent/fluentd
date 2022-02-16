@@ -159,6 +159,71 @@ class ConfigTest < Test::Unit::TestCase
   end
 
   sub_test_case "yaml config" do
+    def test_included
+      write_config "#{TMP_DIR}/config_test_not_fetched.yaml", <<-EOS
+      config:
+        - source:
+            $type: dummy
+            tag: tag.dummy
+        - source:
+            $type: tcp
+            tag: tag.tcp
+            parse:
+              $arg:
+                - why.parse.section.doesnot.have.arg
+                - huh
+              $type: none
+        - match:
+            $tag: tag.*
+            $type: stdout
+            buffer:
+              $type: memory
+              flush_interval: 1s
+        - !include fluent-included.yaml
+      EOS
+      write_config "#{TMP_DIR}/fluent-included.yaml", <<-EOS
+      - label:
+          $name: '@FLUENT_LOG'
+          config:
+            - match:
+                $type: "null"
+                $tag: "**"
+                buffer:
+                  $type: memory
+                  flush_mode: interval
+                  flush_interval: 1s
+      EOS
+      root_conf  = read_config("#{TMP_DIR}/config_test_not_fetched.yaml", use_yaml: true)
+      dummy_source_conf = root_conf.elements.first
+      tcp_source_conf = root_conf.elements[1]
+      parse_tcp_conf = tcp_source_conf.elements.first
+      match_conf = root_conf.elements[2]
+      label_conf = root_conf.elements[3]
+      fluent_log_conf = label_conf.elements.first
+      fluent_log_buffer_conf = fluent_log_conf.elements.first
+
+      assert_equal 'dummy', dummy_source_conf['@type']
+      assert_equal 'tag.dummy', dummy_source_conf['tag']
+
+      assert_equal 'tcp', tcp_source_conf['@type']
+      assert_equal 'tag.tcp', tcp_source_conf['tag']
+
+      assert_equal 'none', parse_tcp_conf['@type']
+      assert_equal 'why.parse.section.doesnot.have.arg,huh', parse_tcp_conf.arg
+
+      assert_equal 'stdout', match_conf['@type']
+      assert_equal 'tag.*', match_conf.arg
+
+      assert_equal 'null', fluent_log_conf['@type']
+      assert_equal '**', fluent_log_conf.arg
+
+      assert_equal '@FLUENT_LOG', label_conf.arg
+
+      assert_equal 'memory', fluent_log_buffer_conf['@type']
+      assert_equal 'interval', fluent_log_buffer_conf['flush_mode']
+      assert_equal '1s', fluent_log_buffer_conf['flush_interval']
+    end
+
     def test_check_not_fetchd
       write_config "#{TMP_DIR}/config_test_not_fetched.yaml", <<-EOS
       config:
