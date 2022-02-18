@@ -1,4 +1,4 @@
-name: Testing on Windows
+name: Ruby 3.1 on Windows
 
 on:
   push:
@@ -14,11 +14,12 @@ jobs:
       fail-fast: false
       matrix:
         ruby-version: ['3.1']
+        in_tail: [true, false]
         os:
           - windows-latest
         experimental: [false]
 
-    name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
+    name: in_tail ${{ matrix.in_tail }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Ruby
@@ -27,5 +28,9 @@ jobs:
           ruby-version: ${{ matrix.ruby-version }}
       - name: Install dependencies
         run: ridk exec bundle install
-      - name: Run tests
-        run: bundle exec rake test TESTOPTS=-v
+      - name: test in_tail
+        if: ${{ matrix.in_tail }}
+        run: bundle exec rake test TESTOPTS="-v --testcase='/(TailInputTest|IntailIOHandlerTest)/'"
+      - name: test without in_tail
+        if: ${{ !matrix.in_tail }}
+        run: bundle exec rake test TESTOPTS="-v --ignore-testcase='/(TailInputTest|IntailIOHandlerTest)/'"
