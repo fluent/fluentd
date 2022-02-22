@@ -20,9 +20,10 @@ module Fluent
   module RPC
     class Server
       def initialize(endpoint, log)
-        bind, port = endpoint.split(':')
-        @bind = bind
-        @port = port
+        m = endpoint.match(/^\[?(?<host>[0-9a-zA-Z:\-\.]+)\]?:(?<port>[0-9]+)$/)
+        raise Fluent::ConfigError, "Invalid rpc_endpoint: #{endpoint}" unless m
+        @bind = m[:host]
+        @port = m[:port]
         @log = log
 
         @server = WEBrick::HTTPServer.new(
