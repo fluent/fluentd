@@ -159,7 +159,7 @@ module Fluent
         def calc_max_retry_timeout(max_steps)
           result = 0
           max_steps.times { |i|
-            result += calc_interval(i)
+            result += calc_interval(i + 1)
           }
           result
         end
