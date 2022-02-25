@@ -64,6 +64,24 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       assert d.plugin_id
       assert d.log
+      assert_equal 0, d.transport_config.linger_timeout
+    end
+
+    test 'can change linger_timeout option' do
+      d = Dummy.new
+
+      transport_opts = {
+        'linger_timeout' => 1,
+      }
+      transport_conf = config_element('transport', 'tcp', transport_opts)
+      conf = config_element('source', 'tag.*', {}, [transport_conf])
+
+      assert_nothing_raised do
+        d.configure(conf)
+      end
+      assert d.plugin_id
+      assert d.log
+      assert_equal 1, d.transport_config.linger_timeout
     end
   end
 
