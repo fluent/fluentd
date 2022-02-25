@@ -68,7 +68,6 @@ class ForwardInputTest < Test::Unit::TestCase
       @d = d = create_driver
       assert_equal @port, d.instance.port
       assert_equal '127.0.0.1', d.instance.bind
-      assert_equal 0, d.instance.linger_timeout
       assert_equal 0.5, d.instance.blocking_timeout
       assert !d.instance.backlog
     end
@@ -77,7 +76,6 @@ class ForwardInputTest < Test::Unit::TestCase
       @d = d = create_driver(config_auth)
       assert_equal @port, d.instance.port
       assert_equal '127.0.0.1', d.instance.bind
-      assert_equal 0, d.instance.linger_timeout
       assert !d.instance.backlog
 
       assert d.instance.security
