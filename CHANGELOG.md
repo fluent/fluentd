@@ -1,4 +1,4 @@
-# v1.14.5
+# v1.14
 
 ## Release v1.14.5 - 2022/02/09
 
@@ -22,8 +22,6 @@
 * Fix "ArgumentError: unknown keyword: :logger" on Windows with Ruby 3.1
   https://github.com/fluent/fluentd/pull/3592
 
-# v1.14.4
-
 ## Release v1.14.4 - 2022/01/06
 
 ### Enhancement
@@ -40,8 +38,6 @@
 * test: Fix unstable test cases
   https://github.com/fluent/fluentd/pull/3574
   https://github.com/fluent/fluentd/pull/3577
-
-# v1.14.3
 
 ## Release v1.14.3 - 2021/11/26
 
@@ -71,8 +67,6 @@
   newer version is required to implement additional `fluent-ctl` commands.
   https://github.com/fluent/fluentd/pull/3556
 
-# v1.14.2
-
 ## Release v1.14.2 - 2021/10/29
 
 IMPORTANT: This release contain the fix for CVE-2021-41186 -
@@ -91,8 +85,6 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   https://github.com/fluent/fluentd/pull/3524
 * Fixed ReDoS vulnerability in parser_apache2.
   This vulnerability is caused by a certain pattern of a broken apache log.
-
-# v1.14.1
 
 ## Release v1.14.1 - 2021/09/29
 
@@ -122,8 +114,6 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   Then, inappropriate labels in log are also fixed. (retry_time -> retry_times,
   next_retry_seconds -> next_retry_time)
   https://github.com/fluent/fluentd/pull/3518
-
-# v1.14.0
 
 ## Release v1.14.0 - 2021/08/30
 
@@ -167,7 +157,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   https://github.com/fluent/fluentd/pull/3479
   https://github.com/fluent/fluentd/pull/3484
 
-# v1.13.3
+# v1.13
 
 ## Release v1.13.3 - 2021/07/27
 
@@ -188,10 +178,6 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
 
 * Remove needless spaces in a sample config file
   https://github.com/fluent/fluentd/pull/3456
-
-### Enhancement
-
-# v1.13.2
 
 ## Release v1.13.2 - 2021/07/12
 
@@ -228,8 +214,6 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   by security scanning tools.
   https://github.com/fluent/fluentd/pull/3450
 
-# v1.13.1
-
 ## Release v1.13.1 - 2021/06/25
 
 ### Bug fix
@@ -253,8 +237,6 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   https://github.com/fluent/fluentd/pull/3398
 * CI: Dropped to run CI for Ruby 2.5
   https://github.com/fluent/fluentd/pull/3412
-
-# v1.13
 
 ## Release v1.13.0 - 2021/05/29
 
