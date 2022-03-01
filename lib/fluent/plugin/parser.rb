@@ -89,7 +89,7 @@ module Fluent
       #      : format[, timezone]
 
       config_param :time_key, :string, default: nil
-      config_param :null_value_pattern, :string, default: nil
+      config_param :null_value_pattern, :regexp, default: nil
       config_param :null_empty_string, :bool, default: false
       config_param :estimate_current_event, :bool, default: true
       config_param :keep_time_key, :bool, default: false
@@ -115,9 +115,8 @@ module Fluent
         super
 
         @time_parser = time_parser_create
-        @null_value_regexp = @null_value_pattern && Regexp.new(@null_value_pattern)
         @type_converters = build_type_converters(@types)
-        @execute_convert_values = @type_converters || @null_value_regexp || @null_empty_string
+        @execute_convert_values = @type_converters || @null_value_pattern || @null_empty_string
         @timeout_checker = if @timeout
                              class << self
                                alias_method :parse_orig, :parse
@@ -220,7 +219,7 @@ module Fluent
         return time, record
       end
 
-      def string_like_null(value, null_empty_string = @null_empty_string, null_value_regexp = @null_value_regexp)
+      def string_like_null(value, null_empty_string = @null_empty_string, null_value_regexp = @null_value_pattern)
         null_empty_string && value.empty? || null_value_regexp && string_safe_encoding(value){|s| null_value_regexp.match(s) }
       end
 
