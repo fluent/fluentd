@@ -140,13 +140,13 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
 
       retry_state = @i.retry_state( @i.buffer_config.retry_randomize )
       retry_state.step
-      assert_equal 1, (retry_state.next_time - now)
-      retry_state.step
       assert_equal (1 * (2 ** 1)), (retry_state.next_time - now)
       retry_state.step
       assert_equal (1 * (2 ** 2)), (retry_state.next_time - now)
       retry_state.step
       assert_equal (1 * (2 ** 3)), (retry_state.next_time - now)
+      retry_state.step
+      assert_equal (1 * (2 ** 4)), (retry_state.next_time - now)
     end
 
     test 'does retries correctly when #write fails' do

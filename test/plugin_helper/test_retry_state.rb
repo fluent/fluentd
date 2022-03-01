@@ -202,7 +202,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
     while i < 300
       s.step
       assert_equal i, s.steps
-      assert_equal (dummy_current_time + 0.1 * (2 ** (i - 1))), s.next_time
+      assert_equal (dummy_current_time + 0.1 * (2 ** i)), s.next_time
       assert !s.limit?
       i += 1
     end
@@ -218,22 +218,22 @@ class RetryStateHelperTest < Test::Unit::TestCase
     assert_equal 0, s.steps
     assert_equal (dummy_current_time + 0.1), s.next_time
 
-    # 0.1 * (2 ** (10 - 1)) == 0.1 * 2 ** 9 == 51.2
-    # 0.1 * (2 ** (11 - 1)) == 0.1 * 2 ** 10 == 102.4
+    # 0.1 * 2 ** 9 == 51.2
+    # 0.1 * 2 ** 10 == 102.4
     i = 1
-    while i < 11
+    while i < 10
       s.step
       assert_equal i, s.steps
-      assert_equal (dummy_current_time + 0.1 * (2 ** (i - 1))), s.next_time, "start:#{dummy_current_time}, i:#{i}"
+      assert_equal (dummy_current_time + 0.1 * (2 ** i)), s.next_time, "start:#{dummy_current_time}, i:#{i}"
       i += 1
     end
 
     s.step
-    assert_equal 11, s.steps
+    assert_equal 10, s.steps
     assert_equal (dummy_current_time + 100), s.next_time
 
     s.step
-    assert_equal 12, s.steps
+    assert_equal 11, s.steps
     assert_equal (dummy_current_time + 100), s.next_time
   end
 
@@ -249,30 +249,25 @@ class RetryStateHelperTest < Test::Unit::TestCase
     assert_equal 0, s.steps
     assert_equal (dummy_current_time + 1), s.next_time
 
-    # 1 + 1 + 2 + 4 (=8)
+    # 1 + 2 + 4 (=7)
 
     override_current_time(s, s.next_time)
     s.step
     assert_equal 1, s.steps
-    assert_equal (s.current_time + 1), s.next_time
-
-    override_current_time(s, s.next_time)
-    s.step
-    assert_equal 2, s.steps
     assert_equal (s.current_time + 2), s.next_time
 
     override_current_time(s, s.next_time)
     s.step
-    assert_equal 3, s.steps
+    assert_equal 2, s.steps
     assert_equal (s.current_time + 4), s.next_time
 
     assert !s.limit?
 
-    # + 8 (=16) > 12
+    # + 8 (=15) > 12
 
     override_current_time(s, s.next_time)
     s.step
-    assert_equal 4, s.steps
+    assert_equal 3, s.steps
     assert_equal s.timeout_at, s.next_time
 
     assert s.limit?
@@ -293,24 +288,24 @@ class RetryStateHelperTest < Test::Unit::TestCase
     override_current_time(s, s.next_time)
     s.step
     assert_equal 1, s.steps
-    assert_equal (s.current_time + 1), s.next_time
-
-    override_current_time(s, s.next_time)
-    s.step
-    assert_equal 2, s.steps
     assert_equal (s.current_time + 2), s.next_time
 
     override_current_time(s, s.next_time)
     s.step
-    assert_equal 3, s.steps
+    assert_equal 2, s.steps
     assert_equal (s.current_time + 4), s.next_time
+
+    override_current_time(s, s.next_time)
+    s.step
+    assert_equal 3, s.steps
+    assert_equal (s.current_time + 8), s.next_time
 
     assert !s.limit?
 
     override_current_time(s, s.next_time)
     s.step
     assert_equal 4, s.steps
-    assert_equal (s.current_time + 8), s.next_time
+    assert_equal (s.current_time + 10), s.next_time
 
     assert !s.limit?
 
@@ -341,40 +336,42 @@ class RetryStateHelperTest < Test::Unit::TestCase
     assert_equal (dummy_current_time + 1), s.next_time
     assert !s.secondary?
 
-    # 1, 1(2), 2(4), 4(8), 8(16), 16(32), 32(64), (80), (81), (83), (87), (95), (100)
+    # primary: 3, 7, 15, 31, 63, 80 (timeout * threashold)
+    # secondary: 81, 83, 87, 95, 100
     i = 1
-    while i < 7
+    while i < 6
       override_current_time(s, s.next_time)
       assert !s.secondary?
 
       s.step
       assert_equal i, s.steps
-      assert_equal (s.current_time + 1 * (2 ** (i - 1))), s.next_time
+      assert_equal (s.current_time + 1 * (2 ** i)), s.next_time
       assert !s.limit?
       i += 1
     end
 
-    assert_equal 7, i
-    override_current_time(s, s.next_time) # 64
+    assert_equal 6, i
+    override_current_time(s, s.next_time) # 63
     assert !s.secondary?
 
     s.step
-    assert_equal 7, s.steps
+    assert_equal 6, s.steps
     assert_equal s.secondary_transition_at, s.next_time
     assert !s.limit?
 
     i += 1
-    assert_equal 8, i
+    assert_equal 7, i
     override_current_time(s, s.next_time) # 80
     assert s.secondary?
 
     s.step
-    assert_equal 8, s.steps
+    assert_equal 7, s.steps
     assert_equal s.steps, s.secondary_transition_steps
-    assert_equal (s.secondary_transition_at + 1.0), s.next_time
+    assert_equal (s.secondary_transition_at + 1.0), s.next_time # 81
     assert !s.limit?
+    assert_equal :secondary, s.current
 
-    # 81, 82, 84, 88, 96, 100
+    # 83, 87, 95, 100
     j = 1
     while j < 4
       override_current_time(s, s.next_time)
@@ -382,14 +379,14 @@ class RetryStateHelperTest < Test::Unit::TestCase
       assert_equal :secondary, s.current
 
       s.step
-      assert_equal (8 + j), s.steps
+      assert_equal (7 + j), s.steps
       assert_equal (s.current_time + (1 * (2 ** j))), s.next_time
       assert !s.limit?, "j:#{j}"
       j += 1
     end
 
     assert_equal 4, j
-    override_current_time(s, s.next_time) # 96
+    override_current_time(s, s.next_time) # 95
     assert s.secondary?
 
     s.step

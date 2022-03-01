@@ -98,7 +98,7 @@ module Fluent
               naive
             end
           elsif @current == :secondary
-            naive = naive_next_time(@steps - @secondary_transition_steps + 1)
+            naive = naive_next_time(@steps - @secondary_transition_steps)
             if naive >= @timeout_at
               @timeout_at
             else
@@ -159,13 +159,13 @@ module Fluent
         def calc_max_retry_timeout(max_steps)
           result = 0
           max_steps.times { |i|
-            result += calc_interval(i + 1)
+            result += calc_interval(i)
           }
           result
         end
 
         def calc_interval(num)
-          interval = raw_interval(num - 1)
+          interval = raw_interval(num)
           if @max_interval && interval > @max_interval
             @max_interval
           else
@@ -175,7 +175,7 @@ module Fluent
               # Calculate previous finite value to avoid inf related errors. If this re-computing is heavy, use cache.
               until interval.finite?
                 num -= 1
-                interval = raw_interval(num - 1)
+                interval = raw_interval(num)
               end
               interval
             end
