@@ -56,7 +56,7 @@ You can run specified test via `TEST` environment variable:
 - Website: https://www.fluentd.org/
 - Documentation: https://docs.fluentd.org/
 - Project repository: https://github.com/fluent
-- Discussion: https://discuss.fluentd.org/
+- Discussion: https://github.com/fluent/fluentd/discussions
 - Slack / Community: https://slack.fluentd.org
 - Newsletters: https://www.fluentd.org/newsletter
 - Author: [Sadayuki Furuhashi](https://github.com/frsyuki)
