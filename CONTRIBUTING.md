@@ -6,7 +6,7 @@ We'd love your contribution. Here are the guidelines!
 
 RESOURCES of [Official site](https://www.fluentd.org/) and [Fluentd documentation](https://docs.fluentd.org/) may help you.
 
-If you have further questions about Fluentd and plugins, please direct these to [Community Forum](https://discuss.fluentd.org/).
+If you have further questions about Fluentd and plugins, please direct these to [Community Forum](https://github.com/fluent/fluentd/discussions).
 Don't use Github issue for asking questions. Here are examples:
 
 - I installed xxx plugin but it doesn't work. Why?

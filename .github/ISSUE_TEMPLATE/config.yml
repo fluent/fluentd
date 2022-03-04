@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Ask a Question
-    url: https://discuss.fluentd.org/
-    about: I have questions about Fluentd and plugins. Please ask and answer questions at https://discuss.fluentd.org/.
+    url: https://github.com/fluent/fluentd/discussions
+    about: I have questions about Fluentd and plugins. Please ask and answer questions at https://github.com/fluent/fluentd/discussions
