@@ -397,6 +397,7 @@ module Fluent
       log_path = params['log_path']
       chuser = params['chuser']
       chgroup = params['chgroup']
+      chumask = params['chumask']
       log_rotate_age = params['log_rotate_age']
       log_rotate_size = params['log_rotate_size']
 
@@ -436,7 +437,7 @@ module Fluent
         logger_initializer: logger_initializer,
         chuser: chuser,
         chgroup: chgroup,
-        chumask: 0,
+        chumask: chumask,
         suppress_repeated_stacktrace: suppress_repeated_stacktrace,
         ignore_repeated_log_interval: ignore_repeated_log_interval,
         ignore_same_log_interval: ignore_same_log_interval,
@@ -603,6 +604,7 @@ module Fluent
       @plugin_dirs = opt[:plugin_dirs]
       @chgroup = opt[:chgroup]
       @chuser = opt[:chuser]
+      @chumask = opt[:chumask]
 
       @log_rotate_age = opt[:log_rotate_age]
       @log_rotate_size = opt[:log_rotate_size]
@@ -709,7 +711,7 @@ module Fluent
         create_socket_manager if @standalone_worker
         if @standalone_worker
           ServerEngine::Privilege.change(@chuser, @chgroup)
-          File.umask(0)
+          File.umask(@chumask.to_i(8))
         end
         MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
         Fluent::Engine.init(@system_config)
