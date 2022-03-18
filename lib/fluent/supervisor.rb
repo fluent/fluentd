@@ -186,6 +186,11 @@ module Fluent
         $log.debug 'fluentd supervisor process got SIGUSR2'
         supervisor_sigusr2_handler
       end
+
+      trap :CONT do
+        $log.debug 'fluentd supervisor process got CONT'
+        supervisor_sigcont_handler
+      end
     end
 
     if Fluent.windows?
@@ -220,6 +225,7 @@ module Fluent
           {win32_event: Win32::Event.new("#{@pid_signame}_HUP"), action: :hup},
           {win32_event: Win32::Event.new("#{@pid_signame}_USR1"), action: :usr1},
           {win32_event: Win32::Event.new("#{@pid_signame}_USR2"), action: :usr2},
+          {win32_event: Win32::Event.new("#{@pid_signame}_CONT"), action: :cont},
         ]
         if @signame
           signame_events = [
@@ -227,6 +233,7 @@ module Fluent
             {win32_event: Win32::Event.new("#{@signame}_HUP"), action: :hup},
             {win32_event: Win32::Event.new("#{@signame}_USR1"), action: :usr1},
             {win32_event: Win32::Event.new("#{@signame}_USR2"), action: :usr2},
+            {win32_event: Win32::Event.new("#{@signame}_CONT"), action: :cont},
           ]
           events.concat(signame_events)
         end
@@ -249,6 +256,8 @@ module Fluent
               supervisor_sigusr1_handler
             when :usr2
               supervisor_sigusr2_handler
+            when :cont
+              supervisor_sigcont_handler
             when :stop_event_thread
               break
             end
@@ -302,6 +311,21 @@ module Fluent
       @fluentd_conf = conf.to_s
     rescue => e
       $log.error "Failed to reload config file: #{e}"
+    end
+
+    def supervisor_sigcont_handler
+      if Fluent.windows?
+        $log.info "dump file. [pid:#{Process.pid}]"
+        require 'sigdump'
+        Sigdump.dump
+      else
+        Process.kill :CONT, Process.pid
+      end
+
+      # TODO should do `reopen_log`?
+      send_signal_to_workers(:CONT)
+    rescue => e
+      $log.error "failed to dump: #{e}"
     end
 
     def kill_worker
@@ -360,6 +384,14 @@ module Fluent
         restart(true)
       when :USR2
         reload
+      when :CONT
+        dump_all_windows_workers
+      end
+    end
+
+    def dump_all_windows_workers
+      @monitors.each do |m|
+        m.send_command("DUMP\n")
       end
     end
   end
@@ -898,6 +930,9 @@ module Fluent
           when "RELOAD"
             $log.debug "fluentd main process get #{cmd} command"
             reload_config
+          when "DUMP"
+            $log.debug "fluentd main process get #{cmd} command"
+            dump
           else
             $log.warn "fluentd main process get unknown command [#{cmd}]"
           end
@@ -945,6 +980,16 @@ module Fluent
 
         @conf = conf
       end
+    end
+
+    def dump
+      # Intended for use on Windows
+      # TODO should put these codes inside of a new thread block?
+      $log.info("dump file. [pid:#{Process.pid}]")
+      require 'sigdump'
+      Sigdump.dump
+    rescue => e
+      $log.error("failed to dump: #{e}")
     end
 
     def logging_with_console_output

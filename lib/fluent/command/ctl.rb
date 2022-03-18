@@ -36,6 +36,7 @@ module Fluent
         restart: "HUP",
         flush: "USR1",
         reload: "USR2",
+        dump: "CONT",
       }
       WINSVC_CONTROL_CODE_MAP = {
         shutdown: SERVICE_CONTROL_STOP,
@@ -44,6 +45,7 @@ module Fluent
         restart: 128,
         flush: 129,
         reload: SERVICE_CONTROL_PARAMCHANGE,
+        # dump: 130? TODO support svc control
       }
     else
       COMMAND_MAP = {
@@ -51,6 +53,7 @@ module Fluent
         restart: :HUP,
         flush: :USR1,
         reload: :USR2,
+        dump: "CONT",
       }
     end
 
