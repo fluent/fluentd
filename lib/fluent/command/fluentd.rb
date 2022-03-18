@@ -81,7 +81,6 @@ op.on('--group GROUP', "change group") {|s|
   opts[:chgroup] = s
 }
 
-opts[:chumask] = 0
 op.on('--umask UMASK', "change umask") {|s|
   opts[:chumask] = s
 }

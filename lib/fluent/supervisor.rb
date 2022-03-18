@@ -566,6 +566,7 @@ module Fluent
         setup_path: nil,
         chuser: nil,
         chgroup: nil,
+        chumask: "0",
         root_dir: nil,
         suppress_interval: 0,
         suppress_repeated_stacktrace: true,
