@@ -215,39 +215,41 @@ module Fluent
       Thread.new do
         ipc = Win32::Ipc.new(nil)
         events = [
-          Win32::Event.new("#{@pid_signame}_STOP_EVENT_THREAD"),
-          Win32::Event.new("#{@pid_signame}"),
-          Win32::Event.new("#{@pid_signame}_HUP"),
-          Win32::Event.new("#{@pid_signame}_USR1"),
-          Win32::Event.new("#{@pid_signame}_USR2"),
+          {win32_event: Win32::Event.new("#{@pid_signame}_STOP_EVENT_THREAD"), action: :stop_event_thread},
+          {win32_event: Win32::Event.new("#{@pid_signame}"), action: :stop},
+          {win32_event: Win32::Event.new("#{@pid_signame}_HUP"), action: :hup},
+          {win32_event: Win32::Event.new("#{@pid_signame}_USR1"), action: :usr1},
+          {win32_event: Win32::Event.new("#{@pid_signame}_USR2"), action: :usr2},
         ]
         if @signame
           signame_events = [
-            Win32::Event.new("#{@signame}"),
-            Win32::Event.new("#{@signame}_HUP"),
-            Win32::Event.new("#{@signame}_USR1"),
-            Win32::Event.new("#{@signame}_USR2"),
+            {win32_event: Win32::Event.new("#{@signame}"), action: :stop},
+            {win32_event: Win32::Event.new("#{@signame}_HUP"), action: :hup},
+            {win32_event: Win32::Event.new("#{@signame}_USR1"), action: :usr1},
+            {win32_event: Win32::Event.new("#{@signame}_USR2"), action: :usr2},
           ]
           events.concat(signame_events)
         end
         begin
           loop do
-            idx = ipc.wait_any(events, Windows::Synchronize::INFINITE)
-            if idx > 0 && idx <= events.length
-              $log.debug("Got Win32 event \"#{events[idx - 1].name}\"")
+            ipc_idx = ipc.wait_any(events.map {|e| e[:win32_event]}, Windows::Synchronize::INFINITE)
+            event_idx = ipc_idx - 1
+
+            if event_idx >= 0 && event_idx < events.length
+              $log.debug("Got Win32 event \"#{events[event_idx][:win32_event].name}\"")
             else
-              $log.warn("Unexpected reutrn value of Win32::Ipc#wait_any: #{idx}")
+              $log.warn("Unexpected return value of Win32::Ipc#wait_any: #{ipc_idx}")
             end
-            case idx
-            when 2, 6
+            case events[event_idx][:action]
+            when :stop
               stop(true)
-            when 3, 7
+            when :hup
               supervisor_sighup_handler
-            when 4, 8
+            when :usr1
               supervisor_sigusr1_handler
-            when 5, 9
+            when :usr2
               supervisor_sigusr2_handler
-            when 1
+            when :stop_event_thread
               break
             end
           end
