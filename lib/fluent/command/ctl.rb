@@ -53,7 +53,7 @@ module Fluent
         restart: :HUP,
         flush: :USR1,
         reload: :USR2,
-        dump: "CONT",
+        dump: :CONT,
       }
     end
 
