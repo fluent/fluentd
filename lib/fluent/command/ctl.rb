@@ -45,7 +45,7 @@ module Fluent
         restart: 128,
         flush: 129,
         reload: SERVICE_CONTROL_PARAMCHANGE,
-        # dump: 130? TODO support svc control
+        dump: 130,
       }
     else
       COMMAND_MAP = {
