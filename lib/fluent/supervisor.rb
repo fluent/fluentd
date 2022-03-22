@@ -268,7 +268,7 @@ module Fluent
             end
           end
         ensure
-          events.each { |event| event.close }
+          events.each { |event| event[:win32_event].close }
         end
       end
     end
