@@ -213,6 +213,16 @@ class SupervisorTest < ::Test::Unit::TestCase
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
+  data("Normal", {raw_path: "C:\\Windows\\Temp\\sigdump.log", expected: "C:\\Windows\\Temp\\sigdump-#{$$}.log"})
+  data("UNIX style", {raw_path: "/Windows/Temp/sigdump.log", expected: "/Windows/Temp/sigdump-#{$$}.log"})
+  data("No extension", {raw_path: "C:\\Windows\\Temp\\sigdump", expected: "C:\\Windows\\Temp\\sigdump-#{$$}"})
+  data("Multi-extension", {raw_path: "C:\\Windows\\Temp\\sig.dump.bk", expected: "C:\\Windows\\Temp\\sig.dump-#{$$}.bk"})
+  def test_fluentsigdump_get_path_with_pid(data)
+    p data
+    path = Fluent::FluentSigdump.get_path_with_pid(data[:raw_path])
+    assert_equal(data[:expected], path)
+  end
+
   def test_supervisor_event_dump_windows
     omit "Only for Windows, alternative to UNIX signals" unless Fluent.windows?
 

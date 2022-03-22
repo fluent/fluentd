@@ -16,6 +16,7 @@
 
 require 'fileutils'
 require 'open3'
+require 'pathname'
 
 require 'fluent/config'
 require 'fluent/counter'
@@ -324,28 +325,17 @@ module Fluent
 
     def supervisor_sigcont_handler
       if Fluent.windows?
-        $log.info "dump file. [pid:#{Process.pid}]"
-
-        # Sigdump outputs under `/tmp` dir without `SIGDUMP_PATH` specified
-        # but `/tmp` dir may not exist on Windows by default.
-        # Since this function is mainly for Windows, this case should be saved.
-        # (Don't want to couple tightly with the Sigdump library but want to save this case especially.)
-        unless ENV['SIGDUMP_PATH']
-          dump_dir = '/tmp'
-          unless Dir.exist?(dump_dir)
-            FileUtils.mkdir_p(dump_dir, mode: Fluent::DEFAULT_DIR_PERMISSION)
-          end
+        FluentSigdump.dump_windows
+      else
+        # Need new thread to dump in UNIX-like.
+        # (For some reason it seems to work fine on Windows with the original thread.)
+        Thread.new do
+          # As for UNIX-like, `kill CONT` signal is trapped by the supervisor process,
+          # so we have to dump manually for the supervisor process.
+          # (Normally, the dump is automatic with the signal by using `require 'sigdump/setup'`.)
+          require 'sigdump'
+          Sigdump.dump
         end
-      end
-
-      # Need new thread to dump in UNIX-like.
-      # (For some reason it seems to work fine on Windows with the original thread.)
-      Thread.new do
-        # As for UNIX-like, `kill CONT` signal is trapped by the supervisor process,
-        # so we have to dump manually for the supervisor process.
-        # (Normally, the dump is automatic with the signal by using `require 'sigdump/setup'`.)
-        require 'sigdump'
-        Sigdump.dump
       end
 
       send_signal_to_workers(:CONT)
@@ -1008,11 +998,7 @@ module Fluent
     end
 
     def dump
-      raise "[BUG] The `dump` function of workers is for Windows ONLY." unless Fluent.windows?
-      # May need to create a new thread for UNIX-like.
-      $log.info("dump file. [pid:#{Process.pid}]")
-      require 'sigdump'
-      Sigdump.dump
+      FluentSigdump.dump_windows
     rescue => e
       $log.error("failed to dump: #{e}")
     end
@@ -1124,6 +1110,29 @@ module Fluent
       fluentd_spawn_cmd << '--under-supervisor'
 
       fluentd_spawn_cmd
+    end
+  end
+
+  module FluentSigdump
+    def self.dump_windows
+      raise "[BUG] WindowsSigdump::dump is for Windows ONLY." unless Fluent.windows?
+
+      # Sigdump outputs under `/tmp` dir without `SIGDUMP_PATH` specified,
+      # but `/tmp` dir may not exist on Windows by default.
+      # So use the systemroot-temp-dir instead.
+      dump_filepath = ENV['SIGDUMP_PATH'].nil? || ENV['SIGDUMP_PATH'].empty? \
+        ? "#{ENV['windir']}/Temp/fluentd-sigdump-#{Process.pid}.log"
+        : get_path_with_pid(ENV['SIGDUMP_PATH'])
+
+      require 'sigdump'
+      Sigdump.dump(dump_filepath)
+
+      $log.info "dump to #{dump_filepath}."
+    end
+
+    def self.get_path_with_pid(raw_path)
+      path = Pathname.new(raw_path)
+      path.sub_ext("-#{Process.pid}#{path.extname}").to_s
     end
   end
 end
