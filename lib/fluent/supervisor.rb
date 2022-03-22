@@ -108,7 +108,11 @@ module Fluent
       }
       @rpc_server.mount_proc('/api/processes.dump') { |req, res|
         $log.debug "fluentd RPC got /api/processes.dump request"
-        supervisor_sigcont_handler
+        if Fluent.windows?
+          supervisor_sigcont_handler
+        else
+          Process.kill :CONT, $$
+        end
         nil
       }
       @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
@@ -332,14 +336,18 @@ module Fluent
             FileUtils.mkdir_p(dump_dir, mode: Fluent::DEFAULT_DIR_PERMISSION)
           end
         end
-
-        require 'sigdump'
-        Sigdump.dump
-      else
-        Process.kill :CONT, Process.pid
       end
 
-      # TODO should do `reopen_log`?
+      # Need new thread to dump in UNIX-like.
+      # (For some reason it seems to work fine on Windows with the original thread.)
+      Thread.new do
+        # As for UNIX-like, `kill CONT` signal is trapped by the supervisor process,
+        # so we have to dump manually for the supervisor process.
+        # (Normally, the dump is automatic with the signal by using `require 'sigdump/setup'`.)
+        require 'sigdump'
+        Sigdump.dump
+      end
+
       send_signal_to_workers(:CONT)
     rescue => e
       $log.error "failed to dump: #{e}"
@@ -1000,8 +1008,8 @@ module Fluent
     end
 
     def dump
-      # Intended for use on Windows
-      # TODO should put these codes inside of a new thread block?
+      raise "[BUG] The `dump` function of workers is for Windows ONLY." unless Fluent.windows?
+      # May need to create a new thread for UNIX-like.
       $log.info("dump file. [pid:#{Process.pid}]")
       require 'sigdump'
       Sigdump.dump
