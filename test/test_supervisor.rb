@@ -213,6 +213,32 @@ class SupervisorTest < ::Test::Unit::TestCase
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
+  def test_supervisor_event_dump_windows
+    omit "Only for Windows, alternative to UNIX signals" unless Fluent.windows?
+
+    ENV['SIGDUMP_PATH'] = TMP_DIR + "/sigdump.log"
+
+    server = DummyServer.new
+    def server.config
+      {:signame => "TestFluentdEvent"}
+    end
+    server.install_windows_event_handler
+    begin
+      sleep 0.1 # Wait for starting windows event thread
+      event = Win32::Event.open("TestFluentdEvent_CONT")
+      event.set
+      event.close
+      sleep 1.0 # Wait for dumping
+    ensure
+      server.stop_windows_event_thread
+    end
+
+    result_filepaths = Dir.glob("#{TMP_DIR}/*")
+    assert {result_filepaths.length > 0}
+  ensure
+    ENV.delete('SIGDUMP_PATH')
+  end
+
   data(:ipv4 => ["0.0.0.0", "127.0.0.1", false],
        :ipv6 => ["[::]", "[::1]", true],
        :localhost_ipv4 => ["localhost", "127.0.0.1", false])
