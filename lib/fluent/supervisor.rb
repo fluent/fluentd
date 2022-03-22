@@ -321,6 +321,18 @@ module Fluent
     def supervisor_sigcont_handler
       if Fluent.windows?
         $log.info "dump file. [pid:#{Process.pid}]"
+
+        # Sigdump outputs under `/tmp` dir without `SIGDUMP_PATH` specified
+        # but `/tmp` dir may not exist on Windows by default.
+        # Since this function is mainly for Windows, this case should be saved.
+        # (Don't want to couple tightly with the Sigdump library but want to save this case especially.)
+        unless ENV['SIGDUMP_PATH']
+          dump_dir = '/tmp'
+          unless Dir.exist?(dump_dir)
+            FileUtils.mkdir_p(dump_dir, mode: Fluent::DEFAULT_DIR_PERMISSION)
+          end
+        end
+
         require 'sigdump'
         Sigdump.dump
       else
