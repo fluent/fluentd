@@ -1311,9 +1311,8 @@ module Fluent
                 log.warn_backtrace error.backtrace
               end
             end
+            handle_limit_reached(error) if @retry.limit_step?
           end
-
-          handle_limit_reached(error) if @retry && @retry.limit_step?
         end
       end
 
