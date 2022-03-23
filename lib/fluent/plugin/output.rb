@@ -1275,29 +1275,23 @@ module Fluent
 
           unless @retry
             @retry = retry_state(@buffer_config.retry_randomize)
+
             if @retry.limit?
-              # @retry_max_times == 0, fail imediately by the following block
+              handle_limit_reached(error)
             else
               if error
                 log.warn "failed to flush the buffer.", retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
                 log.warn_backtrace error.backtrace
               end
-              return
             end
+
+            return
           end
 
           # @retry exists
 
           if @retry.limit?
-            if error
-              records = @buffer.queued_records
-              msg = "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
-              log.error msg, retry_times: @retry.steps, records: records, error: error
-              log.error_backtrace error.backtrace
-            end
-            @buffer.clear_queue!
-            log.debug "buffer queue cleared"
-            @retry = nil
+            handle_limit_reached(error)
           else
             # Ensure that the current time is greater than or equal to @retry.next_time to avoid the situation when
             # @retry.step is called almost as many times as the number of flush threads in a short time.
@@ -1318,7 +1312,21 @@ module Fluent
               end
             end
           end
+
+          handle_limit_reached(error) if @retry && @retry.limit_step?
         end
+      end
+
+      def handle_limit_reached(error)
+        if error
+          records = @buffer.queued_records
+          msg = "Hit limit for retries. dropping all chunks in the buffer queue."
+          log.error msg, retry_times: @retry.steps, records: records, error: error
+          log.error_backtrace error.backtrace
+        end
+        @buffer.clear_queue!
+        log.debug "buffer queue cleared"
+        @retry = nil
       end
 
       def retry_state(randomize)

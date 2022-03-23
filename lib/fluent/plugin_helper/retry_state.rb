@@ -131,11 +131,24 @@ module Fluent
           @next_time = calc_next_time
         end
 
-        def limit?
+        # Use @next_time for time by default to keep backward compatibility
+        def limit?(time: @next_time, steps: @steps)
+          timeout?(time) || limit_step?(steps)
+        end
+
+        def timeout?(time = current_time)
           if @forever
             false
           else
-            @next_time >= @timeout_at || !!(@max_steps && @steps >= @max_steps)
+            time >= @timeout_at
+          end
+        end
+
+        def limit_step?(steps = @steps)
+          if @forever
+            false
+          else
+            !!(@max_steps && steps >= @max_steps)
           end
         end
       end
