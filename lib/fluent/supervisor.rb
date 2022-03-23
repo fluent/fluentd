@@ -110,9 +110,10 @@ module Fluent
       @rpc_server.mount_proc('/api/processes.dump') { |req, res|
         $log.debug "fluentd RPC got /api/processes.dump request"
         if Fluent.windows?
-          supervisor_dump_handler
+          supervisor_dump_handler_for_windows
         else
           Process.kill :CONT, $$
+          send_signal_to_workers(:CONT)
         end
         nil
       }
@@ -196,11 +197,6 @@ module Fluent
         $log.debug 'fluentd supervisor process got SIGUSR2'
         supervisor_sigusr2_handler
       end
-
-      trap :CONT do
-        $log.debug 'fluentd supervisor process got CONT'
-        supervisor_dump_handler
-      end
     end
 
     if Fluent.windows?
@@ -267,7 +263,7 @@ module Fluent
             when :usr2
               supervisor_sigusr2_handler
             when :cont
-              supervisor_dump_handler
+              supervisor_dump_handler_for_windows
             when :stop_event_thread
               break
             end
@@ -323,20 +319,14 @@ module Fluent
       $log.error "Failed to reload config file: #{e}"
     end
 
-    def supervisor_dump_handler
-      if Fluent.windows?
-        FluentSigdump.dump_windows
-      else
-        # Need new thread to dump in UNIX-like.
-        # (For some reason it seems to work fine on Windows with the original thread.)
-        Thread.new do
-          # As for UNIX-like, `kill CONT` signal is trapped by the supervisor process,
-          # so we have to dump manually for the supervisor process.
-          # (Normally, the dump is automatic with the signal by using `require 'sigdump/setup'`.)
-          require 'sigdump'
-          Sigdump.dump
-        end
-      end
+    def supervisor_dump_handler_for_windows
+      # As for UNIX-like, SIGCONT signal to each process makes the process output its dump-file,
+      # and it is implemented before the implementation of the function for Windows.
+      # It is possible to trap SIGCONT and handle it here also on UNIX-like,
+      # but for backward compatibility, this handler is currently for a Windows-only.
+      raise "[BUG] This function is for Windows ONLY." unless Fluent.windows?
+
+      FluentSigdump.dump_windows
 
       send_signal_to_workers(:CONT)
     rescue => e
