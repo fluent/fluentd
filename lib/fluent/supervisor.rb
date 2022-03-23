@@ -110,7 +110,7 @@ module Fluent
       @rpc_server.mount_proc('/api/processes.dump') { |req, res|
         $log.debug "fluentd RPC got /api/processes.dump request"
         if Fluent.windows?
-          supervisor_sigcont_handler
+          supervisor_dump_handler
         else
           Process.kill :CONT, $$
         end
@@ -199,7 +199,7 @@ module Fluent
 
       trap :CONT do
         $log.debug 'fluentd supervisor process got CONT'
-        supervisor_sigcont_handler
+        supervisor_dump_handler
       end
     end
 
@@ -267,7 +267,7 @@ module Fluent
             when :usr2
               supervisor_sigusr2_handler
             when :cont
-              supervisor_sigcont_handler
+              supervisor_dump_handler
             when :stop_event_thread
               break
             end
@@ -323,7 +323,7 @@ module Fluent
       $log.error "Failed to reload config file: #{e}"
     end
 
-    def supervisor_sigcont_handler
+    def supervisor_dump_handler
       if Fluent.windows?
         FluentSigdump.dump_windows
       else
