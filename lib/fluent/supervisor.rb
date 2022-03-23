@@ -326,7 +326,13 @@ module Fluent
       # but for backward compatibility, this handler is currently for a Windows-only.
       raise "[BUG] This function is for Windows ONLY." unless Fluent.windows?
 
-      FluentSigdump.dump_windows
+      Thread.new do
+        begin
+          FluentSigdump.dump_windows
+        rescue => e
+          $log.error "failed to dump: #{e}"
+        end
+      end
 
       send_signal_to_workers(:CONT)
     rescue => e
@@ -988,9 +994,13 @@ module Fluent
     end
 
     def dump
-      FluentSigdump.dump_windows
-    rescue => e
-      $log.error("failed to dump: #{e}")
+      Thread.new do
+        begin
+          FluentSigdump.dump_windows
+        rescue => e
+          $log.error("failed to dump: #{e}")
+        end
+      end
     end
 
     def logging_with_console_output
