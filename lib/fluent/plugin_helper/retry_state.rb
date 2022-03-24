@@ -45,7 +45,7 @@ module Fluent
           @timeout = timeout
           @timeout_at = @start + timeout
           @has_reached_timeout = false
-          @has_timeouted = false
+          @has_timed_out = false
           @current = :primary
 
           if randomize_width < 0 || randomize_width > 0.5
@@ -128,10 +128,10 @@ module Fluent
 
           @next_time = calc_next_time
 
-          unless @has_reached_timeout
-            @has_reached_timeout = @next_time >= @timeout_at
+          if @has_reached_timeout
+            @has_timed_out = @next_time >= @timeout_at
           else
-            @has_timeouted = @next_time >= @timeout_at
+            @has_reached_timeout = @next_time >= @timeout_at
           end
 
           nil
@@ -145,7 +145,7 @@ module Fluent
           if @forever
             false
           else
-            @has_timeouted || !!(@max_steps && @steps >= @max_steps)
+            @has_timed_out || !!(@max_steps && @steps >= @max_steps)
           end
         end
       end
