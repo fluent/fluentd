@@ -90,6 +90,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
     override_current_time(s, s.next_time)
     s.step
     assert_equal s.timeout_at, s.next_time
+    s.step
     assert s.limit?
   end
 
@@ -115,7 +116,6 @@ class RetryStateHelperTest < Test::Unit::TestCase
     assert_equal 5, i
     override_current_time(s, s.next_time)
     s.step
-    assert_equal (s.current_time + 3), s.next_time
     assert s.limit?
   end
 
@@ -179,7 +179,9 @@ class RetryStateHelperTest < Test::Unit::TestCase
     assert s.secondary?
 
     s.step
-    assert_equal s.timeout_at, s.next_time
+    assert_equal s.timeout_at, s.next_time # 100
+
+    s.step
     assert s.limit?
   end
 
@@ -285,6 +287,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
     assert_equal 3, s.steps
     assert_equal s.timeout_at, s.next_time
 
+    s.step
     assert s.limit?
   end
 
@@ -334,8 +337,6 @@ class RetryStateHelperTest < Test::Unit::TestCase
     override_current_time(s, s.next_time)
     s.step
     assert_equal 6, s.steps
-    assert_equal (s.current_time + 10), s.next_time
-
     assert s.limit?
   end
 
@@ -405,7 +406,9 @@ class RetryStateHelperTest < Test::Unit::TestCase
     assert s.secondary?
 
     s.step
-    assert_equal s.timeout_at, s.next_time
+    assert_equal s.timeout_at, s.next_time # 100
+
+    s.step
     assert s.limit?
   end
 
@@ -988,15 +991,9 @@ class RetryStateHelperTest < Test::Unit::TestCase
         msg << "[#{next_elapsed}s elapsed point] #{retry_count}th-Retry(#{s.secondary? ? "SEC" : "PRI"}) is triggered.\n"
 
         # Update retry statement
-        if s.limit?
-          msg << "--- Reach limit of timeout. ---\n"
-          break
-        end
-
         s.step
-
-        if s.limit_step?
-          msg << "--- Reach limit of max step. ---\n"
+        if s.limit?
+          msg << "--- Reach limit. ---\n"
           break
         end
       end
