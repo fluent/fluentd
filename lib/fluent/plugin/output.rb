@@ -1290,16 +1290,17 @@ module Fluent
 
           # @retry exists
 
+          # Ensure that the current time is greater than or equal to @retry.next_time to avoid the situation when
+          # @retry.step is called almost as many times as the number of flush threads in a short time.
+          if Time.now >= @retry.next_time
+            @retry.step
+          else
+            @retry.recalc_next_time # to prevent all flush threads from retrying at the same time
+          end
+
           if @retry.limit?
             handle_limit_reached(error)
           else
-            # Ensure that the current time is greater than or equal to @retry.next_time to avoid the situation when
-            # @retry.step is called almost as many times as the number of flush threads in a short time.
-            if Time.now >= @retry.next_time
-              @retry.step
-            else
-              @retry.recalc_next_time # to prevent all flush threads from retrying at the same time
-            end
             if error
               if using_secondary
                 msg = "failed to flush the buffer with secondary output."
@@ -1311,7 +1312,6 @@ module Fluent
                 log.warn_backtrace error.backtrace
               end
             end
-            handle_limit_reached(error) if @retry.limit_step?
           end
         end
       end

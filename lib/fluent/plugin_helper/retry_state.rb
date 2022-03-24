@@ -44,6 +44,8 @@ module Fluent
 
           @timeout = timeout
           @timeout_at = @start + timeout
+          @has_reached_timeout = false
+          @has_timeouted = false
           @current = :primary
 
           if randomize_width < 0 || randomize_width > 0.5
@@ -123,7 +125,15 @@ module Fluent
             @current = :secondary
             @secondary_transition_steps = @steps
           end
+
           @next_time = calc_next_time
+
+          unless @has_reached_timeout
+            @has_reached_timeout = @next_time >= @timeout_at
+          else
+            @has_timeouted = @next_time >= @timeout_at
+          end
+
           nil
         end
 
@@ -131,24 +141,11 @@ module Fluent
           @next_time = calc_next_time
         end
 
-        # Use @next_time for time by default to keep backward compatibility
-        def limit?(time: @next_time, steps: @steps)
-          timeout?(time) || limit_step?(steps)
-        end
-
-        def timeout?(time = current_time)
+        def limit?
           if @forever
             false
           else
-            time >= @timeout_at
-          end
-        end
-
-        def limit_step?(steps = @steps)
-          if @forever
-            false
-          else
-            !!(@max_steps && steps >= @max_steps)
+            @has_timeouted || !!(@max_steps && @steps >= @max_steps)
           end
         end
       end
