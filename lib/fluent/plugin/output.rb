@@ -1278,11 +1278,8 @@ module Fluent
 
             if @retry.limit?
               handle_limit_reached(error)
-            else
-              if error
-                log.warn "failed to flush the buffer.", retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
-                log.warn_backtrace error.backtrace
-              end
+            elsif error
+              log_retry_error(error, chunk_id_hex, using_secondary)
             end
 
             return
@@ -1300,20 +1297,21 @@ module Fluent
 
           if @retry.limit?
             handle_limit_reached(error)
-          else
-            if error
-              if using_secondary
-                msg = "failed to flush the buffer with secondary output."
-                log.warn msg, retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
-                log.warn_backtrace error.backtrace
-              else
-                msg = "failed to flush the buffer."
-                log.warn msg, retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
-                log.warn_backtrace error.backtrace
-              end
-            end
+          elsif error
+            log_retry_error(error, chunk_id_hex, using_secondary)
           end
         end
+      end
+
+      def log_retry_error(error, chunk_id_hex, using_secondary)
+        return unless error
+        if using_secondary
+          msg = "failed to flush the buffer with secondary output."
+        else
+          msg = "failed to flush the buffer."
+        end
+        log.warn(msg, retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error)
+        log.warn_backtrace(error.backtrace)
       end
 
       def handle_limit_reached(error)
