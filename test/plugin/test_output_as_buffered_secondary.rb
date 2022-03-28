@@ -874,7 +874,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       end
 
       logs = @i.log.out.logs
-      assert{ logs.any?{|l| l.include?("[error]: failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue.") } }
+      assert{ logs.any?{|l| l.include?("[error]: Hit limit for retries. dropping all chunks in the buffer queue.") } }
 
       assert{ now >= first_failure + 60 }
     end

@@ -1275,50 +1275,55 @@ module Fluent
 
           unless @retry
             @retry = retry_state(@buffer_config.retry_randomize)
+
             if @retry.limit?
-              # @retry_max_times == 0, fail imediately by the following block
-            else
-              if error
-                log.warn "failed to flush the buffer.", retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
-                log.warn_backtrace error.backtrace
-              end
-              return
+              handle_limit_reached(error)
+            elsif error
+              log_retry_error(error, chunk_id_hex, using_secondary)
             end
+
+            return
           end
 
           # @retry exists
 
-          if @retry.limit?
-            if error
-              records = @buffer.queued_records
-              msg = "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
-              log.error msg, retry_times: @retry.steps, records: records, error: error
-              log.error_backtrace error.backtrace
-            end
-            @buffer.clear_queue!
-            log.debug "buffer queue cleared"
-            @retry = nil
+          # Ensure that the current time is greater than or equal to @retry.next_time to avoid the situation when
+          # @retry.step is called almost as many times as the number of flush threads in a short time.
+          if Time.now >= @retry.next_time
+            @retry.step
           else
-            # Ensure that the current time is greater than or equal to @retry.next_time to avoid the situation when
-            # @retry.step is called almost as many times as the number of flush threads in a short time.
-            if Time.now >= @retry.next_time
-              @retry.step
-            else
-              @retry.recalc_next_time # to prevent all flush threads from retrying at the same time
-            end
-            if error
-              if using_secondary
-                msg = "failed to flush the buffer with secondary output."
-                log.warn msg, retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
-                log.warn_backtrace error.backtrace
-              else
-                msg = "failed to flush the buffer."
-                log.warn msg, retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
-                log.warn_backtrace error.backtrace
-              end
-            end
+            @retry.recalc_next_time # to prevent all flush threads from retrying at the same time
+          end
+
+          if @retry.limit?
+            handle_limit_reached(error)
+          elsif error
+            log_retry_error(error, chunk_id_hex, using_secondary)
           end
         end
+      end
+
+      def log_retry_error(error, chunk_id_hex, using_secondary)
+        return unless error
+        if using_secondary
+          msg = "failed to flush the buffer with secondary output."
+        else
+          msg = "failed to flush the buffer."
+        end
+        log.warn(msg, retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error)
+        log.warn_backtrace(error.backtrace)
+      end
+
+      def handle_limit_reached(error)
+        if error
+          records = @buffer.queued_records
+          msg = "Hit limit for retries. dropping all chunks in the buffer queue."
+          log.error msg, retry_times: @retry.steps, records: records, error: error
+          log.error_backtrace error.backtrace
+        end
+        @buffer.clear_queue!
+        log.debug "buffer queue cleared"
+        @retry = nil
       end
 
       def retry_state(randomize)
