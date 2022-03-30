@@ -11,6 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
+      max-parallel: 1
       fail-fast: false
       matrix:
         ruby-version: ['2.7', '2.6']
