@@ -1,5 +1,41 @@
 # v1.14
 
+## Release v1.14.6 - 2022/03/31
+
+### Enhancement
+
+* Enable server plugins to specify socket-option `SO_LINGER`
+  https://github.com/fluent/fluentd/pull/3644
+* Add `--umask` command line parameter
+  https://github.com/fluent/fluentd/pull/3671
+  https://github.com/fluent/fluentd/pull/3679
+
+### Bug fixes
+
+* Fix metric name typo
+  https://github.com/fluent/fluentd/pull/3630
+  https://github.com/fluent/fluentd/pull/3673
+* Apply modifications in pipeline to the records being passed to `@ERROR` label
+  https://github.com/fluent/fluentd/pull/3631
+* Fix wrong calculation of retry interval
+  https://github.com/fluent/fluentd/pull/3640
+  https://github.com/fluent/fluentd/pull/3649
+  https://github.com/fluent/fluentd/pull/3685
+  https://github.com/fluent/fluentd/pull/3686
+* Support IPv6 address for `rpc_endpoint` in `system` config
+  https://github.com/fluent/fluentd/pull/3641
+
+### Misc
+
+* CI: Support Ruby 3.1 except Windows
+  https://github.com/fluent/fluentd/pull/3619
+* Switch to GitHub Discussions
+  https://github.com/fluent/fluentd/pull/3654
+* Fix CHANGELOG.md heading styles
+  https://github.com/fluent/fluentd/pull/3648
+* Declare `null_value_pattern` as `regexp`
+  https://github.com/fluent/fluentd/pull/3650
+
 ## Release v1.14.5 - 2022/02/09
 
 ### Enhancement
