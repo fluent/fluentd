@@ -78,6 +78,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
 ### Enhancement
 
 * fluent-cat: Add `--event-time` option to send specified event time for testing.
+  https://github.com/fluent/fluentd/pull/3528
 
 ### Bug fix
 
@@ -285,6 +286,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
 ### Bug fix
 
 * in_tail: Fix a bug that refresh_watcher fails to handle file rotations
+  https://github.com/fluent/fluentd/pull/3393
 
 ## Release v1.12.3 - 2021/04/23
 
