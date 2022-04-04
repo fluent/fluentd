@@ -443,7 +443,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
 ### New feature
 
 * in_tail: Add `follow_inode` to support log rotation with wild card
-  https://github.com/fluent/fluentd/pull/2992
+  https://github.com/fluent/fluentd/pull/3182
 * in_tail: Handle linux capability
   https://github.com/fluent/fluentd/pull/3155
   https://github.com/fluent/fluentd/pull/3162
