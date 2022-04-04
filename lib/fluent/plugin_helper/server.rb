@@ -267,7 +267,9 @@ module Fluent
           ### Socket Params ###
 
           # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src.
-          # Set positive value if needing to send FIN on closing.
+          # Set positive value if needing to send FIN on closing on non-Windows.
+          # (On Windows, Fluentd can send FIN with zero `linger_timeout` since Fluentd doesn't set 0 to SO_LINGER on Windows.
+          # See `socket_option.rb`.)
           # NOTE:
             # Socket-options can be specified from each plugin as needed, so most of them is not defined here for now.
             # This is because there is no positive reason to do so.
