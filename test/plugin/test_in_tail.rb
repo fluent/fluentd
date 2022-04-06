@@ -144,7 +144,7 @@ class TailInputTest < Test::Unit::TestCase
                     })
     ])
   
-  PATTERN = "/#{TMP_DIR}\/(?<podname>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace>[^_]+)_(?<container>.+)-(?<docker_id>[a-z0-9]{6})\.log$/"
+  TAILING_GROUP_PATTERN = "/#{TMP_DIR}\/(?<podname>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace>[^_]+)_(?<container>.+)-(?<docker_id>[a-z0-9]{6})\.log$/"
   DEBUG_LOG_LEVEL = config_element("", "", {
     "@log_level" => "debug"
   })
@@ -200,7 +200,7 @@ class TailInputTest < Test::Unit::TestCase
         "namespace"=> "/namespace-h/",
       }, 0)
 
-      conf = create_group_directive(PATTERN, '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
+      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
       assert_nothing_raised do 
         d = create_driver(conf)
       end
@@ -215,7 +215,7 @@ class TailInputTest < Test::Unit::TestCase
         "namespace"=> "/namespace-[d|e]/",
         "podname"=> "/podname-f/",
       }, 50)
-      conf = create_group_directive(PATTERN, '1m', rule1, rule2) + SINGLE_LINE_CONFIG
+      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2) + SINGLE_LINE_CONFIG
       assert_raise(RuntimeError) do 
         d = create_driver(conf)
       end   
@@ -348,7 +348,7 @@ class TailInputTest < Test::Unit::TestCase
         "namespace"=> "/namespace-a/",
       }, 100)
   
-      conf = create_group_directive(PATTERN, '1m', rule3, rule1, rule2) + SINGLE_LINE_CONFIG
+      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule3, rule1, rule2) + SINGLE_LINE_CONFIG
       assert_nothing_raised do
         d = create_driver(conf)
         instance = d.instance
@@ -391,7 +391,7 @@ class TailInputTest < Test::Unit::TestCase
   sub_test_case "files should be placed in groups" do
     test "invalid regex pattern places files in default group" do
       rule1 = create_rule_directive({}, 100) ## limits default groups
-      conf = ROOT_CONFIG + DEBUG_LOG_LEVEL + create_group_directive(PATTERN, '1m', rule1) + create_path_element("test*.txt") + SINGLE_LINE_CONFIG
+      conf = ROOT_CONFIG + DEBUG_LOG_LEVEL + create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1) + create_path_element("test*.txt") + SINGLE_LINE_CONFIG
 
       d = create_driver(conf, false)
       File.open("#{TMP_DIR}/test1.txt", 'w')
@@ -426,7 +426,7 @@ class TailInputTest < Test::Unit::TestCase
 
       path_element = create_path_element("test-podname*.log")
 
-      conf = ROOT_CONFIG + create_group_directive(PATTERN, '1m', rule4, rule3, rule2, rule1) + path_element + SINGLE_LINE_CONFIG
+      conf = ROOT_CONFIG + create_group_directive(TAILING_GROUP_PATTERN, '1m', rule4, rule3, rule2, rule1) + path_element + SINGLE_LINE_CONFIG
       d = create_driver(conf, false)
 
       file1 = File.join(TMP_DIR, "test-podname1_test-namespace1_test-container-15fabq.log")
@@ -2602,7 +2602,7 @@ class TailInputTest < Test::Unit::TestCase
         "podname"=> "/podname.+/",
       }, limit)
       path_element = create_path_element(file)
-      conf = ROOT_CONFIG + create_group_directive(PATTERN, rate_period, rule) + path_element + SINGLE_LINE_CONFIG + CONFIG_READ_FROM_HEAD
+      conf = ROOT_CONFIG + create_group_directive(TAILING_GROUP_PATTERN, rate_period, rule) + path_element + SINGLE_LINE_CONFIG + CONFIG_READ_FROM_HEAD
 
       d = create_driver(conf, false)
       file_path = "#{TMP_DIR}/#{file}"

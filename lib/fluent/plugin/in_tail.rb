@@ -139,7 +139,7 @@ module Fluent::Plugin
 
       config_section :rule, param_name: :rule, required: true, multi: true do
         desc 'Key-value pairs for grouping'
-        config_param :match, :hash, value_type: :regexp, default: {namespace: [DEFAULT_KEY], appname: [DEFAULT_KEY]}
+        config_param :match, :hash, value_type: :regexp, default: {namespace: [DEFAULT_KEY], podname: [DEFAULT_KEY]}
         desc 'Maximum number of log lines allowed per group over a period of rate_period'
         config_param :limit, :integer, default: DEFAULT_LIMIT
       end
@@ -639,7 +639,7 @@ module Fluent::Plugin
       if @open_on_every_update
         # Detach now because it's already closed, waiting it doesn't make sense.
         detach_watcher(tw, ino)
-      elsif @read_bytes_limit_per_second < 0 || tw.group_watcher&.limit <= 0
+      elsif @read_bytes_limit_per_second < 0 || (!tw.group_watcher.nil? && tw.group_watcher.limit <= 0)
         # throttling isn't enabled, just wait @rotate_wait
         timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
           detach_watcher(tw, ino)
