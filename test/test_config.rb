@@ -10,11 +10,18 @@ class ConfigTest < Test::Unit::TestCase
 
   TMP_DIR = File.dirname(__FILE__) + "/tmp/config#{ENV['TEST_ENV_NUMBER']}"
 
-  def read_config(path)
+  def read_config(path, use_yaml: false)
     path = File.expand_path(path)
-    File.open(path) { |io|
-      Fluent::Config::Parser.parse(io, File.basename(path), File.dirname(path))
-    }
+    if use_yaml
+      context = Kernel.binding
+
+      s = Fluent::Config::YamlParser::Loader.new(context).load(Pathname.new(path))
+      Fluent::Config::YamlParser::Parser.new(s).build.to_element
+    else
+      File.open(path) { |io|
+        Fluent::Config::Parser.parse(io, File.basename(path), File.dirname(path))
+      }
+    end
   end
 
   def prepare_config
@@ -149,6 +156,52 @@ class ConfigTest < Test::Unit::TestCase
     before_size = match_conf.unused.size
     10.times { match_conf['type'] }
     assert_equal before_size, match_conf.unused.size
+  end
+
+  sub_test_case "yaml config" do
+    def test_check_not_fetchd
+      write_config "#{TMP_DIR}/config_test_not_fetched.yaml", <<-EOS
+      config:
+        - match:
+            $arg: dummy
+            $type: rewrite
+            add_prefix:    filtered
+            rule:
+              key:     path
+              pattern: "^[A-Z]+"
+              replace: true
+      EOS
+      root_conf  = read_config("#{TMP_DIR}/config_test_not_fetched.yaml", use_yaml: true)
+      match_conf = root_conf.elements.first
+      rule_conf  = match_conf.elements.first
+
+      not_fetched = []; root_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[@type $arg add_prefix key pattern replace], not_fetched
+
+      not_fetched = []; match_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[@type $arg add_prefix key pattern replace], not_fetched
+
+      not_fetched = []; rule_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[key pattern replace], not_fetched
+
+      # accessing should delete
+      match_conf['type']
+      rule_conf['key']
+
+      not_fetched = []; root_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[@type $arg add_prefix pattern replace], not_fetched
+
+      not_fetched = []; match_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[@type $arg add_prefix pattern replace], not_fetched
+
+      not_fetched = []; rule_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[pattern replace], not_fetched
+
+      # repeatedly accessing should not grow memory usage
+      before_size = match_conf.unused.size
+      10.times { match_conf['type'] }
+      assert_equal before_size, match_conf.unused.size
+    end
   end
 
   def write_config(path, data, encoding: 'utf-8')
