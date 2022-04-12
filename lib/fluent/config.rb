@@ -28,8 +28,8 @@ module Fluent
     # @return [Fluent::Config]
     def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true, type: nil, guess_type: nil)
       if guess_type
-        config_fext = File.extname(config_path.dup)
-        if config_fext == '.yaml' || config_fext == '.yml'
+        config_file_ext = File.extname(config_path.dup)
+        if config_file_ext == '.yaml' || config_file_ext == '.yml'
           type = :yaml
         end
       end
