@@ -134,6 +134,10 @@ module Fluent
             sb.add_line('@label', v)
           end
 
+          if (v = config.delete('$id'))
+            sb.add_line('@id', v)
+          end
+
           config.each do |key, val|
             if val.is_a?(Array)
               val.each do |v|
