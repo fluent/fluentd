@@ -87,13 +87,21 @@ module Fluent
         def filter_build(config, indent: 0)
           config = config.dup
           tag = config.delete('$tag')
-          section_build('filter', config, indent: indent, arg: tag)
+          if tag.is_a?(Array)
+            section_build('filter', config, indent: indent, arg: tag&.join(','))
+          else
+            section_build('filter', config, indent: indent, arg: tag)
+          end
         end
 
         def match_build(config, indent: 0)
           config = config.dup
           tag = config.delete('$tag')
-          section_build('match', config, indent: indent, arg: tag)
+          if tag.is_a?(Array)
+            section_build('match', config, indent: indent, arg: tag&.join(','))
+          else
+            section_build('match', config, indent: indent, arg: tag)
+          end
         end
 
         def included_sections_build(config, section_builder, indent: 0)
