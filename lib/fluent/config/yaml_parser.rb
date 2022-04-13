@@ -36,6 +36,18 @@ module Fluent
           end
         end
 
+        unless context.respond_to?(:hostname)
+          context.define_singleton_method(:hostname) do
+            Socket.gethostname
+          end
+        end
+
+        unless context.respond_to?(:worker_id)
+          context.define_singleton_method(:worker_id) do
+            ENV['SERVERENGINE_WORKER_ID'] || ''
+          end
+        end
+
         s = Fluent::Config::YamlParser::Loader.new(context).load(Pathname.new(path))
         Fluent::Config::YamlParser::Parser.new(s).build.to_element
       end
