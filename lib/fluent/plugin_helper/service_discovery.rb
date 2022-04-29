@@ -44,7 +44,7 @@ module Fluent
 
         @discovery_manager.start
         unless @discovery_manager.static_config?
-          timer_execute(@_plugin_helper_service_discovery_title, @_plugin_helper_service_discovery_iterval) do
+          timer_execute(@_plugin_helper_service_discovery_title, @_plugin_helper_service_discovery_interval) do
             @discovery_manager.run_once
           end
         end
@@ -96,7 +96,7 @@ module Fluent
       # @param custom_build_method [Proc]
       def service_discovery_create_manager(title, configurations:, load_balancer: nil, custom_build_method: nil, interval: 3)
         @_plugin_helper_service_discovery_title = title
-        @_plugin_helper_service_discovery_iterval = interval
+        @_plugin_helper_service_discovery_interval = interval
 
         @discovery_manager = Fluent::PluginHelper::ServiceDiscovery::Manager.new(
           log: log,
