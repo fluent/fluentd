@@ -79,7 +79,7 @@ module Fluent::Plugin
       end
 
       def add_path_to_group_watcher(path)
-        return if @group.nil?
+        return nil if @group.nil?
         group_watcher = find_group_from_metadata(path)
         group_watcher.add(path) unless group_watcher.include?(path)
         group_watcher
