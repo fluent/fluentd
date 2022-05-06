@@ -409,9 +409,7 @@ module Fluent::Plugin
         event_loop_attach(watcher)
       end
 
-      unless @group.nil?
-        group_watcher = find_group_from_metadata(target_info.path)
-        group_watcher.add(tw.path) unless group_watcher.include?(tw.path)
+      add_group_watcher(target_info.path) do |group_watcher|
         tw.group_watcher = group_watcher
       end
 
@@ -470,10 +468,7 @@ module Fluent::Plugin
 
     def stop_watchers(targets_info, immediate: false, unwatched: false, remove_watcher: true)
       targets_info.each_value { |target_info|
-        unless @group.nil?
-          group_watcher = find_group_from_metadata(target_info.path)
-          group_watcher.delete(target_info.path)
-        end
+        remove_group_watcher(target_info.path)
 
         if remove_watcher
           tw = @tails.delete(target_info)
