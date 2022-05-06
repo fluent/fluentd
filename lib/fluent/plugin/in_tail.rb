@@ -409,7 +409,7 @@ module Fluent::Plugin
         event_loop_attach(watcher)
       end
 
-      unless @group.nil? 
+      unless @group.nil?
         group_watcher = find_group_from_metadata(target_info.path)
         group_watcher.add(tw.path) unless group_watcher.include?(tw.path)
         tw.group_watcher = group_watcher
@@ -470,7 +470,7 @@ module Fluent::Plugin
 
     def stop_watchers(targets_info, immediate: false, unwatched: false, remove_watcher: true)
       targets_info.each_value { |target_info|
-        unless @group.nil? 
+        unless @group.nil?
           group_watcher = find_group_from_metadata(target_info.path)
           group_watcher.delete(target_info.path)
         end
@@ -1093,7 +1093,7 @@ module Fluent::Plugin
                     group_watcher.update_lines_read(@path, @lines.size) unless group_watcher.nil?
 
                     if group_watcher&.limit_lines_reached?(@path) || should_shutdown_now?
-                      @log.debug "Reading Limit exceeded #{@path} #{group_watcher.number_lines_read}" unless should_shutdown_now? 
+                      @log.debug "Reading Limit exceeded #{@path} #{group_watcher.number_lines_read}" unless should_shutdown_now?
                       read_more = false
                       break
                     end

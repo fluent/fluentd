@@ -143,7 +143,7 @@ class TailInputTest < Test::Unit::TestCase
                       "format_firstline" => "/^[s]/"
                     })
     ])
-  
+
   TAILING_GROUP_PATTERN = "/#{TMP_DIR}\/(?<podname>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace>[^_]+)_(?<container>.+)-(?<docker_id>[a-z0-9]{6})\.log$/"
   DEBUG_LOG_LEVEL = config_element("", "", {
     "@log_level" => "debug"
@@ -159,7 +159,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def create_rule_directive(match_named_captures, limit)
-    params = {        
+    params = {
       "limit" => limit,
       "match" => match_named_captures,
     }
@@ -179,7 +179,7 @@ class TailInputTest < Test::Unit::TestCase
   sub_test_case "configure" do
     test "<rule> required" do
       conf = create_group_directive('.', '1m') + SINGLE_LINE_CONFIG
-      assert_raise(Fluent::ConfigError) do 
+      assert_raise(Fluent::ConfigError) do
         d = create_driver(conf)
       end
     end
@@ -201,7 +201,7 @@ class TailInputTest < Test::Unit::TestCase
       }, 0)
 
       conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
-      assert_nothing_raised do 
+      assert_nothing_raised do
         d = create_driver(conf)
       end
     end
@@ -216,9 +216,9 @@ class TailInputTest < Test::Unit::TestCase
         "podname"=> "/podname-f/",
       }, 50)
       conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2) + SINGLE_LINE_CONFIG
-      assert_raise(RuntimeError) do 
+      assert_raise(RuntimeError) do
         d = create_driver(conf)
-      end   
+      end
     end
 
     test "plain single line" do
@@ -347,18 +347,18 @@ class TailInputTest < Test::Unit::TestCase
       rule3 = create_rule_directive({
         "namespace"=> "/namespace-a/",
       }, 100)
-  
+
       conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule3, rule1, rule2) + SINGLE_LINE_CONFIG
       assert_nothing_raised do
         d = create_driver(conf)
         instance = d.instance
 
         metadata = {
-          "namespace"=> "namespace-a", 
+          "namespace"=> "namespace-a",
           "podname"=> "podname-b",
         }
         assert_equal 50, instance.find_group(metadata).limit
-        
+
         metadata = {
           "namespace" => "namespace-a",
           "podname" => "podname-c",
@@ -410,7 +410,7 @@ class TailInputTest < Test::Unit::TestCase
         assert_true instance.group_watchers[key].include? File.join(TMP_DIR, 'test3.txt')
       end
     end
-    
+
     test "valid regex pattern places file in their respective groups" do
       rule1 = create_rule_directive({
         "namespace"=> "/test-namespace1/",
@@ -447,7 +447,6 @@ class TailInputTest < Test::Unit::TestCase
         assert_equal 400, instance.find_group_from_metadata(file4).limit
       end
     end
-  
   end
 
   sub_test_case "singleline" do
@@ -2554,7 +2553,7 @@ class TailInputTest < Test::Unit::TestCase
          "file test2.log no_limit 1024 text: test" => ["test2.log", 1024, "test"])
     def test_lines_collected_with_no_throttling(data)
       file, num_lines, msg = data
-      
+
       pattern = "/^#{TMP_DIR}\/(?<file>.+)\.log$/"
       rule = create_rule_directive({
         "file" => "/test.*/",
@@ -2565,7 +2564,7 @@ class TailInputTest < Test::Unit::TestCase
       conf = ROOT_CONFIG + group + path_element + CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG
 
       File.open("#{TMP_DIR}/#{file}", 'wb') do |f|
-        num_lines.times do 
+        num_lines.times do
           f.puts "#{msg}\n"
         end
       end
@@ -2582,14 +2581,14 @@ class TailInputTest < Test::Unit::TestCase
         prev_count = d.record_count
         ## waiting for atleast 12 seconds to avoid any sync errors between plugin and test driver
         sleep(1) until Fluent::Clock.now - start_time > 12
-        ## after waiting for 10 secs, limit will reset 
-        ## Plugin will start reading but it will encounter EOF Error 
+        ## after waiting for 10 secs, limit will reset
+        ## Plugin will start reading but it will encounter EOF Error
         ## since no logs are left to be read
         ## Hence, d.record_count = prev_count
         assert_equal 0, d.record_count - prev_count
       end
     end
-    
+
     test "lines collected with throttling" do
       file = "podname1_namespace12_container-123456.log"
       limit = 1000
@@ -2606,9 +2605,9 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(conf, false)
       file_path = "#{TMP_DIR}/#{file}"
-  
+
       File.open(file_path, 'wb') do |f|
-        num_lines.times do 
+        num_lines.times do
           f.puts msg
         end
       end
@@ -2621,10 +2620,10 @@ class TailInputTest < Test::Unit::TestCase
           assert_true Fluent::Clock.now - start_time < 10
           ## Check record_count after 10s to check lines reads
           assert_equal limit, d.record_count - prev_count
-          prev_count = d.record_count 
-          ## sleep until rate_period seconds are over so that 
+          prev_count = d.record_count
+          ## sleep until rate_period seconds are over so that
           ## Plugin can read lines again
-          sleep(1) until Fluent::Clock.now - start_time > 12 
+          sleep(1) until Fluent::Clock.now - start_time > 12
           ## waiting for atleast 12 seconds to avoid any sync errors between plugin and test driver
           start_time = Fluent::Clock.now
         end
