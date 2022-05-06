@@ -78,18 +78,17 @@ module Fluent::Plugin
         end
       end
 
-      def add_group_watcher(path, &block)
+      def add_path_to_group_watcher(path)
         return if @group.nil?
         group_watcher = find_group_from_metadata(path)
         group_watcher.add(path) unless group_watcher.include?(path)
-        block.call(group_watcher) if block_given?
+        group_watcher
       end
 
-      def remove_group_watcher(path, &block)
+      def remove_path_from_group_watcher(path)
         return if @group.nil?
         group_watcher = find_group_from_metadata(path)
         group_watcher.delete(path)
-        block.call(group_watcher) if block_given?
       end
 
       def construct_group_key(named_captures)
