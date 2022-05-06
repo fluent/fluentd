@@ -24,7 +24,7 @@ require 'fluent/plugin/parser_multiline'
 require 'fluent/variable_store'
 require 'fluent/capability'
 require 'fluent/plugin/in_tail/position_file'
-require 'fluent/plugin/in_tail/group_watcher'
+require 'fluent/plugin/in_tail/group_watch'
 
 if Fluent.windows?
   require_relative 'file_wrapper'
