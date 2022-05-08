@@ -1076,25 +1076,26 @@ module Fluent::Plugin
                 begin
                   while true
                     @start_reading_time ||= Fluent::Clock.now
-                    group_watcher.update_reading_time(@path) unless group_watcher.nil?
+                    group_watcher&.update_reading_time(@path)
+
                     data = io.readpartial(BYTES_TO_READ, @iobuf)
                     @eof = false
                     @number_bytes_read += data.bytesize
                     @fifo << data
-                    group_watcher.update_lines_read(@path, -@lines.size) unless group_watcher.nil?
-                    @fifo.read_lines(@lines)
-                    group_watcher.update_lines_read(@path, @lines.size) unless group_watcher.nil?
 
-                    if group_watcher&.limit_lines_reached?(@path) || should_shutdown_now?
-                      @log.debug "Reading Limit exceeded #{@path} #{group_watcher.number_lines_read}" unless should_shutdown_now?
-                      read_more = false
-                      break
-                    end
-                    if limit_bytes_per_second_reached? || should_shutdown_now?
+                    n_lines_before_read = @lines.size
+                    @fifo.read_lines(@lines)
+                    group_watcher&.update_lines_read(@path, @lines.size - n_lines_before_read)
+
+                    group_watcher_limit = group_watcher&.limit_lines_reached?(@path)
+                    @log.debug "Reading Limit exceeded #{@path} #{group_watcher.number_lines_read}" if group_watcher_limit
+
+                    if group_watcher_limit || limit_bytes_per_second_reached? || should_shutdown_now?
                       # Just get out from tailing loop.
                       read_more = false
                       break
                     end
+
                     if @lines.size >= @read_lines_limit
                       # not to use too much memory in case the file is very large
                       read_more = true
