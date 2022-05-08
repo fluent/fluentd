@@ -120,7 +120,7 @@ module Fluent::Plugin
         begin
           metadata = @group.pattern.match(path).named_captures
           group_watcher = find_group(metadata)
-        rescue => e
+        rescue
           log.warn "Cannot find group from metadata, Adding file in the default group"
           group_watcher = @group_watchers[@default_group_key]
         end

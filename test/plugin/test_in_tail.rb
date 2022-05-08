@@ -180,7 +180,7 @@ class TailInputTest < Test::Unit::TestCase
     test "<rule> required" do
       conf = create_group_directive('.', '1m') + SINGLE_LINE_CONFIG
       assert_raise(Fluent::ConfigError) do
-        d = create_driver(conf)
+        create_driver(conf)
       end
     end
 
@@ -202,7 +202,7 @@ class TailInputTest < Test::Unit::TestCase
 
       conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
       assert_nothing_raised do
-        d = create_driver(conf)
+        create_driver(conf)
       end
     end
 
@@ -217,7 +217,7 @@ class TailInputTest < Test::Unit::TestCase
       }, 50)
       conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2) + SINGLE_LINE_CONFIG
       assert_raise(RuntimeError) do
-        d = create_driver(conf)
+        create_driver(conf)
       end
     end
 
@@ -357,32 +357,32 @@ class TailInputTest < Test::Unit::TestCase
           "namespace"=> "namespace-a",
           "podname"=> "podname-b",
         }
-        assert_equal 50, instance.find_group(metadata).limit
+        assert_equal(50, instance.find_group(metadata).limit)
 
         metadata = {
           "namespace" => "namespace-a",
           "podname" => "podname-c",
         }
-        assert_equal 50, instance.find_group(metadata).limit
+        assert_equal(50, instance.find_group(metadata).limit)
 
         metadata = {
           "namespace" => "namespace-a",
           "podname" => "podname-d",
         }
-        assert_equal 100, instance.find_group(metadata).limit
+        assert_equal(100, instance.find_group(metadata).limit)
 
         metadata = {
           "namespace" => "namespace-f",
           "podname" => "podname-b",
         }
-        assert_equal 400, instance.find_group(metadata).limit
+        assert_equal(400, instance.find_group(metadata).limit)
 
         metadata = {
           "podname" => "podname-c",
         }
-        assert_equal 400, instance.find_group(metadata).limit
+        assert_equal(400, instance.find_group(metadata).limit)
 
-        assert_equal -1, instance.find_group({}).limit
+        assert_equal(-1, instance.find_group({}).limit)
       end
     end
 
@@ -403,11 +403,11 @@ class TailInputTest < Test::Unit::TestCase
         instance = d.instance
         key = instance.default_group_key
 
-        assert_equal 3, instance.log.logs.count{|a| a.match?("Cannot find group from metadata, Adding file in the default group\n")}
-        assert_equal 3, instance.group_watchers[key].size
-        assert_true instance.group_watchers[key].include? File.join(TMP_DIR, 'test1.txt')
-        assert_true instance.group_watchers[key].include? File.join(TMP_DIR, 'test2.txt')
-        assert_true instance.group_watchers[key].include? File.join(TMP_DIR, 'test3.txt')
+        assert_equal(3, instance.log.logs.count{|a| a.match?("Cannot find group from metadata, Adding file in the default group\n")})
+        assert_equal(3, instance.group_watchers[key].size)
+        assert_true(instance.group_watchers[key].include? File.join(TMP_DIR, 'test1.txt'))
+        assert_true(instance.group_watchers[key].include? File.join(TMP_DIR, 'test2.txt'))
+        assert_true(instance.group_watchers[key].include? File.join(TMP_DIR, 'test3.txt'))
       end
     end
 
@@ -441,10 +441,10 @@ class TailInputTest < Test::Unit::TestCase
         File.open(file4, 'w')
 
         instance = d.instance
-        assert_equal 100, instance.find_group_from_metadata(file1).limit
-        assert_equal 200, instance.find_group_from_metadata(file2).limit
-        assert_equal 300, instance.find_group_from_metadata(file3).limit
-        assert_equal 400, instance.find_group_from_metadata(file4).limit
+        assert_equal(100, instance.find_group_from_metadata(file1).limit)
+        assert_equal(200, instance.find_group_from_metadata(file2).limit)
+        assert_equal(300, instance.find_group_from_metadata(file3).limit)
+        assert_equal(400, instance.find_group_from_metadata(file4).limit)
       end
     end
   end
@@ -2574,8 +2574,8 @@ class TailInputTest < Test::Unit::TestCase
       d.run do
         start_time = Fluent::Clock.now
 
-        assert_true Fluent::Clock.now - start_time < 10
-        assert_equal num_lines, d.record_count
+        assert_true(Fluent::Clock.now - start_time < 10)
+        assert_equal(num_lines, d.record_count)
         assert_equal({ "message" => msg }, d.events[0][2])
 
         prev_count = d.record_count
@@ -2585,7 +2585,7 @@ class TailInputTest < Test::Unit::TestCase
         ## Plugin will start reading but it will encounter EOF Error
         ## since no logs are left to be read
         ## Hence, d.record_count = prev_count
-        assert_equal 0, d.record_count - prev_count
+        assert_equal(0, d.record_count - prev_count)
       end
     end
 
@@ -2617,9 +2617,9 @@ class TailInputTest < Test::Unit::TestCase
         prev_count = 0
 
         (num_lines/limit).times do
-          assert_true Fluent::Clock.now - start_time < 10
+          assert_true(Fluent::Clock.now - start_time < 10)
           ## Check record_count after 10s to check lines reads
-          assert_equal limit, d.record_count - prev_count
+          assert_equal(limit, d.record_count - prev_count)
           prev_count = d.record_count
           ## sleep until rate_period seconds are over so that
           ## Plugin can read lines again
@@ -2632,7 +2632,7 @@ class TailInputTest < Test::Unit::TestCase
         ## number_lines_read will be 0
 
         gw = d.instance.find_group_from_metadata(file_path)
-        assert_equal 0, gw.current_paths[file_path].number_lines_read
+        assert_equal(0, gw.current_paths[file_path].number_lines_read)
       end
     end
   end
