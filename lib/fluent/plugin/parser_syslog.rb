@@ -484,7 +484,7 @@ module Fluent
 
         time = begin
                  @time_parser_rfc5424.parse(time_str)
-               rescue Fluent::TimeParser::TimeParseError => e
+               rescue Fluent::TimeParser::TimeParseError
                  @time_parser_rfc5424_without_subseconds.parse(time_str)
                end
         record['time'] = time_str if @keep_time_key

@@ -152,13 +152,13 @@ class TailInputTest < Test::Unit::TestCase
   sub_test_case "configure" do
     test "plain single line" do
       d = create_driver
-      assert_equal ["#{TMP_DIR}/tail.txt"], d.instance.paths
-      assert_equal "t1", d.instance.tag
-      assert_equal 2, d.instance.rotate_wait
-      assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
-      assert_equal 1000, d.instance.read_lines_limit
-      assert_equal -1, d.instance.read_bytes_limit_per_second
-      assert_equal false, d.instance.ignore_repeated_permission_error
+      assert_equal(["#{TMP_DIR}/tail.txt"], d.instance.paths)
+      assert_equal("t1", d.instance.tag)
+      assert_equal(2, d.instance.rotate_wait)
+      assert_equal("#{TMP_DIR}/tail.pos", d.instance.pos_file)
+      assert_equal(1000, d.instance.read_lines_limit)
+      assert_equal(-1, d.instance.read_bytes_limit_per_second)
+      assert_equal(false, d.instance.ignore_repeated_permission_error)
       assert_nothing_raised do
         d.instance.have_read_capability?
       end
@@ -175,13 +175,13 @@ class TailInputTest < Test::Unit::TestCase
     test "multi paths with path_delimiter" do
       c = config_element("ROOT", "", { "path" => "tail.txt|test2|tmp,dev", "tag" => "t1", "path_delimiter" => "|" })
       d = create_driver(c + PARSE_SINGLE_LINE_CONFIG, false)
-      assert_equal ["tail.txt", "test2", "tmp,dev"], d.instance.paths
+      assert_equal(["tail.txt", "test2", "tmp,dev"], d.instance.paths)
     end
 
     test "multi paths with same path configured twice" do
       c = config_element("ROOT", "", { "path" => "test1.txt,test2.txt,test1.txt", "tag" => "t1", "path_delimiter" => "," })
       d = create_driver(c + PARSE_SINGLE_LINE_CONFIG, false)
-      assert_equal ["test2.txt","test1.txt"].sort, d.instance.paths.sort
+      assert_equal(["test2.txt","test1.txt"].sort, d.instance.paths.sort)
     end
 
     test "multi paths with invaid path_delimiter" do
@@ -223,7 +223,7 @@ class TailInputTest < Test::Unit::TestCase
       test "valid" do
         conf = SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" })
         d = create_driver(conf)
-        assert_equal Encoding::UTF_8, d.instance.encoding
+        assert_equal(Encoding::UTF_8, d.instance.encoding)
       end
 
       test "invalid" do
@@ -1150,7 +1150,7 @@ class TailInputTest < Test::Unit::TestCase
       config = data + config_element("", "", { "multiline_flush_interval" => "2s" })
       d = create_driver(config)
 
-      assert_equal 2, d.instance.multiline_flush_interval
+      assert_equal(2, d.instance.multiline_flush_interval)
 
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
@@ -1375,13 +1375,13 @@ class TailInputTest < Test::Unit::TestCase
       plugin = create_driver(EX_CONFIG, false).instance
       flexstub(Time) do |timeclass|
         timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5))
-        assert_equal ex_paths, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path }
+        assert_equal(ex_paths, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
       end
 
       # Test exclusion
       exclude_config = EX_CONFIG + config_element("", "", { "exclude_path" => %Q(["#{ex_paths.last.path}"]) })
       plugin = create_driver(exclude_config, false).instance
-      assert_equal ex_paths - [ex_paths.last], plugin.expand_paths.values.sort_by { |path_ino| path_ino.path }
+      assert_equal(ex_paths - [ex_paths.last], plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
     end
 
     def test_expand_paths_with_duplicate_configuration
@@ -1392,7 +1392,7 @@ class TailInputTest < Test::Unit::TestCase
       duplicate_config = EX_CONFIG.dup
       duplicate_config["path"]="test/plugin/data/log/**/*.log, test/plugin/data/log/**/*.log"
       plugin = create_driver(EX_CONFIG, false).instance
-      assert_equal expanded_paths, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path }
+      assert_equal(expanded_paths, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
     end
 
     def test_expand_paths_with_timezone
@@ -1414,8 +1414,8 @@ class TailInputTest < Test::Unit::TestCase
             # env : 2010-01-01 19:04:05 (UTC), tail path : 2010-01-02 03:04:05 (Asia/Taipei)
             timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 1, 19, 4, 5))
 
-            assert_equal ex_paths, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path }
-            assert_equal ex_paths - [ex_paths.first], exclude_plugin.expand_paths.values.sort_by { |path_ino| path_ino.path }
+            assert_equal(ex_paths, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
+            assert_equal(ex_paths - [ex_paths.first], exclude_plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
           end
         end
       end
@@ -1437,7 +1437,7 @@ class TailInputTest < Test::Unit::TestCase
       })
 
       plugin = create_driver(config, false).instance
-      assert_equal expected_files, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path }
+      assert_equal(expected_files, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
     end
 
     def test_unwatched_files_should_be_removed
@@ -1459,7 +1459,7 @@ class TailInputTest < Test::Unit::TestCase
       waiting(20) { sleep 0.1 until Dir.glob("#{TMP_DIR}/*.txt").size == 0 } # Ensure file is deleted on Windows
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size <= 0 }
 
-      assert_equal 0, d.instance.instance_variable_get(:@tails).keys.size
+      assert_equal(0, d.instance.instance_variable_get(:@tails).keys.size)
 
       d.instance_shutdown
     end
@@ -1511,8 +1511,8 @@ class TailInputTest < Test::Unit::TestCase
                             "rotate_wait" => "2s"
                        }) + PARSE_SINGLE_LINE_CONFIG, false)
 
-      assert_equal readable_paths, d.instance.expand_paths.length
-      assert_equal result, d.instance.have_read_capability?
+      assert_equal(readable_paths, d.instance.expand_paths.length)
+      assert_equal(result, d.instance.have_read_capability?)
     end
   end
 
@@ -1530,7 +1530,7 @@ class TailInputTest < Test::Unit::TestCase
     d = create_driver(config, false)
     d.run
     assert_path_exist("#{TMP_DIR}/pos")
-    assert_equal '755', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3]
+    assert_equal('755', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3])
   ensure
     cleanup_directory(TMP_DIR)
   end
@@ -1554,9 +1554,9 @@ class TailInputTest < Test::Unit::TestCase
 
     assert_path_exist("#{TMP_DIR}/pos")
     if Fluent.windows?
-      assert_equal '755', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3]
+      assert_equal('755', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3])
     else
-      assert_equal '744', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3]
+      assert_equal('744', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3])
     end
   ensure
     cleanup_directory(TMP_DIR)
@@ -2246,7 +2246,7 @@ class TailInputTest < Test::Unit::TestCase
 
     Timecop.freeze(now) do
       plugin = create_driver(config, false).instance
-      assert_equal expected_files, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path }
+      assert_equal(expected_files, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
     end
   end
 
@@ -2259,7 +2259,7 @@ class TailInputTest < Test::Unit::TestCase
                             })
     d = create_driver(config)
     d.run(shutdown: false) {}
-    assert_equal 0, d.instance.instance_variable_get(:@tails).keys.size
+    assert_equal(0, d.instance.instance_variable_get(:@tails).keys.size)
     # detect a file at first execution of in_tail_refresh_watchers timer
     waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 1 }
     d.instance_shutdown
@@ -2333,7 +2333,6 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_shutdown_timeout
-    path = "#{TMP_DIR}/tail.txt"
     File.open("#{TMP_DIR}/tail.txt", "wb") do |f|
       (1024 * 1024 * 5).times do
         f.puts "{\"test\":\"fizzbuzz\"}"

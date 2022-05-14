@@ -106,7 +106,7 @@ module Fluent
       @mode = mode
 
 
-      access, creationdisposition, seektoend = case mode.delete('b')
+      access, creationdisposition, _seektoend = case mode.delete('b')
       when "r" ; [FILE_GENERIC_READ                     , OPEN_EXISTING, false]
       when "r+"; [FILE_GENERIC_READ | FILE_GENERIC_WRITE, OPEN_ALWAYS  , false]
       when "w" ; [FILE_GENERIC_WRITE                    , CREATE_ALWAYS, false]

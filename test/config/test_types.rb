@@ -190,7 +190,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
     data("val" => [:val, 'val'],
          "v" => [:v, 'v'],
          "value" => [:value, 'value'])
-    test 'enum' do |(expected, val, list)|
+    test 'enum' do |(expected, val)|
       assert_equal expected, Config::ENUM_TYPE.call(val, {list: [:val, :value, :v]})
     end
 

@@ -644,7 +644,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
 
   data('regexp' => :regexp, 'string' => :string)
   def test_parser_engine(engine)
-    d = @parser.configure({'parser_engine' => engine.to_s})
+    @parser.configure({'parser_engine' => engine.to_s})
     assert_equal(engine, @parser.instance.parser_engine)
   end
 end

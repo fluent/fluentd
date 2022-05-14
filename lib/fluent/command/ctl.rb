@@ -146,7 +146,7 @@ module Fluent
         event = Win32::Event.open("#{prefix}#{suffix}")
         event.set
         event.close
-      rescue Errno::ENOENT => e
+      rescue Errno::ENOENT
         puts "Error: Cannot find the fluentd process with the event name: \"#{prefix}\""
       end
     end

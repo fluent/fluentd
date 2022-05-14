@@ -107,6 +107,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       end
 
       r.on_notify
+      assert_equal text.bytesize, update_pos
       assert_equal 8, returned_lines[0].size
     end
 
@@ -133,6 +134,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       end
 
       r.on_notify
+      assert_equal text.bytesize, update_pos
       assert_equal 5, returned_lines[0].size
       assert_equal 3, returned_lines[1].size
     end
