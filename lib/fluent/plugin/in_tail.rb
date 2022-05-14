@@ -549,18 +549,19 @@ module Fluent::Plugin
       end
     end
 
+    def throttling_is_enabled?(tw = nil)
+      return true if @read_bytes_limit_per_second > 0
+      return true if tw.group_watcher && tw.group_watcher.limit > 0
+      false
+    end
+
     def detach_watcher_after_rotate_wait(tw, ino)
       # Call event_loop_attach/event_loop_detach is high-cost for short-live object.
       # If this has a problem with large number of files, use @_event_loop directly instead of timer_execute.
       if @open_on_every_update
         # Detach now because it's already closed, waiting it doesn't make sense.
         detach_watcher(tw, ino)
-      elsif @read_bytes_limit_per_second < 0 || (!tw.group_watcher.nil? && tw.group_watcher.limit <= 0)
-        # throttling isn't enabled, just wait @rotate_wait
-        timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
-          detach_watcher(tw, ino)
-        end
-      else
+      elsif throttling_is_enabled?(tw)
         # When the throttling feature is enabled, it might not reach EOF yet.
         # Should ensure to read all contents before closing it, with keeping throttling.
         start_time_to_wait = Fluent::Clock.now
@@ -570,6 +571,11 @@ module Fluent::Plugin
             timer.detach
             detach_watcher(tw, ino)
           end
+        end
+      else
+        # when the throttling feature isn't enabled, just wait @rotate_wait
+        timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
+          detach_watcher(tw, ino)
         end
       end
     end
