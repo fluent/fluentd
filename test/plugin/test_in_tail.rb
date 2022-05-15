@@ -177,50 +177,6 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "configure" do
-    test "<rule> required" do
-      conf = create_group_directive('.', '1m') + SINGLE_LINE_CONFIG
-      assert_raise(Fluent::ConfigError) do
-        create_driver(conf)
-      end
-    end
-
-    test "valid configuration" do
-      rule1 = create_rule_directive({
-        "namespace"=> "/namespace-a/",
-        "podname"=> "/podname-[b|c]/"
-      }, 100)
-      rule2 = create_rule_directive({
-        "namespace"=> "/namespace-[d|e]/",
-        "podname"=> "/podname-f/",
-      }, 50)
-      rule3 = create_rule_directive({
-        "podname"=> "/podname-g/",
-      }, -1)
-      rule4 = create_rule_directive({
-        "namespace"=> "/namespace-h/",
-      }, 0)
-
-      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
-      assert_nothing_raised do
-        create_driver(conf)
-      end
-    end
-
-    test "limit should be greater than DEFAULT_LIMIT (-1)" do
-      rule1 = create_rule_directive({
-        "namespace"=> "/namespace-a/",
-        "podname"=> "/podname-[b|c]/",
-      }, -100)
-      rule2 = create_rule_directive({
-        "namespace"=> "/namespace-[d|e]/",
-        "podname"=> "/podname-f/",
-      }, 50)
-      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2) + SINGLE_LINE_CONFIG
-      assert_raise(RuntimeError) do
-        create_driver(conf)
-      end
-    end
-
     test "plain single line" do
       d = create_driver
       assert_equal ["#{TMP_DIR}/tail.txt"], d.instance.paths
@@ -334,8 +290,53 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case "group rules line limit resolution" do
+  sub_test_case "configure group" do
+    test "<rule> required" do
+      conf = create_group_directive('.', '1m') + SINGLE_LINE_CONFIG
+      assert_raise(Fluent::ConfigError) do
+        create_driver(conf)
+      end
+    end
 
+    test "valid configuration" do
+      rule1 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+        "podname"=> "/podname-[b|c]/"
+      }, 100)
+      rule2 = create_rule_directive({
+        "namespace"=> "/namespace-[d|e]/",
+        "podname"=> "/podname-f/",
+      }, 50)
+      rule3 = create_rule_directive({
+        "podname"=> "/podname-g/",
+      }, -1)
+      rule4 = create_rule_directive({
+        "namespace"=> "/namespace-h/",
+      }, 0)
+
+      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
+      assert_nothing_raised do
+        create_driver(conf)
+      end
+    end
+
+    test "limit should be greater than DEFAULT_LIMIT (-1)" do
+      rule1 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+        "podname"=> "/podname-[b|c]/",
+      }, -100)
+      rule2 = create_rule_directive({
+        "namespace"=> "/namespace-[d|e]/",
+        "podname"=> "/podname-f/",
+      }, 50)
+      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2) + SINGLE_LINE_CONFIG
+      assert_raise(RuntimeError) do
+        create_driver(conf)
+      end
+    end
+  end
+
+  sub_test_case "group rules line limit resolution" do
     test "valid" do
       rule1 = create_rule_directive({
         "namespace"=> "/namespace-a/",
@@ -385,7 +386,6 @@ class TailInputTest < Test::Unit::TestCase
         assert_equal(-1, instance.find_group({}).limit)
       end
     end
-
   end
 
   sub_test_case "files should be placed in groups" do
