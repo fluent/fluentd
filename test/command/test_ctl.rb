@@ -7,7 +7,6 @@ require 'fluent/command/ctl'
 
 class TestFluentdCtl < ::Test::Unit::TestCase
   def assert_win32_event(event_name, command, pid_or_svcname)
-    command, event_suffix = data
     event = Win32::Event.new(event_name)
     ipc = Win32::Ipc.new(event.handle)
     ret = Win32::Ipc::TIMEOUT

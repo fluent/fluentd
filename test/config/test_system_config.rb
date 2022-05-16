@@ -174,7 +174,6 @@ module Fluent::Config
             </log>
           </system>
         EOS
-        s = FakeSupervisor.new
         sc = Fluent::SystemConfig.new(conf)
         assert_equal(3, sc.log.rotate_age)
       end

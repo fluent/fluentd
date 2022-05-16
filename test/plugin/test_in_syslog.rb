@@ -497,7 +497,7 @@ EOS
 
   def test_send_keepalive_packet_can_not_be_enabled_for_udp
     assert_raise(Fluent::ConfigError) do
-      d = create_driver(ipv4_config + %[
+      create_driver(ipv4_config + %[
         send_keepalive_packet true
       ])
     end

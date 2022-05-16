@@ -40,10 +40,6 @@ class IntailPositionFileTest < Test::Unit::TestCase
 
   test '.load' do
     write_data(@file, TEST_CONTENT)
-    paths = {
-      "valid_path" => Fluent::Plugin::TailInput::TargetInfo.new("valid_path", 1),
-      "inode23bit" => Fluent::Plugin::TailInput::TargetInfo.new("inode23bit", 2),
-    }
     Fluent::Plugin::TailInput::PositionFile.load(@file, false, TEST_CONTENT_PATHS, **{logger: $log})
 
     @file.seek(0)
@@ -146,11 +142,6 @@ class IntailPositionFileTest < Test::Unit::TestCase
   sub_test_case '#load' do
     test 'compact invalid and convert 32 bit inode value' do
       write_data(@file, TEST_CONTENT)
-      invalid_path = "invalidpath100000000000000000000000000000000"
-      paths = TEST_CONTENT_PATHS.merge({
-        invalid_path => Fluent::Plugin::TailInput::TargetInfo.new(invalid_path, 0),
-        "unwatched" => Fluent::Plugin::TailInput::TargetInfo.new("unwatched", 0),
-      })
       Fluent::Plugin::TailInput::PositionFile.load(@file, false, TEST_CONTENT_PATHS, **{logger: $log})
 
       @file.seek(0)

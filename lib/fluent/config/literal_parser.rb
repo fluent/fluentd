@@ -191,9 +191,9 @@ worker_id = ENV['SERVERENGINE_WORKER_ID'] || ''
 EOM
         begin
           @eval_context.instance_eval(code)
-        rescue SetNil => e
+        rescue SetNil
           nil
-        rescue SetDefault => e
+        rescue SetDefault
           :default
         end
       end
