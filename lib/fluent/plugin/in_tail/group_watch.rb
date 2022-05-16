@@ -36,7 +36,7 @@ module Fluent::Plugin
 
         config_section :rule, param_name: :rule, required: true, multi: true do
           desc 'Key-value pairs for grouping'
-          config_param :match, :hash, value_type: :regexp, default: {namespace: [DEFAULT_KEY], podname: [DEFAULT_KEY]}
+          config_param :match, :hash, value_type: :regexp, default: { namespace: [DEFAULT_KEY], podname: [DEFAULT_KEY] }
           desc 'Maximum number of log lines allowed per group over a period of rate_period'
           config_param :limit, :integer, default: DEFAULT_LIMIT
         end
@@ -72,7 +72,7 @@ module Fluent::Plugin
           ## Ensures that "specific" rules (with larger number of `rule.match` keys)
           ## have a higher priority against "generic" rules (with less number of `rule.match` keys).
           ## This will be helpful when a file satisfies more than one rule.
-          @group.rule.sort_by!{ |rule| -rule.match.length() }
+          @group.rule.sort_by! { |rule| -rule.match.length() }
           construct_groupwatchers
           @group_watchers[@default_group_key] ||= GroupWatcher.new(@group.rate_period, GroupWatchParams::DEFAULT_LIMIT)
         end
@@ -110,7 +110,7 @@ module Fluent::Plugin
 
       def find_group(metadata)
         metadata_key = construct_group_key(metadata)
-        gw_key = @group_watchers.keys.find{ |regexp| metadata_key.match?(regexp) && regexp != @default_group_key}
+        gw_key = @group_watchers.keys.find { |regexp| metadata_key.match?(regexp) && regexp != @default_group_key }
         gw_key ||= @default_group_key
 
         @group_watchers[gw_key]
