@@ -1777,8 +1777,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     path = 'test/plugin/data/2010/01/20100102-030405.log'
-    target_info = Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
-    mock.proxy(plugin).detach_watcher_after_rotate_wait(plugin.instance_variable_get(:@tails)[target_info], target_info.ino)
+    mock.proxy(plugin).detach_watcher_after_rotate_wait(plugin.instance_variable_get(:@tails)[path], Fluent::FileWrapper.stat(path).ino)
 
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
       path = "test/plugin/data/2010/01/20100102-030406.log"
@@ -2179,13 +2178,13 @@ class TailInputTest < Test::Unit::TestCase
       target_info = create_target_info("#{TMP_DIR}/tail.txt")
       mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, true, anything, nil, anything, anything).once
       d.run(shutdown: false)
-      assert d.instance.instance_variable_get(:@tails)[target_info]
+      assert d.instance.instance_variable_get(:@tails)[target_info.path]
 
       Timecop.travel(now + 10) do
         d.instance.instance_eval do
-          sleep 0.1 until @tails[target_info] == nil
+          sleep 0.1 until @tails[target_info.path] == nil
         end
-        assert_nil d.instance.instance_variable_get(:@tails)[target_info]
+        assert_nil d.instance.instance_variable_get(:@tails)[target_info.path]
       end
       d.instance_shutdown
     end
@@ -2216,8 +2215,8 @@ class TailInputTest < Test::Unit::TestCase
       Timecop.travel(now + 10) do
         sleep 3
         d.instance.instance_eval do
-          @tails[path_ino] == nil
-          @tails[new_path_ino] != nil
+          @tails[path_ino.path] == nil
+          @tails[new_path_ino.path] != nil
         end
       end
 
@@ -2276,8 +2275,8 @@ class TailInputTest < Test::Unit::TestCase
         while d.events.size < 1 do
           sleep 0.1
         end
-        inodes = d.instance.instance_variable_get(:@tails).keys.collect do |key|
-          key.ino
+        inodes = d.instance.instance_variable_get(:@tails).values.collect do |tw|
+          tw.ino
         end
         assert_equal([target_info.ino], inodes)
 
@@ -2287,8 +2286,8 @@ class TailInputTest < Test::Unit::TestCase
         while d.events.size < 2 do
           sleep 0.1
         end
-        inodes = d.instance.instance_variable_get(:@tails).keys.collect do |key|
-          key.ino
+        inodes = d.instance.instance_variable_get(:@tails).values.collect do |tw|
+          tw.ino
         end
         new_target_info = create_target_info("#{TMP_DIR}/tail.txt")
         assert_not_equal(target_info.ino, new_target_info.ino)
@@ -2458,14 +2457,19 @@ class TailInputTest < Test::Unit::TestCase
                               'format' => 'none',
                             })
     d = create_driver(config)
-    mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
-      cleanup_file(path)
-      tw
-    end
+    file_deleted = false
+    mock.proxy(d.instance).existence_path do |hash|
+      unless file_deleted
+        cleanup_file(path)
+        file_deleted = true
+      end
+      hash
+    end.twice
     assert_nothing_raised do
       d.run(shutdown: false) {}
     end
-    assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::ENOENT. Drop tail watcher for now.\n") })
+    assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
+           $log.out.logs.join("\n"))
   ensure
     d.instance_shutdown if d && d.instance
   end
@@ -2483,14 +2487,15 @@ class TailInputTest < Test::Unit::TestCase
                                 'format' => 'none',
                               })
       d = create_driver(config, false)
-      mock.proxy(d.instance).setup_watcher(anything, anything) do |tw|
+      mock.proxy(d.instance).existence_path do |hash|
         FileUtils.chmod(0000, "#{TMP_DIR}/noaccess")
-        tw
-      end
+        hash
+      end.twice
       assert_nothing_raised do
         d.run(shutdown: false) {}
       end
-      assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed with Errno::EACCES. Drop tail watcher for now.\n") })
+      assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
+             $log.out.logs.join("\n"))
     end
   ensure
     d.instance_shutdown if d && d.instance
