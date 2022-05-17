@@ -551,7 +551,7 @@ module Fluent::Plugin
 
     def throttling_is_enabled?(tw)
       return true if @read_bytes_limit_per_second > 0
-      return true if tw.group_watcher && tw.group_watcher.limit > 0
+      return true if tw.group_watcher && tw.group_watcher.limit >= 0
       false
     end
 
