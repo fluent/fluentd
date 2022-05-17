@@ -581,7 +581,7 @@ module Fluent
         signame: nil,
         conf_encoding: 'utf-8',
         disable_shared_socket: nil,
-        guess_config_file_type: true,
+        guess_config_file_type: nil,
       }
     end
 
@@ -594,7 +594,6 @@ module Fluent
     end
 
     def initialize(opt)
-      @config_file_type = opt[:config_file_type]
       @guess_config_file_type = opt[:guess_config_file_type]
       @daemonize = opt[:daemonize]
       @standalone_worker= opt[:standalone_worker]
@@ -622,8 +621,7 @@ module Fluent
                                      encoding: @conf_encoding ? @conf_encoding : 'utf-8',
                                      additional_config: @inline_config ? @inline_config : nil,
                                      use_v1_config: !!@use_v1_config,
-                                     type: @config_file_type,
-                                     guess_type: @guess_config_file_type,
+                                     type: @guess_config_file_type,
                                     )
         @system_config = build_system_config(@conf)
         if @system_config.log
@@ -755,8 +753,7 @@ module Fluent
         encoding: @conf_encoding,
         additional_config: @inline_config,
         use_v1_config: @use_v1_config,
-        type: @config_file_type,
-        guess_type: @guess_config_file_type,
+        type: @guess_config_file_type,
       )
       @system_config = build_system_config(@conf)
 
@@ -942,8 +939,7 @@ module Fluent
             encoding: @conf_encoding,
             additional_config: @inline_config,
             use_v1_config: @use_v1_config,
-            type: @config_file_type,
-            guess_type: @guess_config_file_type,
+            type: @guess_config_file_type,
           )
 
           Fluent::VariableStore.try_to_reset do
