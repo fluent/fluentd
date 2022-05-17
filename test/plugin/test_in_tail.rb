@@ -91,12 +91,12 @@ class TailInputTest < Test::Unit::TestCase
 
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
 
-  CONFIG = config_element("ROOT", "", {
-                            "path" => "#{TMP_DIR}/tail.txt",
+  ROOT_CONFIG = config_element("ROOT", "", {
                             "tag" => "t1",
                             "rotate_wait" => "2s",
                             "refresh_interval" => "1s"
                           })
+  CONFIG = ROOT_CONFIG + config_element("", "", { "path" => "#{TMP_DIR}/tail.txt" })
   COMMON_CONFIG = CONFIG + config_element("", "", { "pos_file" => "#{TMP_DIR}/tail.pos" })
   CONFIG_READ_FROM_HEAD = config_element("", "", { "read_from_head" => true })
   CONFIG_DISABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
@@ -143,6 +143,33 @@ class TailInputTest < Test::Unit::TestCase
                       "format_firstline" => "/^[s]/"
                     })
     ])
+
+  TAILING_GROUP_PATTERN = "/#{TMP_DIR}\/(?<podname>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace>[^_]+)_(?<container>.+)-(?<docker_id>[a-z0-9]{6})\.log$/"
+  DEBUG_LOG_LEVEL = config_element("", "", {
+    "@log_level" => "debug"
+  })
+
+  def create_group_directive(pattern, rate_period, *rules)
+    config_element("", "", {}, [
+      config_element("group", "", {
+        "pattern" => pattern,
+        "rate_period" => rate_period
+      }, rules)
+    ])
+  end
+
+  def create_rule_directive(match_named_captures, limit)
+    params = {
+      "limit" => limit,
+      "match" => match_named_captures,
+    }
+
+    config_element("rule", "", params)
+  end
+
+  def create_path_element(path)
+    config_element("source", "", { "path" => "#{TMP_DIR}/#{path}" })
+  end
 
   def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true)
     config = use_common_conf ? COMMON_CONFIG + conf : conf
@@ -259,6 +286,165 @@ class TailInputTest < Test::Unit::TestCase
         assert_raise(Fluent::ConfigError) do
           create_driver(conf)
         end
+      end
+    end
+  end
+
+  sub_test_case "configure group" do
+    test "<rule> required" do
+      conf = create_group_directive('.', '1m') + SINGLE_LINE_CONFIG
+      assert_raise(Fluent::ConfigError) do
+        create_driver(conf)
+      end
+    end
+
+    test "valid configuration" do
+      rule1 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+        "podname"=> "/podname-[b|c]/"
+      }, 100)
+      rule2 = create_rule_directive({
+        "namespace"=> "/namespace-[d|e]/",
+        "podname"=> "/podname-f/",
+      }, 50)
+      rule3 = create_rule_directive({
+        "podname"=> "/podname-g/",
+      }, -1)
+      rule4 = create_rule_directive({
+        "namespace"=> "/namespace-h/",
+      }, 0)
+
+      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2, rule3, rule4) + SINGLE_LINE_CONFIG
+      assert_nothing_raised do
+        create_driver(conf)
+      end
+    end
+
+    test "limit should be greater than DEFAULT_LIMIT (-1)" do
+      rule1 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+        "podname"=> "/podname-[b|c]/",
+      }, -100)
+      rule2 = create_rule_directive({
+        "namespace"=> "/namespace-[d|e]/",
+        "podname"=> "/podname-f/",
+      }, 50)
+      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1, rule2) + SINGLE_LINE_CONFIG
+      assert_raise(RuntimeError) do
+        create_driver(conf)
+      end
+    end
+  end
+
+  sub_test_case "group rules line limit resolution" do
+    test "valid" do
+      rule1 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+        "podname"=> "/podname-[b|c]/",
+      }, 50)
+      rule2 = create_rule_directive({
+        "podname"=> "/podname-[b|c]/",
+      }, 400)
+      rule3 = create_rule_directive({
+        "namespace"=> "/namespace-a/",
+      }, 100)
+
+      conf = create_group_directive(TAILING_GROUP_PATTERN, '1m', rule3, rule1, rule2) + SINGLE_LINE_CONFIG
+      assert_nothing_raised do
+        d = create_driver(conf)
+        instance = d.instance
+
+        metadata = {
+          "namespace"=> "namespace-a",
+          "podname"=> "podname-b",
+        }
+        assert_equal(50, instance.find_group(metadata).limit)
+
+        metadata = {
+          "namespace" => "namespace-a",
+          "podname" => "podname-c",
+        }
+        assert_equal(50, instance.find_group(metadata).limit)
+
+        metadata = {
+          "namespace" => "namespace-a",
+          "podname" => "podname-d",
+        }
+        assert_equal(100, instance.find_group(metadata).limit)
+
+        metadata = {
+          "namespace" => "namespace-f",
+          "podname" => "podname-b",
+        }
+        assert_equal(400, instance.find_group(metadata).limit)
+
+        metadata = {
+          "podname" => "podname-c",
+        }
+        assert_equal(400, instance.find_group(metadata).limit)
+
+        assert_equal(-1, instance.find_group({}).limit)
+      end
+    end
+  end
+
+  sub_test_case "files should be placed in groups" do
+    test "invalid regex pattern places files in default group" do
+      rule1 = create_rule_directive({}, 100) ## limits default groups
+      conf = ROOT_CONFIG + DEBUG_LOG_LEVEL + create_group_directive(TAILING_GROUP_PATTERN, '1m', rule1) + create_path_element("test*.txt") + SINGLE_LINE_CONFIG
+
+      d = create_driver(conf, false)
+      File.open("#{TMP_DIR}/test1.txt", 'w')
+      File.open("#{TMP_DIR}/test2.txt", 'w')
+      File.open("#{TMP_DIR}/test3.txt", 'w')
+
+      d.run do
+        ## checking default group_watcher's paths
+        instance = d.instance
+        key = instance.default_group_key
+
+        assert_equal(3, instance.log.logs.count{|a| a.match?("Cannot find group from metadata, Adding file in the default group\n")})
+        assert_equal(3, instance.group_watchers[key].size)
+        assert_true(instance.group_watchers[key].include? File.join(TMP_DIR, 'test1.txt'))
+        assert_true(instance.group_watchers[key].include? File.join(TMP_DIR, 'test2.txt'))
+        assert_true(instance.group_watchers[key].include? File.join(TMP_DIR, 'test3.txt'))
+      end
+    end
+
+    test "valid regex pattern places file in their respective groups" do
+      rule1 = create_rule_directive({
+        "namespace"=> "/test-namespace1/",
+        "podname"=> "/test-podname1/",
+      }, 100)
+      rule2 = create_rule_directive({
+        "namespace"=> "/test-namespace1/",
+      }, 200)
+      rule3 = create_rule_directive({
+        "podname"=> "/test-podname2/",
+      }, 300)
+      rule4 = create_rule_directive({}, 400)
+
+      path_element = create_path_element("test-podname*.log")
+
+      conf = ROOT_CONFIG + create_group_directive(TAILING_GROUP_PATTERN, '1m', rule4, rule3, rule2, rule1) + path_element + SINGLE_LINE_CONFIG
+      d = create_driver(conf, false)
+
+      file1 = File.join(TMP_DIR, "test-podname1_test-namespace1_test-container-15fabq.log")
+      file2 = File.join(TMP_DIR, "test-podname3_test-namespace1_test-container-15fabq.log")
+      file3 = File.join(TMP_DIR, "test-podname2_test-namespace2_test-container-15fabq.log")
+      file4 = File.join(TMP_DIR, "test-podname4_test-namespace3_test-container-15fabq.log")
+
+      d.run do
+        File.open(file1, 'w')
+        File.open(file2, 'w')
+        File.open(file3, 'w')
+        File.open(file4, 'w')
+
+        instance = d.instance
+        assert_equal(100, instance.find_group_from_metadata(file1).limit)
+        assert_equal(200, instance.find_group_from_metadata(file2).limit)
+        assert_equal(300, instance.find_group_from_metadata(file3).limit)
+        assert_equal(400, instance.find_group_from_metadata(file4).limit)
       end
     end
   end
@@ -2358,5 +2544,109 @@ class TailInputTest < Test::Unit::TestCase
 
     elapsed = Fluent::Clock.now - start_time
     assert_true(elapsed > 0.5 && elapsed < 2.5)
+  end
+
+  sub_test_case "throttling logs at in_tail level" do
+    data("file test1.log no_limit 5120 text: msg" => ["test1.log", 5120, "msg"],
+         "file test2.log no_limit 1024 text: test" => ["test2.log", 1024, "test"])
+    def test_lines_collected_with_no_throttling(data)
+      file, num_lines, msg = data
+
+      pattern = "/^#{TMP_DIR}\/(?<file>.+)\.log$/"
+      rule = create_rule_directive({
+        "file" => "/test.*/",
+      }, -1)
+      group = create_group_directive(pattern, "1s", rule)
+      path_element = create_path_element(file)
+
+      conf = ROOT_CONFIG + group + path_element + CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG
+
+      File.open("#{TMP_DIR}/#{file}", 'wb') do |f|
+        num_lines.times do
+          f.puts "#{msg}\n"
+        end
+      end
+
+
+      d = create_driver(conf, false)
+      d.run(timeout: 3) do
+        start_time = Fluent::Clock.now
+
+        assert_equal(num_lines, d.record_count)
+        assert_equal({ "message" => msg }, d.events[0][2])
+
+        prev_count = d.record_count
+        sleep(0.1) while d.emit_count < 1
+        assert_true(Fluent::Clock.now - start_time < 2)
+        ## after waiting for 1 (+ jitter) secs, limit will reset
+        ## Plugin will start reading but it will encounter EOF Error
+        ## since no logs are left to be read
+        ## Hence, d.record_count = prev_count
+        tail_watcher_interval = 1.0 # hard coded value in in_tail
+        safety_ratio = 1.02
+        jitter = tail_watcher_interval * safety_ratio
+        sleep(1.0 + jitter)
+        assert_equal(0, d.record_count - prev_count)
+      end
+    end
+
+    test "lines collected with throttling" do
+      file = "podname1_namespace12_container-123456.log"
+      limit = 1000
+      rate_period = 2
+      num_lines = 3000
+      msg = "a" * 8190 # Total size = 8190 bytes + 2 (\n) bytes
+
+      rule = create_rule_directive({
+        "namespace"=> "/namespace.+/",
+        "podname"=> "/podname.+/",
+      }, limit)
+      path_element = create_path_element(file)
+      conf = ROOT_CONFIG + create_group_directive(TAILING_GROUP_PATTERN, "#{rate_period}s", rule) + path_element + SINGLE_LINE_CONFIG + CONFIG_READ_FROM_HEAD
+
+      d = create_driver(conf, false)
+      file_path = "#{TMP_DIR}/#{file}"
+
+      File.open(file_path, 'wb') do |f|
+        num_lines.times do
+          f.puts msg
+        end
+      end
+
+      d.run(timeout: 15) do
+        sleep_interval = 0.1
+        tail_watcher_interval = 1.0 # hard coded value in in_tail
+        safety_ratio = 1.02
+        lower_jitter = sleep_interval * safety_ratio
+        upper_jitter = (tail_watcher_interval + sleep_interval) * safety_ratio
+        lower_interval = rate_period - lower_jitter
+        upper_interval = rate_period + upper_jitter
+
+        emit_count = 0
+        prev_count = 0
+
+        while emit_count < 3 do
+          start_time = Fluent::Clock.now
+          sleep(sleep_interval) while d.emit_count <= emit_count
+          elapsed_seconds = Fluent::Clock.now - start_time
+          if emit_count > 0
+            assert_true(elapsed_seconds > lower_interval && elapsed_seconds < upper_interval,
+                        "elapsed_seconds #{elapsed_seconds} is out of allowed range:\n" +
+                        "  lower: #{lower_interval} [sec]\n" +
+                        "  upper: #{upper_interval} [sec]")
+          end
+          assert_equal(limit, d.record_count - prev_count)
+          emit_count = d.emit_count
+          prev_count = d.record_count
+        end
+
+        ## When all the lines are read and rate_period seconds are over
+        ## limit will reset and since there are no more logs to be read,
+        ## number_lines_read will be 0
+        sleep upper_interval
+        gw = d.instance.find_group_from_metadata(file_path)
+        assert_equal(0, gw.current_paths[file_path].number_lines_read)
+      end
+    end
   end
 end

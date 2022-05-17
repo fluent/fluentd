@@ -24,6 +24,7 @@ require 'fluent/plugin/parser_multiline'
 require 'fluent/variable_store'
 require 'fluent/capability'
 require 'fluent/plugin/in_tail/position_file'
+require 'fluent/plugin/in_tail/group_watch'
 
 if Fluent.windows?
   require_relative 'file_wrapper'
@@ -33,6 +34,8 @@ end
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
+    include GroupWatch
+
     Fluent::Plugin.register_input('tail', self)
 
     helpers :timer, :event_loop, :parser, :compat_parameters
@@ -406,6 +409,8 @@ module Fluent::Plugin
         event_loop_attach(watcher)
       end
 
+      tw.group_watcher = add_path_to_group_watcher(target_info.path)
+
       tw
     rescue => e
       if tw
@@ -461,6 +466,8 @@ module Fluent::Plugin
 
     def stop_watchers(targets_info, immediate: false, unwatched: false, remove_watcher: true)
       targets_info.each_value { |target_info|
+        remove_path_from_group_watcher(target_info.path)
+
         if remove_watcher
           tw = @tails.delete(target_info)
         else
@@ -542,18 +549,19 @@ module Fluent::Plugin
       end
     end
 
+    def throttling_is_enabled?(tw)
+      return true if @read_bytes_limit_per_second > 0
+      return true if tw.group_watcher && tw.group_watcher.limit >= 0
+      false
+    end
+
     def detach_watcher_after_rotate_wait(tw, ino)
       # Call event_loop_attach/event_loop_detach is high-cost for short-live object.
       # If this has a problem with large number of files, use @_event_loop directly instead of timer_execute.
       if @open_on_every_update
         # Detach now because it's already closed, waiting it doesn't make sense.
         detach_watcher(tw, ino)
-      elsif @read_bytes_limit_per_second < 0
-        # throttling isn't enabled, just wait @rotate_wait
-        timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
-          detach_watcher(tw, ino)
-        end
-      else
+      elsif throttling_is_enabled?(tw)
         # When the throttling feature is enabled, it might not reach EOF yet.
         # Should ensure to read all contents before closing it, with keeping throttling.
         start_time_to_wait = Fluent::Clock.now
@@ -563,6 +571,11 @@ module Fluent::Plugin
             timer.detach
             detach_watcher(tw, ino)
           end
+        end
+      else
+        # when the throttling feature isn't enabled, just wait @rotate_wait
+        timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
+          detach_watcher(tw, ino)
         end
       end
     end
@@ -775,6 +788,7 @@ module Fluent::Plugin
       attr_reader :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
       attr_reader :watchers
+      attr_accessor :group_watcher
 
       def tag
         @parsed_tag ||= @path.tr('/', '.').gsub(/\.+/, '.').gsub(/^\./, '')
@@ -997,6 +1011,10 @@ module Fluent::Plugin
           @log.info "following tail of #{@path}"
         end
 
+        def group_watcher
+          @watcher.group_watcher
+        end
+
         def on_notify
           @notify_mutex.synchronize { handle_notify }
         end
@@ -1054,6 +1072,7 @@ module Fluent::Plugin
 
         def handle_notify
           return if limit_bytes_per_second_reached?
+          return if group_watcher&.limit_lines_reached?(@path)
 
           with_io do |io|
             begin
@@ -1063,17 +1082,26 @@ module Fluent::Plugin
                 begin
                   while true
                     @start_reading_time ||= Fluent::Clock.now
+                    group_watcher&.update_reading_time(@path)
+
                     data = io.readpartial(BYTES_TO_READ, @iobuf)
                     @eof = false
                     @number_bytes_read += data.bytesize
                     @fifo << data
-                    @fifo.read_lines(@lines)
 
-                    if limit_bytes_per_second_reached? || should_shutdown_now?
+                    n_lines_before_read = @lines.size
+                    @fifo.read_lines(@lines)
+                    group_watcher&.update_lines_read(@path, @lines.size - n_lines_before_read)
+
+                    group_watcher_limit = group_watcher&.limit_lines_reached?(@path)
+                    @log.debug "Reading Limit exceeded #{@path} #{group_watcher.number_lines_read}" if group_watcher_limit
+
+                    if group_watcher_limit || limit_bytes_per_second_reached? || should_shutdown_now?
                       # Just get out from tailing loop.
                       read_more = false
                       break
                     end
+
                     if @lines.size >= @read_lines_limit
                       # not to use too much memory in case the file is very large
                       read_more = true

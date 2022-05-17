@@ -21,12 +21,20 @@ class IntailIOHandlerTest < Test::Unit::TestCase
     @file.unlink rescue nil
   end
 
+  def create_target_info
+    Fluent::Plugin::TailInput::TargetInfo.new(@file.path, Fluent::FileWrapper.stat(@file.path).ino)
+  end
+
+  def create_watcher
+    Fluent::Plugin::TailInput::TailWatcher.new(create_target_info, nil, nil, nil, nil, nil, nil, nil, nil)
+  end
+
   test '#on_notify load file content and passed it to receive_lines method' do
     text = "this line is test\ntest line is test\n"
     @file.write(text)
     @file.close
 
-    watcher = 'watcher'
+    watcher = create_watcher
 
     update_pos = 0
 
@@ -61,7 +69,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       update_pos = 0
 
-      watcher = 'watcher'
+      watcher = create_watcher
       stub(watcher).pe do
         pe = 'position_file'
         stub(pe).read_pos { 0 }
@@ -92,7 +100,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       update_pos = 0
 
-      watcher = 'watcher'
+      watcher = create_watcher
       stub(watcher).pe do
         pe = 'position_file'
         stub(pe).read_pos { 0 }
@@ -119,7 +127,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       update_pos = 0
 
-      watcher = 'watcher'
+      watcher = create_watcher
       stub(watcher).pe do
         pe = 'position_file'
         stub(pe).read_pos { 0 }
