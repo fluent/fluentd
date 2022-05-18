@@ -133,25 +133,47 @@ class SupervisorTest < ::Test::Unit::TestCase
       conf = parse_yaml(conf_data)
       sys_conf = sv.__send__(:build_system_config, conf)
 
-      assert_equal '127.0.0.1:24445', sys_conf.rpc_endpoint
-      assert_equal true, sys_conf.suppress_repeated_stacktrace
-      assert_equal true, sys_conf.suppress_config_dump
-      assert_equal true, sys_conf.without_source
-      assert_equal true, sys_conf.enable_get_dump
-      assert_equal "process_name", sys_conf.process_name
-      assert_equal 2, sys_conf.log_level
-      assert_equal TMP_ROOT_DIR, sys_conf.root_dir
-      assert_equal :json, sys_conf.log.format
-      assert_equal '%Y', sys_conf.log.time_format
-      counter_server = sys_conf.counter_server
-      assert_equal '127.0.0.1', counter_server.bind
-      assert_equal 24321, counter_server.port
-      assert_equal 'server1', counter_server.scope
-      assert_equal '/tmp/backup', counter_server.backup_path
-      counter_client = sys_conf.counter_client
-      assert_equal '127.0.0.1', counter_client.host
-      assert_equal 24321, counter_client.port
-      assert_equal 2, counter_client.timeout
+    counter_client = sys_conf.counter_client
+    counter_server = sys_conf.counter_server
+    assert_equal(
+      [
+        '127.0.0.1:24445',
+        true,
+        true,
+        true,
+        true,
+        "process_name",
+        2,
+        TMP_ROOT_DIR,
+        :json,
+        '%Y',
+        '127.0.0.1',
+        24321,
+        'server1',
+        '/tmp/backup',
+        '127.0.0.1',
+        24321,
+        2,
+      ],
+      [
+        sys_conf.rpc_endpoint,
+        sys_conf.suppress_repeated_stacktrace,
+        sys_conf.suppress_config_dump,
+        sys_conf.without_source,
+        sys_conf.enable_get_dump,
+        sys_conf.process_name,
+        sys_conf.log_level,
+        sys_conf.root_dir,
+        sys_conf.log.format,
+        sys_conf.log.time_format,
+        counter_server.bind,
+        counter_server.port,
+        counter_server.scope,
+        counter_server.backup_path,
+        counter_client.host,
+        counter_client.port,
+        counter_client.timeout,
+      ])
     end
   end
 
