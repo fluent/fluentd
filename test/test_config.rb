@@ -202,26 +202,39 @@ class ConfigTest < Test::Unit::TestCase
       fluent_log_conf = label_conf.elements.first
       fluent_log_buffer_conf = fluent_log_conf.elements.first
 
-      assert_equal 'dummy', dummy_source_conf['@type']
-      assert_equal 'tag.dummy', dummy_source_conf['tag']
-
-      assert_equal 'tcp', tcp_source_conf['@type']
-      assert_equal 'tag.tcp', tcp_source_conf['tag']
-
-      assert_equal 'none', parse_tcp_conf['@type']
-      assert_equal 'why.parse.section.doesnot.have.arg,huh', parse_tcp_conf.arg
-
-      assert_equal 'stdout', match_conf['@type']
-      assert_equal 'tag.*', match_conf.arg
-
-      assert_equal 'null', fluent_log_conf['@type']
-      assert_equal '**', fluent_log_conf.arg
-
-      assert_equal '@FLUENT_LOG', label_conf.arg
-
-      assert_equal 'memory', fluent_log_buffer_conf['@type']
-      assert_equal 'interval', fluent_log_buffer_conf['flush_mode']
-      assert_equal '1s', fluent_log_buffer_conf['flush_interval']
+      assert_equal(
+        [
+          'dummy',
+          'tag.dummy',
+          'tcp',
+          'tag.tcp',
+          'none',
+          'why.parse.section.doesnot.have.arg,huh',
+          'stdout',
+          'tag.*',
+          'null',
+          '**',
+          '@FLUENT_LOG',
+          'memory',
+          'interval',
+          '1s',
+        ],
+        [
+          dummy_source_conf['@type'],
+          dummy_source_conf['tag'],
+          tcp_source_conf['@type'],
+          tcp_source_conf['tag'],
+          parse_tcp_conf['@type'],
+          parse_tcp_conf.arg,
+          match_conf['@type'],
+          match_conf.arg,
+          fluent_log_conf['@type'],
+          fluent_log_conf.arg,
+          label_conf.arg,
+          fluent_log_buffer_conf['@type'],
+          fluent_log_buffer_conf['flush_mode'],
+          fluent_log_buffer_conf['flush_interval'],
+        ])
     end
 
     def test_check_not_fetchd
