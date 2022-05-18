@@ -90,6 +90,93 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal 2, counter_client.timeout
   end
 
+  sub_test_case "yaml config" do
+    def parse_yaml(yaml)
+      context = Kernel.binding
+
+      config = nil
+      Tempfile.open do |file|
+        file.puts(yaml)
+        file.flush
+        s = Fluent::Config::YamlParser::Loader.new(context).load(Pathname.new(file))
+        config = Fluent::Config::YamlParser::Parser.new(s).build.to_element
+      end
+      config
+    end
+
+    def test_system_config
+      opts = Fluent::Supervisor.default_options
+      sv = Fluent::Supervisor.new(opts)
+      conf_data = <<-EOC
+      system:
+        rpc_endpoint: 127.0.0.1:24445
+        suppress_repeated_stacktrace: true
+        suppress_config_dump: true
+        without_source: true
+        enable_get_dump: true
+        process_name: "process_name"
+        log_level: info
+        root_dir: !fluent/s "#{TMP_ROOT_DIR}"
+        log:
+          format: json
+          time_format: "%Y"
+        counter_server:
+          bind: 127.0.0.1
+          port: 24321
+          scope: server1
+          backup_path: /tmp/backup
+        counter_client:
+          host: 127.0.0.1
+          port: 24321
+          timeout: 2
+      EOC
+      conf = parse_yaml(conf_data)
+      sys_conf = sv.__send__(:build_system_config, conf)
+
+    counter_client = sys_conf.counter_client
+    counter_server = sys_conf.counter_server
+    assert_equal(
+      [
+        '127.0.0.1:24445',
+        true,
+        true,
+        true,
+        true,
+        "process_name",
+        2,
+        TMP_ROOT_DIR,
+        :json,
+        '%Y',
+        '127.0.0.1',
+        24321,
+        'server1',
+        '/tmp/backup',
+        '127.0.0.1',
+        24321,
+        2,
+      ],
+      [
+        sys_conf.rpc_endpoint,
+        sys_conf.suppress_repeated_stacktrace,
+        sys_conf.suppress_config_dump,
+        sys_conf.without_source,
+        sys_conf.enable_get_dump,
+        sys_conf.process_name,
+        sys_conf.log_level,
+        sys_conf.root_dir,
+        sys_conf.log.format,
+        sys_conf.log.time_format,
+        counter_server.bind,
+        counter_server.port,
+        counter_server.scope,
+        counter_server.backup_path,
+        counter_client.host,
+        counter_client.port,
+        counter_client.timeout,
+      ])
+    end
+  end
+
   def test_main_process_signal_handlers
     omit "Windows cannot handle signals" if Fluent.windows?
 
@@ -545,6 +632,31 @@ class SupervisorTest < ::Test::Unit::TestCase
         file.flush
         opts = Fluent::Supervisor.default_options.merge(
           log_path: "#{TMP_DIR}/test.log", config_path: file.path
+        )
+        sv = Fluent::Supervisor.new(opts)
+
+        log = sv.instance_variable_get(:@log)
+        log.init(:standalone, 0)
+        logger = $log.instance_variable_get(:@logger)
+
+        assert_equal([3, 300],
+                     [logger.instance_variable_get(:@rotate_age),
+                      logger.instance_variable_get(:@rotate_size)])
+      end
+    end
+
+    def test_override_default_log_rotate_with_yaml_config
+      Tempfile.open do |file|
+        config = <<-EOS
+          system:
+            log:
+              rotate_age: 3
+              rotate_size: 300
+        EOS
+        file.puts(config)
+        file.flush
+        opts = Fluent::Supervisor.default_options.merge(
+          log_path: "#{TMP_DIR}/test.log", config_path: file.path, config_file_type: :yaml,
         )
         sv = Fluent::Supervisor.new(opts)
 

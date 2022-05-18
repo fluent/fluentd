@@ -10,11 +10,18 @@ class ConfigTest < Test::Unit::TestCase
 
   TMP_DIR = File.dirname(__FILE__) + "/tmp/config#{ENV['TEST_ENV_NUMBER']}"
 
-  def read_config(path)
+  def read_config(path, use_yaml: false)
     path = File.expand_path(path)
-    File.open(path) { |io|
-      Fluent::Config::Parser.parse(io, File.basename(path), File.dirname(path))
-    }
+    if use_yaml
+      context = Kernel.binding
+
+      s = Fluent::Config::YamlParser::Loader.new(context).load(Pathname.new(path))
+      Fluent::Config::YamlParser::Parser.new(s).build.to_element
+    else
+      File.open(path) { |io|
+        Fluent::Config::Parser.parse(io, File.basename(path), File.dirname(path))
+      }
+    end
   end
 
   def prepare_config
@@ -149,6 +156,130 @@ class ConfigTest < Test::Unit::TestCase
     before_size = match_conf.unused.size
     10.times { match_conf['type'] }
     assert_equal before_size, match_conf.unused.size
+  end
+
+  sub_test_case "yaml config" do
+    def test_included
+      write_config "#{TMP_DIR}/config_test_not_fetched.yaml", <<-EOS
+      config:
+        - source:
+            $type: dummy
+            tag: tag.dummy
+        - source:
+            $type: tcp
+            tag: tag.tcp
+            parse:
+              $arg:
+                - why.parse.section.doesnot.have.arg
+                - huh
+              $type: none
+        - match:
+            $tag: tag.*
+            $type: stdout
+            buffer:
+              $type: memory
+              flush_interval: 1s
+        - !include fluent-included.yaml
+      EOS
+      write_config "#{TMP_DIR}/fluent-included.yaml", <<-EOS
+      - label:
+          $name: '@FLUENT_LOG'
+          config:
+            - match:
+                $type: "null"
+                $tag: "**"
+                buffer:
+                  $type: memory
+                  flush_mode: interval
+                  flush_interval: 1s
+      EOS
+      root_conf  = read_config("#{TMP_DIR}/config_test_not_fetched.yaml", use_yaml: true)
+      dummy_source_conf = root_conf.elements.first
+      tcp_source_conf = root_conf.elements[1]
+      parse_tcp_conf = tcp_source_conf.elements.first
+      match_conf = root_conf.elements[2]
+      label_conf = root_conf.elements[3]
+      fluent_log_conf = label_conf.elements.first
+      fluent_log_buffer_conf = fluent_log_conf.elements.first
+
+      assert_equal(
+        [
+          'dummy',
+          'tag.dummy',
+          'tcp',
+          'tag.tcp',
+          'none',
+          'why.parse.section.doesnot.have.arg,huh',
+          'stdout',
+          'tag.*',
+          'null',
+          '**',
+          '@FLUENT_LOG',
+          'memory',
+          'interval',
+          '1s',
+        ],
+        [
+          dummy_source_conf['@type'],
+          dummy_source_conf['tag'],
+          tcp_source_conf['@type'],
+          tcp_source_conf['tag'],
+          parse_tcp_conf['@type'],
+          parse_tcp_conf.arg,
+          match_conf['@type'],
+          match_conf.arg,
+          fluent_log_conf['@type'],
+          fluent_log_conf.arg,
+          label_conf.arg,
+          fluent_log_buffer_conf['@type'],
+          fluent_log_buffer_conf['flush_mode'],
+          fluent_log_buffer_conf['flush_interval'],
+        ])
+    end
+
+    def test_check_not_fetchd
+      write_config "#{TMP_DIR}/config_test_not_fetched.yaml", <<-EOS
+      config:
+        - match:
+            $arg: dummy
+            $type: rewrite
+            add_prefix:    filtered
+            rule:
+              key:     path
+              pattern: "^[A-Z]+"
+              replace: true
+      EOS
+      root_conf  = read_config("#{TMP_DIR}/config_test_not_fetched.yaml", use_yaml: true)
+      match_conf = root_conf.elements.first
+      rule_conf  = match_conf.elements.first
+
+      not_fetched = []; root_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[@type $arg add_prefix key pattern replace], not_fetched
+
+      not_fetched = []; match_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[@type $arg add_prefix key pattern replace], not_fetched
+
+      not_fetched = []; rule_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[key pattern replace], not_fetched
+
+      # accessing should delete
+      match_conf['type']
+      rule_conf['key']
+
+      not_fetched = []; root_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[@type $arg add_prefix pattern replace], not_fetched
+
+      not_fetched = []; match_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[@type $arg add_prefix pattern replace], not_fetched
+
+      not_fetched = []; rule_conf.check_not_fetched {|key, e| not_fetched << key }
+      assert_equal %w[pattern replace], not_fetched
+
+      # repeatedly accessing should not grow memory usage
+      before_size = match_conf.unused.size
+      10.times { match_conf['type'] }
+      assert_equal before_size, match_conf.unused.size
+    end
   end
 
   def write_config(path, data, encoding: 'utf-8')

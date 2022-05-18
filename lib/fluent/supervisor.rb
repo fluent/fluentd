@@ -580,7 +580,8 @@ module Fluent
         standalone_worker: false,
         signame: nil,
         conf_encoding: 'utf-8',
-        disable_shared_socket: nil
+        disable_shared_socket: nil,
+        config_file_type: :guess,
       }
     end
 
@@ -593,6 +594,7 @@ module Fluent
     end
 
     def initialize(opt)
+      @config_file_type = opt[:config_file_type]
       @daemonize = opt[:daemonize]
       @standalone_worker= opt[:standalone_worker]
       @config_path = opt[:config_path]
@@ -618,7 +620,9 @@ module Fluent
         @conf = Fluent::Config.build(config_path: @config_path,
                                      encoding: @conf_encoding ? @conf_encoding : 'utf-8',
                                      additional_config: @inline_config ? @inline_config : nil,
-                                     use_v1_config: !!@use_v1_config)
+                                     use_v1_config: !!@use_v1_config,
+                                     type: @config_file_type,
+                                    )
         @system_config = build_system_config(@conf)
         if @system_config.log
           @log_rotate_age ||= @system_config.log.rotate_age
@@ -744,7 +748,13 @@ module Fluent
         $log.warn('the value "-" for `inline_config` is deprecated. See https://github.com/fluent/fluentd/issues/2711')
         @inline_config = STDIN.read
       end
-      @conf = Fluent::Config.build(config_path: @config_path, encoding: @conf_encoding, additional_config: @inline_config, use_v1_config: @use_v1_config)
+      @conf = Fluent::Config.build(
+        config_path: @config_path,
+        encoding: @conf_encoding,
+        additional_config: @inline_config,
+        use_v1_config: @use_v1_config,
+        type: @config_file_type,
+      )
       @system_config = build_system_config(@conf)
 
       @log.level = @system_config.log_level
@@ -929,6 +939,7 @@ module Fluent
             encoding: @conf_encoding,
             additional_config: @inline_config,
             use_v1_config: @use_v1_config,
+            type: @config_file_type,
           )
 
           Fluent::VariableStore.try_to_reset do

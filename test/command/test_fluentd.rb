@@ -589,6 +589,39 @@ CONF
       )
     end
 
+    sub_test_case "YAML config format" do
+      test 'success to start the number of workers specified in configuration' do
+        conf = <<'CONF'
+        system:
+          workers: 2
+          root_dir: "#{@root_path}"
+        config:
+          - source:
+              $type: dummy
+              $id: !fluent/s "dummy.#{worker_id}" # check worker_id works or not with actual command
+              $label: '@dummydata'
+              tag: dummy
+              dummy: !fluent/json {"message": !fluent/s "yay from #{hostname}!"}
+
+          - label:
+              $name: '@dummydata'
+              config:
+               - match:
+                  $tag: dummy
+                  $type: "null"
+                  $id: blackhole
+CONF
+        conf_path = create_conf_file('workers1.yaml', conf)
+        assert Dir.exist?(@root_path)
+
+        assert_log_matches(
+          create_cmdline(conf_path),
+          "#0 fluentd worker is now running worker=0",
+          "#1 fluentd worker is now running worker=1"
+        )
+      end
+    end
+
     test 'success to start the number of workers specified by command line option' do
       conf = <<CONF
 <system>
