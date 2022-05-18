@@ -126,11 +126,13 @@ op.on('--without-source', "invoke a fluentd without input plugins", TrueClass) {
   opts[:without_source] = b
 }
 
-op.on('--guess-config-file-type VALU', 'guessing file type of fluentd configuration. yaml or yml') { |s|
+op.on('--config-file-type VALU', 'guessing file type of fluentd configuration. yaml/yml or guess') { |s|
   if (s == 'yaml') || (s == 'yml')
-    opts[:guess_config_file_type] = s.to_sym
+    opts[:config_file_type] = s.to_sym
+  elsif (s == 'guess')
+    opts[:config_file_type] = s.to_sym
   else
-    usage '--guess-config-file-type accepts yaml or yml'
+    usage '--config-file-type accepts yaml/yml or guess'
   end
 }
 

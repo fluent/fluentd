@@ -634,7 +634,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         file.puts(config)
         file.flush
         opts = Fluent::Supervisor.default_options.merge(
-          log_path: "#{TMP_DIR}/test.log", config_path: file.path, guess_config_file_type: :yaml,
+          log_path: "#{TMP_DIR}/test.log", config_path: file.path, config_file_type: :yaml,
         )
         sv = Fluent::Supervisor.new(opts)
 

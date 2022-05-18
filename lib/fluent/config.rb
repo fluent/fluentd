@@ -27,9 +27,11 @@ module Fluent
     # @param use_v1_config [Bool] config is formatted with v1 or not
     # @return [Fluent::Config]
     def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true, type: nil)
-      config_file_ext = File.extname(config_path)
-      if config_file_ext == '.yaml' || config_file_ext == '.yml'
-        type = :yaml
+      if type == :guess
+        config_file_ext = File.extname(config_path)
+        if config_file_ext == '.yaml' || config_file_ext == '.yml'
+          type = :yaml
+        end
       end
 
       if type == :yaml || type == :yml
