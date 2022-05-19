@@ -107,16 +107,6 @@ module Fluent
         end
         nil
       }
-      @rpc_server.mount_proc('/api/processes.dump') { |req, res|
-        $log.debug "fluentd RPC got /api/processes.dump request"
-        if Fluent.windows?
-          supervisor_dump_handler_for_windows
-        else
-          Process.kill :CONT, $$
-          send_signal_to_workers(:CONT)
-        end
-        nil
-      }
       @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
         $log.debug "fluentd RPC got /api/plugins.flushBuffers request"
         if Fluent.windows?
