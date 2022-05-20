@@ -84,6 +84,8 @@ begin
         set_event("#{@service_name}_HUP")
       when 129
         set_event("#{@service_name}_USR1")
+      when 130
+        set_event("#{@service_name}_CONT")
       end
     end
 

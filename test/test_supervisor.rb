@@ -300,6 +300,49 @@ class SupervisorTest < ::Test::Unit::TestCase
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
+  data("Normal", {raw_path: "C:\\Windows\\Temp\\sigdump.log", expected: "C:\\Windows\\Temp\\sigdump-#{$$}.log"})
+  data("UNIX style", {raw_path: "/Windows/Temp/sigdump.log", expected: "/Windows/Temp/sigdump-#{$$}.log"})
+  data("No extension", {raw_path: "C:\\Windows\\Temp\\sigdump", expected: "C:\\Windows\\Temp\\sigdump-#{$$}"})
+  data("Multi-extension", {raw_path: "C:\\Windows\\Temp\\sig.dump.bk", expected: "C:\\Windows\\Temp\\sig.dump-#{$$}.bk"})
+  def test_fluentsigdump_get_path_with_pid(data)
+    p data
+    path = Fluent::FluentSigdump.get_path_with_pid(data[:raw_path])
+    assert_equal(data[:expected], path)
+  end
+
+  def test_supervisor_event_dump_windows
+    omit "Only for Windows, alternative to UNIX signals" unless Fluent.windows?
+
+    server = DummyServer.new
+    def server.config
+      {:signame => "TestFluentdEvent"}
+    end
+    server.install_windows_event_handler
+
+    assert_rr do
+      # Have to use mock because `Sigdump.dump` seems to be somehow incompatible with RR.
+      # The `mock(server).restart(true) { nil }` line in `test_rpc_server_windows` cause the next error.
+      # Failure: test_supervisor_event_dump_windows(SupervisorTest):
+      #   class()
+      #   Called 0 times.
+      #   Expected 1 times.
+      # .../Ruby26-x64/lib/ruby/gems/2.6.0/gems/sigdump-0.2.4/lib/sigdump.rb:74:in `block in dump_object_count'
+      #     73: ObjectSpace.each_object {|o|
+      #     74:   c = o.class <-- HERE!
+      mock(Sigdump).dump(anything)
+
+      begin
+        sleep 0.1 # Wait for starting windows event thread
+        event = Win32::Event.open("TestFluentdEvent_CONT")
+        event.set
+        event.close
+        sleep 1.0 # Wait for dumping
+      ensure
+        server.stop_windows_event_thread
+      end
+    end
+  end
+
   data(:ipv4 => ["0.0.0.0", "127.0.0.1", false],
        :ipv6 => ["[::]", "[::1]", true],
        :localhost_ipv4 => ["localhost", "127.0.0.1", false])

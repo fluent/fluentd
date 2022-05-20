@@ -16,6 +16,7 @@
 
 require 'fileutils'
 require 'open3'
+require 'pathname'
 
 require 'fluent/config'
 require 'fluent/counter'
@@ -215,44 +216,50 @@ module Fluent
       Thread.new do
         ipc = Win32::Ipc.new(nil)
         events = [
-          Win32::Event.new("#{@pid_signame}_STOP_EVENT_THREAD"),
-          Win32::Event.new("#{@pid_signame}"),
-          Win32::Event.new("#{@pid_signame}_HUP"),
-          Win32::Event.new("#{@pid_signame}_USR1"),
-          Win32::Event.new("#{@pid_signame}_USR2"),
+          {win32_event: Win32::Event.new("#{@pid_signame}_STOP_EVENT_THREAD"), action: :stop_event_thread},
+          {win32_event: Win32::Event.new("#{@pid_signame}"), action: :stop},
+          {win32_event: Win32::Event.new("#{@pid_signame}_HUP"), action: :hup},
+          {win32_event: Win32::Event.new("#{@pid_signame}_USR1"), action: :usr1},
+          {win32_event: Win32::Event.new("#{@pid_signame}_USR2"), action: :usr2},
+          {win32_event: Win32::Event.new("#{@pid_signame}_CONT"), action: :cont},
         ]
         if @signame
           signame_events = [
-            Win32::Event.new("#{@signame}"),
-            Win32::Event.new("#{@signame}_HUP"),
-            Win32::Event.new("#{@signame}_USR1"),
-            Win32::Event.new("#{@signame}_USR2"),
+            {win32_event: Win32::Event.new("#{@signame}"), action: :stop},
+            {win32_event: Win32::Event.new("#{@signame}_HUP"), action: :hup},
+            {win32_event: Win32::Event.new("#{@signame}_USR1"), action: :usr1},
+            {win32_event: Win32::Event.new("#{@signame}_USR2"), action: :usr2},
+            {win32_event: Win32::Event.new("#{@signame}_CONT"), action: :cont},
           ]
           events.concat(signame_events)
         end
         begin
           loop do
-            idx = ipc.wait_any(events, Windows::Synchronize::INFINITE)
-            if idx > 0 && idx <= events.length
-              $log.debug("Got Win32 event \"#{events[idx - 1].name}\"")
+            ipc_idx = ipc.wait_any(events.map {|e| e[:win32_event]}, Windows::Synchronize::INFINITE)
+            event_idx = ipc_idx - 1
+
+            if event_idx >= 0 && event_idx < events.length
+              $log.debug("Got Win32 event \"#{events[event_idx][:win32_event].name}\"")
             else
-              $log.warn("Unexpected reutrn value of Win32::Ipc#wait_any: #{idx}")
+              $log.warn("Unexpected return value of Win32::Ipc#wait_any: #{ipc_idx}")
             end
-            case idx
-            when 2, 6
+            case events[event_idx][:action]
+            when :stop
               stop(true)
-            when 3, 7
+            when :hup
               supervisor_sighup_handler
-            when 4, 8
+            when :usr1
               supervisor_sigusr1_handler
-            when 5, 9
+            when :usr2
               supervisor_sigusr2_handler
-            when 1
+            when :cont
+              supervisor_dump_handler_for_windows
+            when :stop_event_thread
               break
             end
           end
         ensure
-          events.each { |event| event.close }
+          events.each { |event| event[:win32_event].close }
         end
       end
     end
@@ -300,6 +307,26 @@ module Fluent
       @fluentd_conf = conf.to_s
     rescue => e
       $log.error "Failed to reload config file: #{e}"
+    end
+
+    def supervisor_dump_handler_for_windows
+      # As for UNIX-like, SIGCONT signal to each process makes the process output its dump-file,
+      # and it is implemented before the implementation of the function for Windows.
+      # It is possible to trap SIGCONT and handle it here also on UNIX-like,
+      # but for backward compatibility, this handler is currently for a Windows-only.
+      raise "[BUG] This function is for Windows ONLY." unless Fluent.windows?
+
+      Thread.new do
+        begin
+          FluentSigdump.dump_windows
+        rescue => e
+          $log.error "failed to dump: #{e}"
+        end
+      end
+
+      send_signal_to_workers(:CONT)
+    rescue => e
+      $log.error "failed to dump: #{e}"
     end
 
     def kill_worker
@@ -358,6 +385,14 @@ module Fluent
         restart(true)
       when :USR2
         reload
+      when :CONT
+        dump_all_windows_workers
+      end
+    end
+
+    def dump_all_windows_workers
+      @monitors.each do |m|
+        m.send_command("DUMP\n")
       end
     end
   end
@@ -906,6 +941,9 @@ module Fluent
           when "RELOAD"
             $log.debug "fluentd main process get #{cmd} command"
             reload_config
+          when "DUMP"
+            $log.debug "fluentd main process get #{cmd} command"
+            dump
           else
             $log.warn "fluentd main process get unknown command [#{cmd}]"
           end
@@ -953,6 +991,16 @@ module Fluent
         end
 
         @conf = conf
+      end
+    end
+
+    def dump
+      Thread.new do
+        begin
+          FluentSigdump.dump_windows
+        rescue => e
+          $log.error("failed to dump: #{e}")
+        end
       end
     end
 
@@ -1063,6 +1111,29 @@ module Fluent
       fluentd_spawn_cmd << '--under-supervisor'
 
       fluentd_spawn_cmd
+    end
+  end
+
+  module FluentSigdump
+    def self.dump_windows
+      raise "[BUG] WindowsSigdump::dump is for Windows ONLY." unless Fluent.windows?
+
+      # Sigdump outputs under `/tmp` dir without `SIGDUMP_PATH` specified,
+      # but `/tmp` dir may not exist on Windows by default.
+      # So use the systemroot-temp-dir instead.
+      dump_filepath = ENV['SIGDUMP_PATH'].nil? || ENV['SIGDUMP_PATH'].empty? \
+        ? "#{ENV['windir']}/Temp/fluentd-sigdump-#{Process.pid}.log"
+        : get_path_with_pid(ENV['SIGDUMP_PATH'])
+
+      require 'sigdump'
+      Sigdump.dump(dump_filepath)
+
+      $log.info "dump to #{dump_filepath}."
+    end
+
+    def self.get_path_with_pid(raw_path)
+      path = Pathname.new(raw_path)
+      path.sub_ext("-#{Process.pid}#{path.extname}").to_s
     end
   end
 end

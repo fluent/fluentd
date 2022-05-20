@@ -17,13 +17,19 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
   end
 
   class FailObject
-    def self.class
-      raise "error"
-    end
   end
 
   def setup
     Fluent::Test.setup
+    # Overriding this behavior in the global scope will have an unexpected influence on other tests.
+    # So this should be overridden here and be removed in `teardown`.
+    def FailObject.class
+      raise "FailObject error for tests in ObjectSpaceInputTest."
+    end
+  end
+
+  def teardown
+    FailObject.singleton_class.remove_method(:class)
   end
 
   TESTCONFIG = %[
