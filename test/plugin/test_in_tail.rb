@@ -21,6 +21,7 @@ class TailInputTest < Test::Unit::TestCase
     super
     cleanup_directory(TMP_DIR)
     Fluent::Engine.stop
+    Timecop.return
   end
 
   def cleanup_directory(path)
