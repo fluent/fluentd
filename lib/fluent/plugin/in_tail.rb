@@ -511,7 +511,7 @@ module Fluent::Plugin
         if new_position_entry.read_inode == 0
           # When follow_inodes is true, it's not cleaned up by refresh_watcher.
           # So it should be unwatched here explicitly.
-          rotated_tw.unwatched = true
+          rotated_tw.unwatched = true if rotated_tw
           @tails[path] = setup_watcher(target_info, new_position_entry)
           @tails[path].on_notify
         end
