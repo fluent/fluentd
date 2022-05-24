@@ -235,6 +235,7 @@ module Fluent
         @dequeued_chunks_mutex = nil
         @output_enqueue_thread = nil
         @output_flush_threads = nil
+        @output_flush_thread_current_position = 0
 
         @simple_chunking = nil
         @chunk_keys = @chunk_key_accessors = @chunk_key_time = @chunk_key_tag = nil
@@ -492,6 +493,7 @@ module Fluent
           @dequeued_chunks = []
           @dequeued_chunks_mutex = Mutex.new
 
+          @output_flush_thread_current_position = 0
           @buffer_config.flush_thread_count.times do |i|
             thread_title = "flush_thread_#{i}".to_sym
             thread_state = FlushThreadState.new(nil, nil, Mutex.new, ConditionVariable.new)
@@ -503,7 +505,6 @@ module Fluent
               @output_flush_threads << thread_state
             end
           end
-          @output_flush_thread_current_position = 0
 
           if !@under_plugin_development && (@flush_mode == :interval || @chunk_key_time)
             @output_enqueue_thread = thread_create(:enqueue_thread, &method(:enqueue_thread_run))
