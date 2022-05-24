@@ -138,7 +138,7 @@ class SocketCacheTest < Test::Unit::TestCase
       c.checkin(sock)
 
       # wait timeout
-      Timecop.freeze(Time.parse('2016-04-13 14:20:00 +0900'))
+      Timecop.freeze(Time.parse('2016-04-13 14:00:11 +0900'))
       c.checkout_or('key') { sock2 }
 
       assert_equal(1, c.instance_variable_get(:@inflight_sockets).size)
