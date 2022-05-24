@@ -110,6 +110,10 @@ class SocketCacheTest < Test::Unit::TestCase
   end
 
   sub_test_case 'purge_obsolete_socks' do
+    def teardown
+      Timecop.return
+    end
+
     test 'delete key in inactive_socks' do
       c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
       sock = mock!.close { 'closed' }.subject
