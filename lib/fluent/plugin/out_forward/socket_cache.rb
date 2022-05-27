@@ -50,6 +50,7 @@ module Fluent::Plugin
       def checkin(sock)
         @mutex.synchronize do
           if (s = @inflight_sockets.delete(sock))
+            s.timeout = timeout
             @available_sockets[s.key] << s
           else
             @log.debug("there is no socket #{sock}")
@@ -122,6 +123,7 @@ module Fluent::Plugin
         t = Time.now
         if (s = @available_sockets[key].find { |sock| !expired_socket?(sock, time: t) })
           @inflight_sockets[s.sock] = @available_sockets[key].delete(s)
+          s.timeout = timeout
           s
         else
           nil

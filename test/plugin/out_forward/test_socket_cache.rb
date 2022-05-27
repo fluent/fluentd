@@ -110,6 +110,10 @@ class SocketCacheTest < Test::Unit::TestCase
   end
 
   sub_test_case 'purge_obsolete_socks' do
+    def teardown
+      Timecop.return
+    end
+
     test 'delete key in inactive_socks' do
       c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
       sock = mock!.close { 'closed' }.subject
@@ -134,7 +138,7 @@ class SocketCacheTest < Test::Unit::TestCase
       c.checkin(sock)
 
       # wait timeout
-      Timecop.freeze(Time.parse('2016-04-13 14:20:00 +0900'))
+      Timecop.freeze(Time.parse('2016-04-13 14:00:11 +0900'))
       c.checkout_or('key') { sock2 }
 
       assert_equal(1, c.instance_variable_get(:@inflight_sockets).size)
@@ -144,6 +148,27 @@ class SocketCacheTest < Test::Unit::TestCase
 
       assert_equal(1, c.instance_variable_get(:@inflight_sockets).size)
       assert_equal(sock2, c.instance_variable_get(:@inflight_sockets).values.first.sock)
+    end
+
+    test 'should not purge just after checkin and purge after timeout' do
+      Timecop.freeze(Time.parse('2016-04-13 14:00:00 +0900'))
+
+      c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
+      sock = dont_allow(mock!).close
+      stub(sock).inspect
+      c.checkout_or('key') { sock }
+
+      Timecop.freeze(Time.parse('2016-04-13 14:00:11 +0900'))
+      c.checkin(sock)
+
+      assert_equal(1, c.instance_variable_get(:@available_sockets).size)
+      c.purge_obsolete_socks
+      assert_equal(1, c.instance_variable_get(:@available_sockets).size)
+
+      Timecop.freeze(Time.parse('2016-04-13 14:00:22 +0900'))
+      assert_equal(1, c.instance_variable_get(:@available_sockets).size)
+      c.purge_obsolete_socks
+      assert_equal(0, c.instance_variable_get(:@available_sockets).size)
     end
   end
 end
