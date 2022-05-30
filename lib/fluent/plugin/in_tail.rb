@@ -1117,7 +1117,7 @@ module Fluent::Plugin
         end
 
         def open
-          io = Fluent::FileWrapper.open(@path)
+          io = File.open(@path, File::Constants::RDWR | File::Constants::BINARY | File::Constants::SHARE_DELETE)
           io.seek(@watcher.pe.read_pos + @fifo.bytesize)
           @metrics.opened.inc
           io

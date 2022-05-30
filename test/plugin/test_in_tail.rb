@@ -999,7 +999,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def sub_test_rotate_file(config = nil, expect_emits: nil, expect_records: nil, timeout: nil)
-      file = Fluent::FileWrapper.open("#{TMP_DIR}/tail.txt", "wb")
+      file = File.open("#{TMP_DIR}/tail.txt", File::Constants::WRONLY | File::Constants::CREAT | File::Constants::TRUNC | File::Constants::BINARY | File::Constants::SHARE_DELETE)
       file.puts "test1"
       file.puts "test2"
       file.flush
