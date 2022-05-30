@@ -16,8 +16,45 @@
 
 module Fluent
   module FileWrapper
-    def self.open(*args)
-      io = WindowsFile.new(*args).io
+    include File::Constants
+    RUBY_3_1_OR_LATER = Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('3.1.0')
+
+    def self.mode2flags(mode)
+      # Always need BINARY to enable SHARE_DELETE
+      # https://bugs.ruby-lang.org/issues/11218
+      # https://github.com/ruby/ruby/blob/d6684f063bc53e3cab025bd39526eca3b480b5e7/win32/win32.c#L6332-L6345
+      flags = BINARY | SHARE_DELETE
+      case mode.delete("b")
+      when "r"
+        flags |= RDONLY
+      when "r+"
+        flags |= RDWR
+      when "w"
+        flags |= WRONLY | CREAT | TRUNC
+      when "w+"
+        flags |= RDWR | CREAT | TRUNC
+      when "a"
+        flags |= WRONLY | CREAT | APPEND
+      when "a+"
+        flags |= RDWR | CREAT | APPEND
+      else
+        raise Errno::EINVAL.new("Unsupported mode by Fluent::FileWrapper: #{mode}")
+      end
+    end
+
+    def self.open(path, mode='r')
+      if RUBY_3_1_OR_LATER
+        # On Ruby 3.1 with UCRT, WindowsFile causes EBADF on calling File.for_fd
+        # at WindowsFile#io. So use File.open with SHARE_DELETE instead.
+        # https://github.com/fluent/fluentd/pull/3585#issuecomment-1101502617
+        io = File.open(path, mode2flags(mode))
+      else
+        # Although File.open supports SHARE_DELETE since Ruby 2.3, we keep using
+        # WindowsFile for Ruby 3.0 or former to make sure to keep backward
+        # compatibility.
+        io = WindowsFile.new(path, mode).io
+      end
+
       if block_given?
         v = yield io
         io.close
