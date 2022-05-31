@@ -17,6 +17,7 @@
 module Fluent
   module FileWrapper
     include File::Constants
+
     def self.mode2flags(mode)
       # Always need BINARY to enable SHARE_DELETE
       # https://bugs.ruby-lang.org/issues/11218
