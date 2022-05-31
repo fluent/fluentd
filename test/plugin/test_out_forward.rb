@@ -431,10 +431,12 @@ EOL
     ]
 
     stub(d.instance.ack_handler).read_ack_from_sock(anything).never
-    target_input_driver.run(expect_records: 2) do
-      d.run do
-        emit_events.each do |tag, t, record|
-          d.feed(tag, t, record)
+    assert_rr do
+      target_input_driver.run(expect_records: 2) do
+        d.run do
+          emit_events.each do |tag, t, record|
+            d.feed(tag, t, record)
+          end
         end
       end
     end
@@ -461,10 +463,12 @@ EOL
     ]
 
     stub(d.instance.ack_handler).read_ack_from_sock(anything).never
-    target_input_driver.run(expect_records: 2) do
-      d.run(default_tag: 'test') do
-        records.each do |record|
-          d.feed(time, record)
+    assert_rr do
+      target_input_driver.run(expect_records: 2) do
+        d.run(default_tag: 'test') do
+          records.each do |record|
+            d.feed(time, record)
+          end
         end
       end
     end
@@ -491,10 +495,12 @@ EOL
       {"a" => 2}
     ]
     stub(d.instance.ack_handler).read_ack_from_sock(anything).never
-    target_input_driver.run(expect_records: 2) do
-      d.run(default_tag: 'test') do
-        records.each do |record|
-          d.feed(time, record)
+    assert_rr do
+      target_input_driver.run(expect_records: 2) do
+        d.run(default_tag: 'test') do
+          records.each do |record|
+            d.feed(time, record)
+          end
         end
       end
     end
@@ -549,10 +555,12 @@ EOL
     ]
     # not attempt to receive responses
     stub(d.instance.ack_handler).read_ack_from_sock(anything).never
-    target_input_driver.run(expect_records: 2) do
-      d.run(default_tag: 'test') do
-        records.each do |record|
-          d.feed(time, record)
+    assert_rr do
+      target_input_driver.run(expect_records: 2) do
+        d.run(default_tag: 'test') do
+          records.each do |record|
+            d.feed(time, record)
+          end
         end
       end
     end
@@ -575,10 +583,12 @@ EOL
     ]
     # not attempt to receive responses
     stub(d.instance.ack_handler).read_ack_from_sock(anything).never
-    target_input_driver.run(expect_records: 2) do
-      d.run(default_tag: 'test') do
-        records.each do |record|
-          d.feed(time, record)
+    assert_rr do
+      target_input_driver.run(expect_records: 2) do
+        d.run(default_tag: 'test') do
+          records.each do |record|
+            d.feed(time, record)
+          end
         end
       end
     end

@@ -13,11 +13,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: ['2.7', '2.6']
+        ruby-version: ['3.1', '2.7']
         os:
           - windows-latest
         experimental: [false]
         include:
+          - ruby-version: head
+            os: windows-latest
+            experimental: true
           - ruby-version: '3.0.3'
             os: windows-latest
             experimental: false
