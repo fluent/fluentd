@@ -920,11 +920,8 @@ class TailInputTest < Test::Unit::TestCase
     def test_rotate_file(data)
       config = data
       events = sub_test_rotate_file(config, expect_emits: 2)
-      assert_equal(4, events.length)
-      assert_equal({"message" => "test3"}, events[0][2])
-      assert_equal({"message" => "test4"}, events[1][2])
-      assert_equal({"message" => "test5"}, events[2][2])
-      assert_equal({"message" => "test6"}, events[3][2])
+      assert_equal(3.upto(6).collect { |i| {"message" => "test#{i}"} },
+                   events.collect { |event| event[2] })
     end
 
     data(flat: CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG,
@@ -932,13 +929,8 @@ class TailInputTest < Test::Unit::TestCase
     def test_rotate_file_with_read_from_head(data)
       config = data
       events = sub_test_rotate_file(config, expect_records: 6)
-      assert_equal(6, events.length)
-      assert_equal({"message" => "test1"}, events[0][2])
-      assert_equal({"message" => "test2"}, events[1][2])
-      assert_equal({"message" => "test3"}, events[2][2])
-      assert_equal({"message" => "test4"}, events[3][2])
-      assert_equal({"message" => "test5"}, events[4][2])
-      assert_equal({"message" => "test6"}, events[5][2])
+      assert_equal(1.upto(6).collect { |i| {"message" => "test#{i}"} },
+                   events.collect { |event| event[2] })
     end
 
     data(flat: CONFIG_OPEN_ON_EVERY_UPDATE + CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG,
@@ -946,13 +938,8 @@ class TailInputTest < Test::Unit::TestCase
     def test_rotate_file_with_open_on_every_update(data)
       config = data
       events = sub_test_rotate_file(config, expect_records: 6)
-      assert_equal(6, events.length)
-      assert_equal({"message" => "test1"}, events[0][2])
-      assert_equal({"message" => "test2"}, events[1][2])
-      assert_equal({"message" => "test3"}, events[2][2])
-      assert_equal({"message" => "test4"}, events[3][2])
-      assert_equal({"message" => "test5"}, events[4][2])
-      assert_equal({"message" => "test6"}, events[5][2])
+      assert_equal(1.upto(6).collect { |i| {"message" => "test#{i}"} },
+                   events.collect { |event| event[2] })
     end
 
     data(flat: SINGLE_LINE_CONFIG,
@@ -973,13 +960,8 @@ class TailInputTest < Test::Unit::TestCase
       }
       # This test sometimes fails and it shows a potential bug of in_tail
       # https://github.com/fluent/fluentd/issues/1434
-      assert_equal(6, events.length)
-      assert_equal({"message" => "test3"}, events[0][2])
-      assert_equal({"message" => "test4"}, events[1][2])
-      assert_equal({"message" => "test7"}, events[2][2])
-      assert_equal({"message" => "test8"}, events[3][2])
-      assert_equal({"message" => "test5"}, events[4][2])
-      assert_equal({"message" => "test6"}, events[5][2])
+      assert_equal([3, 4, 7, 8, 5, 6].collect { |i| {"message" => "test#{i}"} },
+                   events.collect { |event| event[2] })
     end
 
     data(flat: SINGLE_LINE_CONFIG,
@@ -991,11 +973,8 @@ class TailInputTest < Test::Unit::TestCase
         rotated_file.puts "test8"
         rotated_file.flush
       }
-      assert_equal(4, events.length)
-      assert_equal({"message" => "test3"}, events[0][2])
-      assert_equal({"message" => "test4"}, events[1][2])
-      assert_equal({"message" => "test7"}, events[2][2])
-      assert_equal({"message" => "test8"}, events[3][2])
+      assert_equal([3, 4, 7, 8].collect { |i| {"message" => "test#{i}"} },
+                   events.collect { |event| event[2] })
     end
 
     def sub_test_rotate_file(config = nil, expect_emits: nil, expect_records: nil, timeout: 5)
