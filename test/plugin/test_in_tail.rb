@@ -998,7 +998,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test8"}, events[3][2])
     end
 
-    def sub_test_rotate_file(config = nil, expect_emits: nil, expect_records: nil, timeout: nil)
+    def sub_test_rotate_file(config = nil, expect_emits: nil, expect_records: nil, timeout: 5)
       file = Fluent::FileWrapper.open("#{TMP_DIR}/tail.txt", "wb")
       file.puts "test1"
       file.puts "test2"
@@ -1016,7 +1016,7 @@ class TailInputTest < Test::Unit::TestCase
         if Fluent.windows?
           file.close
           FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt", force: true)
-          file = File.open("#{TMP_DIR}/tail.txt", "ab")
+          file = Fluent::FileWrapper.open("#{TMP_DIR}/tail2.txt", "ab")
         else
           FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
         end
