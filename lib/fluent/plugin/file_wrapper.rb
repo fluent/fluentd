@@ -17,8 +17,6 @@
 module Fluent
   module FileWrapper
     include File::Constants
-    RUBY_3_1_OR_LATER = Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('3.1.0')
-
     def self.mode2flags(mode)
       # Always need BINARY to enable SHARE_DELETE
       # https://bugs.ruby-lang.org/issues/11218
@@ -43,18 +41,9 @@ module Fluent
     end
 
     def self.open(path, mode='r')
-      if RUBY_3_1_OR_LATER
-        # On Ruby 3.1 with UCRT, WindowsFile causes EBADF on calling File.for_fd
-        # at WindowsFile#io. So use File.open with SHARE_DELETE instead.
-        # https://github.com/fluent/fluentd/pull/3585#issuecomment-1101502617
-        io = File.open(path, mode2flags(mode))
-      else
-        # Although File.open supports SHARE_DELETE since Ruby 2.3, we keep using
-        # WindowsFile for Ruby 3.0 or former to make sure to keep backward
-        # compatibility.
-        io = WindowsFile.new(path, mode).io
-      end
-
+      # inject File::Constants::SHARE_DELETE
+      # https://github.com/fluent/fluentd/pull/3585#issuecomment-1101502617
+      io = File.open(path, mode2flags(mode))
       if block_given?
         v = yield io
         io.close
@@ -68,17 +57,6 @@ module Fluent
       f = WindowsFile.new(path)
       s = f.stat
       f.close
-      s
-    end
-  end
-
-  module WindowsFileExtension
-    attr_reader :path
-
-    def stat
-      s = super
-      s.instance_variable_set :@ino, @ino
-      def s.ino; @ino; end
       s
     end
   end
@@ -125,7 +103,9 @@ module Fluent
     end
   end
 
-  # To open and get stat with setting FILE_SHARE_DELETE
+  # To open and get stat with setting FILE_SHARE_DELETE.
+  # Although recent Ruby's File.stat uses it, we still need this to keep
+  # backward compatibility of ino and delete_pending methods.
   class WindowsFile
     require 'windows/file'
     require 'windows/error'
@@ -170,16 +150,6 @@ module Fluent
     def close
       CloseHandle.call(@file_handle)
       @file_handle = INVALID_HANDLE_VALUE
-    end
-
-    def io
-      fd = _open_osfhandle(@file_handle, 0)
-      raise Errno::ENOENT if fd == -1
-      io = File.for_fd(fd, @mode)
-      io.instance_variable_set :@ino, self.ino
-      io.instance_variable_set :@path, @path
-      io.extend WindowsFileExtension
-      io
     end
 
     def ino
