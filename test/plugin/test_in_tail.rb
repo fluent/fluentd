@@ -2589,7 +2589,7 @@ class TailInputTest < Test::Unit::TestCase
         ## since no logs are left to be read
         ## Hence, d.record_count = prev_count
         tail_watcher_interval = 1.0 # hard coded value in in_tail
-        safety_ratio = 1.02
+        safety_ratio = 1.2
         jitter = tail_watcher_interval * safety_ratio
         sleep(1.0 + jitter)
         assert_equal(0, d.record_count - prev_count)
@@ -2622,7 +2622,7 @@ class TailInputTest < Test::Unit::TestCase
       d.run(timeout: 15) do
         sleep_interval = 0.1
         tail_watcher_interval = 1.0 # hard coded value in in_tail
-        safety_ratio = 1.02
+        safety_ratio = 1.2
         lower_jitter = sleep_interval * safety_ratio
         upper_jitter = (tail_watcher_interval + sleep_interval) * safety_ratio
         lower_interval = rate_period - lower_jitter
