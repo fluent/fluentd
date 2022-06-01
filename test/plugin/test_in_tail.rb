@@ -985,6 +985,7 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config)
       d.run(expect_emits: expect_emits, expect_records: expect_records, timeout: timeout) do
+        sleep(0.1) while d.instance.instance_variable_get(:@startup)
         size = d.emit_count
         file.puts "test3"
         file.puts "test4"
