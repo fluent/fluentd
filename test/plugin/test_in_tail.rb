@@ -1011,8 +1011,6 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_truncate_file
-    omit "Permission denied error happen on Windows. Need fix" if Fluent.windows?
-
     config = SINGLE_LINE_CONFIG
     File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
       f.puts "test1"
@@ -1028,7 +1026,13 @@ class TailInputTest < Test::Unit::TestCase
         f.flush
       }
       waiting(2) { sleep 0.1 until d.events.length == 2 }
-      File.truncate("#{@tmp_dir}/tail.txt", 6)
+      if Fluent.windows?
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f|
+          f.puts("test1");
+        }
+      else
+        File.truncate("#{@tmp_dir}/tail.txt", 6)
+      end
     end
 
     expected = {
@@ -1047,8 +1051,6 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_move_truncate_move_back
-    omit "Permission denied error happen on Windows. Need fix" if Fluent.windows?
-
     config = SINGLE_LINE_CONFIG
     File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
       f.puts "test1"
@@ -1064,7 +1066,13 @@ class TailInputTest < Test::Unit::TestCase
         FileUtils.mv("#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail2.txt")
       end
       sleep(1)
-      File.truncate("#{@tmp_dir}/tail2.txt", 6)
+      if Fluent.windows?
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail2.txt", "wb") { |f|
+          f.puts("test1");
+        }
+      else
+        File.truncate("#{@tmp_dir}/tail2.txt", 6)
+      end
       sleep(1)
       if Fluent.windows?
         FileUtils.mv("#{@tmp_dir}/tail2.txt", "#{@tmp_dir}/tail.txt", force: true)
