@@ -12,9 +12,13 @@ require 'securerandom'
 class TailInputTest < Test::Unit::TestCase
   include FlexMock::TestCase
 
+  def tmp_dir
+    File.join(File.dirname(__FILE__), "..", "tmp", "tail#{ENV['TEST_ENV_NUMBER']}", SecureRandom.hex(10))
+  end
+
   def setup
-    @tmp_dir = File.join(File.dirname(__FILE__), "..", "tmp", "tail#{ENV['TEST_ENV_NUMBER']}", SecureRandom.hex(10))
     Fluent::Test.setup
+    @tmp_dir = tmp_dir
     cleanup_directory(@tmp_dir)
   end
 
@@ -41,8 +45,6 @@ class TailInputTest < Test::Unit::TestCase
   def create_target_info(path)
     Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
   end
-
-  TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
 
   ROOT_CONFIG = config_element("ROOT", "", {
                             "tag" => "t1",
@@ -106,6 +108,22 @@ class TailInputTest < Test::Unit::TestCase
                       "format_firstline" => "/^[s]/"
                     })
     ])
+
+  EX_ROTATE_WAIT = 0
+  EX_FOLLOW_INODES = false
+
+  def ex_config
+    config_element("", "", {
+                     "tag" => "tail",
+                     "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
+                     "format" => "none",
+                     "pos_file" => "#{@tmp_dir}/tail.pos",
+                     "read_from_head" => true,
+                     "refresh_interval" => 30,
+                     "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                     "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                   })
+  end
 
   def tailing_group_pattern
     "/#{@tmp_dir}\/(?<podname>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace>[^_]+)_(?<container>.+)-(?<docker_id>[a-z0-9]{6})\.log$/"
@@ -834,11 +852,14 @@ class TailInputTest < Test::Unit::TestCase
 
     def setup
       omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+      super
       # Store default permission
       @default_permission = system_config.instance_variable_get(:@file_permission)
     end
 
     def teardown
+      return if Fluent.windows?
+      super
       # Restore default permission
       system_config.instance_variable_set(:@file_permission, @default_permission)
     end
@@ -1490,33 +1511,20 @@ class TailInputTest < Test::Unit::TestCase
   sub_test_case "path" do
     # * path test
     # TODO: Clean up tests
-    EX_ROTATE_WAIT = 0
-    EX_FOLLOW_INODES = false
-
-    EX_CONFIG = config_element("", "", {
-                                 "tag" => "tail",
-                                 "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
-                                 "format" => "none",
-                                 "pos_file" => "#{@tmp_dir}/tail.pos",
-                                 "read_from_head" => true,
-                                 "refresh_interval" => 30,
-                                 "rotate_wait" => "#{EX_ROTATE_WAIT}s",
-                                 "follow_inodes" => "#{EX_FOLLOW_INODES}",
-                               })
     def test_expand_paths
       ex_paths = [
         create_target_info('test/plugin/data/2010/01/20100102-030405.log'),
         create_target_info('test/plugin/data/log/foo/bar.log'),
         create_target_info('test/plugin/data/log/test.log')
       ]
-      plugin = create_driver(EX_CONFIG, false).instance
+      plugin = create_driver(ex_config, false).instance
       flexstub(Time) do |timeclass|
         timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5))
         assert_equal(ex_paths, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
       end
 
       # Test exclusion
-      exclude_config = EX_CONFIG + config_element("", "", { "exclude_path" => %Q(["#{ex_paths.last.path}"]) })
+      exclude_config = ex_config + config_element("", "", { "exclude_path" => %Q(["#{ex_paths.last.path}"]) })
       plugin = create_driver(exclude_config, false).instance
       assert_equal(ex_paths - [ex_paths.last], plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
     end
@@ -1526,9 +1534,9 @@ class TailInputTest < Test::Unit::TestCase
         create_target_info('test/plugin/data/log/foo/bar.log'),
         create_target_info('test/plugin/data/log/test.log')
       ]
-      duplicate_config = EX_CONFIG.dup
+      duplicate_config = ex_config.dup
       duplicate_config["path"]="test/plugin/data/log/**/*.log, test/plugin/data/log/**/*.log"
-      plugin = create_driver(EX_CONFIG, false).instance
+      plugin = create_driver(ex_config, false).instance
       assert_equal(expanded_paths, plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
     end
 
@@ -1539,7 +1547,7 @@ class TailInputTest < Test::Unit::TestCase
         create_target_info('test/plugin/data/log/test.log')
       ]
       ['Asia/Taipei', '+08'].each do |tz_type|
-        taipei_config = EX_CONFIG + config_element("", "", {"path_timezone" => tz_type})
+        taipei_config = ex_config + config_element("", "", {"path_timezone" => tz_type})
         plugin = create_driver(taipei_config, false).instance
 
         # Test exclude
@@ -1705,7 +1713,7 @@ class TailInputTest < Test::Unit::TestCase
       create_target_info('test/plugin/data/log/foo/bar.log'),
       create_target_info('test/plugin/data/log/test.log'),
     ]
-    plugin = create_driver(EX_CONFIG, false).instance
+    plugin = create_driver(ex_config, false).instance
     sio = StringIO.new
     plugin.instance_eval do
       @pf = Fluent::Plugin::TailInput::PositionFile.load(sio, EX_FOLLOW_INODES, {}, logger: $log)
@@ -1767,7 +1775,7 @@ class TailInputTest < Test::Unit::TestCase
     DummyWatcher = Struct.new("DummyWatcher", :tag)
 
     def test_tag
-      d = create_driver(EX_CONFIG, false)
+      d = create_driver(ex_config, false)
       d.run {}
       plugin = d.instance
       mock(plugin.router).emit_stream('tail', anything).once
