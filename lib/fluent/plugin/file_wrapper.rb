@@ -62,8 +62,9 @@ module Fluent
 
     # To keep backward compatibility, we continue to use GetFileInformationByHandle()
     # to get file id.
-    # Node that Ruby's File.stat uses GetFileInformationByHandleEx() with FileIdInfo
-    # and returned value is different with above one.
+    # Note that Ruby's File.stat uses GetFileInformationByHandleEx() with FileIdInfo
+    # and returned value is different with above one, former one is 64 bit while
+    # later one is 128bit.
     def ino
       by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
 
