@@ -493,7 +493,8 @@ module Fluent
         config_path: path,
         main_cmd: params['main_cmd'],
         signame: params['signame'],
-        disable_shared_socket: params['disable_shared_socket']
+        disable_shared_socket: params['disable_shared_socket'],
+        restart_worker_interval: params['restart_worker_interval'],
       }
       if daemonize
         se_config[:pid_path] = pid_path
@@ -867,7 +868,8 @@ module Fluent
         'counter_server' => @system_config.counter_server,
         'log_format' => @system_config.log.format,
         'log_time_format' => @system_config.log.time_format,
-        'disable_shared_socket' => @system_config.disable_shared_socket
+        'disable_shared_socket' => @system_config.disable_shared_socket,
+        'restart_worker_interval' => @system_config.restart_worker_interval,
       }
 
       se = ServerEngine.create(ServerModule, WorkerModule){

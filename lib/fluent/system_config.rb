@@ -22,7 +22,7 @@ module Fluent
     include Configurable
 
     SYSTEM_CONFIG_PARAMETERS = [
-      :workers, :root_dir, :log_level,
+      :workers, :restart_worker_interval, :root_dir, :log_level,
       :suppress_repeated_stacktrace, :emit_error_log_interval, :suppress_config_dump,
       :log_event_verbose, :ignore_repeated_log_interval, :ignore_same_log_interval,
       :without_source, :rpc_endpoint, :enable_get_dump, :process_name,
@@ -32,6 +32,7 @@ module Fluent
     ]
 
     config_param :workers,   :integer, default: 1
+    config_param :restart_worker_interval, :time, default: 0
     config_param :root_dir,  :string, default: nil
     config_param :log_level, :enum, list: [:trace, :debug, :info, :warn, :error, :fatal], default: 'info'
     config_param :suppress_repeated_stacktrace, :bool, default: nil

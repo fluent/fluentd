@@ -19,6 +19,7 @@ module Fluent::Config
       @system_config = nil
       @cl_opt = {
         wokers: nil,
+        restart_worker_interval: nil,
         root_dir: nil,
         log: FakeLoggerInitializer.new,
         log_level: Fluent::Log::LEVEL_INFO,
@@ -72,6 +73,7 @@ module Fluent::Config
       sc = Fluent::SystemConfig.new(conf)
       sc.overwrite_variables(**s.for_system_config)
       assert_equal(1, sc.workers)
+      assert_equal(0, sc.restart_worker_interval)
       assert_nil(sc.root_dir)
       assert_equal(Fluent::Log::LEVEL_INFO, sc.log_level)
       assert_nil(sc.suppress_repeated_stacktrace)
@@ -88,6 +90,7 @@ module Fluent::Config
 
     data(
       'workers' => ['workers', 3],
+      'restart_worker_interval' => ['restart_worker_interval', 60],
       'root_dir' => ['root_dir', File.join(TMP_DIR, 'root')],
       'log_level' => ['log_level', 'error'],
       'suppress_repeated_stacktrace' => ['suppress_repeated_stacktrace', true],
