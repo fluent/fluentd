@@ -2492,6 +2492,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_shutdown_timeout
     File.open("#{@tmp_dir}/tail.txt", "wb") do |f|
+      # Should be large enough to take too long time to consume
       (1024 * 1024 * 5).times do
         f.puts "{\"test\":\"fizzbuzz\"}"
       end
@@ -2503,19 +2504,24 @@ class TailInputTest < Test::Unit::TestCase
                               'format' => 'json',
                               'skip_refresh_on_startup' => true,
                             })
+    shutdown_start_time = 0
+
     d = create_driver(config)
     mock.proxy(d.instance).io_handler(anything, anything) do |io_handler|
+      mock.proxy(io_handler).ready_to_shutdown(anything) do
+        shutdown_start_time = Fluent::Clock.now
+      end
       io_handler.shutdown_timeout = 0.5
       io_handler
     end
 
-    start_time = Fluent::Clock.now
     assert_nothing_raised do
       d.run(expect_emits: 1)
     end
 
-    elapsed = Fluent::Clock.now - start_time
-    assert_true(elapsed > 0.5 && elapsed < 2.5)
+    elapsed = Fluent::Clock.now - shutdown_start_time
+    assert_true(elapsed > 0.5 && elapsed < 2.0,
+                "elapsed time: #{elapsed}")
   end
 
   sub_test_case "throttling logs at in_tail level" do
