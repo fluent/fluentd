@@ -1615,11 +1615,11 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(
         {
           files: [],
-          tails: {}
+          tails: []
         },
         {
           files: Dir.glob("#{@tmp_dir}/*.txt"),
-          tails: d.instance.instance_variable_get(:@tails)
+          tails: d.instance.instance_variable_get(:@tails).keys
         }
       )
     ensure
