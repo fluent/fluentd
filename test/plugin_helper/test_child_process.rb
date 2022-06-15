@@ -321,15 +321,21 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     arguments = ["okay"]
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      start_time = Fluent::Clock.now
       @d.child_process_execute(:t5, "echo", arguments: arguments, interval: 1, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 2.9 # 2sec(second invocation) + 0.9sec
+      1.upto(2) do |i|
+        sleep 0.1 while ary.size < i
+        elapsed = Fluent::Clock.now - start_time
+        assert_equal(i, ary.size)
+        assert_true(elapsed > i && elapsed < i + 0.5,
+                    "actual elapsed: #{elapsed}")
+      end
       assert_equal [], @d.log.out.logs
       @d.stop
       assert_equal [], @d.log.out.logs
       @d.shutdown; @d.close; @d.terminate
-      assert_equal 2, ary.size
     end
   end
 
@@ -337,12 +343,18 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     arguments = ["okay"]
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      start_time = Fluent::Clock.now
       @d.child_process_execute(:t6, "echo", arguments: arguments, interval: 1, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 1.9 # 1sec(second invocation) + 0.9sec
+      0.upto(1) do |i|
+        sleep 0.1 while ary.size < i + 1
+        elapsed = Fluent::Clock.now - start_time
+        assert_equal(i + 1, ary.size)
+        assert_true(elapsed > i && elapsed < i + 0.5,
+                    "actual elapsed: #{elapsed}")
+      end
       @d.stop; @d.shutdown; @d.close; @d.terminate
-      assert_equal 2, ary.size
       assert_equal [], @d.log.out.logs
     end
   end
