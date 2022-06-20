@@ -20,6 +20,7 @@ require 'openssl'
 require 'fluent/tls'
 require 'fluent/plugin/output'
 require 'fluent/plugin_helper/socket'
+require 'json/minify'
 
 # patch Net::HTTP to support extra_chain_cert which was added in Ruby feature #9758.
 # see: https://github.com/ruby/ruby/commit/31af0dafba6d3769d2a39617c0dddedb97883712
@@ -49,6 +50,8 @@ module Fluent::Plugin
     config_param :content_type, :string, default: nil
     desc 'JSON array data format for HTTP request body'
     config_param :json_array, :bool, default: false
+    desc 'Minify exported json data'
+    config_param :json_minify, :bool, default: false
     desc 'Additional headers for HTTP request'
     config_param :headers, :hash, default: nil
     desc 'Additional placeholder based headers for HTTP request'
@@ -120,6 +123,11 @@ module Fluent::Plugin
           raise Fluent::ConfigError, "json_array option could be used with json formatter only"
         end
         define_singleton_method(:format, method(:format_json_array))
+      end
+      if @json_minify
+        if @formatter_configs.first[:@type] != "json"
+          raise Fluent::ConfigError, "json_minify can only be used with json formatter only"
+        end
       end
     end
 
@@ -241,6 +249,9 @@ module Fluent::Plugin
       end
       set_headers(req, chunk)
       req.body = @json_array ? "[#{chunk.read.chop}]" : chunk.read
+      if @json_minify
+        req.body = JSON.minify(req.body)
+      end
       req
     end
 
