@@ -217,7 +217,13 @@ module Fluent::Plugin
                end
 
       if @append
-        writer.call(path, chunk)
+        if @need_lock
+          acquire_worker_lock(path) do
+            writer.call(path, chunk)
+          end
+        else
+          writer.call(path, chunk)
+        end
       else
         find_filepath_available(path, with_lock: @need_lock) do |actual_path|
           writer.call(actual_path, chunk)
