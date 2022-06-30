@@ -50,6 +50,9 @@ module Fluent
       @rpc_server = nil
       @counter = nil
 
+      @fluentd_lockdir = Dir.mktmpdir("fluentd-lock-")
+      ENV['FLUENTD_LOCKDIR'] = @fluentd_lockdir
+
       if config[:rpc_endpoint]
         @rpc_endpoint = config[:rpc_endpoint]
         @enable_get_dump = config[:enable_get_dump]
@@ -79,7 +82,13 @@ module Fluent
       stop_windows_event_thread if Fluent.windows?
       stop_rpc_server if @rpc_endpoint
       stop_counter_server if @counter
+      cleanup_lockdir
       Fluent::Supervisor.cleanup_resources
+    end
+
+    def cleanup_lockdir
+      FileUtils.rm(Dir.glob(File.join(@fluentd_lockdir, "fluentd-*.lock")))
+      FileUtils.rmdir(@fluentd_lockdir)
     end
 
     def run_rpc_server

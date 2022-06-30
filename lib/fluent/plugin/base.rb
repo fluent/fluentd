@@ -51,6 +51,12 @@ module Fluent
         @_fluentd_worker_id
       end
 
+      def fluentd_lockdir
+        return @_fluentd_lockdir if @_fluentd_lockdir
+        @_fluentd_lockdir = ENV['FLUENTD_LOCKDIR']
+        @_fluentd_lockdir
+      end
+
       def configure(conf)
         if Fluent::Engine.supervisor_mode || (conf.respond_to?(:for_this_worker?) && conf.for_this_worker?)
           workers = if conf.target_worker_ids && !conf.target_worker_ids.empty?
@@ -68,6 +74,19 @@ module Fluent
 
       def multi_workers_ready?
         true
+      end
+
+      def acquire_worker_lock(name, &block)
+        if fluentd_lockdir.nil?
+          raise RuntimeError, "fail to create lockfile on '#{fluentd_lockdir}'"
+        end
+
+        name = name.gsub(/[^a-zA-Z0-9]/, "_")
+        lockfile = "fluentd-#{name}.lock"
+        File.open(File.join(fluentd_lockdir, lockfile), "w") do |f|
+          f.flock(File::LOCK_EX)
+          block.call()
+        end
       end
 
       def string_safe_encoding(str)
