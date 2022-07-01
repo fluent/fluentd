@@ -1,4 +1,5 @@
 require_relative '../helper'
+require 'tmpdir'
 require 'fluent/plugin/base'
 
 module FluentPluginBaseTest
@@ -111,5 +112,26 @@ class BaseTest < Test::Unit::TestCase
     assert_equal ['abc?', "\u0001f"], ret
     assert_equal 1, logger.logs.size
     assert{ logger.logs.first.include?("invalid byte sequence is replaced in ") }
+  end
+
+  test 'acquire worker lock' do
+    Dir.mktmpdir("test-fluentd-lock-") do |lockdir|
+      ENV['FLUENTD_LOCKDIR'] = lockdir
+      lockfile = @p.worker_lockfile("worker_test")
+
+      @p.acquire_worker_lock("worker_test") do
+        # With LOCK_NB set, flock() returns `false` when the
+        # file is already locked.
+        File.open(lockfile, "w") do |f|
+          assert_equal false, f.flock(File::LOCK_EX|File::LOCK_NB)
+        end
+      end
+
+      # Lock should be release by now. In that case, flock
+      # must return 0.
+      File.open(lockfile, "w") do |f|
+        assert_equal 0, f.flock(File::LOCK_EX|File::LOCK_NB)
+      end
+    end
   end
 end

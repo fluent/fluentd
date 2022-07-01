@@ -75,14 +75,16 @@ module Fluent
         true
       end
 
+      def worker_lockfile(name)
+        name = name.gsub(/[^a-zA-Z0-9]/, "_")
+        File.join(fluentd_lockdir, "fluentd-#{name}.lock")
+      end
+
       def acquire_worker_lock(name)
         if fluentd_lockdir.nil?
           raise InvalidLockDirectory, "can't acquire lock because FLUENTD_LOCKDIR isn't set"
         end
-
-        name = name.gsub(/[^a-zA-Z0-9]/, "_")
-        lockfile = "fluentd-#{name}.lock"
-        File.open(File.join(fluentd_lockdir, lockfile), "w") do |f|
+        File.open(worker_lockfile(name), "w") do |f|
           f.flock(File::LOCK_EX)
           yield
         end
