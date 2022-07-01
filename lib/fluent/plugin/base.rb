@@ -52,9 +52,7 @@ module Fluent
       end
 
       def fluentd_lockdir
-        return @_fluentd_lockdir if @_fluentd_lockdir
-        @_fluentd_lockdir = ENV['FLUENTD_LOCKDIR']
-        @_fluentd_lockdir
+        @_fluentd_lockdir ||= ENV['FLUENTD_LOCKDIR']
       end
 
       def configure(conf)
@@ -78,14 +76,14 @@ module Fluent
 
       def acquire_worker_lock(name, &block)
         if fluentd_lockdir.nil?
-          raise RuntimeError, "fail to create lockfile on '#{fluentd_lockdir}'"
+          raise InvalidLockDirectory, "can't acquire lock because FLUENTD_LOCKDIR isn't set"
         end
 
         name = name.gsub(/[^a-zA-Z0-9]/, "_")
         lockfile = "fluentd-#{name}.lock"
         File.open(File.join(fluentd_lockdir, lockfile), "w") do |f|
           f.flock(File::LOCK_EX)
-          block.call()
+          yield
         end
       end
 
