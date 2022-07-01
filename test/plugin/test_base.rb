@@ -115,21 +115,22 @@ class BaseTest < Test::Unit::TestCase
   end
 
   test 'acquire worker lock' do
-    Dir.mktmpdir("test-fluentd-lock-") do |lockdir|
-      ENV['FLUENTD_LOCKDIR'] = lockdir
-      lockfile = @p.worker_lockfile("worker_test")
+    Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
+      ENV['FLUENTD_LOCK_DIR'] = lock_dir
+      p = FluentPluginBaseTest::DummyPlugin.new
+      lock_path = p.get_lock_path("test_base")
 
-      @p.acquire_worker_lock("worker_test") do
+      p.acquire_worker_lock("test_base") do
         # With LOCK_NB set, flock() returns `false` when the
         # file is already locked.
-        File.open(lockfile, "w") do |f|
+        File.open(lock_path, "w") do |f|
           assert_equal false, f.flock(File::LOCK_EX|File::LOCK_NB)
         end
       end
 
       # Lock should be release by now. In that case, flock
       # must return 0.
-      File.open(lockfile, "w") do |f|
+      File.open(lock_path, "w") do |f|
         assert_equal 0, f.flock(File::LOCK_EX|File::LOCK_NB)
       end
     end

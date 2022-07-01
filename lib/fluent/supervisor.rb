@@ -876,8 +876,8 @@ module Fluent
         Fluent::Supervisor.load_config(@config_path, params)
       }
 
-      Dir.mktmpdir("fluentd-lock-") do |lockdir|
-        ENV['FLUENTD_LOCKDIR'] = lockdir
+      Dir.mktmpdir("fluentd-lock-") do |lock_dir|
+        ENV['FLUENTD_LOCK_DIR'] = lock_dir
         se.run
       end
     end

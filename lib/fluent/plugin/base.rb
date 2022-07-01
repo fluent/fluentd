@@ -34,7 +34,7 @@ module Fluent
         @_state = State.new(false, false, false, false, false, false, false, false, false)
         @_context_router = nil
         @_fluentd_worker_id = nil
-        @_fluentd_lockdir = nil
+        @_fluentd_lock_dir = ENV['FLUENTD_LOCK_DIR']
         @under_plugin_development = false
       end
 
@@ -50,10 +50,6 @@ module Fluent
         return @_fluentd_worker_id if @_fluentd_worker_id
         @_fluentd_worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
         @_fluentd_worker_id
-      end
-
-      def fluentd_lockdir
-        @_fluentd_lockdir ||= ENV['FLUENTD_LOCKDIR']
       end
 
       def configure(conf)
@@ -75,16 +71,16 @@ module Fluent
         true
       end
 
-      def worker_lockfile(name)
+      def get_lock_path(name)
         name = name.gsub(/[^a-zA-Z0-9]/, "_")
-        File.join(fluentd_lockdir, "fluentd-#{name}.lock")
+        File.join(@_fluentd_lock_dir, "fluentd-#{name}.lock")
       end
 
       def acquire_worker_lock(name)
-        if fluentd_lockdir.nil?
+        if @_fluentd_lock_dir.nil?
           raise InvalidLockDirectory, "can't acquire lock because FLUENTD_LOCKDIR isn't set"
         end
-        File.open(worker_lockfile(name), "w") do |f|
+        File.open(get_lock_path(name), "w") do |f|
           f.flock(File::LOCK_EX)
           yield
         end
