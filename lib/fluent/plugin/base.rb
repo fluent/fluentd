@@ -34,6 +34,7 @@ module Fluent
         @_state = State.new(false, false, false, false, false, false, false, false, false)
         @_context_router = nil
         @_fluentd_worker_id = nil
+        @_fluentd_lockdir = nil
         @under_plugin_development = false
       end
 
@@ -74,7 +75,7 @@ module Fluent
         true
       end
 
-      def acquire_worker_lock(name, &block)
+      def acquire_worker_lock(name)
         if fluentd_lockdir.nil?
           raise InvalidLockDirectory, "can't acquire lock because FLUENTD_LOCKDIR isn't set"
         end
