@@ -875,7 +875,11 @@ module Fluent
       se = ServerEngine.create(ServerModule, WorkerModule){
         Fluent::Supervisor.load_config(@config_path, params)
       }
-      se.run
+
+      Dir.mktmpdir("fluentd-lock-") do |lock_dir|
+        ENV['FLUENTD_LOCK_DIR'] = lock_dir
+        se.run
+      end
     end
 
     def install_main_process_signal_handlers

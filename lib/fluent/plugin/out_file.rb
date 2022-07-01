@@ -188,6 +188,10 @@ module Fluent::Plugin
         condition = Gem::Dependency.new('', [">= 2.7.0", "< 3.1.0"])
         @need_ruby_on_macos_workaround = true if condition.match?('', RUBY_VERSION)
       end
+
+      if @need_lock && @append && fluentd_lockdir.nil?
+        raise InvalidLockDirectory, "must set FLUENTD_LOCKDIR on multi-worker append mode"
+      end
     end
 
     def multi_workers_ready?
@@ -217,7 +221,13 @@ module Fluent::Plugin
                end
 
       if @append
-        writer.call(path, chunk)
+        if @need_lock
+          acquire_worker_lock(path) do
+            writer.call(path, chunk)
+          end
+        else
+          writer.call(path, chunk)
+        end
       else
         find_filepath_available(path, with_lock: @need_lock) do |actual_path|
           writer.call(actual_path, chunk)

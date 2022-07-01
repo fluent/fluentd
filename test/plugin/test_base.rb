@@ -1,4 +1,5 @@
 require_relative '../helper'
+require 'tmpdir'
 require 'fluent/plugin/base'
 
 module FluentPluginBaseTest
@@ -111,5 +112,38 @@ class BaseTest < Test::Unit::TestCase
     assert_equal ['abc?', "\u0001f"], ret
     assert_equal 1, logger.logs.size
     assert{ logger.logs.first.include?("invalid byte sequence is replaced in ") }
+  end
+
+  test 'generates worker lock path safely' do
+    Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
+      ENV['FLUENTD_LOCK_DIR'] = lock_dir
+      p = FluentPluginBaseTest::DummyPlugin.new
+      path = p.get_lock_path("Aa\\|=~/_123");
+
+      assert_equal lock_dir, File.dirname(path)
+      assert_equal "fluentd-Aa______123.lock", File.basename(path)
+    end
+  end
+
+  test 'can acquire inter-worker locking' do
+    Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
+      ENV['FLUENTD_LOCK_DIR'] = lock_dir
+      p = FluentPluginBaseTest::DummyPlugin.new
+      lock_path = p.get_lock_path("test_base")
+
+      p.acquire_worker_lock("test_base") do
+        # With LOCK_NB set, flock() returns `false` when the
+        # file is already locked.
+        File.open(lock_path, "w") do |f|
+          assert_equal false, f.flock(File::LOCK_EX|File::LOCK_NB)
+        end
+      end
+
+      # Lock should be release by now. In that case, flock
+      # must return 0.
+      File.open(lock_path, "w") do |f|
+        assert_equal 0, f.flock(File::LOCK_EX|File::LOCK_NB)
+      end
+    end
   end
 end

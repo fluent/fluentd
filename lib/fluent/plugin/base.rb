@@ -31,6 +31,7 @@ module Fluent
       def initialize
         @log = nil
         super
+        @fluentd_lock_dir = ENV['FLUENTD_LOCK_DIR']
         @_state = State.new(false, false, false, false, false, false, false, false, false)
         @_context_router = nil
         @_fluentd_worker_id = nil
@@ -68,6 +69,21 @@ module Fluent
 
       def multi_workers_ready?
         true
+      end
+
+      def get_lock_path(name)
+        name = name.gsub(/[^a-zA-Z0-9]/, "_")
+        File.join(@fluentd_lock_dir, "fluentd-#{name}.lock")
+      end
+
+      def acquire_worker_lock(name)
+        if @fluentd_lock_dir.nil?
+          raise InvalidLockDirectory, "can't acquire lock because FLUENTD_LOCKDIR isn't set"
+        end
+        File.open(get_lock_path(name), "w") do |f|
+          f.flock(File::LOCK_EX)
+          yield
+        end
       end
 
       def string_safe_encoding(str)
