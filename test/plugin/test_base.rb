@@ -114,7 +114,18 @@ class BaseTest < Test::Unit::TestCase
     assert{ logger.logs.first.include?("invalid byte sequence is replaced in ") }
   end
 
-  test 'acquire worker lock' do
+  test 'generates worker lock path safely' do
+    Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
+      ENV['FLUENTD_LOCK_DIR'] = lock_dir
+      p = FluentPluginBaseTest::DummyPlugin.new
+      path = p.get_lock_path("Aa\\|=~/_123");
+
+      assert_equal lock_dir, File.dirname(path)
+      assert_equal "fluentd-Aa______123.lock", File.basename(path)
+    end
+  end
+
+  test 'can acquire inter-worker locking' do
     Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
       ENV['FLUENTD_LOCK_DIR'] = lock_dir
       p = FluentPluginBaseTest::DummyPlugin.new
