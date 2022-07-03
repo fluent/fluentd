@@ -189,8 +189,8 @@ module Fluent::Plugin
         @need_ruby_on_macos_workaround = true if condition.match?('', RUBY_VERSION)
       end
 
-      if @need_lock && @append && fluentd_lockdir.nil?
-        raise InvalidLockDirectory, "must set FLUENTD_LOCKDIR on multi-worker append mode"
+      if @need_lock && @append && @fluentd_lock_dir.nil?
+        raise Fluent::InvalidLockDirectory, "must set FLUENTD_LOCK_DIR on multi-worker append mode"
       end
     end
 

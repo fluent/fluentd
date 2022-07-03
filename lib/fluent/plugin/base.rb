@@ -78,12 +78,15 @@ module Fluent
 
       def acquire_worker_lock(name)
         if @fluentd_lock_dir.nil?
-          raise InvalidLockDirectory, "can't acquire lock because FLUENTD_LOCKDIR isn't set"
+          raise InvalidLockDirectory, "can't acquire lock because FLUENTD_LOCK_DIR isn't set"
         end
-        File.open(get_lock_path(name), "w") do |f|
+        lock_path = get_lock_path(name)
+        File.open(lock_path, "w") do |f|
           f.flock(File::LOCK_EX)
           yield
         end
+        # Update access time to prevent tmpwatch from deleting a lock file.
+        FileUtils.touch(lock_path);
       end
 
       def string_safe_encoding(str)
