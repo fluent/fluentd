@@ -1,5 +1,17 @@
 # v1.15
 
+## Release v1.15.1 - 2022/07/27
+
+### Bug Fix
+
+* Add support for concurrent append in out_file
+  https://github.com/fluent/fluentd/pull/3808
+
+### Misc
+
+* in_tail: Show more information on skipping update_watcher
+  https://github.com/fluent/fluentd/pull/3829
+
 ## Release v1.15.0 - 2022/06/29
 
 ### Enhancement
