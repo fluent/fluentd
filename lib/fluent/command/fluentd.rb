@@ -189,9 +189,6 @@ op.on('--disable-shared-socket', "Don't open shared socket for multiple workers"
 }
 
 if Fluent.windows?
-  require 'windows/library'
-  include Windows::Library
-
   opts.merge!(
     :winsvc_name => 'fluentdwinsvc',
     :winsvc_display_name => 'Fluentd Windows Service',
@@ -292,9 +289,7 @@ if winsvcinstmode = opts[:regwinsvc]
   case winsvcinstmode
   when 'i'
     binary_path = File.join(File.dirname(__FILE__), "..")
-    ruby_path = "\0" * 256
-    GetModuleFileName.call(0,ruby_path,256)
-    ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
+    ruby_path = ServerEngine.ruby_bin_path
     start_type = Service::DEMAND_START
     if opts[:regwinsvcautostart]
       start_type = Service::AUTO_START

@@ -2,11 +2,6 @@ require_relative '../helper'
 require 'fluent/plugin/file_wrapper'
 
 class FileWrapperTest < Test::Unit::TestCase
-  require 'windows/file'
-  require 'windows/error'
-  include Windows::File
-  include Windows::Error
-
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/file_wrapper#{ENV['TEST_ENV_NUMBER']}"
 
   def setup

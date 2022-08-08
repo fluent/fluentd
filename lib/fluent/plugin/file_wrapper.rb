@@ -35,20 +35,36 @@ module Fluent
     end
   end
 
-  class WindowsFile
-    require 'windows/file'
-    require 'windows/handle'
+  module Win32API
+    require 'fiddle/import'
+    require 'fiddle/types'
+    extend Fiddle::Importer
 
+    if RUBY_PLATFORM.split('-')[-1] == "ucrt"
+      MSVCRT_DLL = 'ucrtbase.dll'
+    else
+      MSVCRT_DLL = 'msvcrt.dll'
+    end
+
+    dlload MSVCRT_DLL, "kernel32.dll"
+    include Fiddle::Win32Types
+
+    extern "intptr_t _get_osfhandle(int)"
+    extern "BOOL GetFileInformationByHandle(HANDLE, void *)"
+    extern "BOOL GetFileInformationByHandleEx(HANDLE, int, void *, DWORD)"
+  end
+
+  class WindowsFile
     include File::Constants
-    include Windows::File
-    include Windows::Handle
 
     attr_reader :io
+
+    INVALID_HANDLE_VALUE = -1
 
     def initialize(path, mode='r')
       @path = path
       @io = File.open(path, mode2flags(mode))
-      @file_handle = _get_osfhandle(@io.to_i)
+      @file_handle = Win32API._get_osfhandle(@io.to_i)
       @io.instance_variable_set(:@file_index, self.ino)
       def @io.ino
         @file_index
@@ -68,7 +84,7 @@ module Fluent
     def ino
       by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
 
-      unless GetFileInformationByHandle.call(@file_handle, by_handle_file_information)
+      unless Win32API.GetFileInformationByHandle(@file_handle, by_handle_file_information)
         return 0
       end
 
@@ -122,7 +138,7 @@ module Fluent
       bufsize = 1024
       buf = '\0' * bufsize
 
-      unless GetFileInformationByHandleEx.call(@file_handle, file_standard_info, buf, bufsize)
+      unless Win32API.GetFileInformationByHandleEx(@file_handle, file_standard_info, buf, bufsize)
         return false
       end
 
