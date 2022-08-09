@@ -17,14 +17,10 @@
 begin
 
   require 'optparse'
-  require 'windows/debug'
-  require 'Windows/Library'
   require 'win32/daemon'
   require 'win32/event'
 
   include Win32
-  include Windows::Library
-  include Windows::Debug
 
   op = OptionParser.new
   opts = {service_name: nil}
@@ -37,16 +33,14 @@ begin
   end 
 
   def read_fluentdopt(service_name)
-    require 'win32/Registry'
+    require 'win32/registry'
     Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\#{service_name}") do |reg|
       reg.read("fluentdopt")[1] rescue ""
     end
   end
 
   def service_main_start(service_name)
-    ruby_path = 0.chr * 260
-    GetModuleFileName.call(0, ruby_path,260)
-    ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
+    ruby_path = ServerEngine.ruby_bin_path
     rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
     opt = read_fluentdopt(service_name)
     Process.spawn("\"#{rubybin_dir}/ruby.exe\" \"#{rubybin_dir}/fluentd\" #{opt} -x #{service_name}")

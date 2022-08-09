@@ -32,12 +32,6 @@ require 'fluent/variable_store'
 require 'serverengine'
 
 if Fluent.windows?
-  require 'windows/library'
-  require 'windows/synchronize'
-  require 'windows/system_info'
-  include Windows::Library
-  include Windows::Synchronize
-  include Windows::SystemInfo
   require 'win32/ipc'
   require 'win32/event'
 end
@@ -235,7 +229,8 @@ module Fluent
         end
         begin
           loop do
-            ipc_idx = ipc.wait_any(events.map {|e| e[:win32_event]}, Windows::Synchronize::INFINITE)
+            infinite = 0xFFFFFFFF
+            ipc_idx = ipc.wait_any(events.map {|e| e[:win32_event]}, infinite)
             event_idx = ipc_idx - 1
 
             if event_idx >= 0 && event_idx < events.length

@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/win32api'
+
 module Fluent
   module FileWrapper
     def self.open(path, mode='r')
@@ -36,19 +38,16 @@ module Fluent
   end
 
   class WindowsFile
-    require 'windows/file'
-    require 'windows/handle'
-
     include File::Constants
-    include Windows::File
-    include Windows::Handle
 
     attr_reader :io
+
+    INVALID_HANDLE_VALUE = -1
 
     def initialize(path, mode='r')
       @path = path
       @io = File.open(path, mode2flags(mode))
-      @file_handle = _get_osfhandle(@io.to_i)
+      @file_handle = Win32API._get_osfhandle(@io.to_i)
       @io.instance_variable_set(:@file_index, self.ino)
       def @io.ino
         @file_index
@@ -68,7 +67,7 @@ module Fluent
     def ino
       by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
 
-      unless GetFileInformationByHandle.call(@file_handle, by_handle_file_information)
+      unless Win32API.GetFileInformationByHandle(@file_handle, by_handle_file_information)
         return 0
       end
 
@@ -122,7 +121,7 @@ module Fluent
       bufsize = 1024
       buf = '\0' * bufsize
 
-      unless GetFileInformationByHandleEx.call(@file_handle, file_standard_info, buf, bufsize)
+      unless Win32API.GetFileInformationByHandleEx(@file_handle, file_standard_info, buf, bufsize)
         return false
       end
 
