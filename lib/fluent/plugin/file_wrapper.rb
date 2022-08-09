@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/win32api'
+
 module Fluent
   module FileWrapper
     def self.open(path, mode='r')
@@ -33,25 +35,6 @@ module Fluent
       f.close
       s
     end
-  end
-
-  module Win32API
-    require 'fiddle/import'
-    require 'fiddle/types'
-    extend Fiddle::Importer
-
-    if RUBY_PLATFORM.split('-')[-1] == "ucrt"
-      MSVCRT_DLL = 'ucrtbase.dll'
-    else
-      MSVCRT_DLL = 'msvcrt.dll'
-    end
-
-    dlload MSVCRT_DLL, "kernel32.dll"
-    include Fiddle::Win32Types
-
-    extern "intptr_t _get_osfhandle(int)"
-    extern "BOOL GetFileInformationByHandle(HANDLE, void *)"
-    extern "BOOL GetFileInformationByHandleEx(HANDLE, int, void *, DWORD)"
   end
 
   class WindowsFile
