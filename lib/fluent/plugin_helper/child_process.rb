@@ -346,6 +346,9 @@ module Fluent
           if cb
             cb.call(process_info.exit_status) rescue nil
           end
+          process_info.readio&.close rescue nil
+          process_info.writeio&.close rescue nil
+          process_info.stderrio&.close rescue nil
         end
         thread[:_fluentd_plugin_helper_child_process_running] = true
         thread[:_fluentd_plugin_helper_child_process_pid] = pid
