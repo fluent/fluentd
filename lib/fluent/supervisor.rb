@@ -1099,6 +1099,11 @@ module Fluent
         fluentd_spawn_cmd << '-Eascii-8bit:ascii-8bit'
       end
 
+      if @system_config.enable_jit
+        $log.info "enable Ruby JIT for workers (--jit)"
+        fluentd_spawn_cmd << '--jit'
+      end
+
       # Adding `-h` so that it can avoid ruby's command blocking
       # e.g. `ruby -Eascii-8bit:ascii-8bit` will block. but `ruby -Eascii-8bit:ascii-8bit -h` won't.
       _, e, s = Open3.capture3(*fluentd_spawn_cmd, "-h")
