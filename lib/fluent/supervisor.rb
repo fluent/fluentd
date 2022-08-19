@@ -50,6 +50,9 @@ module Fluent
       @rpc_server = nil
       @counter = nil
 
+      @fluentd_lock_dir = Dir.mktmpdir("fluentd-lock-")
+      ENV['FLUENTD_LOCK_DIR'] = @fluentd_lock_dir
+
       if config[:rpc_endpoint]
         @rpc_endpoint = config[:rpc_endpoint]
         @enable_get_dump = config[:enable_get_dump]
@@ -79,7 +82,13 @@ module Fluent
       stop_windows_event_thread if Fluent.windows?
       stop_rpc_server if @rpc_endpoint
       stop_counter_server if @counter
+      cleanup_lock_dir
       Fluent::Supervisor.cleanup_resources
+    end
+
+    def cleanup_lock_dir
+      FileUtils.rm(Dir.glob(File.join(@fluentd_lock_dir, "fluentd-*.lock")))
+      FileUtils.rmdir(@fluentd_lock_dir)
     end
 
     def run_rpc_server
@@ -876,10 +885,7 @@ module Fluent
         Fluent::Supervisor.load_config(@config_path, params)
       }
 
-      Dir.mktmpdir("fluentd-lock-") do |lock_dir|
-        ENV['FLUENTD_LOCK_DIR'] = lock_dir
-        se.run
-      end
+      se.run
     end
 
     def install_main_process_signal_handlers
