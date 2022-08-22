@@ -19,6 +19,8 @@ begin
   require 'optparse'
   require 'win32/daemon'
   require 'win32/event'
+  require 'win32/registry'
+  require 'serverengine'
 
   include Win32
 
@@ -33,7 +35,6 @@ begin
   end 
 
   def read_fluentdopt(service_name)
-    require 'win32/registry'
     Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\#{service_name}") do |reg|
       reg.read("fluentdopt")[1] rescue ""
     end
