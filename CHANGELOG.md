@@ -1,5 +1,25 @@
 # v1.15
 
+## Release v1.15.2 - 2022/08/22
+
+### Enhancement
+
+* Add a new system configuration `enable_jit`
+  https://github.com/fluent/fluentd/pull/3857
+
+### Bug Fix
+
+* out_file: Fix append mode with `--daemon` flag
+  https://github.com/fluent/fluentd/pull/3864
+* child_process: Plug file descriptor leak
+  https://github.com/fluent/fluentd/pull/3844
+
+### Misc
+
+* Drop win32-api gem to support Ruby 3.2
+  https://github.com/fluent/fluentd/pull/3849
+  https://github.com/fluent/fluentd/pull/3866
+
 ## Release v1.15.1 - 2022/07/27
 
 ### Bug Fix
