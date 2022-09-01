@@ -1609,7 +1609,7 @@ class TailInputTest < Test::Unit::TestCase
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f| f.puts "test3\n" }
       end
 
-      cleanup_directory(@tmp_dir)
+      cleanup_file("#{@tmp_dir}/tail.txt")
       waiting(20) { sleep 0.1 until Dir.glob("#{@tmp_dir}/*.txt").size == 0 } # Ensure file is deleted on Windows
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size <= 0 }
 
@@ -1625,6 +1625,7 @@ class TailInputTest < Test::Unit::TestCase
       )
     ensure
       d.instance_shutdown if d && d.instance
+      cleanup_directory(@tmp_dir)
     end
 
     def count_timer_object
