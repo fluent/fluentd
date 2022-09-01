@@ -27,7 +27,7 @@ require 'fluent/plugin/in_tail/position_file'
 require 'fluent/plugin/in_tail/group_watch'
 
 if Fluent.windows?
-  require_relative 'file_wrapper'
+  require 'fluent/file_wrapper'
 else
   Fluent::FileWrapper = File
 end

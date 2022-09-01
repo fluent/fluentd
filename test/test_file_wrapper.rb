@@ -1,5 +1,5 @@
-require_relative '../helper'
-require 'fluent/plugin/file_wrapper'
+require_relative 'helper'
+require 'fluent/file_wrapper'
 
 class FileWrapperTest < Test::Unit::TestCase
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/file_wrapper#{ENV['TEST_ENV_NUMBER']}"
