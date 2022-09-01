@@ -47,9 +47,11 @@ else
 
       INVALID_HANDLE_VALUE = -1
 
-      def initialize(path, mode='r')
+      def initialize(path, mode_enc='r')
         @path = path
+        mode, enc = mode_enc.split(":", 2)
         @io = File.open(path, mode2flags(mode))
+        @io.set_encoding(enc) if enc
         @file_handle = Win32API._get_osfhandle(@io.to_i)
         @io.instance_variable_set(:@file_index, self.ino)
         def @io.ino
