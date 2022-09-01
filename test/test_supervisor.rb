@@ -2,6 +2,7 @@ require_relative 'helper'
 require 'fluent/event_router'
 require 'fluent/system_config'
 require 'fluent/supervisor'
+require 'fluent/file_wrapper'
 require_relative 'test_plugin_classes'
 
 require 'net/http'
@@ -32,7 +33,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
   def write_config(path, data)
     FileUtils.mkdir_p(File.dirname(path))
-    File.open(path, "w") {|f| f.write data }
+    Fluent::FileWrapper.open(path, "w") {|f| f.write data }
   end
 
 

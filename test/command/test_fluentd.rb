@@ -5,6 +5,7 @@ require_relative '../helper'
 
 require 'fileutils'
 require 'timeout'
+require 'fluent/file_wrapper'
 
 class TestFluentdCommand < ::Test::Unit::TestCase
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/command/fluentd#{ENV['TEST_ENV_NUMBER']}")
@@ -31,7 +32,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
 
   def create_conf_file(name, content, ext_enc = 'utf-8')
     conf_path = File.join(TMP_DIR, name)
-    File.open(conf_path, "w:#{ext_enc}:utf-8") do |file|
+    Fluent::FileWrapper.open(conf_path, "w:#{ext_enc}:utf-8") do |file|
       file.write content
     end
     conf_path
@@ -40,7 +41,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
   def create_plugin_file(name, content)
     file_path = File.join(TMP_DIR, 'plugin', name)
     FileUtils.mkdir_p(File.dirname(file_path))
-    File.open(file_path, 'w') do |file|
+    Fluent::FileWrapper.open(file_path, 'w') do |file|
       file.write content
     end
     file_path
@@ -57,7 +58,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
   end
 
   def execute_command(cmdline, chdir=TMP_DIR, env = {})
-    null_stream = File.open(File::NULL, 'w')
+    null_stream = Fluent::FileWrapper.open(File::NULL, 'w')
     gemfile_path = File.expand_path(File.dirname(__FILE__) + "../../../Gemfile")
 
     env = { "BUNDLE_GEMFILE" => gemfile_path }.merge(env)
@@ -308,7 +309,7 @@ CONF
     end
 
     test 'fails to launch fluentd if specified root path is invalid path for directory' do
-      File.open(@root_path, 'w') do |_|
+      Fluent::FileWrapper.open(@root_path, 'w') do |_|
         # create file and close it
       end
       conf_path = create_conf_file('existing_root_dir.conf', @conf)
@@ -964,7 +965,7 @@ CONF
       tmp_ruby_path = File.join(TMP_DIR, "ruby with spaces")
       if Fluent.windows?
         tmp_ruby_path << ".bat"
-        File.open(tmp_ruby_path, "w") do |file|
+        Fluent::FileWrapper.open(tmp_ruby_path, "w") do |file|
           file.write "#{ruby_path} %*"
         end
       else

@@ -5,6 +5,7 @@ require 'fileutils'
 require 'time'
 require 'timecop'
 require 'zlib'
+require 'fluent/file_wrapper'
 
 class FileOutputTest < Test::Unit::TestCase
   def setup
@@ -1016,7 +1017,7 @@ class FileOutputTest < Test::Unit::TestCase
 
     test 'returns filepath with index which does not exist yet' do
       5.times do |i|
-        File.open(File.join(@tmp, "exist_#{i}.log"), 'a'){|f| } # open(create) and close
+        Fluent::FileWrapper.open(File.join(@tmp, "exist_#{i}.log"), 'a'){|f| } # open(create) and close
       end
       @i.find_filepath_available(File.join(@tmp, "exist_**.log")) do |path|
         assert_equal File.join(@tmp, "exist_5.log"), path
@@ -1025,7 +1026,7 @@ class FileOutputTest < Test::Unit::TestCase
 
     test 'creates lock directory when with_lock is true to exclude operations of other worker process' do
       5.times do |i|
-        File.open(File.join(@tmp, "exist_#{i}.log"), 'a')
+        Fluent::FileWrapper.open(File.join(@tmp, "exist_#{i}.log"), 'a')
       end
       Dir.mkdir(File.join(@tmp, "exist_5.log.lock"))
       @i.find_filepath_available(File.join(@tmp, "exist_**.log"), with_lock: true) do |path|
