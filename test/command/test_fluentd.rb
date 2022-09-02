@@ -5,18 +5,33 @@ require_relative '../helper'
 
 require 'fileutils'
 require 'timeout'
+require 'securerandom'
+require 'fluent/file_wrapper'
 
 class TestFluentdCommand < ::Test::Unit::TestCase
-  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/command/fluentd#{ENV['TEST_ENV_NUMBER']}")
   SUPERVISOR_PID_PATTERN = /starting fluentd-[.0-9]+ pid=(\d+)/
   WORKER_PID_PATTERN = /starting fluentd worker pid=(\d+) /
 
+  def tmp_dir
+    File.join(File.dirname(__FILE__), "..", "tmp", "command" "fluentd#{ENV['TEST_ENV_NUMBER']}", SecureRandom.hex(10))
+  end
+
   setup do
-    FileUtils.rm_rf(TMP_DIR)
-    FileUtils.mkdir_p(TMP_DIR)
+    @tmp_dir = tmp_dir
+    FileUtils.mkdir_p(@tmp_dir)
     @supervisor_pid = nil
     @worker_pids = []
     ENV["TEST_RUBY_PATH"] = nil
+  end
+
+  teardown do
+    begin
+      FileUtils.rm_rf(@tmp_dir)
+    rescue Errno::EACCES
+      # It may occur on Windows because of delete pending state due to delayed GC.
+      # Ruby 3.2 or later doesn't ignore Errno::EACCES:
+      # https://github.com/ruby/ruby/commit/983115cf3c8f75b1afbe3274f02c1529e1ce3a81
+    end
   end
 
   def process_exist?(pid)
@@ -30,17 +45,17 @@ class TestFluentdCommand < ::Test::Unit::TestCase
   end
 
   def create_conf_file(name, content, ext_enc = 'utf-8')
-    conf_path = File.join(TMP_DIR, name)
-    File.open(conf_path, "w:#{ext_enc}:utf-8") do |file|
+    conf_path = File.join(@tmp_dir, name)
+    Fluent::FileWrapper.open(conf_path, "w:#{ext_enc}:utf-8") do |file|
       file.write content
     end
     conf_path
   end
 
   def create_plugin_file(name, content)
-    file_path = File.join(TMP_DIR, 'plugin', name)
+    file_path = File.join(@tmp_dir, 'plugin', name)
     FileUtils.mkdir_p(File.dirname(file_path))
-    File.open(file_path, 'w') do |file|
+    Fluent::FileWrapper.open(file_path, 'w') do |file|
       file.write content
     end
     file_path
@@ -56,8 +71,8 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     end
   end
 
-  def execute_command(cmdline, chdir=TMP_DIR, env = {})
-    null_stream = File.open(File::NULL, 'w')
+  def execute_command(cmdline, chdir=@tmp_dir, env = {})
+    null_stream = Fluent::FileWrapper.open(File::NULL, 'w')
     gemfile_path = File.expand_path(File.dirname(__FILE__) + "../../../Gemfile")
 
     env = { "BUNDLE_GEMFILE" => gemfile_path }.merge(env)
@@ -103,7 +118,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     assert_error_msg = ""
     stdio_buf = ""
     begin
-      execute_command(cmdline, TMP_DIR, env) do |pid, stdout|
+      execute_command(cmdline, @tmp_dir, env) do |pid, stdout|
         begin
           waiting(timeout) do
             while process_exist?(pid) && !matched
@@ -269,7 +284,7 @@ CONF
 
   sub_test_case 'with system configuration about root directory' do
     setup do
-      @root_path = File.join(TMP_DIR, "rootpath")
+      @root_path = File.join(@tmp_dir, "rootpath")
       FileUtils.rm_rf(@root_path)
       @conf = <<CONF
 <system>
@@ -308,7 +323,7 @@ CONF
     end
 
     test 'fails to launch fluentd if specified root path is invalid path for directory' do
-      File.open(@root_path, 'w') do |_|
+      Fluent::FileWrapper.open(@root_path, 'w') do |_|
         # create file and close it
       end
       conf_path = create_conf_file('existing_root_dir.conf', @conf)
@@ -554,7 +569,7 @@ CONF
 
   sub_test_case 'configured to run 2 workers' do
     setup do
-      @root_path = File.join(TMP_DIR, "rootpath")
+      @root_path = File.join(@tmp_dir, "rootpath")
       FileUtils.rm_rf(@root_path)
       FileUtils.mkdir_p(@root_path)
     end
@@ -961,10 +976,10 @@ CONF
 </match>
 CONF
       ruby_path = ServerEngine.ruby_bin_path
-      tmp_ruby_path = File.join(TMP_DIR, "ruby with spaces")
+      tmp_ruby_path = File.join(@tmp_dir, "ruby with spaces")
       if Fluent.windows?
         tmp_ruby_path << ".bat"
-        File.open(tmp_ruby_path, "w") do |file|
+        Fluent::FileWrapper.open(tmp_ruby_path, "w") do |file|
           file.write "#{ruby_path} %*"
         end
       else

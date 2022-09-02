@@ -4,13 +4,16 @@ require 'fluent/engine'
 require 'fluent/log'
 require 'timecop'
 require 'logger'
+require 'securerandom'
 
 class LogTest < Test::Unit::TestCase
-  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/log/#{ENV['TEST_ENV_NUMBER']}")
+  def tmp_dir
+    File.join(File.dirname(__FILE__), "tmp", "log", "#{ENV['TEST_ENV_NUMBER']}", SecureRandom.hex(10))
+  end
 
   def setup
-    FileUtils.rm_rf(TMP_DIR)
-    FileUtils.mkdir_p(TMP_DIR)
+    @tmp_dir = tmp_dir
+    FileUtils.mkdir_p(@tmp_dir)
     @log_device = Fluent::Test::DummyLogDevice.new
     @timestamp = Time.parse("2016-04-21 02:58:41 +0000")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
@@ -21,6 +24,13 @@ class LogTest < Test::Unit::TestCase
     @log_device.reset
     Timecop.return
     Thread.current[:last_repeated_stacktrace] = nil
+    begin
+      FileUtils.rm_rf(@tmp_dir)
+    rescue Errno::EACCES
+      # It may occur on Windows because of delete pending state due to delayed GC.
+      # Ruby 3.2 or later doesn't ignore Errno::EACCES:
+      # https://github.com/ruby/ruby/commit/983115cf3c8f75b1afbe3274f02c1529e1ce3a81
+    end
   end
 
   sub_test_case "log level" do
@@ -560,7 +570,7 @@ class LogTest < Test::Unit::TestCase
       Timecop.freeze(@timestamp)
 
       rotate_age, rotate_size, travel_term = expected
-      path = "#{TMP_DIR}/log-dev-io-#{rotate_size}-#{rotate_age}"
+      path = "#{@tmp_dir}/log-dev-io-#{rotate_size}-#{rotate_age}"
 
       logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
       logger = ServerEngine::DaemonLogger.new(logdev)
@@ -585,7 +595,7 @@ class LogTest < Test::Unit::TestCase
     with_timezone('utc') do
       rotate_age = 2
       rotate_size = 100
-      path = "#{TMP_DIR}/log-dev-io-#{rotate_size}-#{rotate_age}"
+      path = "#{@tmp_dir}/log-dev-io-#{rotate_size}-#{rotate_age}"
       path0 = path + '.0'
       path1 = path + '.1'
 

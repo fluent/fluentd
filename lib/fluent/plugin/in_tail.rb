@@ -25,12 +25,7 @@ require 'fluent/variable_store'
 require 'fluent/capability'
 require 'fluent/plugin/in_tail/position_file'
 require 'fluent/plugin/in_tail/group_watch'
-
-if Fluent.windows?
-  require_relative 'file_wrapper'
-else
-  Fluent::FileWrapper = File
-end
+require 'fluent/file_wrapper'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input

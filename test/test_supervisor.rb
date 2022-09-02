@@ -2,12 +2,14 @@ require_relative 'helper'
 require 'fluent/event_router'
 require 'fluent/system_config'
 require 'fluent/supervisor'
+require 'fluent/file_wrapper'
 require_relative 'test_plugin_classes'
 
 require 'net/http'
 require 'uri'
 require 'fileutils'
 require 'tempfile'
+require 'securerandom'
 
 if Fluent.windows?
   require 'win32/event'
@@ -22,17 +24,29 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
   end
 
-  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/supervisor#{ENV['TEST_ENV_NUMBER']}")
-  TMP_ROOT_DIR = File.join(TMP_DIR, 'root')
+  def tmp_dir
+    File.join(File.dirname(__FILE__), "tmp", "supervisor#{ENV['TEST_ENV_NUMBER']}", SecureRandom.hex(10))
+  end
 
   def setup
-    FileUtils.rm_rf(TMP_DIR)
-    FileUtils.mkdir_p(TMP_DIR)
+    @tmp_dir = tmp_dir
+    @tmp_root_dir = File.join(@tmp_dir, 'root')
+    FileUtils.mkdir_p(@tmp_dir)
+  end
+
+  def teardown
+    begin
+      FileUtils.rm_rf(@tmp_dir)
+    rescue Errno::EACCES
+      # It may occur on Windows because of delete pending state due to delayed GC.
+      # Ruby 3.2 or later doesn't ignore Errno::EACCES:
+      # https://github.com/ruby/ruby/commit/983115cf3c8f75b1afbe3274f02c1529e1ce3a81
+    end
   end
 
   def write_config(path, data)
     FileUtils.mkdir_p(File.dirname(path))
-    File.open(path, "w") {|f| f.write data }
+    Fluent::FileWrapper.open(path, "w") {|f| f.write data }
   end
 
 
@@ -48,7 +62,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   enable_get_dump true
   process_name "process_name"
   log_level info
-  root_dir #{TMP_ROOT_DIR}
+  root_dir #{@tmp_root_dir}
   <log>
     format json
     time_format %Y
@@ -76,7 +90,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal true, sys_conf.enable_get_dump
     assert_equal "process_name", sys_conf.process_name
     assert_equal 2, sys_conf.log_level
-    assert_equal TMP_ROOT_DIR, sys_conf.root_dir
+    assert_equal @tmp_root_dir, sys_conf.root_dir
     assert_equal :json, sys_conf.log.format
     assert_equal '%Y', sys_conf.log.time_format
     counter_server = sys_conf.counter_server
@@ -116,7 +130,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         enable_get_dump: true
         process_name: "process_name"
         log_level: info
-        root_dir: !fluent/s "#{TMP_ROOT_DIR}"
+        root_dir: !fluent/s "#{@tmp_root_dir}"
         log:
           format: json
           time_format: "%Y"
@@ -144,7 +158,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         true,
         "process_name",
         2,
-        TMP_ROOT_DIR,
+        @tmp_root_dir,
         :json,
         '%Y',
         '127.0.0.1',
@@ -449,7 +463,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def test_load_config
-    tmp_dir = "#{TMP_DIR}/dir/test_load_config.conf"
+    tmp_dir = "#{@tmp_dir}/dir/test_load_config.conf"
     conf_info_str = %[
 <system>
   log_level info
@@ -520,7 +534,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def test_load_config_for_logger
-    tmp_dir = "#{TMP_DIR}/dir/test_load_config_log.conf"
+    tmp_dir = "#{@tmp_dir}/dir/test_load_config_log.conf"
     conf_info_str = %[
 <system>
   <log>
@@ -547,7 +561,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def test_load_config_for_daemonize
-    tmp_dir = "#{TMP_DIR}/dir/test_load_config.conf"
+    tmp_dir = "#{@tmp_dir}/dir/test_load_config.conf"
     conf_info_str = %[
 <system>
   log_level info
@@ -644,7 +658,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   )
   def test_logger_with_rotate_age_and_rotate_size(rotate_age)
     opts = Fluent::Supervisor.default_options.merge(
-      log_path: "#{TMP_DIR}/test", log_rotate_age: rotate_age, log_rotate_size: 10
+      log_path: "#{@tmp_dir}/test", log_rotate_age: rotate_age, log_rotate_size: 10
     )
     sv = Fluent::Supervisor.new(opts)
     log = sv.instance_variable_get(:@log)
@@ -674,7 +688,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         file.puts(config)
         file.flush
         opts = Fluent::Supervisor.default_options.merge(
-          log_path: "#{TMP_DIR}/test.log", config_path: file.path
+          log_path: "#{@tmp_dir}/test.log", config_path: file.path
         )
         sv = Fluent::Supervisor.new(opts)
 
@@ -699,7 +713,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         file.puts(config)
         file.flush
         opts = Fluent::Supervisor.default_options.merge(
-          log_path: "#{TMP_DIR}/test.log", config_path: file.path, config_file_type: :yaml,
+          log_path: "#{@tmp_dir}/test.log", config_path: file.path, config_file_type: :yaml,
         )
         sv = Fluent::Supervisor.new(opts)
 

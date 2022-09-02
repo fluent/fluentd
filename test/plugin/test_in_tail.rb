@@ -3,6 +3,7 @@ require 'fluent/test/driver/input'
 require 'fluent/plugin/in_tail'
 require 'fluent/plugin/buffer'
 require 'fluent/system_config'
+require 'fluent/file_wrapper'
 require 'net/http'
 require 'flexmock/test_unit'
 require 'timecop'
@@ -378,9 +379,9 @@ class TailInputTest < Test::Unit::TestCase
       conf = ROOT_CONFIG + DEBUG_LOG_LEVEL + create_group_directive(tailing_group_pattern, '1m', rule1) + create_path_element("test*.txt") + SINGLE_LINE_CONFIG
 
       d = create_driver(conf, false)
-      File.open("#{@tmp_dir}/test1.txt", 'w')
-      File.open("#{@tmp_dir}/test2.txt", 'w')
-      File.open("#{@tmp_dir}/test3.txt", 'w')
+      Fluent::FileWrapper.open("#{@tmp_dir}/test1.txt", 'w')
+      Fluent::FileWrapper.open("#{@tmp_dir}/test2.txt", 'w')
+      Fluent::FileWrapper.open("#{@tmp_dir}/test3.txt", 'w')
 
       d.run do
         ## checking default group_watcher's paths
@@ -419,10 +420,10 @@ class TailInputTest < Test::Unit::TestCase
       file4 = File.join(@tmp_dir, "test-podname4_test-namespace3_test-container-15fabq.log")
 
       d.run do
-        File.open(file1, 'w')
-        File.open(file2, 'w')
-        File.open(file3, 'w')
-        File.open(file4, 'w')
+        Fluent::FileWrapper.open(file1, 'w')
+        Fluent::FileWrapper.open(file2, 'w')
+        Fluent::FileWrapper.open(file3, 'w')
+        Fluent::FileWrapper.open(file4, 'w')
 
         instance = d.instance
         assert_equal(100, instance.find_group_from_metadata(file1).limit)
@@ -438,7 +439,7 @@ class TailInputTest < Test::Unit::TestCase
          parse: PARSE_SINGLE_LINE_CONFIG)
     def test_emit(data)
       config = data
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
@@ -446,7 +447,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config)
 
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3\ntest4"
         }
       end
@@ -462,11 +463,11 @@ class TailInputTest < Test::Unit::TestCase
 
     def test_emit_with_emit_unmatched_lines_true
       config = config_element("", "", { "format" => "/^(?<message>test.*)/", "emit_unmatched_lines" => true })
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       d = create_driver(config)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test line 1"
           f.puts "test line 2"
           f.puts "bad line 1"
@@ -498,7 +499,7 @@ class TailInputTest < Test::Unit::TestCase
       msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
 
       d.run(expect_emits: num_events, timeout: 2) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts msg
           f.puts msg
         }
@@ -544,7 +545,7 @@ class TailInputTest < Test::Unit::TestCase
 
           d = create_driver(config)
           d.run(expect_emits: 2) do
-            File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+            Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
               100.times do
                 f.puts msg
               end
@@ -567,7 +568,7 @@ class TailInputTest < Test::Unit::TestCase
           start_time = Fluent::Clock.now
           d = create_driver(config)
           d.run(expect_emits: 2) do
-            File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+            Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
               8000.times do
                 f.puts msg
               end
@@ -606,7 +607,7 @@ class TailInputTest < Test::Unit::TestCase
             io_handler
           end
 
-          File.open("#{@tmp_dir}/tail.txt", "ab") do |f|
+          Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") do |f|
             100.times do
               f.puts msg
             end
@@ -616,7 +617,7 @@ class TailInputTest < Test::Unit::TestCase
           d.run do
             start_time = Fluent::Clock.now
             while Fluent::Clock.now - start_time < 0.8 do
-              File.open("#{@tmp_dir}/tail.txt", "ab") do |f|
+              Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") do |f|
                 f.puts msg
                 f.flush
               end
@@ -634,7 +635,7 @@ class TailInputTest < Test::Unit::TestCase
           num_lines = 1024 * 3
           msg = "08bytes"
 
-          File.open("#{@tmp_dir}/tail.txt", "wb") do |f|
+          Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|
             f.write("#{msg}\n" * num_lines)
           end
 
@@ -670,7 +671,7 @@ class TailInputTest < Test::Unit::TestCase
           num_lines = 1024 * 2
           msg = "08bytes"
 
-          File.open("#{@tmp_dir}/tail.txt", "wb") do |f|
+          Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|
             f.write("#{msg}\n" * num_lines)
           end
 
@@ -718,7 +719,7 @@ class TailInputTest < Test::Unit::TestCase
          parse: CONFIG_READ_FROM_HEAD + PARSE_SINGLE_LINE_CONFIG)
     def test_emit_with_read_from_head(data)
       config = data
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
@@ -726,7 +727,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config)
 
       d.run(expect_emits: 2) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
         }
@@ -744,7 +745,7 @@ class TailInputTest < Test::Unit::TestCase
          parse: CONFIG_DISABLE_WATCH_TIMER + PARSE_SINGLE_LINE_CONFIG)
     def test_emit_without_watch_timer(data)
       config = data
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
@@ -752,7 +753,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config)
 
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
         }
@@ -776,7 +777,7 @@ class TailInputTest < Test::Unit::TestCase
                               })
       config = config + CONFIG_DISABLE_WATCH_TIMER + SINGLE_LINE_CONFIG
 
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
@@ -784,7 +785,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config, false)
 
       d.run(expect_emits: 1, timeout: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
         }
@@ -802,7 +803,7 @@ class TailInputTest < Test::Unit::TestCase
          parse: CONFIG_DISABLE_STAT_WATCHER + PARSE_SINGLE_LINE_CONFIG)
     def test_emit_with_disable_stat_watcher(data)
       config = data
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
@@ -810,7 +811,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config)
 
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
         }
@@ -826,7 +827,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(SINGLE_LINE_CONFIG)
 
       d.run(expect_emits: 1, timeout: 3) do
-        File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
           f.puts "test1\ntest2\n"
         }
       end
@@ -873,7 +874,7 @@ class TailInputTest < Test::Unit::TestCase
       system_conf = parse_system(CONFIG_SYSTEM)
       sc = Fluent::SystemConfig.new(system_conf)
       Fluent::Engine.init(sc)
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
@@ -881,7 +882,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver
 
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
         }
@@ -938,13 +939,13 @@ class TailInputTest < Test::Unit::TestCase
     def test_rotate_file_with_write_old(data)
       config = data
       events = sub_test_rotate_file(config, expect_emits: 3) { |rotated_file|
-        File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
         rotated_file.puts "test7"
         rotated_file.puts "test8"
         rotated_file.flush
 
         sleep 1
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "test5"
           f.puts "test6"
         }
@@ -994,10 +995,10 @@ class TailInputTest < Test::Unit::TestCase
         if block_given?
           yield file
         else
-          File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+          Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
           sleep 1
 
-          File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+          Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
             f.puts "test5"
             f.puts "test6"
           }
@@ -1012,7 +1013,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_truncate_file
     config = SINGLE_LINE_CONFIG
-    File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+    Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
       f.puts "test1"
       f.puts "test2"
       f.flush
@@ -1021,7 +1022,7 @@ class TailInputTest < Test::Unit::TestCase
     d = create_driver(config)
 
     d.run(expect_emits: 2) do
-      File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
         f.puts "test3\ntest4"
         f.flush
       }
@@ -1052,7 +1053,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_move_truncate_move_back
     config = SINGLE_LINE_CONFIG
-    File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+    Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
       f.puts "test1"
       f.puts "test2"
     }
@@ -1089,17 +1090,17 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_lf
-    File.open("#{@tmp_dir}/tail.txt", "wb") {|f| }
+    Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| }
 
     d = create_driver
 
     d.run(expect_emits: 1) do
-      File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
         f.print "test3"
       }
       sleep 1
 
-      File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
         f.puts "test4"
       }
     end
@@ -1110,12 +1111,12 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_whitespace
-    File.open("#{@tmp_dir}/tail.txt", "wb") {|f| }
+    Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| }
 
     d = create_driver
 
     d.run(expect_emits: 1) do
-      File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
         f.puts "    "		# 4 spaces
         f.puts "    4 spaces"
         f.puts "4 spaces    "
@@ -1146,7 +1147,7 @@ class TailInputTest < Test::Unit::TestCase
     d = create_driver(CONFIG_READ_FROM_HEAD + encoding_config)
 
     d.run(expect_emits: 1) do
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test"
       }
     end
@@ -1168,7 +1169,7 @@ class TailInputTest < Test::Unit::TestCase
     utf8_message = cp932_message.encode(Encoding::UTF_8)
 
     d.run(expect_emits: 1) do
-      File.open("#{@tmp_dir}/tail.txt", "w:cp932") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "w:cp932") {|f|
         f.puts cp932_message
       }
     end
@@ -1191,7 +1192,7 @@ class TailInputTest < Test::Unit::TestCase
     utf8_message = utf16_message.encode(Encoding::UTF_8).strip
 
     d.run(expect_emits: 1) do
-      File.open("#{@tmp_dir}/tail.txt", "w:utf-16le") { |f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "w:utf-16le") { |f|
         f.write utf16_message
       }
     end
@@ -1212,7 +1213,7 @@ class TailInputTest < Test::Unit::TestCase
     d = create_driver(conf)
 
     d.run(expect_emits: 1) do
-      File.open("#{@tmp_dir}/tail.txt", "w") { |f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "w") { |f|
         f.write "te\x86st\n"
       }
     end
@@ -1227,11 +1228,11 @@ class TailInputTest < Test::Unit::TestCase
          parse: PARSE_MULTILINE_CONFIG)
     def test_multiline(data)
       config = data
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       d = create_driver(config)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "f test1"
           f.puts "s test2"
           f.puts "f test3"
@@ -1255,11 +1256,11 @@ class TailInputTest < Test::Unit::TestCase
          parse: PARSE_MULTILINE_CONFIG)
     def test_multiline_with_emit_unmatched_lines_true(data)
       config = data + config_element("", "", { "emit_unmatched_lines" => true })
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       d = create_driver(config)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "f test1"
           f.puts "s test2"
           f.puts "f test3"
@@ -1285,11 +1286,11 @@ class TailInputTest < Test::Unit::TestCase
       parse: PARSE_MULTILINE_CONFIG_WITH_NEWLINE)
     def test_multiline_with_emit_unmatched_lines2(data)
       config = data + config_element("", "", { "emit_unmatched_lines" => true })
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       d = create_driver(config)
       d.run(expect_emits: 0, timeout: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "s test0"
           f.puts "f test1"
           f.puts "f test2"
@@ -1311,7 +1312,7 @@ class TailInputTest < Test::Unit::TestCase
     data(flat: MULTILINE_CONFIG,
          parse: PARSE_MULTILINE_CONFIG)
     def test_multiline_with_flush_interval(data)
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       config = data + config_element("", "", { "multiline_flush_interval" => "2s" })
       d = create_driver(config)
@@ -1319,7 +1320,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(2, d.instance.multiline_flush_interval)
 
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "f test1"
           f.puts "s test2"
           f.puts "f test3"
@@ -1354,7 +1355,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config + encoding_config)
 
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "wb") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f|
           f.puts "s test"
         }
       end
@@ -1377,7 +1378,7 @@ class TailInputTest < Test::Unit::TestCase
       cp932_message = "s \x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
       utf8_message = "\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".encode(Encoding::UTF_8, Encoding::CP932)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "w:cp932") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "w:cp932") { |f|
           f.puts cp932_message
         }
       end
@@ -1409,11 +1410,11 @@ class TailInputTest < Test::Unit::TestCase
         )
     def test_multiline_with_multiple_formats(data)
       config = data
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       d = create_driver(config)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "f test1"
           f.puts "s test2"
           f.puts "f test3"
@@ -1450,7 +1451,7 @@ class TailInputTest < Test::Unit::TestCase
         )
     def test_multilinelog_with_multiple_paths(data)
       files = ["#{@tmp_dir}/tail1.txt", "#{@tmp_dir}/tail2.txt"]
-      files.each { |file| File.open(file, "wb") { |f| } }
+      files.each { |file| Fluent::FileWrapper.open(file, "wb") { |f| } }
 
       config = data + config_element("", "", {
                                        "path" => "#{files[0]},#{files[1]}",
@@ -1459,7 +1460,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config, false)
       d.run(expect_emits: 2) do
         files.each do |file|
-          File.open(file, 'ab') { |f|
+          Fluent::FileWrapper.open(file, 'ab') { |f|
             f.puts "f #{file} line should be ignored"
             f.puts "s test1"
             f.puts "f test2"
@@ -1494,12 +1495,12 @@ class TailInputTest < Test::Unit::TestCase
            ])
         )
     def test_multiline_without_firstline(data)
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       config = data
       d = create_driver(config)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "foo 1"
           f.puts "bar 1"
           f.puts "baz 1"
@@ -1605,10 +1606,10 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config, false)
       d.end_if { d.instance.instance_variable_get(:@tails).keys.size >= 1 }
       d.run(expect_emits: 1, shutdown: false) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f| f.puts "test3\n" }
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f| f.puts "test3\n" }
       end
 
-      cleanup_directory(@tmp_dir)
+      cleanup_file("#{@tmp_dir}/tail.txt")
       waiting(20) { sleep 0.1 until Dir.glob("#{@tmp_dir}/*.txt").size == 0 } # Ensure file is deleted on Windows
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size <= 0 }
 
@@ -1624,6 +1625,7 @@ class TailInputTest < Test::Unit::TestCase
       )
     ensure
       d.instance_shutdown if d && d.instance
+      cleanup_directory(@tmp_dir)
     end
 
     def count_timer_object
@@ -1882,7 +1884,7 @@ class TailInputTest < Test::Unit::TestCase
                                 "max_line_size" => label,
                                 "log_level" => "debug"
                               })
-      File.open("#{@tmp_dir}/with_long_lines.txt", "w+") do |f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/with_long_lines.txt", "w+") do |f|
         f.puts "foo"
         f.puts "x" * size # 'x' * size + \n > @max_line_size
         f.puts "bar"
@@ -1908,7 +1910,7 @@ class TailInputTest < Test::Unit::TestCase
   # Ensure that no fatal exception is raised when a file is missing and that
   # files that do exist are still tailed as expected.
   def test_missing_file
-    File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+    Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
       f.puts "test1"
       f.puts "test2"
     }
@@ -1926,7 +1928,7 @@ class TailInputTest < Test::Unit::TestCase
     [config1, config2].each do |config|
       d = create_driver(config, false)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
         }
@@ -1947,14 +1949,14 @@ class TailInputTest < Test::Unit::TestCase
       path = "#{@tmp_dir}/tail.txt"
       ino = 1
       pos = 1234
-      File.open("#{@tmp_dir}/tail.pos", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "wb") {|f|
         f.puts ("%s\t%016x\t%016x\n" % [path, pos, ino])
       }
 
       d = create_driver(config, false)
       d.run
 
-      pos_file = File.open("#{@tmp_dir}/tail.pos", "r")
+      pos_file = Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "r")
       pos_file.pos = 0
 
       assert_raise(EOFError) do
@@ -1964,20 +1966,20 @@ class TailInputTest < Test::Unit::TestCase
 
     def test_should_write_latest_offset_after_rotate_wait
       config = common_follow_inode_config
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
 
       d = create_driver(config, false)
       d.run(expect_emits: 2, shutdown: false) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
         FileUtils.move("#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt" + "1")
         sleep 1
-        File.open("#{@tmp_dir}/tail.txt" + "1", "ab") {|f| f.puts "test4\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt" + "1", "ab") {|f| f.puts "test4\n"}
       end
 
-      pos_file = File.open("#{@tmp_dir}/tail.pos", "r")
+      pos_file = Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "r")
       pos_file.pos = 0
       line_parts = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(pos_file.readline)
       waiting(5) {
@@ -1997,13 +1999,13 @@ class TailInputTest < Test::Unit::TestCase
       path = "#{@tmp_dir}/tail.txt"
       ino = 1
       pos = 1234
-      File.open("#{@tmp_dir}/tail.pos", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "wb") {|f|
         f.puts ("%s\t%016x\t%016x\n" % [path, pos, ino])
       }
 
       d = create_driver(config)
       d.run do
-        pos_file = File.open("#{@tmp_dir}/tail.pos", "r")
+        pos_file = Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "r")
         pos_file.pos = 0
         assert_equal([], pos_file.readlines)
       end
@@ -2024,14 +2026,14 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
 
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
       target_info = create_target_info("#{@tmp_dir}/tail.txt")
 
       d.run(expect_emits: 1, shutdown: false) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
       end
 
 
@@ -2062,13 +2064,13 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
 
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
 
       d.run(expect_emits: 2, shutdown: false) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
         FileUtils.move("#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt1")
       end
 
@@ -2082,13 +2084,13 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
 
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
 
       d.run(expect_emits: 1, shutdown: false) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
       end
 
       FileUtils.move("#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt1")
@@ -2106,16 +2108,16 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
 
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
       target_info = create_target_info("#{@tmp_dir}/tail.txt")
 
       d.run(expect_emits: 2, shutdown: false) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
         cleanup_file("#{@tmp_dir}/tail.txt")
-        File.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "test4\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "test4\n"}
       end
 
       new_target_info = create_target_info("#{@tmp_dir}/tail.txt")
@@ -2147,7 +2149,7 @@ class TailInputTest < Test::Unit::TestCase
         @metrics = Fluent::Plugin::TailInput::MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics)
       end
 
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
@@ -2171,18 +2173,18 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
 
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
       path_ino = create_target_info("#{@tmp_dir}/tail.txt")
 
       d.run(expect_emits: 1, shutdown: false) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
       end
 
       cleanup_file("#{@tmp_dir}/tail.txt")
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test3"
         f.puts "test4"
       }
@@ -2208,15 +2210,15 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
 
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
 
       d.run(expect_emits: 3, shutdown: false) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "test3\n"}
         sleep 2
-        File.open("#{@tmp_dir}/tail.txt", "w+b") {|f| f.puts "test4\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "w+b") {|f| f.puts "test4\n"}
       end
 
       events = d.events
@@ -2230,7 +2232,7 @@ class TailInputTest < Test::Unit::TestCase
 
     # issue #3464
     def test_should_replace_target_info
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1\n"
       }
       target_info = create_target_info("#{@tmp_dir}/tail.txt")
@@ -2257,7 +2259,7 @@ class TailInputTest < Test::Unit::TestCase
         assert_equal([target_info.ino], inodes)
 
         cleanup_file("#{@tmp_dir}/tail.txt")
-        File.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "test2\n"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "test2\n"}
 
         while d.events.size < 2 do
           sleep 0.1
@@ -2274,7 +2276,7 @@ class TailInputTest < Test::Unit::TestCase
 
   sub_test_case "tail_path" do
     def test_tail_path_with_singleline
-      File.open("#{@tmp_dir}/tail.txt", "wb") {|f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
@@ -2282,7 +2284,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "path_key" => "path" }))
 
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") {|f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
         }
@@ -2296,7 +2298,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_tail_path_with_multiline_with_firstline
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       config = config_element("", "", {
                                 "path_key" => "path",
@@ -2306,7 +2308,7 @@ class TailInputTest < Test::Unit::TestCase
                               })
       d = create_driver(config)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "f test1"
           f.puts "s test2"
           f.puts "f test3"
@@ -2326,7 +2328,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_tail_path_with_multiline_without_firstline
-      File.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
 
       config = config_element("", "", {
                                 "path_key" => "path",
@@ -2337,7 +2339,7 @@ class TailInputTest < Test::Unit::TestCase
                               })
       d = create_driver(config)
       d.run(expect_emits: 1) do
-        File.open("#{@tmp_dir}/tail.txt", "ab") { |f|
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f|
           f.puts "foo 1"
           f.puts "bar 1"
           f.puts "baz 1"
@@ -2356,7 +2358,7 @@ class TailInputTest < Test::Unit::TestCase
         omit "This testcase is unstable on AppVeyor."
       end
       files = ["#{@tmp_dir}/tail1.txt", "#{@tmp_dir}/tail2.txt"]
-      files.each { |file| File.open(file, "wb") { |f| } }
+      files.each { |file| Fluent::FileWrapper.open(file, "wb") { |f| } }
 
       config = config_element("", "", {
                                 "path" => "#{files[0]},#{files[1]}",
@@ -2369,7 +2371,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config, false)
       d.run(expect_emits: 2) do
         files.each do |file|
-          File.open(file, 'ab') { |f|
+          Fluent::FileWrapper.open(file, 'ab') { |f|
             f.puts "f #{file} line should be ignored"
             f.puts "s test1"
             f.puts "f test2"
@@ -2500,7 +2502,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_shutdown_timeout
-    File.open("#{@tmp_dir}/tail.txt", "wb") do |f|
+    Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|
       # Should be large enough to take too long time to consume
       (1024 * 1024 * 5).times do
         f.puts "{\"test\":\"fizzbuzz\"}"
@@ -2548,7 +2550,7 @@ class TailInputTest < Test::Unit::TestCase
 
       conf = ROOT_CONFIG + group + path_element + CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG
 
-      File.open("#{@tmp_dir}/#{file}", 'wb') do |f|
+      Fluent::FileWrapper.open("#{@tmp_dir}/#{file}", 'wb') do |f|
         num_lines.times do
           f.puts "#{msg}\n"
         end
@@ -2594,7 +2596,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(conf, false)
       file_path = "#{@tmp_dir}/#{file}"
 
-      File.open(file_path, 'wb') do |f|
+      Fluent::FileWrapper.open(file_path, 'wb') do |f|
         num_lines.times do
           f.puts msg
         end
