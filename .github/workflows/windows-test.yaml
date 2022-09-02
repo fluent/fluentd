@@ -13,25 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: ['3.1', '2.7']
+        ruby-version: ['head']
         os:
           - windows-latest
-        experimental: [false]
-        include:
-          - ruby-version: head
-            os: windows-latest
-            experimental: true
-          - ruby-version: '3.0.3'
-            os: windows-latest
-            experimental: false
-            # On Ruby 3.0, we need to use fiddle 1.0.8 or later to retrieve correct
-            # error code. In addition, we have to specify the path of fiddle by RUBYLIB
-            # because RubyInstaller loads Ruby's bundled fiddle before initializing gem.
-            # See also:
-            # * https://github.com/ruby/fiddle/issues/72
-            # * https://bugs.ruby-lang.org/issues/17813
-            # * https://github.com/oneclick/rubyinstaller2/blob/8225034c22152d8195bc0aabc42a956c79d6c712/lib/ruby_installer/build/dll_directory.rb
-            ruby-lib-opt: RUBYLIB=%RUNNER_TOOL_CACHE%/Ruby/3.0.3/x64/lib/ruby/gems/3.0.0/gems/fiddle-1.1.0/lib
+        experimental: [true]
 
     name: Unit testing with Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
@@ -46,4 +31,4 @@ jobs:
       - name: Install dependencies
         run: ridk exec bundle install
       - name: Run tests
-        run: bundle exec rake test TESTOPTS=-v ${{ matrix.ruby-lib-opt }}
+        run: "bundle exec rake test TESTOPTS=\"--name='test: Create connection per send_data'\""
