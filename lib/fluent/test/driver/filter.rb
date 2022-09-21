@@ -37,6 +37,10 @@ module Fluent
           @filtered.map {|_time, record| record }
         end
 
+        def filtered_time
+          @filtered.map {|_time, record| _time }
+        end
+
         def instance_hook_after_started
           super
           filter_hook = ->(time, record) { @filtered << [time, record] }
