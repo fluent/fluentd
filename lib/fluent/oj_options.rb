@@ -4,7 +4,6 @@ module Fluent
   class OjOptions
     OPTIONS = {
       'bigdecimal_load': :symbol,
-      'max_nesting': :integer,
       'mode': :symbol,
       'use_to_json': :bool
     }
