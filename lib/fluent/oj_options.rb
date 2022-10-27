@@ -4,14 +4,13 @@ module Fluent
   class OjOptions
     OPTIONS = {
       'bigdecimal_load': :symbol,
-      'max_nesting': :integer,
       'mode': :symbol,
       'use_to_json': :bool
     }
 
     ALLOWED_VALUES = {
       'bigdecimal_load': %i[bigdecimal float auto],
-      'mode': %i[strict null compat json rails object custom]
+      'mode': %i[strict null compat json rails custom]
     }
 
     DEFAULTS = {
