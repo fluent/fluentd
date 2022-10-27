@@ -1,5 +1,24 @@
 # v1.15
 
+## Release v1.15.3 - 2022/11/02
+
+### Bug Fix
+
+* Support glob for `!include` directive in YAML config format
+  https://github.com/fluent/fluentd/pull/3917
+* Remove meaningless oj options
+  https://github.com/fluent/fluentd/pull/3929
+* Fix log initializer to correctly create per-process files on Windows
+  https://github.com/fluent/fluentd/pull/3939
+* out_file: Fix the multi-worker check with `<worker 0-N>` directive
+  https://github.com/fluent/fluentd/pull/3942
+
+### Misc
+
+* Fix broken tests on Ruby 3.2
+  https://github.com/fluent/fluentd/pull/3883
+  https://github.com/fluent/fluentd/pull/3922
+
 ## Release v1.15.2 - 2022/08/22
 
 ### Enhancement
