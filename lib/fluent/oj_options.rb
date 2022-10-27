@@ -11,7 +11,7 @@ module Fluent
 
     ALLOWED_VALUES = {
       'bigdecimal_load': %i[bigdecimal float auto],
-      'mode': %i[strict null compat json rails object custom]
+      'mode': %i[strict null compat json rails custom]
     }
 
     DEFAULTS = {
