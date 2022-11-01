@@ -345,17 +345,6 @@ end
 exit 0 if early_exit
 
 if opts[:supervise]
-  if Fluent.windows?
-    if opts[:log_path] && opts[:log_path] != "-"
-      if opts[:log_rotate_age] || opts[:log_rotate_size]
-        require 'pathname'
-
-        log_path = Pathname(opts[:log_path]).sub_ext("-supervisor#{Pathname(opts[:log_path]).extname}").to_s
-        opts[:log_path] = log_path
-      end
-    end
-  end
-
   supervisor = Fluent::Supervisor.new(opts)
   supervisor.configure(supervisor: true)
   supervisor.run_supervisor(dry_run: opts[:dry_run])

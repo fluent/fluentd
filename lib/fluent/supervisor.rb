@@ -525,10 +525,22 @@ module Fluent
         @log_rotate_size = log_rotate_size
       end
 
-      def worker_id_suffixed_path(worker_id, path)
-        require 'pathname'
+      # Create a unique path for each process.
+      #
+      # >>> per_process_path(:worker, 1, "C:/tmp/test.log")
+      # C:/tmp/test-1.log
+      # >>> per_process_path(:supervisor, 0, "C:/tmp/test.log")
+      # C:/tmp/test-supervisor-0.log
+      def self.per_process_path(path, process_type, worker_id)
+        path = Pathname(path)
+        ext = path.extname
 
-        Pathname(path).sub_ext("-#{worker_id}#{Pathname(path).extname}").to_s
+        if process_type == :supervisor
+          suffix = "-#{process_type}-0#{ext}"  # "-0" for backword compatibility.
+        else
+          suffix = "-#{worker_id}#{ext}"
+        end
+        return path.sub_ext(suffix).to_s
       end
 
       def init(process_type, worker_id)
@@ -540,13 +552,19 @@ module Fluent
             FileUtils.mkdir_p(File.dirname(@path))
           end
 
-          @logdev = if @log_rotate_age || @log_rotate_size
-                     Fluent::LogDeviceIO.new(Fluent.windows? ?
-                                               worker_id_suffixed_path(worker_id, @path) : @path,
-                                             shift_age: @log_rotate_age, shift_size: @log_rotate_size)
-                   else
-                     File.open(@path, "a")
-                   end
+          if @log_rotate_age || @log_rotate_size
+            # We need to prepare a unique path for each worker since
+            # Windows locks files.
+            if Fluent.windows?
+                path = LoggerInitializer.per_process_path(@path, process_type, worker_id)
+            else
+                path = @path
+            end
+            @logdev = Fluent::LogDeviceIO.new(path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
+          else
+            @logdev = File.open(@path, "a")
+          end
+
           if @chuser || @chgroup
             chuid = @chuser ? ServerEngine::Privilege.get_etc_passwd(@chuser).uid : nil
             chgid = @chgroup ? ServerEngine::Privilege.get_etc_group(@chgroup).gid : nil
@@ -565,6 +583,7 @@ module Fluent
         $log = Fluent::Log.new(logger, @opts)
         $log.enable_color(false) if @path
         $log.enable_debug if @level <= Fluent::Log::LEVEL_DEBUG
+        $log.info "init #{process_type} logger", path: path, rotate_age: @log_rotate_age, rotate_size: @log_rotate_size
       end
 
       def stdout?
