@@ -1097,6 +1097,9 @@ module Fluent::Plugin
                   end
                 rescue EOFError
                   @eof = true
+                rescue Errno::ESTALE
+                  @log.info "remote file was deleted during read", path: path
+                  @eof = true
                 end
               end
 
