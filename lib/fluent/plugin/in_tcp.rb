@@ -40,6 +40,8 @@ module Fluent::Plugin
 
     desc 'The payload is read up to this character.'
     config_param :delimiter, :string, default: "\n" # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
+    desc 'Check the remote connection is still available by sending a keepalive packet if this value is true.'
+    config_param :send_keepalive_packet, :bool, default: false
 
     # in_forward like host/network restriction
     config_section :security, required: false, multi: false do
@@ -101,7 +103,7 @@ module Fluent::Plugin
       log.info "listening tcp socket", bind: @bind, port: @port
       del_size = @delimiter.length
       if @_extract_enabled && @_extract_tag_key
-        server_create(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
+        server_create(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key, send_keepalive_packet: @send_keepalive_packet) do |data, conn|
           unless check_client(conn)
             conn.close
             next
@@ -131,7 +133,7 @@ module Fluent::Plugin
           buf.slice!(0, pos) if pos > 0
         end
       else
-        server_create(:in_tcp_server_batch_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
+        server_create(:in_tcp_server_batch_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key, send_keepalive_packet: @send_keepalive_packet) do |data, conn|
           unless check_client(conn)
             conn.close
             next

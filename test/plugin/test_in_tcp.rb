@@ -156,6 +156,19 @@ class TcpInputTest < Test::Unit::TestCase
     assert_equal hostname, event[2]['host']
   end
 
+  test "send_keepalive_packet_can_be_enabled" do
+    d = create_driver(base_config + %!
+      format none
+      send_keepalive_packet true
+    !)
+    assert_true d.instance.send_keepalive_packet
+
+    d = create_driver(base_config + %!
+      format none
+    !)
+    assert_false d.instance.send_keepalive_packet
+  end
+
   test 'source_address_key' do
     d = create_driver(base_config + %!
       format none
