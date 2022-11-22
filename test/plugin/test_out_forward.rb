@@ -1331,26 +1331,22 @@ EOL
         d = create_driver(output_conf)
         d.instance_start
 
-        begin
-          chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, @target_port,
-                                                   linger_timeout: anything,
-                                                   send_timeout: anything,
-                                                   recv_timeout: anything,
-                                                   connect_timeout: anything) { |sock|
-            mock(sock).close.once; sock
-          }.twice
+        chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+        mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, @target_port,
+                                                 linger_timeout: anything,
+                                                 send_timeout: anything,
+                                                 recv_timeout: anything,
+                                                 connect_timeout: anything) { |sock|
+          mock(sock).close.once; sock
+        }.twice
 
-          target_input_driver.run(timeout: 15) do
-            d.run(shutdown: false) do
-              node = d.instance.nodes.first
-              2.times do
-                node.send_data('test', chunk) rescue nil
-              end
+        target_input_driver.run(timeout: 15) do
+          d.run do
+            node = d.instance.nodes.first
+            2.times do
+              node.send_data('test', chunk) rescue nil
             end
           end
-        ensure
-          d.instance_shutdown
         end
       end
     end
