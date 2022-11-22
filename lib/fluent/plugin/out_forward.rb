@@ -30,17 +30,6 @@ require 'fluent/plugin/out_forward/error'
 require 'fluent/plugin/out_forward/connection_manager'
 require 'fluent/plugin/out_forward/ack_handler'
 
-module Coolio
-  class Server < Listener
-    def on_connection(socket)
-      loop = evloop
-      connection = @klass.new(socket, *@args).attach(loop)
-      connection.__send__(:on_connect)
-      @block.call(connection) if @block
-    end
-  end
-end
-
 module Fluent::Plugin
   class ForwardOutput < Output
     Fluent::Plugin.register_output('forward', self)
