@@ -38,7 +38,7 @@ module Fluent
         end
 
         def filtered_time
-          @filtered.map {|_time, record| _time }
+          @filtered.map {|time, _record| time }
         end
 
         def instance_hook_after_started
