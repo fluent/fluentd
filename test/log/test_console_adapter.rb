@@ -20,6 +20,11 @@ class ConsoleAdapterTest < Test::Unit::TestCase
     Timecop.return
   end
 
+  def test_expected_log_levels
+    assert_equal({debug: 0, info: 1, warn: 2, error: 3, fatal: 4},
+                 Console::Logger::LEVELS)
+  end
+
   data(debug: :debug,
        info: :info,
        warn: :warn,
@@ -28,6 +33,17 @@ class ConsoleAdapterTest < Test::Unit::TestCase
   def test_one_message(level)
     @console_logger.send(level, "message1")
     assert_equal(["#{@timestamp_str} [#{level}]: message1\n"],
+                 @logdev.logs)
+  end
+
+  data(debug: :debug,
+       info: :info,
+       warn: :warn,
+       error: :error,
+       fatal: :fatal)
+  def test_block(level)
+    @console_logger.send(level) { "block message" }
+    assert_equal(["#{@timestamp_str} [#{level}]: block message\n"],
                  @logdev.logs)
   end
 end
