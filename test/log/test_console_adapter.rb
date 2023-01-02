@@ -92,4 +92,19 @@ class ConsoleAdapterTest < Test::Unit::TestCase
                  ],
                  @logdev.logs)
   end
+
+  data(debug: :debug,
+       info: :info,
+       warn: :warn,
+       error: :error,
+       fatal: :fatal)
+  def test_multiple_entries(level)
+    @console_logger.send(level, "subject1")
+    @console_logger.send(level, "line2")
+    assert_equal([
+                   "#{@timestamp_str} [#{level}]:   0.0s: subject1\n",
+                   "#{@timestamp_str} [#{level}]:   0.0s: line2\n"
+                 ],
+                 @logdev.logs)
+  end
 end

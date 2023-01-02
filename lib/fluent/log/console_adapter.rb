@@ -43,6 +43,7 @@ module Fluent
           level = 'warn'
         end
 
+        @io.seek(0)
         @io.truncate(0)
         super
         @logger.send(severity, @io.string.chomp)
