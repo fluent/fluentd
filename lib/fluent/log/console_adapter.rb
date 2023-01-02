@@ -20,12 +20,12 @@ module Fluent
   class Log
     class ConsoleAdapter < Console::Terminal::Logger
       def self.wrap(logger)
-        Console::Logger.new(ConsoleAdapter.new(StringIO.new, logger))
+        Console::Logger.new(ConsoleAdapter.new(logger))
       end
 
-      def initialize(io, logger)
+      def initialize(logger)
         @logger = logger
-        super(io, verbose: false)
+        super(StringIO.new, verbose: false)
       end
 
       def call(subject = nil, *arguments, name: nil, severity: 'info', **options, &block)
