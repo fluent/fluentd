@@ -20,7 +20,14 @@ module Fluent
   class Log
     class ConsoleAdapter < Console::Terminal::Logger
       def self.wrap(logger)
-        Console::Logger.new(ConsoleAdapter.new(logger))
+        _, level = Console::Logger::LEVELS.find { |key, value|
+          if logger.level <= 0
+            key == :debug
+          else
+            value == logger.level - 1
+          end
+        }
+        Console::Logger.new(ConsoleAdapter.new(logger), level: level)
       end
 
       def initialize(logger)

@@ -13,7 +13,6 @@ class ConsoleAdapterTest < Test::Unit::TestCase
     @logger = ServerEngine::DaemonLogger.new(@logdev)
     @fluent_log = Fluent::Log.new(@logger)
     @console_logger = Fluent::Log::ConsoleAdapter.wrap(@fluent_log)
-    @console_logger.level = :debug
   end
 
   def teardown
@@ -23,6 +22,20 @@ class ConsoleAdapterTest < Test::Unit::TestCase
   def test_expected_log_levels
     assert_equal({debug: 0, info: 1, warn: 2, error: 3, fatal: 4},
                  Console::Logger::LEVELS)
+  end
+
+  data(trace: [Fluent::Log::LEVEL_TRACE, :debug],
+       debug: [Fluent::Log::LEVEL_DEBUG, :debug],
+       info: [Fluent::Log::LEVEL_INFO, :info],
+       warn: [Fluent::Log::LEVEL_WARN, :warn],
+       error: [Fluent::Log::LEVEL_ERROR, :error],
+       fatal: [Fluent::Log::LEVEL_FATAL, :fatal])
+  def test_reflect_log_level(data)
+    level, expected = data
+    @fluent_log.level = level
+    console_logger = Fluent::Log::ConsoleAdapter.wrap(@fluent_log)
+    assert_equal(Console::Logger::LEVELS[expected],
+                 console_logger.level)
   end
 
   data(debug: :debug,
