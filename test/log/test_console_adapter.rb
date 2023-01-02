@@ -31,8 +31,8 @@ class ConsoleAdapterTest < Test::Unit::TestCase
        error: :error,
        fatal: :fatal)
   def test_one_message(level)
-    @console_logger.send(level, "message1")
-    assert_equal(["#{@timestamp_str} [#{level}]: message1\n"],
+    @console_logger.send(level, "subject")
+    assert_equal(["#{@timestamp_str} [#{level}]:   0.0s: subject\n"],
                  @logdev.logs)
   end
 
@@ -42,8 +42,11 @@ class ConsoleAdapterTest < Test::Unit::TestCase
        error: :error,
        fatal: :fatal)
   def test_block(level)
-    @console_logger.send(level) { "block message" }
-    assert_equal(["#{@timestamp_str} [#{level}]: block message\n"],
+    @console_logger.send(level, "subject") { "block message" }
+    assert_equal([
+                   "#{@timestamp_str} [#{level}]:   0.0s: subject\n" +
+                   "      | block message\n"
+                 ],
                  @logdev.logs)
   end
 end

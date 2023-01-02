@@ -18,44 +18,27 @@ require 'console/serialized/logger'
 
 module Fluent
   class Log
-    class ConsoleAdapter < Console::Serialized::Logger
+    class ConsoleAdapter < Console::Terminal::Logger
       def self.wrap(logger)
-        Console::Logger.new(ConsoleAdapter.new(logger))
+        Console::Logger.new(ConsoleAdapter.new(StringIO.new, logger))
       end
 
-      def initialize(logger)
+      def initialize(io, logger)
         @logger = logger
-        super(@logger)
+        super(io, verbose: false)
       end
 
-      def call(subject = nil, *arguments, severity: 'info', **options, &block)
+      def call(subject = nil, *arguments, name: nil, severity: 'info', **options, &block)
         if LEVEL_TEXT.include?(severity.to_s)
           level = severity
         else
-          @logger.warn "Unknown severity: #{severity}"
+          @logger.warn("Unknown severity: #{severity}")
           level = 'warn'
         end
 
-        args = arguments.dup
-        args.unshift("#{subject}") if subject
-
-        if block_given?
-          if block.arity.zero?
-            args << yield
-          else
-            buffer = StringIO.new
-            yield buffer
-            args << buffer.string
-          end
-        end
-
-        exception = find_exception(args)
-        args.delete(exception) if exception
-
-        @logger.send(severity, args.join(" "))
-        if exception && @logger.respond_to?("#{level}_backtrace")
-          @logger.send("#{level}_backtrace", exception)
-        end
+        @io.truncate(0)
+        super
+        @logger.send(severity, @io.string.chomp)
       end
     end
   end
