@@ -30,9 +30,39 @@ class ConsoleAdapterTest < Test::Unit::TestCase
        warn: :warn,
        error: :error,
        fatal: :fatal)
-  def test_one_message(level)
+  def test_string_subject(level)
     @console_logger.send(level, "subject")
     assert_equal(["#{@timestamp_str} [#{level}]:   0.0s: subject\n"],
+                 @logdev.logs)
+  end
+
+  data(debug: :debug,
+       info: :info,
+       warn: :warn,
+       error: :error,
+       fatal: :fatal)
+  def test_args(level)
+    @console_logger.send(level, "subject", 1, 2, 3)
+    assert_equal([
+                   "#{@timestamp_str} [#{level}]:   0.0s: subject\n" +
+                   "      | 1\n" +
+                   "      | 2\n" +
+                   "      | 3\n"
+                 ],
+                 @logdev.logs)
+  end
+
+  data(debug: :debug,
+       info: :info,
+       warn: :warn,
+       error: :error,
+       fatal: :fatal)
+  def test_options(level)
+    @console_logger.send(level, "subject", kwarg1: "opt1", kwarg2: "opt2")
+    assert_equal([
+                   "#{@timestamp_str} [#{level}]:   0.0s: subject\n" +
+                   "      | {\"kwarg1\":\"opt1\",\"kwarg2\":\"opt2\"}\n"
+                 ],
                  @logdev.logs)
   end
 
