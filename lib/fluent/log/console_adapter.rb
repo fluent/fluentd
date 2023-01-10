@@ -35,6 +35,16 @@ module Fluent
 
       def initialize(logger)
         @logger = logger
+        # When `verbose` is `true`, following items will be added as a prefix or
+        # suffix of the subject:
+        #   * Severity
+        #   * Object ID
+        #   * PID
+        #   * Time
+        # Severity and Time are added by Fluentd::Log too so they are redundant.
+        # PID is the worker's PID so it's also redundant.
+        # Object ID will be too verbose in usual cases.
+        # So set it as `false` here to suppress redundant items.
         super(StringIO.new, verbose: false)
       end
 
