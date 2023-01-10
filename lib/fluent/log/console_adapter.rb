@@ -18,6 +18,9 @@ require 'console/serialized/logger'
 
 module Fluent
   class Log
+    # Async gem which is used by http_server helper switched logger mechanism to
+    # Console gem which isn't complatible with Ruby's standard Logger (since
+    # v1.17). This class adapts it to Fluentd's logger mechanism.
     class ConsoleAdapter < Console::Terminal::Logger
       def self.wrap(logger)
         _, level = Console::Logger::LEVELS.find { |key, value|
