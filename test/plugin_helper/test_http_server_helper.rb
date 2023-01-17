@@ -127,7 +127,7 @@ class HttpHelperTest < Test::Unit::TestCase
     end
 
     client = Async::HTTP::Client.new(Async::HTTP::Endpoint.parse("https://#{addr}:#{port}", ssl_context: context))
-    reactor = Async::Reactor.new(nil, logger: NULL_LOGGER)
+    reactor = Async::Reactor.new(nil, logger: Fluent::Log::ConsoleAdapter.wrap(NULL_LOGGER))
 
     resp = nil
     error = nil
