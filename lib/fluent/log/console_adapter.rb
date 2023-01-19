@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'console/serialized/logger'
+require 'console/terminal/logger'
 
 module Fluent
   class Log
