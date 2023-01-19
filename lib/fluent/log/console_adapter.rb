@@ -59,7 +59,7 @@ module Fluent
         @io.seek(0)
         @io.truncate(0)
         super
-        @logger.send(severity, @io.string.chomp)
+        @logger.send(level, @io.string.chomp)
       end
     end
   end
