@@ -21,6 +21,7 @@ require 'async/http/endpoint'
 require 'fluent/plugin_helper/http_server/app'
 require 'fluent/plugin_helper/http_server/router'
 require 'fluent/plugin_helper/http_server/methods'
+require 'fluent/log/console_adapter'
 
 module Fluent
   module PluginHelper
@@ -38,7 +39,7 @@ module Fluent
           scheme = tls_context ? 'https' : 'http'
           @uri = URI("#{scheme}://#{@addr}:#{@port}").to_s
           @router = Router.new(default_app)
-          @reactor = Async::Reactor.new(nil, logger: @logger)
+          @reactor = Async::Reactor.new(nil, logger: Fluent::Log::ConsoleAdapter.wrap(@logger))
 
           opts = if tls_context
                    { ssl_context: tls_context }
