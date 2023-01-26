@@ -377,6 +377,7 @@ module Fluent
           buffer_conf = conf.elements(name: 'buffer').first || Fluent::Config::Element.new('buffer', '', {}, [])
           @buffer = Plugin.new_buffer(buffer_type, parent: self)
           @buffer.configure(buffer_conf)
+          keep_buffer_config_compat
           @buffer.enable_update_timekeys if @chunk_key_time
 
           @flush_at_shutdown = @buffer_config.flush_at_shutdown
@@ -432,6 +433,12 @@ module Fluent
         end
 
         self
+      end
+
+      def keep_buffer_config_compat
+        # Need this to call `@buffer_config.disable_chunk_backup` just as before,
+        # since some plugins may use this option in this shape.
+        @buffer_config[:disable_chunk_backup] = @buffer.disable_chunk_backup
       end
 
       def start
