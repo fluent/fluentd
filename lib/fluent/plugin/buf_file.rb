@@ -145,7 +145,11 @@ module Fluent
         Dir.glob(escaped_patterns(patterns)) do |path|
           next unless File.file?(path)
 
-          log.debug { "restoring buffer file: path = #{path}" }
+          if owner.respond_to?(:buffer_config) && owner.buffer_config&.flush_at_shutdown
+            log.warn { "restoring buffer file: path = #{path}" }
+          else
+            log.debug { "restoring buffer file: path = #{path}" }
+          end
 
           m = new_metadata() # this metadata will be overwritten by resuming .meta file content
                              # so it should not added into @metadata_list for now
