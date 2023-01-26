@@ -66,6 +66,9 @@ module Fluent
       desc 'Compress buffered data.'
       config_param :compress, :enum, list: [:text, :gzip], default: :text
 
+      desc 'If true, chunks are thrown away when unrecoverable error happens'
+      config_param :disable_chunk_backup, :bool, default: false
+
       Metadata = Struct.new(:timekey, :tag, :variables, :seq) do
         def initialize(timekey, tag, variables)
           super(timekey, tag, variables, 0)
@@ -901,6 +904,18 @@ module Fluent
         end
 
         { 'buffer' => stats }
+      end
+
+      def backup(chunk_unique_id)
+        unique_id = dump_unique_id_hex(chunk_unique_id)
+        safe_owner_id = owner.plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
+        backup_base_dir = system_config.root_dir || DEFAULT_BACKUP_DIR
+        backup_file = File.join(backup_base_dir, 'backup', "worker#{fluentd_worker_id}", safe_owner_id, "#{unique_id}.log")
+        backup_dir = File.dirname(backup_file)
+
+        log.warn "bad chunk is moved to #{backup_file}"
+        FileUtils.mkdir_p(backup_dir, mode: system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION) unless Dir.exist?(backup_dir)
+        File.open(backup_file, 'ab', system_config.file_permission || Fluent::DEFAULT_FILE_PERMISSION) { |f| yield f }
       end
 
       private
