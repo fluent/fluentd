@@ -166,7 +166,13 @@ module Fluent
         Dir.glob(escaped_patterns(patterns)) do |path|
           next unless File.file?(path)
 
-          log.debug { "restoring buffer file: path = #{path}" }
+          if owner.respond_to?(:buffer_config) && owner.buffer_config&.flush_at_shutdown
+            # When `flush_at_shutdown` is `true`, the remaining chunk files during resuming are possibly broken
+            # since there may be a power failure or similar failure.
+            log.warn { "restoring buffer file: path = #{path}" }
+          else
+            log.debug { "restoring buffer file: path = #{path}" }
+          end
 
           m = new_metadata() # this metadata will be updated in FileSingleChunk.new
           mode = Fluent::Plugin::Buffer::FileSingleChunk.assume_chunk_state(path)
