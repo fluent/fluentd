@@ -139,6 +139,7 @@ module Fluent
       def resume
         stage = {}
         queue = []
+        exist_broken_file = false
 
         patterns = [@path]
         patterns.unshift @additional_resume_path if @additional_resume_path
@@ -164,6 +165,7 @@ module Fluent
           begin
             chunk = Fluent::Plugin::Buffer::FileChunk.new(m, path, mode, compress: @compress) # file chunk resumes contents of metadata
           rescue Fluent::Plugin::Buffer::FileChunk::FileChunkError => e
+            exist_broken_file = true
             handle_broken_files(path, mode, e)
             next
           end
@@ -187,6 +189,15 @@ module Fluent
         end
 
         queue.sort_by!{ |chunk| chunk.modified_at }
+
+        # If one of the files is corrupted, other files may also be corrupted and be undetected.
+        # The time priods of each chunk are helpful to check the data.
+        if exist_broken_file
+          log.info "Since a broken chunk file was found, it is possible that other files remaining at the time of resuming were also broken. Here is the list of the files."
+          (stage.values + queue).each { |chunk|
+            log.info "  #{chunk.path}:", :created_at => chunk.created_at, :modified_at => chunk.modified_at
+          }
+        end
 
         return stage, queue
       end
