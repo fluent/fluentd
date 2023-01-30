@@ -111,7 +111,7 @@ class AckHandlerTest < Test::Unit::TestCase
     r, w = IO.pipe
     begin
       w.write(chunk_id)
-      stub(r).recv(anything) { |_|
+      stub(r).recv { |_|
         sleep(1) # To ensure that multiple threads select the socket before closing.
         raise IOError, 'stream closed in another thread' if r.closed?
         MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') })
