@@ -319,7 +319,6 @@ class SupervisorTest < ::Test::Unit::TestCase
   data("No extension", {raw_path: "C:\\Windows\\Temp\\sigdump", expected: "C:\\Windows\\Temp\\sigdump-#{$$}"})
   data("Multi-extension", {raw_path: "C:\\Windows\\Temp\\sig.dump.bk", expected: "C:\\Windows\\Temp\\sig.dump-#{$$}.bk"})
   def test_fluentsigdump_get_path_with_pid(data)
-    p data
     path = Fluent::FluentSigdump.get_path_with_pid(data[:raw_path])
     assert_equal(data[:expected], path)
   end
