@@ -123,7 +123,7 @@ module Fluent::Plugin
         info = find(sock)
 
         if info.nil?
-          # The info can be deleted during by another thread during `sock.recv()` and `find()`.
+          # The info can be deleted by another thread during `sock.recv()` and `find()`.
           # This is OK since another thread has completed to process the ack, so we can skip this.
           # Note: exclusion mechanism about `collect_response()` may need to be considered.
           @log.debug "could not find the ack info. this ack may be processed by another thread."
