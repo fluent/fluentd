@@ -190,6 +190,12 @@ module Fluent
         $log.debug 'fluentd supervisor process got SIGUSR2'
         supervisor_sigusr2_handler
       end
+
+      term_handler = trap :TERM do
+        # After SIGTERM, disable the sigdump file by ignoring SIGCONT.
+        trap(:CONT, nil)
+        term_handler.call
+      end
     end
 
     if Fluent.windows?
@@ -922,6 +928,9 @@ module Fluent
       end
 
       trap :TERM do
+        # After SIGTERM, disable the sigdump file by ignoring SIGCONT.
+        trap(:CONT, nil)
+
         $log.debug "fluentd main process get SIGTERM"
         unless @finished
           @finished = true
