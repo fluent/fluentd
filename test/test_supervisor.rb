@@ -214,7 +214,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
-  def test_cont_in_main_processsignal_handlers
+  def test_cont_in_main_process_signal_handlers
     omit "Windows cannot handle signals" if Fluent.windows?
 
     opts = Fluent::Supervisor.default_options
@@ -233,7 +233,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     File.delete(@sigdump_path) if File.exist?(@sigdump_path)
   end
 
-  def test_term_cont_in_main_processsignal_handlers
+  def test_term_cont_in_main_process_signal_handlers
     omit "Windows cannot handle signals" if Fluent.windows?
 
     create_debug_dummy_logger
