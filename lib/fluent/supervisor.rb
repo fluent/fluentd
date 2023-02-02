@@ -194,7 +194,7 @@ module Fluent
       term_handler = trap :TERM do
         # After SIGTERM, disable the sigdump file by ignoring SIGCONT.
         trap(:CONT, nil)
-        term_handler.call
+        term_handler.call if term_handler.is_a?(Proc)
       end
     end
 
