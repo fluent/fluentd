@@ -324,25 +324,21 @@ class SupervisorTest < ::Test::Unit::TestCase
     File.delete(@sigdump_path) if File.exist?(@sigdump_path)
   end
 
-  # TODO Sending SIGTERM terminates the test itself.
-  # I think we have to figure out a good way.
-  # def test_term_cont_in_supervisor_signal_handler
-  #   omit "Windows cannot handle signals" if Fluent.windows?
-  #
-  #   server = DummyServer.new
-  #   server.install_supervisor_signal_handlers
-  #   begin
-  #     Process.kill :TERM, $$
-  #     Process.kill :CONT, $$
-  #   rescue
-  #   end
-  #
-  #   sleep 1
-  #
-  #   assert_not File.exist?(@sigdump_path)
-  # ensure
-  #   File.delete(@sigdump_path) if File.exist?(@sigdump_path)
-  # end
+  def test_term_cont_in_supervisor_signal_handler
+    omit "Windows cannot handle signals" if Fluent.windows?
+
+    server = DummyServer.new
+    server.install_supervisor_signal_handlers
+    begin
+      Process.kill :TERM, $$
+      Process.kill :CONT, $$
+    rescue
+    end
+
+    assert_false File.exist?(@sigdump_path)
+  ensure
+    File.delete(@sigdump_path) if File.exist?(@sigdump_path)
+  end
 
   def test_windows_shutdown_event
     omit "Only for Windows platform" unless Fluent.windows?
