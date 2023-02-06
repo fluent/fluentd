@@ -32,6 +32,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     @tmp_dir = tmp_dir
     @tmp_root_dir = File.join(@tmp_dir, 'root')
     FileUtils.mkdir_p(@tmp_dir)
+    @sigdump_path = "/tmp/sigdump-#{Process.pid}.log"
   end
 
   def teardown
@@ -191,7 +192,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
   end
 
-  def test_main_process_signal_handlers
+  def test_usr1_in_main_process_signal_handlers
     omit "Windows cannot handle signals" if Fluent.windows?
 
     create_info_dummy_logger
@@ -211,6 +212,46 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+  end
+
+  def test_cont_in_main_process_signal_handlers
+    omit "Windows cannot handle signals" if Fluent.windows?
+
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+    sv.send(:install_main_process_signal_handlers)
+
+    Process.kill :CONT, Process.pid
+
+    sleep 1
+
+    assert{ File.exist?(@sigdump_path) }
+  ensure
+    File.delete(@sigdump_path) if File.exist?(@sigdump_path)
+  end
+
+  def test_term_cont_in_main_process_signal_handlers
+    omit "Windows cannot handle signals" if Fluent.windows?
+
+    create_debug_dummy_logger
+
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+    sv.send(:install_main_process_signal_handlers)
+
+    Process.kill :TERM, Process.pid
+    Process.kill :CONT, Process.pid
+
+    sleep 1
+
+    debug_msg = "[debug]: fluentd main process get SIGTERM\n"
+    logs = $log.out.logs
+    assert{ logs.any?{|log| log.include?(debug_msg) } }
+
+    assert{ not File.exist?(@sigdump_path) }
+  ensure
+    $log.out.reset if $log&.out&.respond_to?(:reset)
+    File.delete(@sigdump_path) if File.exist?(@sigdump_path)
   end
 
   def test_main_process_command_handlers
@@ -239,7 +280,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
-  def test_supervisor_signal_handler
+  def test_usr1_in_supervisor_signal_handler
     omit "Windows cannot handle signals" if Fluent.windows?
 
     create_debug_dummy_logger
@@ -258,6 +299,35 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert{ logs.any?{|log| log.include?(debug_msg) } }
   ensure
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+  end
+
+  def test_cont_in_supervisor_signal_handler
+    omit "Windows cannot handle signals" if Fluent.windows?
+
+    server = DummyServer.new
+    server.install_supervisor_signal_handlers
+
+    Process.kill :CONT, Process.pid
+
+    sleep 1
+
+    assert{ File.exist?(@sigdump_path) }
+  ensure
+    File.delete(@sigdump_path) if File.exist?(@sigdump_path)
+  end
+
+  def test_term_cont_in_supervisor_signal_handler
+    omit "Windows cannot handle signals" if Fluent.windows?
+
+    server = DummyServer.new
+    server.install_supervisor_signal_handlers
+
+    Process.kill :TERM, Process.pid
+    Process.kill :CONT, Process.pid
+
+    assert{ not File.exist?(@sigdump_path) }
+  ensure
+    File.delete(@sigdump_path) if File.exist?(@sigdump_path)
   end
 
   def test_windows_shutdown_event
