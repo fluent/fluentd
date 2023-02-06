@@ -35,7 +35,7 @@ class TestFluentdCtl < ::Test::Unit::TestCase
       Signal.trap(signal) do
         got_signal = true
       end
-      Fluent::Ctl.new([command, "#{$$}"]).call
+      Fluent::Ctl.new([command, Process.pid.to_s]).call
       assert_true(got_signal)
     end
   end
