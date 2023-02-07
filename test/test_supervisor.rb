@@ -200,10 +200,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     sv = Fluent::Supervisor.new(opts)
     sv.send(:install_main_process_signal_handlers)
 
-    begin
-      Process.kill :USR1, Process.pid
-    rescue
-    end
+    Process.kill :USR1, Process.pid
 
     sleep 1
 
@@ -246,10 +243,8 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     server = DummyServer.new
     server.install_supervisor_signal_handlers
-    begin
-      Process.kill :USR1, Process.pid
-    rescue
-    end
+
+    Process.kill :USR1, Process.pid
 
     sleep 1
 
