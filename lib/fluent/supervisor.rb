@@ -91,12 +91,12 @@ module Fluent
       # built-in RPC for signals
       @rpc_server.mount_proc('/api/processes.interruptWorkers') { |req, res|
         $log.debug "fluentd RPC got /api/processes.interruptWorkers request"
-        Process.kill :INT, $$
+        Process.kill :INT, Process.pid
         nil
       }
       @rpc_server.mount_proc('/api/processes.killWorkers') { |req, res|
         $log.debug "fluentd RPC got /api/processes.killWorkers request"
-        Process.kill :TERM, $$
+        Process.kill :TERM, Process.pid
         nil
       }
       @rpc_server.mount_proc('/api/processes.flushBuffersAndKillWorkers') { |req, res|
@@ -105,8 +105,8 @@ module Fluent
           supervisor_sigusr1_handler
           stop(true)
         else
-          Process.kill :USR1, $$
-          Process.kill :TERM, $$
+          Process.kill :USR1, Process.pid
+          Process.kill :TERM, Process.pid
         end
         nil
       }
@@ -115,7 +115,7 @@ module Fluent
         if Fluent.windows?
           supervisor_sigusr1_handler
         else
-          Process.kill :USR1, $$
+          Process.kill :USR1, Process.pid
         end
         nil
       }
@@ -125,7 +125,7 @@ module Fluent
           # restart worker with auto restarting by killing
           kill_worker
         else
-          Process.kill :HUP, $$
+          Process.kill :HUP, Process.pid
         end
         nil
       }
@@ -141,7 +141,7 @@ module Fluent
         if Fluent.windows?
           supervisor_sigusr2_handler
         else
-          Process.kill :USR2, $$
+          Process.kill :USR2, Process.pid
         end
 
         nil
@@ -213,7 +213,7 @@ module Fluent
     def install_windows_event_handler
       return unless Fluent.windows?
 
-      @pid_signame = "fluentd_#{$$}"
+      @pid_signame = "fluentd_#{Process.pid}"
       @signame = config[:signame]
 
       Thread.new do

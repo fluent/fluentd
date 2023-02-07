@@ -201,7 +201,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     sv.send(:install_main_process_signal_handlers)
 
     begin
-      Process.kill :USR1, $$
+      Process.kill :USR1, Process.pid
     rescue
     end
 
@@ -247,7 +247,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     server = DummyServer.new
     server.install_supervisor_signal_handlers
     begin
-      Process.kill :USR1, $$
+      Process.kill :USR1, Process.pid
     rescue
     end
 
@@ -314,10 +314,10 @@ class SupervisorTest < ::Test::Unit::TestCase
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
-  data("Normal", {raw_path: "C:\\Windows\\Temp\\sigdump.log", expected: "C:\\Windows\\Temp\\sigdump-#{$$}.log"})
-  data("UNIX style", {raw_path: "/Windows/Temp/sigdump.log", expected: "/Windows/Temp/sigdump-#{$$}.log"})
-  data("No extension", {raw_path: "C:\\Windows\\Temp\\sigdump", expected: "C:\\Windows\\Temp\\sigdump-#{$$}"})
-  data("Multi-extension", {raw_path: "C:\\Windows\\Temp\\sig.dump.bk", expected: "C:\\Windows\\Temp\\sig.dump-#{$$}.bk"})
+  data("Normal", {raw_path: "C:\\Windows\\Temp\\sigdump.log", expected: "C:\\Windows\\Temp\\sigdump-#{Process.pid}.log"})
+  data("UNIX style", {raw_path: "/Windows/Temp/sigdump.log", expected: "/Windows/Temp/sigdump-#{Process.pid}.log"})
+  data("No extension", {raw_path: "C:\\Windows\\Temp\\sigdump", expected: "C:\\Windows\\Temp\\sigdump-#{Process.pid}"})
+  data("Multi-extension", {raw_path: "C:\\Windows\\Temp\\sig.dump.bk", expected: "C:\\Windows\\Temp\\sig.dump-#{Process.pid}.bk"})
   def test_fluentsigdump_get_path_with_pid(data)
     path = Fluent::FluentSigdump.get_path_with_pid(data[:raw_path])
     assert_equal(data[:expected], path)
