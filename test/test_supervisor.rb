@@ -207,7 +207,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     sleep 1
 
-    info_msg = '[info]: force flushing buffered events' + "\n"
+    info_msg = "[info]: force flushing buffered events\n"
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
@@ -233,7 +233,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     sleep 1
 
-    info_msg = '[info]: force flushing buffered events' + "\n"
+    info_msg = "[info]: force flushing buffered events\n"
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
     $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
@@ -385,7 +385,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     sv.send(:install_main_process_signal_handlers)
     response = Net::HTTP.get(URI.parse("http://#{localhost}:24447/api/plugins.flushBuffers"))
-    info_msg = '[info]: force flushing buffered events' + "\n"
+    info_msg = "[info]: force flushing buffered events\n"
 
     server.stop_rpc_server
 
