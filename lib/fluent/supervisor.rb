@@ -355,6 +355,10 @@ module Fluent
       { conf: @fluentd_conf }
     end
 
+    def dump
+      super unless @stop
+    end
+
     private
 
     def reopen_log
@@ -412,6 +416,10 @@ module Fluent
 
     def after_start
       (config[:worker_pid] ||= {})[@worker_id] = @pm.pid
+    end
+
+    def dump
+      super unless @stop
     end
   end
 
@@ -754,12 +762,6 @@ module Fluent
     end
 
     def run_worker
-      begin
-        require 'sigdump/setup'
-      rescue Exception
-        # ignore LoadError and others (related with signals): it may raise these errors in Windows
-      end
-
       Process.setproctitle("worker:#{@system_config.process_name}") if @process_name
 
       if @standalone_worker && @system_config.workers != 1
@@ -940,6 +942,10 @@ module Fluent
         trap :USR2 do
           reload_config
         end
+
+        trap :CONT do
+          dump_non_windows
+        end
       end
     end
 
@@ -969,7 +975,7 @@ module Fluent
             reload_config
           when "DUMP"
             $log.debug "fluentd main process get #{cmd} command"
-            dump
+            dump_windows
           else
             $log.warn "fluentd main process get unknown command [#{cmd}]"
           end
@@ -1020,7 +1026,15 @@ module Fluent
       end
     end
 
-    def dump
+    def dump_non_windows
+      begin
+        Sigdump.dump unless @finished
+      rescue => e
+        $log.error("failed to dump: #{e}")
+      end
+    end
+
+    def dump_windows
       Thread.new do
         begin
           FluentSigdump.dump_windows
