@@ -200,17 +200,14 @@ class SupervisorTest < ::Test::Unit::TestCase
     sv = Fluent::Supervisor.new(opts)
     sv.send(:install_main_process_signal_handlers)
 
-    begin
-      Process.kill :USR1, Process.pid
-    rescue
-    end
+    Process.kill :USR1, Process.pid
 
     sleep 1
 
-    info_msg = '[info]: force flushing buffered events' + "\n"
+    info_msg = "[info]: force flushing buffered events\n"
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
-    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+    $log.out.reset if $log&.out&.respond_to?(:reset)
   end
 
   def test_main_process_command_handlers
@@ -233,10 +230,10 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     sleep 1
 
-    info_msg = '[info]: force flushing buffered events' + "\n"
+    info_msg = "[info]: force flushing buffered events\n"
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
-    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+    $log.out.reset if $log&.out&.respond_to?(:reset)
   end
 
   def test_supervisor_signal_handler
@@ -246,10 +243,8 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     server = DummyServer.new
     server.install_supervisor_signal_handlers
-    begin
-      Process.kill :USR1, Process.pid
-    rescue
-    end
+
+    Process.kill :USR1, Process.pid
 
     sleep 1
 
@@ -257,7 +252,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     logs = $log.out.logs
     assert{ logs.any?{|log| log.include?(debug_msg) } }
   ensure
-    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+    $log.out.reset if $log&.out&.respond_to?(:reset)
   end
 
   def test_windows_shutdown_event
@@ -285,7 +280,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     logs = $log.out.logs
     assert{ logs.any?{|log| log.include?(debug_msg) } }
   ensure
-    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+    $log.out.reset if $log&.out&.respond_to?(:reset)
   end
 
   def test_supervisor_event_handler
@@ -311,7 +306,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     logs = $log.out.logs
     assert{ logs.any?{|log| log.include?(debug_msg) } }
   ensure
-    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
+    $log.out.reset if $log&.out&.respond_to?(:reset)
   end
 
   data("Normal", {raw_path: "C:\\Windows\\Temp\\sigdump.log", expected: "C:\\Windows\\Temp\\sigdump-#{Process.pid}.log"})
@@ -385,7 +380,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     sv.send(:install_main_process_signal_handlers)
     response = Net::HTTP.get(URI.parse("http://#{localhost}:24447/api/plugins.flushBuffers"))
-    info_msg = '[info]: force flushing buffered events' + "\n"
+    info_msg = "[info]: force flushing buffered events\n"
 
     server.stop_rpc_server
 
