@@ -226,6 +226,8 @@ class TcpInputTest < Test::Unit::TestCase
 
       assert_equal 1, d.instance.log.logs.count { |l| l =~ /anonymous client/ }
       assert_equal 0, d.events.size
+
+      d.instance_shutdown
     end
   end
 
