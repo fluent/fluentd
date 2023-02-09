@@ -173,7 +173,7 @@ module Fluent
 
           if @socket_manager_server
             @socket_manager_server.close
-            if @socket_manager_server.is_a?(String) && File.exist?(@socket_manager_path)
+            if @socket_manager_path.is_a?(String) && File.exist?(@socket_manager_path)
               FileUtils.rm_f @socket_manager_path
             end
           end
