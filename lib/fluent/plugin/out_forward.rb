@@ -521,7 +521,7 @@ module Fluent::Plugin
         when AckHandler::Result::SUCCESS
           commit_write(chunk_id)
         when AckHandler::Result::FAILED
-          node.disable! if node
+          node&.disable!
           rollback_write(chunk_id, update_retry: false) if chunk_id
         when AckHandler::Result::CHUNKID_UNMATCHED
           rollback_write(chunk_id, update_retry: false)
