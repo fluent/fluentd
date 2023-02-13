@@ -378,6 +378,7 @@ class HTTPOutputTest < Test::Unit::TestCase
           password hello?
         </auth>
       ])
+      d.instance.system_config_override(root_dir: TMP_DIR) # Backup files are generated in TMP_DIR.
       d.run(default_tag: 'test.http', shutdown: false) do
         test_events.each { |event|
           d.feed(event)

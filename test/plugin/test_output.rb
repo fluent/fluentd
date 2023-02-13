@@ -803,7 +803,10 @@ class OutputTest < Test::Unit::TestCase
     end
 
     test 'output plugin will call #try_write for plugin supports delayed commit only to flush buffer chunks' do
+      tmp_dir = File.join(__dir__, '../tmp/test_output')
+
       i = create_output(:delayed)
+      i.system_config_override(root_dir: tmp_dir) # Backup files are generated in `tmp_dir`.
       try_write_called = false
       i.register(:try_write){|chunk| try_write_called = true; commit_write(chunk.unique_id) }
 
@@ -820,6 +823,8 @@ class OutputTest < Test::Unit::TestCase
       assert try_write_called
 
       i.stop; i.before_shutdown; i.shutdown; i.after_shutdown; i.close; i.terminate
+    ensure
+      FileUtils.rm_rf(tmp_dir)
     end
 
     test '#prefer_delayed_commit (returns false) decides delayed commit is disabled if both are implemented' do
@@ -849,7 +854,10 @@ class OutputTest < Test::Unit::TestCase
     end
 
     test '#prefer_delayed_commit (returns true) decides delayed commit is enabled if both are implemented' do
+      tmp_dir = File.join(__dir__, '../tmp/test_output')
+
       i = create_output(:full)
+      i.system_config_override(root_dir: tmp_dir) # Backup files are generated in `tmp_dir`.
       write_called = false
       try_write_called = false
       i.register(:write){ |chunk| write_called = true }
@@ -872,6 +880,8 @@ class OutputTest < Test::Unit::TestCase
       assert try_write_called
 
       i.stop; i.before_shutdown; i.shutdown; i.after_shutdown; i.close; i.terminate
+    ensure
+      FileUtils.rm_rf(tmp_dir)
     end
 
     test 'flush_interval is ignored when flush_mode is not interval' do
