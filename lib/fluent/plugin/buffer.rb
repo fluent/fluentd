@@ -908,6 +908,12 @@ module Fluent
 
       def backup(chunk_unique_id)
         unique_id = dump_unique_id_hex(chunk_unique_id)
+
+        if @disable_chunk_backup
+          log.warn "disable_chunk_backup is true. #{unique_id} chunk is not backed up."
+          return
+        end
+
         safe_owner_id = owner.plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
         backup_base_dir = system_config.root_dir || DEFAULT_BACKUP_DIR
         backup_file = File.join(backup_base_dir, 'backup', "worker#{fluentd_worker_id}", safe_owner_id, "#{unique_id}.log")

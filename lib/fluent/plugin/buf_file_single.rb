@@ -209,10 +209,6 @@ module Fluent
       def handle_broken_files(path, mode, e)
         log.error "found broken chunk file during resume.", :path => path, :mode => mode, :err_msg => e.message
         unique_id, _ = Fluent::Plugin::Buffer::FileSingleChunk.unique_id_and_key_from_path(path)
-        if @disable_chunk_backup
-          log.warn "disable_chunk_backup is true. #{dump_unique_id_hex(unique_id)} chunk is thrown away"
-          return
-        end
         backup(unique_id) { |f|
           File.open(path, 'rb') { |chunk|
             chunk.set_encoding(Encoding::ASCII_8BIT)
@@ -224,6 +220,7 @@ module Fluent
       rescue => error
         log.error "backup failed. Delete corresponding files.", :err_msg => error.message
       ensure
+        log.warn "disable_chunk_backup is true. #{dump_unique_id_hex(unique_id)} chunk is thrown away." if @disable_chunk_backup
         File.unlink(path) rescue nil
       end
 
