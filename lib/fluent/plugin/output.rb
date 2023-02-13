@@ -437,7 +437,7 @@ module Fluent
 
       def keep_buffer_config_compat
         # Need this to call `@buffer_config.disable_chunk_backup` just as before,
-        # since some plugins may use this option in this shape.
+        # since some plugins may use this option in this way.
         @buffer_config[:disable_chunk_backup] = @buffer.disable_chunk_backup
       end
 
