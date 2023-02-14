@@ -7,6 +7,11 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
 
   setup do
     FileUtils.rm_rf(TMP_DIR) rescue nil
+    @stored_global_logger = $log
+  end
+
+  teardown do
+    $log = @stored_global_logger
   end
 
   test 'when path is given' do
