@@ -1242,8 +1242,8 @@ class FileBufferTest < Test::Unit::TestCase
 
       compare_staged_chunk(@p.stage, c2id, '2016-04-17 14:01:00 -0700', 3, :staged)
       compare_log(@p, 'staged file chunk is empty')
-      assert_false File.exist?(p1)
-      assert_true File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c1id)}.log")
+      assert { not File.exist?(p1) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c1id)}.log") }
     end
 
     test '#resume backups staged broken metadata' do
@@ -1258,8 +1258,8 @@ class FileBufferTest < Test::Unit::TestCase
 
       compare_staged_chunk(@p.stage, c1id, '2016-04-17 14:00:00 -0700', 4, :staged)
       compare_log(@p, 'staged meta file is broken')
-      assert_false File.exist?(p2)
-      assert_true File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log")
+      assert { not File.exist?(p2) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
     end
 
     test '#resume backups enqueued empty chunk' do
@@ -1274,8 +1274,8 @@ class FileBufferTest < Test::Unit::TestCase
 
       compare_queued_chunk(@p.queue, c2id, 3, :queued)
       compare_log(@p, 'enqueued file chunk is empty')
-      assert_false File.exist?(p1)
-      assert_true File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c1id)}.log")
+      assert { not File.exist?(p1) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c1id)}.log") }
     end
 
     test '#resume backups enqueued broken metadata' do
@@ -1290,8 +1290,8 @@ class FileBufferTest < Test::Unit::TestCase
 
       compare_queued_chunk(@p.queue, c1id, 4, :queued)
       compare_log(@p, 'enqueued meta file is broken')
-      assert_false File.exist?(p2)
-      assert_true File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log")
+      assert { not File.exist?(p2) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
     end
 
     test '#resume throws away broken chunk with disable_chunk_backup' do
@@ -1307,8 +1307,8 @@ class FileBufferTest < Test::Unit::TestCase
       compare_staged_chunk(@p.stage, c1id, '2016-04-17 14:00:00 -0700', 4, :staged)
       compare_log(@p, 'staged meta file is broken')
       compare_log(@p, 'disable_chunk_backup is true')
-      assert_false File.exist?(p2)
-      assert_false File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log")
+      assert { not File.exist?(p2) }
+      assert { not File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
     end
   end
 end

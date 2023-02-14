@@ -867,8 +867,8 @@ class FileSingleBufferTest < Test::Unit::TestCase
         @p.start
       end
 
-      assert_false File.exist?(p1)
-      assert_true File.exist?("#{@bufdir}/backup/worker0/#{id_output}/#{@d.instance.dump_unique_id_hex(c1id)}.log")
+      assert { not File.exist?(p1) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{id_output}/#{@d.instance.dump_unique_id_hex(c1id)}.log") }
     end
 
     test '#resume throws away broken chunk with disable_chunk_backup' do
@@ -891,8 +891,8 @@ class FileSingleBufferTest < Test::Unit::TestCase
         @p.start
       end
 
-      assert_false File.exist?(p1)
-      assert_false File.exist?("#{@bufdir}/backup/worker0/#{id_output}/#{@d.instance.dump_unique_id_hex(c1id)}.log")
+      assert { not File.exist?(p1) }
+      assert { not File.exist?("#{@bufdir}/backup/worker0/#{id_output}/#{@d.instance.dump_unique_id_hex(c1id)}.log") }
     end
   end
 end
