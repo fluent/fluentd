@@ -22,6 +22,7 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
     assert_nothing_raised do
       logger.init(:supervisor, 0)
     end
+    $log.out.close
 
     assert_true File.exist?(TMP_DIR)
   end
@@ -38,8 +39,9 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
     assert_nothing_raised do
       logger.init(:supervisor, 0)
     end
-
     logger.apply_options(log_dir_perm: 0o777)
+    $log.out.close
+
     assert_true File.exist?(TMP_DIR)
     assert_equal 0o777, (File.stat(TMP_DIR).mode & 0xFFF)
   end
