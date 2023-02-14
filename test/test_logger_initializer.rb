@@ -5,11 +5,8 @@ require 'fileutils'
 class LoggerInitializerTest < ::Test::Unit::TestCase
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/logger_initializer#{ENV['TEST_ENV_NUMBER']}")
 
-  teardown do
-    begin
-      FileUtils.rm_rf(TMP_DIR)
-    rescue => _
-    end
+  setup do
+    FileUtils.rm_rf(TMP_DIR) rescue nil
   end
 
   test 'when path is given' do
