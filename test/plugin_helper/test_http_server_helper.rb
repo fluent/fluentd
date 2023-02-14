@@ -132,7 +132,7 @@ class HttpHelperTest < Test::Unit::TestCase
     resp = nil
     error = nil
 
-    Async do |task|
+    Async do
       begin
         response = yield(client)
       rescue => e               # Async::Reactor rescue all error. handle it by myself
