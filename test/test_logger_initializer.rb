@@ -18,7 +18,6 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
     assert { not File.exist?(TMP_DIR) }
 
     path = File.join(TMP_DIR, 'fluent_with_path.log')
-    assert_false File.exist?(TMP_DIR)
     logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {})
     mock.proxy(File).chmod(0o777, TMP_DIR).never
 
