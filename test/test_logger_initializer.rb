@@ -15,8 +15,9 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
   end
 
   test 'when path is given' do
-    path = File.join(TMP_DIR, 'fluent_with_path.log')
+    assert { not File.exist?(TMP_DIR) }
 
+    path = File.join(TMP_DIR, 'fluent_with_path.log')
     assert_false File.exist?(TMP_DIR)
     logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {})
     mock.proxy(File).chmod(0o777, TMP_DIR).never
@@ -26,15 +27,15 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
     end
     $log.out.close
 
-    assert_true File.exist?(TMP_DIR)
+    assert { File.exist?(TMP_DIR) }
   end
 
   test 'apply_options with log_dir_perm' do
     omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
 
-    path = File.join(TMP_DIR, 'fluent_with_path.log')
+    assert { not File.exist?(TMP_DIR) }
 
-    assert_false File.exist?(TMP_DIR)
+    path = File.join(TMP_DIR, 'fluent_with_path.log')
     logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {})
     mock.proxy(File).chmod(0o777, TMP_DIR).once
 
@@ -44,7 +45,7 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
     logger.apply_options(log_dir_perm: 0o777)
     $log.out.close
 
-    assert_true File.exist?(TMP_DIR)
+    assert { File.exist?(TMP_DIR) }
     assert_equal 0o777, (File.stat(TMP_DIR).mode & 0xFFF)
   end
 
