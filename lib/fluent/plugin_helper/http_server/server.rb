@@ -55,10 +55,13 @@ module Fluent
         end
 
         def start(notify = nil)
+          Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
           @logger.debug("Start async HTTP server listening #{@uri}")
 
           Async do |task|
+            Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
             @server_task = task.async do
+              Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
               @server.run
             end
             if notify

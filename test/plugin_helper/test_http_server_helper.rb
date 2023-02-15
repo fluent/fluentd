@@ -133,6 +133,7 @@ class HttpHelperTest < Test::Unit::TestCase
     error = nil
 
     Async do
+      Console.logger = Fluent::Log::ConsoleAdapter.wrap(NULL_LOGGER)
       begin
         response = yield(client)
       rescue => e               # Async::Reactor rescue all error. handle it by myself
