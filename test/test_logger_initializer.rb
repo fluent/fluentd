@@ -47,4 +47,86 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
     assert_true File.exist?(TMP_DIR)
     assert_equal 0o777, (File.stat(TMP_DIR).mode & 0xFFF)
   end
+
+  test 'rotate' do
+    assert { not File.exist?(TMP_DIR) }
+
+    path = File.join(TMP_DIR, 'fluent.log')
+    logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {}, log_rotate_age: 5, log_rotate_size: 500)
+    logger.init(:supervisor, 0)
+    begin
+      10.times.each do
+        $log.info "This is test message. This is test message. This is test message."
+      end
+    ensure
+      $log.out.close
+    end
+
+    assert { Dir.entries(TMP_DIR).size > 3 } # [".", "..", "logfile.log", ...]
+  end
+
+  test 'rotate to max age' do
+    assert { not File.exist?(TMP_DIR) }
+
+    path = File.join(TMP_DIR, 'fluent.log')
+    logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {}, log_rotate_age: 5, log_rotate_size: 500)
+    logger.init(:supervisor, 0)
+    begin
+      100.times.each do
+        $log.info "This is test message. This is test message. This is test message."
+      end
+    ensure
+      $log.out.close
+    end
+
+    assert { Dir.entries(TMP_DIR).size == 7 } # [".", "..", "logfile.log", ...]
+  end
+
+  test 'files for each process with rotate on Windows' do
+    omit "Only for Windows." unless Fluent.windows?
+
+    assert { not File.exist?(TMP_DIR) }
+
+    path = File.join(TMP_DIR, 'fluent.log')
+    logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {}, log_rotate_age: 5)
+    logger.init(:supervisor, 0)
+    $log.out.close
+
+    logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {}, log_rotate_age: 5)
+    logger.init(:worker0, 0)
+    $log.out.close
+
+    logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {}, log_rotate_age: 5)
+    logger.init(:workers, 1)
+    $log.out.close
+
+    assert { Dir.entries(TMP_DIR).size == 5 } # [".", "..", "logfile.log", ...]
+  end
+
+  test 'reopen!' do
+    assert { not File.exist?(TMP_DIR) }
+
+    path = File.join(TMP_DIR, 'fluent.log')
+    logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {})
+    logger.init(:supervisor, 0)
+    message = "This is test message."
+    $log.info message
+    logger.reopen!
+    $log.info message
+    $log.out.close
+
+    assert { File.read(path).lines.select{ |line| line.include?(message) }.size == 2 }
+  end
+
+  test 'reopen! with rotate reopens the same file' do
+    assert { not File.exist?(TMP_DIR) }
+
+    path = File.join(TMP_DIR, 'fluent.log')
+    logger = Fluent::Supervisor::LoggerInitializer.new(path, Fluent::Log::LEVEL_DEBUG, nil, nil, {}, log_rotate_age: 5)
+    logger.init(:supervisor, 0)
+    logger.reopen!
+    $log.out.close
+
+    assert { Dir.entries(TMP_DIR).size == 3 } # [".", "..", "logfile.log", ...]
+  end
 end
