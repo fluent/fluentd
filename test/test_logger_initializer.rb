@@ -7,13 +7,13 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
   def setup
     @stored_global_logger = $log
     Dir.mktmpdir do |tmp_dir|
-      begin
-        @tmp_dir = Pathname(tmp_dir)
-        yield
-      ensure
-        $log = @stored_global_logger
-      end
+      @tmp_dir = Pathname(tmp_dir)
+      yield
     end
+  end
+
+  def teardown
+    $log = @stored_global_logger
   end
 
   test 'when path is given' do
