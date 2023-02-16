@@ -830,4 +830,69 @@ class FileSingleBufferTest < Test::Unit::TestCase
       assert_equal :queued, queue[0].state
     end
   end
+
+  sub_test_case 'there are existing broken file chunks' do
+    setup do
+      FileUtils.rm_rf(@bufdir) rescue nil
+      FileUtils.mkdir_p(@bufdir)
+    end
+
+    teardown do
+      return unless @p
+
+      @p.stop unless @p.stopped?
+      @p.before_shutdown unless @p.before_shutdown?
+      @p.shutdown unless @p.shutdown?
+      @p.after_shutdown unless @p.after_shutdown?
+      @p.close unless @p.closed?
+      @p.terminate unless @p.terminated?
+    end
+
+    test '#resume backups empty chunk' do
+      id_output = 'backup_test'
+      @d = create_driver(%[
+        @id #{id_output}
+        <buffer tag>
+         @type file_single
+         path #{PATH}
+        </buffer>
+      ])
+      @p = @d.instance.buffer
+
+      c1id = Fluent::UniqueId.generate
+      p1 = File.join(@bufdir, "fsb.foo.b#{Fluent::UniqueId.hex(c1id)}.buf")
+      File.open(p1, 'wb') { |f| } # create empty chunk file
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
+      assert { not File.exist?(p1) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{id_output}/#{@d.instance.dump_unique_id_hex(c1id)}.log") }
+    end
+
+    test '#resume throws away broken chunk with disable_chunk_backup' do
+      id_output = 'backup_test'
+      @d = create_driver(%[
+        @id #{id_output}
+        <buffer tag>
+         @type file_single
+         path #{PATH}
+         disable_chunk_backup true
+        </buffer>
+      ])
+      @p = @d.instance.buffer
+
+      c1id = Fluent::UniqueId.generate
+      p1 = File.join(@bufdir, "fsb.foo.b#{Fluent::UniqueId.hex(c1id)}.buf")
+      File.open(p1, 'wb') { |f| } # create empty chunk file
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
+      assert { not File.exist?(p1) }
+      assert { not File.exist?("#{@bufdir}/backup/worker0/#{id_output}/#{@d.instance.dump_unique_id_hex(c1id)}.log") }
+    end
+  end
 end

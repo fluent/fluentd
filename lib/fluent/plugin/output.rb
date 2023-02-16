@@ -99,7 +99,6 @@ module Fluent
         config_param :retry_max_interval, :time, default: nil, desc: 'The maximum interval seconds for exponential backoff between retries while failing.'
 
         config_param :retry_randomize, :bool, default: true, desc: 'If true, output plugin will retry after randomized interval not to do burst retries.'
-        config_param :disable_chunk_backup, :bool, default: false, desc: 'If true, chunks are thrown away when unrecoverable error happens'
       end
 
       config_section :secondary, param_name: :secondary_config, required: false, multi: false, final: true do
@@ -378,6 +377,7 @@ module Fluent
           buffer_conf = conf.elements(name: 'buffer').first || Fluent::Config::Element.new('buffer', '', {}, [])
           @buffer = Plugin.new_buffer(buffer_type, parent: self)
           @buffer.configure(buffer_conf)
+          keep_buffer_config_compat
           @buffer.enable_update_timekeys if @chunk_key_time
 
           @flush_at_shutdown = @buffer_config.flush_at_shutdown
@@ -433,6 +433,12 @@ module Fluent
         end
 
         self
+      end
+
+      def keep_buffer_config_compat
+        # Need this to call `@buffer_config.disable_chunk_backup` just as before,
+        # since some plugins may use this option in this way.
+        @buffer_config[:disable_chunk_backup] = @buffer.disable_chunk_backup
       end
 
       def start
@@ -1240,18 +1246,10 @@ module Fluent
       end
 
       def backup_chunk(chunk, using_secondary, delayed_commit)
-        if @buffer_config.disable_chunk_backup
+        if @buffer.disable_chunk_backup
           log.warn "disable_chunk_backup is true. #{dump_unique_id_hex(chunk.unique_id)} chunk is thrown away"
         else
-          unique_id = dump_unique_id_hex(chunk.unique_id)
-          safe_plugin_id = plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
-          backup_base_dir = system_config.root_dir || DEFAULT_BACKUP_DIR
-          backup_file = File.join(backup_base_dir, 'backup', "worker#{fluentd_worker_id}", safe_plugin_id, "#{unique_id}.log")
-          backup_dir = File.dirname(backup_file)
-
-          log.warn "bad chunk is moved to #{backup_file}"
-          FileUtils.mkdir_p(backup_dir, mode: system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION) unless Dir.exist?(backup_dir)
-          File.open(backup_file, 'ab', system_config.file_permission || Fluent::DEFAULT_FILE_PERMISSION) { |f|
+          @buffer.backup(chunk.unique_id) { |f|
             chunk.write_to(f)
           }
         end

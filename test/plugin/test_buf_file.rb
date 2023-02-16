@@ -1151,15 +1151,13 @@ class FileBufferTest < Test::Unit::TestCase
 
   sub_test_case 'there are existing broken file chunks' do
     setup do
+      @id_output = 'backup_test'
       @bufdir = File.expand_path('../../tmp/broken_buffer_file', __FILE__)
-      FileUtils.mkdir_p @bufdir unless File.exist?(@bufdir)
+      FileUtils.rm_rf @bufdir rescue nil
+      FileUtils.mkdir_p @bufdir
       @bufpath = File.join(@bufdir, 'broken_test.*.log')
 
       Fluent::Test.setup
-      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
-      @p = Fluent::Plugin::FileBuffer.new
-      @p.owner = @d
-      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
     end
 
     teardown do
@@ -1171,12 +1169,12 @@ class FileBufferTest < Test::Unit::TestCase
         @p.close unless @p.closed?
         @p.terminate unless @p.terminated?
       end
-      if @bufdir
-        Dir.glob(File.join(@bufdir, '*')).each do |path|
-          next if ['.', '..'].include?(File.basename(path))
-          File.delete(path)
-        end
-      end
+    end
+
+    def setup_plugins(buf_conf)
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @d.configure(config_element('ROOT', '', {'@id' => @id_output}, [config_element('buffer', '', buf_conf)]))
+      @p = @d.buffer
     end
 
     def create_first_chunk(mode)
@@ -1232,44 +1230,85 @@ class FileBufferTest < Test::Unit::TestCase
       assert { logs.any? { |log| log.include?(msg) } }
     end
 
-    test '#resume ignores staged empty chunk' do
-      _, p1 = create_first_chunk('b')
+    test '#resume backups staged empty chunk' do
+      setup_plugins({'path' => @bufpath})
+      c1id, p1 = create_first_chunk('b')
       File.open(p1, 'wb') { |f| } # create staged empty chunk file
       c2id, _ = create_second_chunk('b')
 
-      @p.start
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
       compare_staged_chunk(@p.stage, c2id, '2016-04-17 14:01:00 -0700', 3, :staged)
       compare_log(@p, 'staged file chunk is empty')
+      assert { not File.exist?(p1) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c1id)}.log") }
     end
 
-    test '#resume ignores staged broken metadata' do
+    test '#resume backups staged broken metadata' do
+      setup_plugins({'path' => @bufpath})
       c1id, _ = create_first_chunk('b')
-      _, p2 = create_second_chunk('b')
+      c2id, p2 = create_second_chunk('b')
       File.open(p2 + '.meta', 'wb') { |f| f.write("\0" * 70) } # create staged broken meta file
 
-      @p.start
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
       compare_staged_chunk(@p.stage, c1id, '2016-04-17 14:00:00 -0700', 4, :staged)
       compare_log(@p, 'staged meta file is broken')
+      assert { not File.exist?(p2) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
     end
 
-    test '#resume ignores enqueued empty chunk' do
-      _, p1 = create_first_chunk('q')
+    test '#resume backups enqueued empty chunk' do
+      setup_plugins({'path' => @bufpath})
+      c1id, p1 = create_first_chunk('q')
       File.open(p1, 'wb') { |f| } # create enqueued empty chunk file
       c2id, _ = create_second_chunk('q')
 
-      @p.start
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
       compare_queued_chunk(@p.queue, c2id, 3, :queued)
       compare_log(@p, 'enqueued file chunk is empty')
+      assert { not File.exist?(p1) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c1id)}.log") }
     end
 
-    test '#resume ignores enqueued broken metadata' do
+    test '#resume backups enqueued broken metadata' do
+      setup_plugins({'path' => @bufpath})
       c1id, _ = create_first_chunk('q')
-      _, p2 = create_second_chunk('q')
+      c2id, p2 = create_second_chunk('q')
       File.open(p2 + '.meta', 'wb') { |f| f.write("\0" * 70) } # create enqueued broken meta file
 
-      @p.start
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
       compare_queued_chunk(@p.queue, c1id, 4, :queued)
       compare_log(@p, 'enqueued meta file is broken')
+      assert { not File.exist?(p2) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
+    end
+
+    test '#resume throws away broken chunk with disable_chunk_backup' do
+      setup_plugins({'path' => @bufpath, 'disable_chunk_backup' => true})
+      c1id, _ = create_first_chunk('b')
+      c2id, p2 = create_second_chunk('b')
+      File.open(p2 + '.meta', 'wb') { |f| f.write("\0" * 70) } # create staged broken meta file
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
+      compare_staged_chunk(@p.stage, c1id, '2016-04-17 14:00:00 -0700', 4, :staged)
+      compare_log(@p, 'staged meta file is broken')
+      compare_log(@p, 'disable_chunk_backup is true')
+      assert { not File.exist?(p2) }
+      assert { not File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
     end
   end
 end
