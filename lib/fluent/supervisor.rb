@@ -563,12 +563,8 @@ module Fluent
           if @log_rotate_age || @log_rotate_size
             # We need to prepare a unique path for each worker since
             # Windows locks files.
-            if Fluent.windows?
-                path = LoggerInitializer.per_process_path(@path, process_type, worker_id)
-            else
-                path = @path
-            end
-            @logdev = Fluent::LogDeviceIO.new(path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
+            @path = LoggerInitializer.per_process_path(@path, process_type, worker_id) if Fluent.windows?
+            @logdev = Fluent::LogDeviceIO.new(@path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
           else
             @logdev = File.open(@path, "a")
           end
@@ -591,7 +587,7 @@ module Fluent
         $log = Fluent::Log.new(logger, @opts)
         $log.enable_color(false) if @path
         $log.enable_debug if @level <= Fluent::Log::LEVEL_DEBUG
-        $log.info "init #{process_type} logger", path: path, rotate_age: @log_rotate_age, rotate_size: @log_rotate_size
+        $log.info "init #{process_type} logger", path: @path, rotate_age: @log_rotate_age, rotate_size: @log_rotate_size
       end
 
       def stdout?
