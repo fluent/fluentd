@@ -71,6 +71,15 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     end
   end
 
+  def process_kill(pid)
+    begin
+      Process.kill(:TERM, pid) rescue nil
+      Timeout.timeout(10){ sleep 0.1 while process_exist?(pid) }
+    rescue Timeout::Error
+      Process.kill(:KILL, pid) rescue nil
+    end
+  end
+
   def execute_command(cmdline, chdir=@tmp_dir, env = {})
     null_stream = Fluent::FileWrapper.open(File::NULL, 'w')
     gemfile_path = File.expand_path(File.dirname(__FILE__) + "../../../Gemfile")
@@ -85,12 +94,12 @@ class TestFluentdCommand < ::Test::Unit::TestCase
         yield pid, io
         # p(here: "execute command", pid: pid, worker_pids: @worker_pids)
       ensure
-        Process.kill(:KILL, pid) rescue nil
+        process_kill(pid)
         if @supervisor_pid
-          Process.kill(:KILL, @supervisor_pid) rescue nil
+          process_kill(@supervisor_pid)
         end
         @worker_pids.each do |cpid|
-          Process.kill(:KILL, cpid) rescue nil
+          process_kill(cpid)
         end
         # p(here: "execute command", pid: pid, exist: process_exist?(pid), worker_pids: @worker_pids, exists: @worker_pids.map{|i| process_exist?(i) })
         Timeout.timeout(10){ sleep 0.1 while process_exist?(pid) }
