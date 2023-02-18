@@ -72,6 +72,11 @@ class TestFluentdCommand < ::Test::Unit::TestCase
   end
 
   def process_kill(pid)
+    if Fluent.windows?
+      Process.kill(:KILL, pid) rescue nil
+      return
+    end
+
     begin
       Process.kill(:TERM, pid) rescue nil
       Timeout.timeout(10){ sleep 0.1 while process_exist?(pid) }
