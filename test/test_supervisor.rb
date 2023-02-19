@@ -52,12 +52,11 @@ class SupervisorTest < ::Test::Unit::TestCase
 
 
   def test_system_config
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     conf_data = <<-EOC
 <system>
   rpc_endpoint 127.0.0.1:24445
-  suppress_repeated_stacktrace true
+  suppress_repeated_stacktrace false
   suppress_config_dump true
   without_source true
   enable_get_dump true
@@ -85,7 +84,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     sys_conf = sv.__send__(:build_system_config, conf)
 
     assert_equal '127.0.0.1:24445', sys_conf.rpc_endpoint
-    assert_equal true, sys_conf.suppress_repeated_stacktrace
+    assert_equal false, sys_conf.suppress_repeated_stacktrace
     assert_equal true, sys_conf.suppress_config_dump
     assert_equal true, sys_conf.without_source
     assert_equal true, sys_conf.enable_get_dump
@@ -120,8 +119,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
 
     def test_system_config
-      opts = Fluent::Supervisor.default_options
-      sv = Fluent::Supervisor.new(opts)
+      sv = Fluent::Supervisor.new({})
       conf_data = <<-EOC
       system:
         rpc_endpoint: 127.0.0.1:24445
@@ -197,8 +195,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     create_info_dummy_logger
 
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     sv.send(:install_main_process_signal_handlers)
 
     Process.kill :USR1, Process.pid
@@ -214,8 +211,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_cont_in_main_process_signal_handlers
     omit "Windows cannot handle signals" if Fluent.windows?
 
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     sv.send(:install_main_process_signal_handlers)
 
     Process.kill :CONT, Process.pid
@@ -232,8 +228,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     create_debug_dummy_logger
 
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     sv.send(:install_main_process_signal_handlers)
 
     Process.kill :TERM, Process.pid
@@ -256,8 +251,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     create_info_dummy_logger
 
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     r, w = IO.pipe
     $stdin = r
     sv.send(:install_main_process_signal_handlers)
@@ -432,8 +426,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     create_info_dummy_logger
 
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     conf_data = <<-EOC
   <system>
     rpc_endpoint "#{bindaddr}:24447"
@@ -469,8 +462,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_invalid_rpc_endpoint(data)
     endpoint = data[0]
 
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     conf_data = <<-EOC
   <system>
     rpc_endpoint "#{endpoint}"
@@ -498,8 +490,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     create_info_dummy_logger
 
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     conf_data = <<-EOC
   <system>
     rpc_endpoint "#{bindaddr}:24447"
@@ -698,8 +689,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def test_logger
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
     log = sv.instance_variable_get(:@log)
     log.init(:standalone, 0)
     logger = $log.instance_variable_get(:@logger)
@@ -721,10 +711,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     integer_age: 2,
   )
   def test_logger_with_rotate_age_and_rotate_size(rotate_age)
-    opts = Fluent::Supervisor.default_options.merge(
-      log_path: "#{@tmp_dir}/test", log_rotate_age: rotate_age, log_rotate_size: 10
-    )
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test", log_rotate_age: rotate_age, log_rotate_size: 10})
     log = sv.instance_variable_get(:@log)
     log.init(:standalone, 0)
 
@@ -751,10 +738,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         EOS
         file.puts(config)
         file.flush
-        opts = Fluent::Supervisor.default_options.merge(
-          log_path: "#{@tmp_dir}/test.log", config_path: file.path
-        )
-        sv = Fluent::Supervisor.new(opts)
+        sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path})
 
         log = sv.instance_variable_get(:@log)
         log.init(:standalone, 0)
@@ -776,10 +760,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         EOS
         file.puts(config)
         file.flush
-        opts = Fluent::Supervisor.default_options.merge(
-          log_path: "#{@tmp_dir}/test.log", config_path: file.path, config_file_type: :yaml,
-        )
-        sv = Fluent::Supervisor.new(opts)
+        sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path, config_file_type: :yaml})
 
         log = sv.instance_variable_get(:@log)
         log.init(:standalone, 0)
@@ -795,9 +776,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_inline_config
     omit 'this feature is deprecated. see https://github.com/fluent/fluentd/issues/2711'
 
-    opts = Fluent::Supervisor.default_options
-    opts[:inline_config] = '-'
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({inline_config: '-'})
     assert_equal '-', sv.instance_variable_get(:@inline_config)
 
     inline_config = '<match *>\n@type stdout\n</match>'
@@ -810,8 +789,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def test_log_level_affects
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
+    sv = Fluent::Supervisor.new({})
 
     c = Fluent::Config::Element.new('system', '', { 'log_level' => 'error' }, [])
     stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }

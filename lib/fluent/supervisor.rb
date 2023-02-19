@@ -656,7 +656,10 @@ module Fluent
       end
     end
 
-    def initialize(opt)
+    def initialize(cl_opt)
+      @cl_opt = cl_opt
+      opt = self.class.default_options.merge(cl_opt)
+
       @config_file_type = opt[:config_file_type]
       @daemonize = opt[:daemonize]
       @standalone_worker= opt[:standalone_worker]
@@ -676,7 +679,6 @@ module Fluent
       @log_rotate_size = opt[:log_rotate_size]
       @signame = opt[:signame]
 
-      @cl_opt = opt
       @conf = nil
       # parse configuration immediately to initialize logger in early stage
       if @config_path and File.exist?(@config_path)
@@ -1098,6 +1100,7 @@ module Fluent
 
     def build_system_config(conf)
       system_config = SystemConfig.create(conf, @cl_opt[:strict_config_value])
+      # Prefer the options explicitly specified in the command line
       opt = {}
       Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS.each do |param|
         if @cl_opt.key?(param) && !@cl_opt[param].nil?
