@@ -158,15 +158,15 @@ op.on('--enable-size-metrics', "Enable plugin record size metrics on fluentd", T
 }
 
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
-  if b
-    cmd_opts[:log_level] = [default_opts[:log_level] - 1, Fluent::Log::LEVEL_TRACE].max
-  end
+  return unless b
+  cur_level = cmd_opts.fetch(:log_level, default_opts[:log_level])
+  cmd_opts[:log_level] = [cur_level - 1, Fluent::Log::LEVEL_TRACE].max
 }
 
 op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClass) {|b|
-  if b
-    cmd_opts[:log_level] = [default_opts[:log_level] + 1, Fluent::Log::LEVEL_ERROR].min
-  end
+  return unless b
+  cur_level = cmd_opts.fetch(:log_level, default_opts[:log_level])
+  cmd_opts[:log_level] = [cur_level + 1, Fluent::Log::LEVEL_TRACE].max
 }
 
 op.on('--suppress-config-dump', "suppress config dumping when fluentd starts", TrueClass) {|b|
