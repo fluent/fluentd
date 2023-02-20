@@ -1220,5 +1220,17 @@ CONF
                          "[error]",
                          patterns_not_match: ["[warn]"])
     end
+
+    test 'system config one should not be overwritten when cmd line one is not specified' do
+      conf = <<CONF
+<system>
+  log_level debug
+</system>
+CONF
+      conf_path = create_conf_file('debug.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path),
+                         "[debug]")
+    end
   end
 end

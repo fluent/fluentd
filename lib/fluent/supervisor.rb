@@ -1104,12 +1104,6 @@ module Fluent
       opt = {}
       Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS.each do |param|
         if @cl_opt.key?(param) && !@cl_opt[param].nil?
-          if param == :log_level && @cl_opt[:log_level] == Fluent::Log::LEVEL_INFO
-            # info level can't be specified via command line option.
-            # log_level is info here, it is default value and <system>'s log_level should be applied if exists.
-            next
-          end
-
           opt[param] = @cl_opt[param]
         end
       end
