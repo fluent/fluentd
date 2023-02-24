@@ -10,3 +10,4 @@
 - [Fujimoto Seiji](https://github.com/fujimots), [ClearCode](https://www.clear-code.com/)
 - [Takuro Ashie](https://github.com/ashie), [ClearCode](https://www.clear-code.com/)
 - [Kentaro Hayashi](https://github.com/kenhys), [ClearCode](https://www.clear-code.com/)
+- [Daijiro Fukuda](https://github.com/daipom), [ClearCode](https://www.clear-code.com/)
