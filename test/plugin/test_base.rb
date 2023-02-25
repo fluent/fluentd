@@ -146,4 +146,148 @@ class BaseTest < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case 'system_config.workers value after configure' do
+    sub_test_case 'with <system> workers 3 </system>' do
+      setup do
+        system_config = Fluent::SystemConfig.new
+        system_config.workers = 3
+        stub(Fluent::Engine).system_config { system_config }
+      end
+
+      sub_test_case 'supervisor_mode is true' do
+        setup do
+          stub(Fluent::Engine).supervisor_mode { true }
+          stub(Fluent::Engine).worker_id { -1 }
+        end
+
+        test 'without <worker> directive' do
+          conf = config_element()
+          conf.set_target_worker_ids([])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 3 }
+        end
+
+        test 'with <worker 0>' do
+          conf = config_element()
+          conf.set_target_worker_ids([0])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 1 }
+        end
+
+        test 'with <worker 0-1>' do
+          conf = config_element()
+          conf.set_target_worker_ids([0, 1])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 2 }
+        end
+
+        test 'with <worker 0-2>' do
+          conf = config_element()
+          conf.set_target_worker_ids([0, 1, 2])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 3 }
+        end
+
+        test '`conf` is `Hash`' do
+          @p.configure({})
+          assert{ @p.system_config.workers == 3 }
+        end
+      end
+
+      sub_test_case 'supervisor_mode is false' do
+        setup do
+          stub(Fluent::Engine).supervisor_mode { false }
+          stub(Fluent::Engine).worker_id { 0 }
+        end
+
+        test 'without <worker> directive' do
+          conf = config_element()
+          conf.set_target_worker_ids([])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 3 }
+        end
+
+        test 'with <worker 0>' do
+          conf = config_element()
+          conf.set_target_worker_ids([0])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 1 }
+        end
+
+        test 'with <worker 0-1>' do
+          conf = config_element()
+          conf.set_target_worker_ids([0, 1])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 2 }
+        end
+
+        test 'with <worker 0-2>' do
+          conf = config_element()
+          conf.set_target_worker_ids([0, 1, 2])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 3 }
+        end
+
+        test '`conf` is `Hash`' do
+          @p.configure({})
+          assert{ @p.system_config.workers == 3 }
+        end
+      end
+    end
+
+    sub_test_case 'without <system> directive' do
+      sub_test_case 'supervisor_mode is true' do
+        setup do
+          stub(Fluent::Engine).supervisor_mode { true }
+          stub(Fluent::Engine).worker_id { -1 }
+        end
+
+        test 'without <worker> directive' do
+          conf = config_element()
+          conf.set_target_worker_ids([])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 1 }
+        end
+
+        test 'with <worker 0>' do
+          conf = config_element()
+          conf.set_target_worker_ids([0])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 1 }
+        end
+
+        test '`conf` is `Hash`' do
+          @p.configure({})
+          assert{ @p.system_config.workers == 1 }
+        end
+      end
+
+      sub_test_case 'supervisor_mode is false' do
+        setup do
+          stub(Fluent::Engine).supervisor_mode { false }
+          stub(Fluent::Engine).worker_id { 0 }
+        end
+
+        test 'without <worker> directive' do
+          conf = config_element()
+          conf.set_target_worker_ids([])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 1 }
+        end
+
+        test 'with <worker 0>' do
+          conf = config_element()
+          conf.set_target_worker_ids([0])
+          @p.configure(conf)
+          assert{ @p.system_config.workers == 1 }
+        end
+
+        test '`conf` is `Hash`' do
+          @p.configure({})
+          assert{ @p.system_config.workers == 1 }
+        end
+      end
+    end
+  end
 end

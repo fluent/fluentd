@@ -52,14 +52,12 @@ module Fluent
         @_fluentd_worker_id
       end
 
+      # @param conf [Fluent::Config::Element, Hash] configuration
       def configure(conf)
-        if Fluent::Engine.supervisor_mode || (conf.respond_to?(:for_this_worker?) && conf.for_this_worker?)
-          workers = if conf.target_worker_ids && !conf.target_worker_ids.empty?
-                      conf.target_worker_ids.size
-                    else
-                      1
-                    end
-          system_config_override(workers: workers)
+        if conf.is_a?(Fluent::Config::Element)
+          if (Fluent::Engine.supervisor_mode && !conf.target_worker_ids.empty?) || conf.for_this_worker?
+            system_config_override(workers: conf.target_worker_ids.size)
+          end
         end
         super(conf, system_config.strict_config_value)
         @_state ||= State.new(false, false, false, false, false, false, false, false, false)
