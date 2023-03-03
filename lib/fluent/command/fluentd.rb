@@ -26,26 +26,27 @@ $fluentdargv = Marshal.load(Marshal.dump(ARGV))
 op = OptionParser.new
 op.version = Fluent::VERSION
 
-opts = Fluent::Supervisor.default_options
+default_opts = Fluent::Supervisor.default_options
+cmd_opts = {}
 
 op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
-  opts[:setup_path] = s || File.dirname(Fluent::DEFAULT_CONFIG_PATH)
+  cmd_opts[:setup_path] = s || File.dirname(Fluent::DEFAULT_CONFIG_PATH)
 }
 
 op.on('-c', '--config PATH', "config file path (default: #{Fluent::DEFAULT_CONFIG_PATH})") {|s|
-  opts[:config_path] = s
+  cmd_opts[:config_path] = s
 }
 
 op.on('--dry-run', "Check fluentd setup is correct or not", TrueClass) {|b|
-  opts[:dry_run] = b
+  cmd_opts[:dry_run] = b
 }
 
 op.on('--show-plugin-config=PLUGIN', "[DEPRECATED] Show PLUGIN configuration and exit(ex: input:dummy)") {|plugin|
-  opts[:show_plugin_config] = plugin
+  cmd_opts[:show_plugin_config] = plugin
 }
 
 op.on('-p', '--plugin DIR', "add plugin directory") {|s|
-  opts[:plugin_dirs] << s
+  (cmd_opts[:plugin_dirs] ||= []) << s
 }
 
 op.on('-I PATH', "add library path") {|s|
@@ -53,48 +54,48 @@ op.on('-I PATH', "add library path") {|s|
 }
 
 op.on('-r NAME', "load library") {|s|
-  opts[:libs] << s
+  (cmd_opts[:libs] ||= []) << s
 }
 
 op.on('-d', '--daemon PIDFILE', "daemonize fluent process") {|s|
-  opts[:daemonize] = s
+  cmd_opts[:daemonize] = s
 }
 
 op.on('--under-supervisor', "run fluent worker under supervisor (this option is NOT for users)") {
-  opts[:supervise] = false
+  cmd_opts[:supervise] = false
 }
 
 op.on('--no-supervisor', "run fluent worker without supervisor") {
-  opts[:supervise] = false
-  opts[:standalone_worker] = true
+  cmd_opts[:supervise] = false
+  cmd_opts[:standalone_worker] = true
 }
 
 op.on('--workers NUM', "specify the number of workers under supervisor") { |i|
-  opts[:workers] = i.to_i
+  cmd_opts[:workers] = i.to_i
 }
 
 op.on('--user USER', "change user") {|s|
-  opts[:chuser] = s
+  cmd_opts[:chuser] = s
 }
 
 op.on('--group GROUP', "change group") {|s|
-  opts[:chgroup] = s
+  cmd_opts[:chgroup] = s
 }
 
 op.on('--umask UMASK', "change umask") {|s|
-  opts[:chumask] = s
+  cmd_opts[:chumask] = s
 }
 
 op.on('-o', '--log PATH', "log file path") {|s|
-  opts[:log_path] = s
+  cmd_opts[:log_path] = s
 }
 
 op.on('--log-rotate-age AGE', 'generations to keep rotated log files') {|age|
   if Fluent::Log::LOG_ROTATE_AGE.include?(age)
-    opts[:log_rotate_age] = age
+    cmd_opts[:log_rotate_age] = age
   else
     begin
-      opts[:log_rotate_age] = Integer(age)
+      cmd_opts[:log_rotate_age] = Integer(age)
     rescue TypeError, ArgumentError
       usage "log-rotate-age should be #{ROTATE_AGE.join(', ')} or a number"
     end
@@ -102,129 +103,129 @@ op.on('--log-rotate-age AGE', 'generations to keep rotated log files') {|age|
 }
 
 op.on('--log-rotate-size BYTES', 'sets the byte size to rotate log files') {|s|
-  opts[:log_rotate_size] = s.to_i
+  cmd_opts[:log_rotate_size] = s.to_i
 }
 
 op.on('--log-event-verbose', 'enable log events during process startup/shutdown') {|b|
-  opts[:log_event_verbose] = b
+  cmd_opts[:log_event_verbose] = b
 }
 
 op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to the config file on-the-fly") {|s|
-  opts[:inline_config] = s
+  cmd_opts[:inline_config] = s
 }
 
 op.on('--emit-error-log-interval SECONDS', "suppress interval seconds of emit error logs") {|s|
-  opts[:suppress_interval] = s.to_i
+  cmd_opts[:suppress_interval] = s.to_i
 }
 
 op.on('--suppress-repeated-stacktrace [VALUE]', "suppress repeated stacktrace", TrueClass) {|b|
   b = true if b.nil?
-  opts[:suppress_repeated_stacktrace] = b
+  cmd_opts[:suppress_repeated_stacktrace] = b
 }
 
 op.on('--without-source', "invoke a fluentd without input plugins", TrueClass) {|b|
-  opts[:without_source] = b
+  cmd_opts[:without_source] = b
 }
 
 op.on('--config-file-type VALU', 'guessing file type of fluentd configuration. yaml/yml or guess') { |s|
   if (s == 'yaml') || (s == 'yml')
-    opts[:config_file_type] = s.to_sym
+    cmd_opts[:config_file_type] = s.to_sym
   elsif (s == 'guess')
-    opts[:config_file_type] = s.to_sym
+    cmd_opts[:config_file_type] = s.to_sym
   else
     usage '--config-file-type accepts yaml/yml or guess'
   end
 }
 
 op.on('--use-v1-config', "Use v1 configuration format (default)", TrueClass) {|b|
-  opts[:use_v1_config] = b
+  cmd_opts[:use_v1_config] = b
 }
 
 op.on('--use-v0-config', "Use v0 configuration format", TrueClass) {|b|
-  opts[:use_v1_config] = !b
+  cmd_opts[:use_v1_config] = !b
 }
 
 op.on('--strict-config-value', "Parse config values strictly", TrueClass) {|b|
-  opts[:strict_config_value] = b
+  cmd_opts[:strict_config_value] = b
 }
 
 op.on('--enable-input-metrics', "Enable input plugin metrics on fluentd", TrueClass) {|b|
-  opts[:enable_input_metrics] = b
+  cmd_opts[:enable_input_metrics] = b
 }
 
 op.on('--enable-size-metrics', "Enable plugin record size metrics on fluentd", TrueClass) {|b|
-  opts[:enable_size_metrics] = b
+  cmd_opts[:enable_size_metrics] = b
 }
 
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
-  if b
-    opts[:log_level] = [opts[:log_level] - 1, Fluent::Log::LEVEL_TRACE].max
-  end
+  return unless b
+  cur_level = cmd_opts.fetch(:log_level, default_opts[:log_level])
+  cmd_opts[:log_level] = [cur_level - 1, Fluent::Log::LEVEL_TRACE].max
 }
 
 op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClass) {|b|
-  if b
-    opts[:log_level] = [opts[:log_level] + 1, Fluent::Log::LEVEL_ERROR].min
-  end
+  return unless b
+  cur_level = cmd_opts.fetch(:log_level, default_opts[:log_level])
+  cmd_opts[:log_level] = [cur_level + 1, Fluent::Log::LEVEL_TRACE].max
 }
 
 op.on('--suppress-config-dump', "suppress config dumping when fluentd starts", TrueClass) {|b|
-  opts[:suppress_config_dump] = b
+  cmd_opts[:suppress_config_dump] = b
 }
 
 op.on('-g', '--gemfile GEMFILE', "Gemfile path") {|s|
-  opts[:gemfile] = s
+  cmd_opts[:gemfile] = s
 }
 
 op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dirname $gemfile)/vendor/bundle)") {|s|
-  opts[:gem_install_path] = s
+  cmd_opts[:gem_install_path] = s
 }
 
 op.on('--conf-encoding ENCODING', "specify configuration file encoding") { |s|
-  opts[:conf_encoding] = s
+  cmd_opts[:conf_encoding] = s
 }
 
 op.on('--disable-shared-socket', "Don't open shared socket for multiple workers") { |b|
-  opts[:disable_shared_socket] = b
+  cmd_opts[:disable_shared_socket] = b
 }
 
 if Fluent.windows?
-  opts.merge!(
+  cmd_opts.merge!(
     :winsvc_name => 'fluentdwinsvc',
     :winsvc_display_name => 'Fluentd Windows Service',
     :winsvc_desc => 'Fluentd is an event collector system.',
   )
 
   op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
-    opts[:signame] = s
+    cmd_opts[:signame] = s
   }
 
   op.on('--reg-winsvc MODE', "install/uninstall as Windows Service. (i: install, u: uninstall) (Windows only)") {|s|
-    opts[:regwinsvc] = s
+    cmd_opts[:regwinsvc] = s
   }
 
   op.on('--[no-]reg-winsvc-auto-start', "Automatically start the Windows Service at boot. (only effective with '--reg-winsvc i') (Windows only)") {|s|
-    opts[:regwinsvcautostart] = s
+    cmd_opts[:regwinsvcautostart] = s
   }
 
   op.on('--[no-]reg-winsvc-delay-start', "Automatically start the Windows Service at boot with delay. (only effective with '--reg-winsvc i' and '--reg-winsvc-auto-start') (Windows only)") {|s|
-    opts[:regwinsvcdelaystart] = s
+    cmd_opts[:regwinsvcdelaystart] = s
   }
 
   op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option parameters for Windows Service. (Windows only)") {|s|
-    opts[:fluentdopt] = s
+    cmd_opts[:fluentdopt] = s
   }
 
   op.on('--winsvc-name NAME', "The Windows Service name to run as (Windows only)") {|s|
-    opts[:winsvc_name] = s
+    cmd_opts[:winsvc_name] = s
   }
 
   op.on('--winsvc-display-name DISPLAY_NAME', "The Windows Service display name (Windows only)") {|s|
-    opts[:winsvc_display_name] = s
+    cmd_opts[:winsvc_display_name] = s
   }
 
   op.on('--winsvc-desc DESC', "The Windows Service description (Windows only)") {|s|
-    opts[:winsvc_desc] = s
+    cmd_opts[:winsvc_desc] = s
   }
 end
 
@@ -247,6 +248,7 @@ rescue
   usage $!.to_s
 end
 
+opts = default_opts.merge(cmd_opts)
 
 ##
 ## Bundler injection
@@ -345,7 +347,7 @@ end
 exit 0 if early_exit
 
 if opts[:supervise]
-  supervisor = Fluent::Supervisor.new(opts)
+  supervisor = Fluent::Supervisor.new(cmd_opts)
   supervisor.configure(supervisor: true)
   supervisor.run_supervisor(dry_run: opts[:dry_run])
 else
@@ -353,7 +355,7 @@ else
     puts "Error: multi workers is not supported with --no-supervisor"
     exit 2
   end
-  worker = Fluent::Supervisor.new(opts)
+  worker = Fluent::Supervisor.new(cmd_opts)
   worker.configure
 
   if opts[:daemonize] && opts[:standalone_worker]

@@ -355,14 +355,13 @@ EOC
 
     test "fluentd opts" do
       d = create_driver
-      opts = Fluent::Supervisor.default_options
 
       filepath = nil
       begin
         FileUtils.mkdir_p(CONFIG_DIR)
         filepath = File.expand_path('fluentd.conf', CONFIG_DIR)
         FileUtils.touch(filepath)
-        s = Fluent::Supervisor.new(opts.merge(config_path: filepath))
+        s = Fluent::Supervisor.new({config_path: filepath})
         s.configure
       ensure
         FileUtils.rm_r(CONFIG_DIR) rescue _
@@ -502,7 +501,7 @@ EOC
           v.puts(conf)
         end
 
-        @supervisor = Fluent::Supervisor.new(Fluent::Supervisor.default_options.merge(config_path: @filepath))
+        @supervisor = Fluent::Supervisor.new({config_path: @filepath})
         @supervisor.configure
       ensure
         FileUtils.rm_r(CONFIG_DIR) rescue _

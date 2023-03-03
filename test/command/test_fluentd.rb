@@ -1165,4 +1165,77 @@ CONF
                          "shared socket for multiple workers is disabled",)
     end
   end
+
+  sub_test_case 'log_level by command line option' do
+    test 'info' do
+      conf = ""
+      conf_path = create_conf_file('empty.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path),
+                         "[info]",
+                         patterns_not_match: ["[debug]"])
+    end
+
+    test 'debug' do
+      conf = ""
+      conf_path = create_conf_file('empty.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path, "-v"),
+                         "[debug]",
+                         patterns_not_match: ["[trace]"])
+    end
+
+    test 'trace' do
+      conf = <<CONF
+<source>
+  @type sample
+  tag test
+</source>
+CONF
+      conf_path = create_conf_file('sample.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path, "-vv"),
+                         "[trace]",)
+    end
+
+    test 'warn' do
+      conf = <<CONF
+<source>
+  @type sample
+  tag test
+</source>
+CONF
+      conf_path = create_conf_file('sample.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path, "-q"),
+                         "[warn]",
+                         patterns_not_match: ["[info]"])
+    end
+
+    test 'error' do
+      conf = <<CONF
+<source>
+  @type plugin_not_found
+  tag test
+</source>
+CONF
+      conf_path = create_conf_file('plugin_not_found.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path, "-qq"),
+                         "[error]",
+                         patterns_not_match: ["[warn]"])
+    end
+
+    test 'system config one should not be overwritten when cmd line one is not specified' do
+      conf = <<CONF
+<system>
+  log_level debug
+</system>
+CONF
+      conf_path = create_conf_file('debug.conf', conf)
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path),
+                         "[debug]")
+    end
+  end
 end
