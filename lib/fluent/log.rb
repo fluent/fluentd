@@ -154,7 +154,7 @@ module Fluent
 
     attr_reader :format
     attr_reader :time_format
-    attr_accessor :log_event_enabled, :ignore_repeated_log_interval, :ignore_same_log_interval
+    attr_accessor :log_event_enabled, :ignore_repeated_log_interval, :ignore_same_log_interval, :suppress_repeated_stacktrace
     attr_accessor :out
     attr_accessor :level
     attr_accessor :optional_header, :optional_attrs

@@ -437,28 +437,10 @@ module Fluent
       end
 
       log_level = params['log_level']
-      suppress_repeated_stacktrace = params['suppress_repeated_stacktrace']
-      ignore_repeated_log_interval = params['ignore_repeated_log_interval']
-      ignore_same_log_interval = params['ignore_same_log_interval']
 
-      log_path = params['log_path']
       chuser = params['chuser']
       chgroup = params['chgroup']
       chumask = params['chumask']
-      log_rotate_age = params['log_rotate_age']
-      log_rotate_size = params['log_rotate_size']
-
-      log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace, ignore_repeated_log_interval: ignore_repeated_log_interval,
-                  ignore_same_log_interval: ignore_same_log_interval}
-      logger_initializer = Supervisor::LoggerInitializer.new(
-        log_path, log_level, chuser, chgroup, log_opts,
-        log_rotate_age: log_rotate_age,
-        log_rotate_size: log_rotate_size
-      )
-      # this #init sets initialized logger to $log
-      logger_initializer.init(:supervisor, 0)
-      logger_initializer.apply_options(format: params['log_format'], time_format: params['log_time_format'])
-      logger = $log
 
       command_sender = Fluent.windows? ? "pipe" : "signal"
 
@@ -477,17 +459,13 @@ module Fluent
         unrecoverable_exit_codes: [2],
         stop_immediately_at_unrecoverable_exit: true,
         root_dir: params['root_dir'],
-        logger: logger,
-        log: logger.out,
-        log_path: log_path,
+        logger: $log,
+        log: $log.out,
         log_level: log_level,
-        logger_initializer: logger_initializer,
+        logger_initializer: params['logger_initializer'],
         chuser: chuser,
         chgroup: chgroup,
         chumask: chumask,
-        suppress_repeated_stacktrace: suppress_repeated_stacktrace,
-        ignore_repeated_log_interval: ignore_repeated_log_interval,
-        ignore_same_log_interval: ignore_same_log_interval,
         daemonize: daemonize,
         rpc_endpoint: params['rpc_endpoint'],
         counter_server: params['counter_server'],
@@ -601,11 +579,13 @@ module Fluent
         self
       end
 
-      def apply_options(format: nil, time_format: nil, log_dir_perm: nil, ignore_repeated_log_interval: nil, ignore_same_log_interval: nil)
+      def apply_options(format: nil, time_format: nil, log_dir_perm: nil,
+                        ignore_repeated_log_interval: nil, ignore_same_log_interval: nil, suppress_repeated_stacktrace: nil)
         $log.format = format if format
         $log.time_format = time_format if time_format
         $log.ignore_repeated_log_interval = ignore_repeated_log_interval if ignore_repeated_log_interval
         $log.ignore_same_log_interval = ignore_same_log_interval if ignore_same_log_interval
+        $log.suppress_repeated_stacktrace = suppress_repeated_stacktrace unless suppress_repeated_stacktrace.nil?
 
         if @path && log_dir_perm
           File.chmod(log_dir_perm || Fluent::DEFAULT_DIR_PERMISSION, File.dirname(@path))
@@ -822,7 +802,8 @@ module Fluent
         time_format: @system_config.log.time_format,
         log_dir_perm: @system_config.dir_permission,
         ignore_repeated_log_interval: @system_config.ignore_repeated_log_interval,
-        ignore_same_log_interval: @system_config.ignore_same_log_interval
+        ignore_same_log_interval: @system_config.ignore_same_log_interval,
+        suppress_repeated_stacktrace: @system_config.suppress_repeated_stacktrace,
       )
 
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
@@ -871,9 +852,6 @@ module Fluent
         'main_cmd' => fluentd_spawn_cmd,
         'daemonize' => @daemonize,
         'inline_config' => @inline_config,
-        'log_path' => @log_path,
-        'log_rotate_age' => @log_rotate_age,
-        'log_rotate_size' => @log_rotate_size,
         'chuser' => @chuser,
         'chgroup' => @chgroup,
         'use_v1_config' => @use_v1_config,
@@ -883,14 +861,11 @@ module Fluent
 
         'workers' => @system_config.workers,
         'root_dir' => @system_config.root_dir,
+        'logger_initializer' => @log,
         'log_level' => @system_config.log_level,
-        'suppress_repeated_stacktrace' => @system_config.suppress_repeated_stacktrace,
-        'ignore_repeated_log_interval' => @system_config.ignore_repeated_log_interval,
         'rpc_endpoint' => @system_config.rpc_endpoint,
         'enable_get_dump' => @system_config.enable_get_dump,
         'counter_server' => @system_config.counter_server,
-        'log_format' => @system_config.log.format,
-        'log_time_format' => @system_config.log.time_format,
         'disable_shared_socket' => @system_config.disable_shared_socket,
         'restart_worker_interval' => @system_config.restart_worker_interval,
       }
