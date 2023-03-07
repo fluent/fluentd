@@ -116,7 +116,7 @@ module Fluent::Plugin
     def generate_path(path_without_suffix)
       if @append
         path = "#{path_without_suffix}#{@suffix}"
-        lock_if_need(path) do
+        acquire_lock_if_need(path) do
           yield path
         end
         return path
@@ -129,7 +129,7 @@ module Fluent::Plugin
           break unless File.exist?(path)
           i += 1
         end
-        lock_if_need(path) do
+        acquire_lock_if_need(path) do
           # If multiple processes or threads select the same path and another
           # one entered this locking block first, the file should already
           # exist and this one should retry to find new path.

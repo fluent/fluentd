@@ -609,15 +609,15 @@ module Fluent
       # (For multiple workers, the lock is shared if `worker_lock_name` is the same value).
       # For multiple threads, `worker_lock_name` is not used, and the lock is shared by all
       # threads in the same process.
-      def lock_if_need(worker_lock_name)
-        get_worker_lock_if_need(worker_lock_name) do
-          get_flush_thread_lock_if_need do
+      def acquire_lock_if_need(worker_lock_name)
+        acquire_worker_lock_if_need(worker_lock_name) do
+          acquire_flush_thread_lock_if_need do
             yield
           end
         end
       end
 
-      def get_worker_lock_if_need(name)
+      def acquire_worker_lock_if_need(name)
         need_worker_lock = system_config.workers > 1
         if need_worker_lock
           acquire_worker_lock(name) { yield }
@@ -626,7 +626,7 @@ module Fluent
         end
       end
 
-      def get_flush_thread_lock_if_need
+      def acquire_flush_thread_lock_if_need
         need_thread_lock = actual_flush_thread_count > 1
         if need_thread_lock
           @flush_thread_mutex.synchronize { yield }
