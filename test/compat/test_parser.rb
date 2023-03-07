@@ -38,14 +38,14 @@ class TextParserTest < ::Test::Unit::TestCase
 
   def test_parse_with_return
     parser = Fluent::TextParser.new
-    parser.configure('format' => 'none')
+    parser.configure(config_element('test', '', 'format' => 'none'))
     _time, record = parser.parse('log message!')
     assert_equal({'message' => 'log message!'}, record)
   end
 
   def test_parse_with_block
     parser = Fluent::TextParser.new
-    parser.configure('format' => 'none')
+    parser.configure(config_element('test', '', 'format' => 'none'))
     parser.parse('log message!') { |time, record|
       assert_equal({'message' => 'log message!'}, record)
     }
@@ -53,7 +53,7 @@ class TextParserTest < ::Test::Unit::TestCase
 
   def test_multi_event_parser
     parser = Fluent::TextParser.new
-    parser.configure('format' => 'multi_event_test')
+    parser.configure(config_element('test', '', 'format' => 'multi_event_test'))
     i = 0
     parser.parse('log message!') { |time, record|
       assert_equal('log message!', record['message'])
@@ -67,7 +67,7 @@ class TextParserTest < ::Test::Unit::TestCase
     assert_nil p1.estimate_current_event
     assert_nil p1.parser
 
-    p1.configure('format' => 'none')
+    p1.configure(config_element('test', '', 'format' => 'none'))
     assert_equal true, p1.parser.estimate_current_event
 
     p2 = Fluent::TextParser.new
@@ -76,7 +76,7 @@ class TextParserTest < ::Test::Unit::TestCase
 
     p2.estimate_current_event = false
 
-    p2.configure('format' => 'none')
+    p2.configure(config_element('test', '', 'format' => 'none'))
     assert_equal false, p2.parser.estimate_current_event
   end
 

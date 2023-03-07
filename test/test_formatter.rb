@@ -13,12 +13,16 @@ module FormatterTest
     {'message' => 'awesome', 'greeting' => 'hello'}
   end
 
+  def config_element_in_params(params)
+    config_element('test', '', params)
+  end
+
   class BaseFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
     def test_call
       formatter = Formatter.new
-      formatter.configure({})
+      formatter.configure(config_element())
       assert_raise NotImplementedError do
         formatter.format('tag', Engine.now, {})
       end
@@ -135,7 +139,7 @@ module FormatterTest
     end
 
     def test_format
-      @formatter.configure({})
+      @formatter.configure(config_element())
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal(record.to_msgpack, formatted)
@@ -159,27 +163,27 @@ module FormatterTest
       assert_equal "\t", @formatter.delimiter
       assert_equal  ":", @formatter.label_delimiter
 
-      @formatter.configure(
+      @formatter.configure(config_element_in_params(
         'delimiter'       => ',',
         'label_delimiter' => '=',
-      )
+      ))
 
       assert_equal ",", @formatter.delimiter
       assert_equal "=", @formatter.label_delimiter
     end
 
     def test_format
-      @formatter.configure({})
+      @formatter.configure(config_element())
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal("message:awesome\tgreeting:hello#{@newline}", formatted)
     end
 
     def test_format_with_customized_delimiters
-      @formatter.configure(
+      @formatter.configure(config_element_in_params(
         'delimiter'       => ',',
         'label_delimiter' => '=',
-      )
+      ))
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal("message=awesome,greeting=hello#{@newline}", formatted)
@@ -190,26 +194,26 @@ module FormatterTest
     end
 
     def test_format_suppresses_tab
-      @formatter.configure({})
+      @formatter.configure(config_element())
       formatted = @formatter.format(tag, @time, record_with_tab)
 
       assert_equal("message:awe some\tgreeting:hello #{@newline}", formatted)
     end
 
     def test_format_suppresses_tab_custom_replacement
-      @formatter.configure(
+      @formatter.configure(config_element_in_params(
         'replacement'      => 'X',
-      )
+      ))
       formatted = @formatter.format(tag, @time, record_with_tab)
 
       assert_equal("message:aweXsome\tgreeting:helloX#{@newline}", formatted)
     end
 
     def test_format_suppresses_custom_delimiter
-      @formatter.configure(
+      @formatter.configure(config_element_in_params(
         'delimiter'       => 'w',
         'label_delimiter' => '=',
-      )
+      ))
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal("message=a esomewgreeting=hello#{@newline}", formatted)
@@ -236,13 +240,13 @@ module FormatterTest
       'pipe' => ['|', '|'])
     def test_config_params_with_customized_delimiters(data)
       expected, target = data
-      @formatter.configure('delimiter' => target, 'fields' => 'a,b,c')
+      @formatter.configure(config_element_in_params('delimiter' => target, 'fields' => 'a,b,c'))
       assert_equal expected, @formatter.delimiter
       assert_equal ['a', 'b', 'c'], @formatter.fields
     end
 
     def test_format
-      @formatter.configure('fields' => 'message,message2')
+      @formatter.configure(config_element_in_params('fields' => 'message,message2'))
       formatted = @formatter.format(tag, @time, {
         'message' => 'awesome',
         'message2' => 'awesome2'
@@ -251,10 +255,10 @@ module FormatterTest
     end
 
     def test_format_with_customized_delimiters
-      @formatter.configure(
+      @formatter.configure(config_element_in_params(
         'fields' => 'message,message2',
         'delimiter' => '\t'
-      )
+      ))
       formatted = @formatter.format(tag, @time, {
         'message' => 'awesome',
         'message2' => 'awesome2'
@@ -263,10 +267,10 @@ module FormatterTest
     end
 
     def test_format_with_non_quote
-      @formatter.configure(
+      @formatter.configure(config_element_in_params(
         'fields' => 'message,message2',
         'force_quotes' => 'false'
-      )
+      ))
       formatted = @formatter.format(tag, @time, {
         'message' => 'awesome',
         'message2' => 'awesome2'
@@ -286,9 +290,9 @@ module FormatterTest
         'message3' => 'awesome3'
       })
     def test_format_with_empty_fields(data)
-      @formatter.configure(
+      @formatter.configure(config_element_in_params(
         'fields' => 'message,message2,message3'
-      )
+      ))
       formatted = @formatter.format(tag, @time, data)
       assert_equal("\"awesome\",\"\",\"awesome3\"\n", formatted)
     end
@@ -298,7 +302,7 @@ module FormatterTest
       'white_space' => 'one , two , three',
       'blank' => 'one,,two,three')
     def test_config_params_with_fields(data)
-      @formatter.configure('fields' => data)
+      @formatter.configure(config_element_in_params('fields' => data))
       assert_equal %w(one two three), @formatter.fields
     end
   end
@@ -318,27 +322,27 @@ module FormatterTest
       formatter = TextFormatter::SingleValueFormatter.new
       assert_equal "message", formatter.message_key
 
-      formatter.configure('message_key' => 'foobar')
+      formatter.configure(config_element_in_params('message_key' => 'foobar'))
       assert_equal "foobar", formatter.message_key
     end
 
     def test_format
       formatter = Fluent::Plugin.new_formatter('single_value')
-      formatter.configure({})
+      formatter.configure(config_element())
       formatted = formatter.format('tag', Engine.now, {'message' => 'awesome'})
       assert_equal("awesome#{@newline}", formatted)
     end
 
     def test_format_without_newline
       formatter = Fluent::Plugin.new_formatter('single_value')
-      formatter.configure('add_newline' => 'false')
+      formatter.configure(config_element_in_params('add_newline' => 'false'))
       formatted = formatter.format('tag', Engine.now, {'message' => 'awesome'})
       assert_equal("awesome", formatted)
     end
 
     def test_format_with_message_key
       formatter = TextFormatter::SingleValueFormatter.new
-      formatter.configure('message_key' => 'foobar')
+      formatter.configure(config_element_in_params('message_key' => 'foobar'))
       formatted = formatter.format('tag', Engine.now, {'foobar' => 'foo'})
 
       assert_equal("foo#{@newline}", formatted)
