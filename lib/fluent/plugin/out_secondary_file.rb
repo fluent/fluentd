@@ -77,7 +77,7 @@ module Fluent::Plugin
 
     def write(chunk)
       path_without_suffix = extract_placeholders(@path_without_suffix, chunk)
-      return generate_path(path_without_suffix) do |path|
+      generate_path(path_without_suffix) do |path|
         FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
         case @compress
@@ -147,7 +147,7 @@ module Fluent::Plugin
       rescue FileAlreadyExist
         retry
       end
-      return path
+      path
     end
 
     class FileAlreadyExist < StandardError
