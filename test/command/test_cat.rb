@@ -83,7 +83,6 @@ class TestFluentCat < ::Test::Unit::TestCase
   sub_test_case "msgpack" do
     def test_cat_secondary_file
       d = create_secondary_driver
-      d.instance_start
       path = d.instance.write(@chunk)
       d = create_driver
       d.run(expect_records: 1) do

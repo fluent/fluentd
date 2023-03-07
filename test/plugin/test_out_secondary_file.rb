@@ -150,7 +150,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
     test 'should output compressed file when compress option is gzip' do
       d = create_driver(CONFIG, @primary)
-      d.instance_start
       path = d.instance.write(@chunk)
 
       assert_equal "#{TMP_DIR}/out_file_test.0.gz", path
@@ -162,7 +161,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         directory #{TMP_DIR}/
         basename out_file_test
       ], @primary)
-      d.instance_start
 
       msgpack_binary = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
@@ -177,7 +175,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
     test 'path should be incremental when append option is false' do
       d = create_driver(CONFIG, @primary)
-      d.instance_start
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
       5.times do |i|
@@ -189,7 +186,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
     test 'path should be unchanged when append option is true' do
       d = create_driver(CONFIG + %[append true], @primary)
-      d.instance_start
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
       [*1..5].each do |i|
@@ -244,7 +240,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
     test 'normal path when compress option is gzip' do
       d = create_driver
-      d.instance_start
       path = d.instance.write(@c)
       assert_equal "#{TMP_DIR}/out_file_test.0.gz", path
     end
@@ -254,7 +249,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         directory #{TMP_DIR}
         basename out_file_test
       ]
-      d.instance_start
       path = d.instance.write(@c)
       assert_equal "#{TMP_DIR}/out_file_test.0", path
     end
@@ -264,7 +258,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         directory #{TMP_DIR}
         append true
       ]
-      d.instance_start
       path = d.instance.write(@c)
       assert_equal "#{TMP_DIR}/dump.bin", path
     end
@@ -274,7 +267,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         directory #{TMP_DIR}
         basename out_file_chunk_id_${chunk_id}
       ]
-      d.instance_start
       path = d.instance.write(@c)
       if File.basename(path) =~ /out_file_chunk_id_([-_.@a-zA-Z0-9].*).0/
         unique_id = Fluent::UniqueId.hex(Fluent::UniqueId.generate)
@@ -329,7 +321,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         basename cool_${tag}
         compress gzip
       ], primary)
-      d.instance_start
 
       m = primary.buffer.new_metadata(tag: 'test.dummy')
       c = create_chunk(primary, m, @es)
@@ -346,7 +337,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         basename cool_${tag[0]}_${tag[1]}
         compress gzip
       ], primary)
-      d.instance_start
 
       m = primary.buffer.new_metadata(tag: 'test.dummy')
       c = create_chunk(primary, m, @es)
@@ -365,7 +355,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         basename cool_%Y%m%d%H
         compress gzip
       ], primary)
-      d.instance_start
 
       m = primary.buffer.new_metadata(timekey: event_time("2011-01-02 13:14:15 UTC"))
       c = create_chunk(primary, m, @es)
@@ -384,7 +373,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         basename cool_%Y%m%d%H
         compress gzip
       ], primary)
-      d.instance_start
 
       m = primary.buffer.new_metadata(timekey: event_time("2011-01-02 13:14:15 UTC"))
       c = create_chunk(primary, m, @es)
@@ -401,7 +389,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         basename cool_${test1}
         compress gzip
       ], primary)
-      d.instance_start
 
       m = primary.buffer.new_metadata(variables: { "test1".to_sym => "dummy" })
       c = create_chunk(primary, m, @es)
@@ -434,7 +421,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         basename cool_%Y%m%d%H_${tag}_${test1}
         compress gzip
       ], primary)
-      d.instance_start
 
       m = primary.buffer.new_metadata(
         timekey: event_time("2011-01-02 13:14:15 UTC"),
@@ -457,7 +443,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         directory #{TMP_DIR}/%Y%m%d%H/${tag}/${test1}
         compress gzip
       ], primary)
-      d.instance_start
 
       m = primary.buffer.new_metadata(
         timekey: event_time("2011-01-02 13:14:15 UTC"),
