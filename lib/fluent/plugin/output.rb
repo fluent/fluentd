@@ -198,6 +198,7 @@ module Fluent
       def initialize
         super
         @counter_mutex = Mutex.new
+        @flush_thread_mutex = Mutex.new
         @buffering = false
         @delayed_commit = false
         @as_secondary = false
@@ -595,6 +596,47 @@ module Fluent
         @secondary.terminate if @secondary
 
         super
+      end
+
+      def actual_flush_thread_count
+        return 0 unless @buffering
+        return @buffer_config.flush_thread_count unless @as_secondary
+        @primary_instance.buffer_config.flush_thread_count
+      end
+
+      # Run the passed block in the appropriate lock condition for multiple threads and workers.
+      # The lock between workers is made for every `worker_lock_name`.
+      # (For multiple workers, the lock is shared if `worker_lock_name` is the same value).
+      # For multiple threads, `worker_lock_name` is not used, and the lock is shared by all
+      # threads in the same process.
+      def lock_if_need(worker_lock_name)
+        get_worker_lock_if_need(worker_lock_name) do
+          get_flush_thread_lock_if_need do
+            yield
+          end
+        end
+      end
+
+      def get_worker_lock_if_need(name)
+        need_worker_lock = system_config.workers > 1
+        unless need_worker_lock
+          yield
+          return
+        end
+        acquire_worker_lock(name) do
+          yield
+        end
+      end
+
+      def get_flush_thread_lock_if_need
+        need_thread_lock = actual_flush_thread_count > 1
+        unless need_thread_lock
+          yield
+          return
+        end
+        @flush_thread_mutex.synchronize do
+          yield
+        end
       end
 
       def support_in_v12_style?(feature)

@@ -61,18 +61,10 @@ module Fluent::Plugin
 
       @dir_perm = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
       @file_perm = system_config.file_permission || Fluent::DEFAULT_FILE_PERMISSION
-      @need_worker_lock = system_config.workers > 1
-      @need_thread_lock = @primary_instance.buffer_config.flush_thread_count > 1
     end
 
     def multi_workers_ready?
       true
-    end
-
-    def start
-      super
-      extend WriteLocker
-      @write_mutex = Mutex.new
     end
 
     def write(chunk)
@@ -151,36 +143,6 @@ module Fluent::Plugin
     end
 
     class FileAlreadyExist < StandardError
-    end
-
-    module WriteLocker
-      def lock_if_need(path)
-        get_worker_lock_if_need(path) do
-          get_thread_lock_if_need do
-            yield
-          end
-        end
-      end
-
-      def get_worker_lock_if_need(path)
-        unless @need_worker_lock
-          yield
-          return
-        end
-        acquire_worker_lock(path) do
-          yield
-        end
-      end
-
-      def get_thread_lock_if_need
-        unless @need_thread_lock
-          yield
-          return
-        end
-        @write_mutex.synchronize do
-          yield
-        end
-      end
     end
   end
 end
