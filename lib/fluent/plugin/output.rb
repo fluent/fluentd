@@ -619,22 +619,18 @@ module Fluent
 
       def get_worker_lock_if_need(name)
         need_worker_lock = system_config.workers > 1
-        unless need_worker_lock
-          yield
-          return
-        end
-        acquire_worker_lock(name) do
+        if need_worker_lock
+          acquire_worker_lock(name) { yield }
+        else
           yield
         end
       end
 
       def get_flush_thread_lock_if_need
         need_thread_lock = actual_flush_thread_count > 1
-        unless need_thread_lock
-          yield
-          return
-        end
-        @flush_thread_mutex.synchronize do
+        if need_thread_lock
+          @flush_thread_mutex.synchronize { yeild }
+        else
           yield
         end
       end
