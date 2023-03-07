@@ -629,7 +629,7 @@ module Fluent
       def get_flush_thread_lock_if_need
         need_thread_lock = actual_flush_thread_count > 1
         if need_thread_lock
-          @flush_thread_mutex.synchronize { yeild }
+          @flush_thread_mutex.synchronize { yield }
         else
           yield
         end
