@@ -604,29 +604,28 @@ module Fluent
         @primary_instance.buffer_config.flush_thread_count
       end
 
-      # Run the passed block in the appropriate lock condition for multiple threads and workers.
-      # The lock between workers is made for every `worker_lock_name`.
-      # (For multiple workers, the lock is shared if `worker_lock_name` is the same value).
-      # For multiple threads, `worker_lock_name` is not used, and the lock is shared by all
-      # threads in the same process.
-      def acquire_lock_if_need(worker_lock_name)
-        acquire_worker_lock_if_need(worker_lock_name) do
-          acquire_flush_thread_lock_if_need do
+      # Ensures `path` (filename or filepath) processable
+      # only by the current thread in the current process.
+      # For multiple workers, the lock is shared if `path` is the same value.
+      # For multiple threads, the lock is shared by all threads in the same process.
+      def synchronize_path(path)
+        synchronize_path_in_workers(path) do
+          synchronize_in_threads do
             yield
           end
         end
       end
 
-      def acquire_worker_lock_if_need(name)
+      def synchronize_path_in_workers(path)
         need_worker_lock = system_config.workers > 1
         if need_worker_lock
-          acquire_worker_lock(name) { yield }
+          acquire_worker_lock(path) { yield }
         else
           yield
         end
       end
 
-      def acquire_flush_thread_lock_if_need
+      def synchronize_in_threads
         need_thread_lock = actual_flush_thread_count > 1
         if need_thread_lock
           @flush_thread_mutex.synchronize { yield }

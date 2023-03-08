@@ -1139,7 +1139,7 @@ class OutputTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case "acquire_lock_if_need" do
+  sub_test_case "synchronize_path" do
     def setup
       Dir.mktmpdir do |lock_dir|
         ENV['FLUENTD_LOCK_DIR'] = lock_dir
@@ -1162,7 +1162,7 @@ class OutputTest < Test::Unit::TestCase
 
     def assert_thread_lock(output_plugin, expect_locked)
       t = Thread.new do
-        output_plugin.acquire_lock_if_need("test") do
+        output_plugin.synchronize_path("test") do
         end
       end
       if expect_locked
@@ -1232,7 +1232,7 @@ class OutputTest < Test::Unit::TestCase
         expect_thread_lock: true,
       }
     )
-    test "acquire_lock_if_need" do |data|
+    test "synchronize_path" do |data|
       o = create_output(data[:output_type])
       o.configure(data[:config])
       o.system_config_override(workers: data[:workers])
@@ -1240,7 +1240,7 @@ class OutputTest < Test::Unit::TestCase
       test_lock_name = "test_lock_name"
       lock_path = o.get_lock_path(test_lock_name)
 
-      o.acquire_lock_if_need(test_lock_name) do
+      o.synchronize_path(test_lock_name) do
         assert_worker_lock(lock_path, data[:expect_worker_lock])
         assert_thread_lock(o, data[:expect_thread_lock])
       end
@@ -1313,7 +1313,7 @@ class OutputTest < Test::Unit::TestCase
         expect_thread_lock: true,
       }
     )
-    test "acquire_lock_if_need for secondary" do |data|
+    test "synchronize_path for secondary" do |data|
       primary = create_output(data[:output_type])
       primary.configure(data[:config])
       secondary = primary.secondary
@@ -1322,7 +1322,7 @@ class OutputTest < Test::Unit::TestCase
       test_lock_name = "test_lock_name"
       lock_path = secondary.get_lock_path(test_lock_name)
 
-      secondary.acquire_lock_if_need(test_lock_name) do
+      secondary.synchronize_path(test_lock_name) do
         assert_worker_lock(lock_path, data[:expect_worker_lock])
         assert_thread_lock(secondary, data[:expect_thread_lock])
       end
