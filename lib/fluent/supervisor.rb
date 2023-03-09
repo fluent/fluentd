@@ -424,6 +424,10 @@ module Fluent
   end
 
   class Supervisor
+    # For ServerEngine's `reload_config`.
+    # This is called only at the initilization of the supervisor process,
+    # since Fluentd overwrites all related SIGNAL(HUP,USR1,USR2) and have own
+    # reloading feature.
     def self.load_config(path, params = {})
       pre_loadtime = 0
       pre_loadtime = params['pre_loadtime'].to_i if params['pre_loadtime']
