@@ -436,14 +436,6 @@ module Fluent
         return params['pre_conf']
       end
 
-      log_level = params['log_level']
-
-      chuser = params['chuser']
-      chgroup = params['chgroup']
-      chumask = params['chumask']
-
-      command_sender = Fluent.windows? ? "pipe" : "signal"
-
       # ServerEngine's "daemonize" option is boolean, and path of pid file is brought by "pid_path"
       pid_path = params['daemonize']
       daemonize = !!params['daemonize']
@@ -461,11 +453,11 @@ module Fluent
         root_dir: params['root_dir'],
         logger: $log,
         log: $log.out,
-        log_level: log_level,
+        log_level: params['log_level'],
         logger_initializer: params['logger_initializer'],
-        chuser: chuser,
-        chgroup: chgroup,
-        chumask: chumask,
+        chuser: params['chuser'],
+        chgroup: params['chgroup'],
+        chumask: params['chumask'],
         daemonize: daemonize,
         rpc_endpoint: params['rpc_endpoint'],
         counter_server: params['counter_server'],
@@ -476,7 +468,7 @@ module Fluent
                                  WorkerModule.name,
                                  path,
                                  JSON.dump(params)],
-        command_sender: command_sender,
+        command_sender: Fluent.windows? ? "pipe" : "signal",
         fluentd_conf: params['fluentd_conf'],
         conf_encoding: params['conf_encoding'],
         inline_config: params['inline_config'],
