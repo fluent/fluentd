@@ -198,6 +198,7 @@ module Fluent
       def initialize
         super
         @counter_mutex = Mutex.new
+        @flush_thread_mutex = Mutex.new
         @buffering = false
         @delayed_commit = false
         @as_secondary = false
@@ -595,6 +596,42 @@ module Fluent
         @secondary.terminate if @secondary
 
         super
+      end
+
+      def actual_flush_thread_count
+        return 0 unless @buffering
+        return @buffer_config.flush_thread_count unless @as_secondary
+        @primary_instance.buffer_config.flush_thread_count
+      end
+
+      # Ensures `path` (filename or filepath) processable
+      # only by the current thread in the current process.
+      # For multiple workers, the lock is shared if `path` is the same value.
+      # For multiple threads, the lock is shared by all threads in the same process.
+      def synchronize_path(path)
+        synchronize_path_in_workers(path) do
+          synchronize_in_threads do
+            yield
+          end
+        end
+      end
+
+      def synchronize_path_in_workers(path)
+        need_worker_lock = system_config.workers > 1
+        if need_worker_lock
+          acquire_worker_lock(path) { yield }
+        else
+          yield
+        end
+      end
+
+      def synchronize_in_threads
+        need_thread_lock = actual_flush_thread_count > 1
+        if need_thread_lock
+          @flush_thread_mutex.synchronize { yield }
+        else
+          yield
+        end
       end
 
       def support_in_v12_style?(feature)

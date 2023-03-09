@@ -64,31 +64,29 @@ module Fluent::Plugin
     end
 
     def multi_workers_ready?
-      ### TODO: add hack to synchronize for multi workers
       true
     end
 
     def write(chunk)
       path_without_suffix = extract_placeholders(@path_without_suffix, chunk)
-      path = generate_path(path_without_suffix)
-      FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
+      generate_path(path_without_suffix) do |path|
+        FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
-      case @compress
-      when :text
-        File.open(path, "ab", @file_perm) {|f|
-          f.flock(File::LOCK_EX)
-          chunk.write_to(f)
-        }
-      when :gzip
-        File.open(path, "ab", @file_perm) {|f|
-          f.flock(File::LOCK_EX)
-          gz = Zlib::GzipWriter.new(f)
-          chunk.write_to(gz)
-          gz.close
-        }
+        case @compress
+        when :text
+          File.open(path, "ab", @file_perm) {|f|
+            f.flock(File::LOCK_EX)
+            chunk.write_to(f)
+          }
+        when :gzip
+          File.open(path, "ab", @file_perm) {|f|
+            f.flock(File::LOCK_EX)
+            gz = Zlib::GzipWriter.new(f)
+            chunk.write_to(gz)
+            gz.close
+          }
+        end
       end
-
-      path
     end
 
     private
@@ -117,15 +115,34 @@ module Fluent::Plugin
 
     def generate_path(path_without_suffix)
       if @append
-        "#{path_without_suffix}#{@suffix}"
-      else
+        path = "#{path_without_suffix}#{@suffix}"
+        synchronize_path(path) do
+          yield path
+        end
+        return path
+      end
+
+      begin
         i = 0
         loop do
           path = "#{path_without_suffix}.#{i}#{@suffix}"
-          return path unless File.exist?(path)
+          break unless File.exist?(path)
           i += 1
         end
+        synchronize_path(path) do
+          # If multiple processes or threads select the same path and another
+          # one entered this locking block first, the file should already
+          # exist and this one should retry to find new path.
+          raise FileAlreadyExist if File.exist?(path)
+          yield path
+        end
+      rescue FileAlreadyExist
+        retry
       end
+      path
+    end
+
+    class FileAlreadyExist < StandardError
     end
   end
 end
