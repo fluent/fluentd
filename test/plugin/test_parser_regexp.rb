@@ -28,12 +28,7 @@ class RegexpParserTest < ::Test::Unit::TestCase
       if initialize_conf
         Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp, conf))
       else
-        # Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp)).configure(conf)
-        instance = Fluent::Compat::TextParser::RegexpParser.new(regexp)
-        instance.configure(conf)
-        d = Struct.new(:instance).new
-        d.instance = instance
-        d
+        Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp)).configure(conf)
       end
     end
 
