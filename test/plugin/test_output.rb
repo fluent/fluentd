@@ -1105,7 +1105,7 @@ class OutputTest < Test::Unit::TestCase
     end
 
     data(
-      "Buffered with singile thread",
+      "Buffered with single thread",
       {
         output_type: :full,
         config: config_element(
