@@ -55,7 +55,7 @@ module Fluent
       def configure(conf)
         raise ArgumentError, "BUG: type of conf must be Fluent::Config::Element, but #{conf.class} is passed." unless conf.is_a?(Fluent::Config::Element)
 
-        if (Fluent::Engine.supervisor_mode && !conf.target_worker_ids.empty?) || conf.for_this_worker?
+        if conf.for_this_worker? || (Fluent::Engine.supervisor_mode && !conf.for_every_workers?)
           system_config_override(workers: conf.target_worker_ids.size)
         end
 
