@@ -154,6 +154,18 @@ class BaseTest < Test::Unit::TestCase
   end
 
   sub_test_case 'system_config.workers value after configure' do
+    def assert_system_config_workers_value(data)
+      conf = config_element()
+      conf.set_target_worker_ids(data[:target_worker_ids])
+      @p.configure(conf)
+      assert{ @p.system_config.workers == data[:expected] }
+    end
+
+    def stub_supervisor_mode
+      stub(Fluent::Engine).supervisor_mode { true }
+      stub(Fluent::Engine).worker_id { -1 }
+    end
+
     sub_test_case 'with <system> workers 3 </system>' do
       setup do
         system_config = Fluent::SystemConfig.new
@@ -161,118 +173,74 @@ class BaseTest < Test::Unit::TestCase
         stub(Fluent::Engine).system_config { system_config }
       end
 
-      sub_test_case 'supervisor_mode is true' do
-        setup do
-          stub(Fluent::Engine).supervisor_mode { true }
-          stub(Fluent::Engine).worker_id { -1 }
-        end
+      data(
+        'without <worker> directive',
+        {
+          target_worker_ids: [],
+          expected: 3
+        },
+        keep: true
+      )
+      data(
+        'with <worker 0>',
+        {
+          target_worker_ids: [0],
+          expected: 1
+        },
+        keep: true
+      )
+      data(
+        'with <worker 0-1>',
+        {
+          target_worker_ids: [0, 1],
+          expected: 2
+        },
+        keep: true
+      )
+      data(
+        'with <worker 0-2>',
+        {
+          target_worker_ids: [0, 1, 2],
+          expected: 3
+        },
+        keep: true
+      )
 
-        test 'without <worker> directive' do
-          conf = config_element()
-          conf.set_target_worker_ids([])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 3 }
-        end
-
-        test 'with <worker 0>' do
-          conf = config_element()
-          conf.set_target_worker_ids([0])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 1 }
-        end
-
-        test 'with <worker 0-1>' do
-          conf = config_element()
-          conf.set_target_worker_ids([0, 1])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 2 }
-        end
-
-        test 'with <worker 0-2>' do
-          conf = config_element()
-          conf.set_target_worker_ids([0, 1, 2])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 3 }
-        end
+      test 'system_config.workers value after configure' do
+        assert_system_config_workers_value(data)
       end
 
-      sub_test_case 'supervisor_mode is false' do
-        setup do
-          stub(Fluent::Engine).supervisor_mode { false }
-          stub(Fluent::Engine).worker_id { 0 }
-        end
-
-        test 'without <worker> directive' do
-          conf = config_element()
-          conf.set_target_worker_ids([])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 3 }
-        end
-
-        test 'with <worker 0>' do
-          conf = config_element()
-          conf.set_target_worker_ids([0])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 1 }
-        end
-
-        test 'with <worker 0-1>' do
-          conf = config_element()
-          conf.set_target_worker_ids([0, 1])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 2 }
-        end
-
-        test 'with <worker 0-2>' do
-          conf = config_element()
-          conf.set_target_worker_ids([0, 1, 2])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 3 }
-        end
+      test 'system_config.workers value after configure  with supervisor_mode' do
+        stub_supervisor_mode
+        assert_system_config_workers_value(data)
       end
     end
 
     sub_test_case 'without <system> directive' do
-      sub_test_case 'supervisor_mode is true' do
-        setup do
-          stub(Fluent::Engine).supervisor_mode { true }
-          stub(Fluent::Engine).worker_id { -1 }
-        end
+      data(
+        'without <worker> directive',
+        {
+          target_worker_ids: [],
+          expected: 1
+        },
+        keep: true
+      )
+      data(
+        'with <worker 0>',
+        {
+          target_worker_ids: [0],
+          expected: 1
+        },
+        keep: true
+      )
 
-        test 'without <worker> directive' do
-          conf = config_element()
-          conf.set_target_worker_ids([])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 1 }
-        end
-
-        test 'with <worker 0>' do
-          conf = config_element()
-          conf.set_target_worker_ids([0])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 1 }
-        end
+      test 'system_config.workers value after configure' do
+        assert_system_config_workers_value(data)
       end
 
-      sub_test_case 'supervisor_mode is false' do
-        setup do
-          stub(Fluent::Engine).supervisor_mode { false }
-          stub(Fluent::Engine).worker_id { 0 }
-        end
-
-        test 'without <worker> directive' do
-          conf = config_element()
-          conf.set_target_worker_ids([])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 1 }
-        end
-
-        test 'with <worker 0>' do
-          conf = config_element()
-          conf.set_target_worker_ids([0])
-          @p.configure(conf)
-          assert{ @p.system_config.workers == 1 }
-        end
+      test 'system_config.workers value after configure  with supervisor_mode' do
+        stub_supervisor_mode
+        assert_system_config_workers_value(data)
       end
     end
   end
