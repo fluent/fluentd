@@ -147,6 +147,12 @@ class BaseTest < Test::Unit::TestCase
     end
   end
 
+  test '`ArgumentError` when `conf` is not `Fluent::Config::Element`' do
+    assert_raise ArgumentError.new('BUG: type of conf must be Fluent::Config::Element, but Hash is passed.') do
+      @p.configure({})
+    end
+  end
+
   sub_test_case 'system_config.workers value after configure' do
     sub_test_case 'with <system> workers 3 </system>' do
       setup do
@@ -188,11 +194,6 @@ class BaseTest < Test::Unit::TestCase
           @p.configure(conf)
           assert{ @p.system_config.workers == 3 }
         end
-
-        test '`conf` is `Hash`' do
-          @p.configure({})
-          assert{ @p.system_config.workers == 3 }
-        end
       end
 
       sub_test_case 'supervisor_mode is false' do
@@ -228,11 +229,6 @@ class BaseTest < Test::Unit::TestCase
           @p.configure(conf)
           assert{ @p.system_config.workers == 3 }
         end
-
-        test '`conf` is `Hash`' do
-          @p.configure({})
-          assert{ @p.system_config.workers == 3 }
-        end
       end
     end
 
@@ -256,11 +252,6 @@ class BaseTest < Test::Unit::TestCase
           @p.configure(conf)
           assert{ @p.system_config.workers == 1 }
         end
-
-        test '`conf` is `Hash`' do
-          @p.configure({})
-          assert{ @p.system_config.workers == 1 }
-        end
       end
 
       sub_test_case 'supervisor_mode is false' do
@@ -280,11 +271,6 @@ class BaseTest < Test::Unit::TestCase
           conf = config_element()
           conf.set_target_worker_ids([0])
           @p.configure(conf)
-          assert{ @p.system_config.workers == 1 }
-        end
-
-        test '`conf` is `Hash`' do
-          @p.configure({})
           assert{ @p.system_config.workers == 1 }
         end
       end
