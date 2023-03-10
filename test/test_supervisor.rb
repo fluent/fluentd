@@ -517,31 +517,15 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal('{"ok":true}', response)
   end
 
-  def test_load_config
-    tmp_dir = "#{@tmp_dir}/dir/test_load_config.conf"
-    conf_info_str = %[
-<system>
-  log_level info
-</system>
-]
-    conf_debug_str = %[
-<system>
-  log_level debug
-</system>
-]
-    now = Time.now
-    Timecop.freeze(now)
-
-    write_config tmp_dir, conf_info_str
-
+  def test_serverengine_config
     params = {}
     params['workers'] = 1
+    params['fluentd_conf_path'] = "fluentd.conf"
     params['use_v1_config'] = true
-    params['log_level'] = Fluent::Log::LEVEL_INFO
     params['conf_encoding'] = 'utf-8'
-    load_config_proc =  Proc.new { Fluent::Supervisor.load_config(tmp_dir, params) }
+    params['log_level'] = Fluent::Log::LEVEL_INFO
+    load_config_proc =  Proc.new { Fluent::Supervisor.serverengine_config(params) }
 
-    # first call
     se_config = load_config_proc.call
     assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
     assert_equal 'spawn', se_config[:worker_type]
@@ -551,68 +535,21 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal false, se_config[:log_stderr]
     assert_equal true, se_config[:enable_heartbeat]
     assert_equal false, se_config[:auto_heartbeat]
+    assert_equal "fluentd.conf", se_config[:config_path]
     assert_equal false, se_config[:daemonize]
     assert_nil se_config[:pid_path]
-
-    # second call immediately(reuse config)
-    se_config = load_config_proc.call
-    pre_config_mtime = se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
-    pre_loadtime = se_config[:windows_daemon_cmdline][5]['pre_loadtime']
-    assert_nil pre_config_mtime
-    assert_nil pre_loadtime
-
-    Timecop.freeze(now + 5)
-
-    # third call after 5 seconds(don't reuse config)
-    se_config = load_config_proc.call
-    pre_config_mtime = se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
-    pre_loadtime = se_config[:windows_daemon_cmdline][5]['pre_loadtime']
-    assert_not_nil pre_config_mtime
-    assert_not_nil pre_loadtime
-
-    # forth call immediately(reuse config)
-    se_config = load_config_proc.call
-    # test that pre_config_mtime and pre_loadtime are not changed from previous one because reused pre_config
-    assert_equal pre_config_mtime, se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
-    assert_equal pre_loadtime, se_config[:windows_daemon_cmdline][5]['pre_loadtime']
-
-    write_config tmp_dir, conf_debug_str
-
-    # fifth call after changed conf file(don't reuse config)
-    se_config = load_config_proc.call
-    assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
-  ensure
-    Timecop.return
   end
 
-  def test_load_config_for_daemonize
-    tmp_dir = "#{@tmp_dir}/dir/test_load_config.conf"
-    conf_info_str = %[
-<system>
-  log_level info
-</system>
-]
-    conf_debug_str = %[
-<system>
-  log_level debug
-</system>
-]
-
-    now = Time.now
-    Timecop.freeze(now)
-
-    write_config tmp_dir, conf_info_str
-
+  def test_serverengine_config_for_daemonize
     params = {}
     params['workers'] = 1
+    params['fluentd_conf_path'] = "fluentd.conf"
     params['use_v1_config'] = true
-    params['log_path'] = 'test/tmp/supervisor/log'
+    params['conf_encoding'] = 'utf-8'
     params['log_level'] = Fluent::Log::LEVEL_INFO
     params['daemonize'] = './fluentd.pid'
-    params['conf_encoding'] = 'utf-8'
-    load_config_proc = Proc.new { Fluent::Supervisor.load_config(tmp_dir, params) }
+    load_config_proc = Proc.new { Fluent::Supervisor.serverengine_config(params) }
 
-    # first call
     se_config = load_config_proc.call
     assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
     assert_equal 'spawn', se_config[:worker_type]
@@ -622,38 +559,9 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal false, se_config[:log_stderr]
     assert_equal true, se_config[:enable_heartbeat]
     assert_equal false, se_config[:auto_heartbeat]
+    assert_equal "fluentd.conf", se_config[:config_path]
     assert_equal true, se_config[:daemonize]
     assert_equal './fluentd.pid', se_config[:pid_path]
-
-    # second call immediately(reuse config)
-    se_config = load_config_proc.call
-    pre_config_mtime = se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
-    pre_loadtime = se_config[:windows_daemon_cmdline][5]['pre_loadtime']
-    assert_nil pre_config_mtime
-    assert_nil pre_loadtime
-
-    Timecop.freeze(now + 5)
-
-    # third call after 6 seconds(don't reuse config)
-    se_config = load_config_proc.call
-    pre_config_mtime = se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
-    pre_loadtime = se_config[:windows_daemon_cmdline][5]['pre_loadtime']
-    assert_not_nil pre_config_mtime
-    assert_not_nil pre_loadtime
-
-    # forth call immediately(reuse config)
-    se_config = load_config_proc.call
-    # test that pre_config_mtime and pre_loadtime are not changed from previous one because reused pre_config
-    assert_equal pre_config_mtime, se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
-    assert_equal pre_loadtime, se_config[:windows_daemon_cmdline][5]['pre_loadtime']
-
-    write_config tmp_dir, conf_debug_str
-
-    # fifth call after changed conf file(don't reuse config)
-    se_config = load_config_proc.call
-    assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
-  ensure
-    Timecop.return
   end
 
   data("supervisor", { supervise: true })

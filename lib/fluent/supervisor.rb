@@ -424,22 +424,7 @@ module Fluent
   end
 
   class Supervisor
-    # For ServerEngine's `reload_config`.
-    # This is called only at the initilization of the supervisor process,
-    # since Fluentd overwrites all related SIGNAL(HUP,USR1,USR2) and have own
-    # reloading feature.
-    def self.load_config(path, params = {})
-      pre_loadtime = 0
-      pre_loadtime = params['pre_loadtime'].to_i if params['pre_loadtime']
-      pre_config_mtime = nil
-      pre_config_mtime = params['pre_config_mtime'] if params['pre_config_mtime']
-      config_mtime = File.mtime(path)
-
-      # reuse previous config if last load time is within 5 seconds and mtime of the config file is not changed
-      if (Time.now - Time.at(pre_loadtime) < 5) && (config_mtime == pre_config_mtime)
-        return params['pre_conf']
-      end
-
+    def self.serverengine_config(params = {})
       # ServerEngine's "daemonize" option is boolean, and path of pid file is brought by "pid_path"
       pid_path = params['daemonize']
       daemonize = !!params['daemonize']
@@ -470,28 +455,18 @@ module Fluent
                                  File.join(File.dirname(__FILE__), 'daemon.rb'),
                                  ServerModule.name,
                                  WorkerModule.name,
-                                 path,
                                  JSON.dump(params)],
         command_sender: Fluent.windows? ? "pipe" : "signal",
+        config_path: params['fluentd_conf_path'],
         fluentd_conf: params['fluentd_conf'],
         conf_encoding: params['conf_encoding'],
         inline_config: params['inline_config'],
-        config_path: path,
         main_cmd: params['main_cmd'],
         signame: params['signame'],
         disable_shared_socket: params['disable_shared_socket'],
         restart_worker_interval: params['restart_worker_interval'],
       }
-      if daemonize
-        se_config[:pid_path] = pid_path
-      end
-      pre_params = params.dup
-      params['pre_loadtime'] = Time.now.to_i
-      params['pre_config_mtime'] = config_mtime
-      params['pre_conf'] = se_config
-      # prevent pre_conf from being too big by reloading many times.
-      pre_params['pre_conf'] = nil
-      params['pre_conf'][:windows_daemon_cmdline][5] = JSON.dump(pre_params)
+      se_config[:pid_path] = pid_path if daemonize
 
       se_config
     end
@@ -850,10 +825,11 @@ module Fluent
         'inline_config' => @inline_config,
         'chuser' => @chuser,
         'chgroup' => @chgroup,
+        'fluentd_conf_path' => @config_path,
+        'fluentd_conf' => @conf.to_s,
         'use_v1_config' => @use_v1_config,
         'conf_encoding' => @conf_encoding,
         'signame' => @signame,
-        'fluentd_conf' => @conf.to_s,
 
         'workers' => @system_config.workers,
         'root_dir' => @system_config.root_dir,
@@ -866,8 +842,10 @@ module Fluent
         'restart_worker_interval' => @system_config.restart_worker_interval,
       }
 
-      se = ServerEngine.create(ServerModule, WorkerModule){
-        Fluent::Supervisor.load_config(@config_path, params)
+      se = ServerEngine.create(ServerModule, WorkerModule) {
+        # Note: This is called only at the initialization of ServerEngine, since
+        # Fluentd overwrites all related SIGNAL(HUP,USR1,USR2) and have own reloading feature.
+        Fluent::Supervisor.serverengine_config(params)
       }
 
       se.run
