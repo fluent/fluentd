@@ -33,6 +33,14 @@ class LogTest < Test::Unit::TestCase
     end
   end
 
+  def test_per_process_path
+    path = Fluent::Log.per_process_path("C:/tmp/test.log", :supervisor, 0)
+    assert_equal(path, "C:/tmp/test-supervisor-0.log")
+
+    path = Fluent::Log.per_process_path("C:/tmp/test.log", :worker, 1)
+    assert_equal(path, "C:/tmp/test-1.log")
+  end
+
   sub_test_case "log level" do
     data(
       trace: [Fluent::Log::LEVEL_TRACE, 0],
