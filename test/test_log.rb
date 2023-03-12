@@ -602,44 +602,48 @@ class LogTest < Test::Unit::TestCase
 
   def test_log_rotates_specified_size_with_logdevio
     with_timezone('utc') do
-      rotate_age = 2
-      rotate_size = 100
-      path = "#{@tmp_dir}/log-dev-io-#{rotate_size}-#{rotate_age}"
-      path0 = path + '.0'
-      path1 = path + '.1'
+      begin
+        rotate_age = 2
+        rotate_size = 100
+        path = "#{@tmp_dir}/log-dev-io-#{rotate_size}-#{rotate_age}"
+        path0 = path + '.0'
+        path1 = path + '.1'
 
-      logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
-      logger = ServerEngine::DaemonLogger.new(logdev)
-      log = Fluent::Log.new(logger)
+        logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
+        logger = ServerEngine::DaemonLogger.new(logdev)
+        log = Fluent::Log.new(logger)
 
-      msg = 'a' * 101
-      log.info msg
-      assert_match msg, File.read(path)
-      assert_true File.exist?(path)
-      assert_true !File.exist?(path0)
-      assert_true !File.exist?(path1)
+        msg = 'a' * 101
+        log.info msg
+        assert_match msg, File.read(path)
+        assert_true File.exist?(path)
+        assert_true !File.exist?(path0)
+        assert_true !File.exist?(path1)
 
-      # create log.0
-      msg2 = 'b' * 101
-      log.info msg2
-      c = File.read(path)
-      c0 = File.read(path0)
-      assert_match msg2, c
-      assert_match msg, c0
-      assert_true File.exist?(path)
-      assert_true File.exist?(path0)
-      assert_true !File.exist?(path1)
+        # create log.0
+        msg2 = 'b' * 101
+        log.info msg2
+        c = File.read(path)
+        c0 = File.read(path0)
+        assert_match msg2, c
+        assert_match msg, c0
+        assert_true File.exist?(path)
+        assert_true File.exist?(path0)
+        assert_true !File.exist?(path1)
 
-      # rotate
-      msg3 = 'c' * 101
-      log.info msg3
-      c = File.read(path)
-      c0 = File.read(path0)
-      assert_match msg3, c
-      assert_match msg2, c0
-      assert_true File.exist?(path)
-      assert_true File.exist?(path0)
-      assert_true !File.exist?(path1)
+        # rotate
+        msg3 = 'c' * 101
+        log.info msg3
+        c = File.read(path)
+        c0 = File.read(path0)
+        assert_match msg3, c
+        assert_match msg2, c0
+        assert_true File.exist?(path)
+        assert_true File.exist?(path0)
+        assert_true !File.exist?(path1)
+      ensure
+       logdev&.close
+     end
     end
   end
 
