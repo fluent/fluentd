@@ -569,25 +569,26 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   sub_test_case "init logger" do
-    data("supervisor", { supervise: true })
-    data("worker", { supervise: false })
-    def test_init_for_logger(data)
+    data(supervisor: true)
+    data(worker: false)
+    def test_init_for_logger(supervisor)
       tmp_conf_path = "#{@tmp_dir}/dir/test_init_for_logger.conf"
-      conf_info_str = %[
-<system>
-  suppress_repeated_stacktrace false
-  ignore_repeated_log_interval 10s
-  ignore_same_log_interval 20s
-  <log>
-    format json
-    time_format %FT%T.%L%z
-  </log>
-</system>
-]
+      conf_info_str = <<~EOC
+        <system>
+          log_level warn # To suppress logs
+          suppress_repeated_stacktrace false
+          ignore_repeated_log_interval 10s
+          ignore_same_log_interval 20s
+          <log>
+            format json
+            time_format %FT%T.%L%z
+          </log>
+        </system>
+      EOC
       write_config tmp_conf_path, conf_info_str
 
       s = Fluent::Supervisor.new({config_path: tmp_conf_path})
-      s.configure(supervisor: data[:supervise])
+      s.configure(supervisor: supervisor)
 
       assert_equal :json, $log.format
       assert_equal '%FT%T.%L%z', $log.time_format
