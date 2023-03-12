@@ -5,13 +5,6 @@ require 'fluent/config/section'
 require 'fluent/system_config'
 
 module Fluent::Config
-  class FakeLoggerInitializer
-    attr_accessor :level
-    def initialize
-      @level = nil
-    end
-  end
-
   class FakeSupervisor
     attr_writer :log_level
 
@@ -21,7 +14,6 @@ module Fluent::Config
         wokers: nil,
         restart_worker_interval: nil,
         root_dir: nil,
-        log: FakeLoggerInitializer.new,
         log_level: Fluent::Log::LEVEL_INFO,
         suppress_interval: nil,
         suppress_config_dump: nil,
