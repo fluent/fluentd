@@ -29,6 +29,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def setup
+    @stored_global_logger = $log
     @tmp_dir = tmp_dir
     @tmp_root_dir = File.join(@tmp_dir, 'root')
     FileUtils.mkdir_p(@tmp_dir)
@@ -36,6 +37,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def teardown
+    $log = @stored_global_logger
     begin
       FileUtils.rm_rf(@tmp_dir)
     rescue Errno::EACCES
@@ -322,6 +324,8 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_windows_shutdown_event
     omit "Only for Windows platform" unless Fluent.windows?
 
+    create_debug_dummy_logger
+
     server = DummyServer.new
     def server.config
       {:signame => "TestFluentdEvent"}
@@ -591,22 +595,6 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal 20, $log.ignore_same_log_interval
   end
 
-  def test_logger
-    sv = Fluent::Supervisor.new({})
-    log = sv.instance_variable_get(:@log)
-    log.init(:standalone, 0)
-    logger = $log.instance_variable_get(:@logger)
-
-    assert_equal Fluent::Log::LEVEL_INFO, $log.level
-
-    # test that DamonLogger#level= overwrites Fluent.log#level
-    logger.level = 'debug'
-    assert_equal Fluent::Log::LEVEL_DEBUG, $log.level
-
-    assert_equal 5, logger.instance_variable_get(:@rotate_age)
-    assert_equal 1048576, logger.instance_variable_get(:@rotate_size)
-  end
-
   data(
     daily_age: 'daily',
     weekly_age: 'weekly',
@@ -614,9 +602,16 @@ class SupervisorTest < ::Test::Unit::TestCase
     integer_age: 2,
   )
   def test_logger_with_rotate_age_and_rotate_size(rotate_age)
-    sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test", log_rotate_age: rotate_age, log_rotate_size: 10})
-    log = sv.instance_variable_get(:@log)
-    log.init(:standalone, 0)
+    config_path = "#{@tmp_dir}/empty.conf"
+    write_config config_path, ""
+
+    sv = Fluent::Supervisor.new(
+      config_path: config_path,
+      log_path: "#{@tmp_dir}/test",
+      log_rotate_age: rotate_age,
+      log_rotate_size: 10,
+    )
+    sv.__send__(:setup_global_logger)
 
     assert_equal Fluent::LogDeviceIO, $log.out.class
     assert_equal rotate_age, $log.out.instance_variable_get(:@shift_age)
@@ -643,13 +638,12 @@ class SupervisorTest < ::Test::Unit::TestCase
         file.flush
         sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path})
 
-        log = sv.instance_variable_get(:@log)
-        log.init(:standalone, 0)
+        sv.__send__(:setup_global_logger)
         logger = $log.instance_variable_get(:@logger)
 
-        assert_equal([3, 300],
-                     [logger.instance_variable_get(:@rotate_age),
-                      logger.instance_variable_get(:@rotate_size)])
+        assert_equal Fluent::LogDeviceIO, $log.out.class
+        assert_equal 3, $log.out.instance_variable_get(:@shift_age)
+        assert_equal 300, $log.out.instance_variable_get(:@shift_size)
       end
     end
 
@@ -665,13 +659,12 @@ class SupervisorTest < ::Test::Unit::TestCase
         file.flush
         sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path, config_file_type: :yaml})
 
-        log = sv.instance_variable_get(:@log)
-        log.init(:standalone, 0)
+        sv.__send__(:setup_global_logger)
         logger = $log.instance_variable_get(:@logger)
 
-        assert_equal([3, 300],
-                     [logger.instance_variable_get(:@rotate_age),
-                      logger.instance_variable_get(:@rotate_size)])
+        assert_equal Fluent::LogDeviceIO, $log.out.class
+        assert_equal 3, $log.out.instance_variable_get(:@shift_age)
+        assert_equal 300, $log.out.instance_variable_get(:@shift_size)
       end
     end
   end
