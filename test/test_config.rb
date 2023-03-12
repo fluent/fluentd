@@ -344,27 +344,6 @@ class ConfigTest < Test::Unit::TestCase
     File.open(path, "w:#{encoding}:utf-8") {|f| f.write data }
   end
 
-  def test_inline
-    prepare_config
-    opts = {
-      :config_path => "#{TMP_DIR}/config_test_1.conf",
-      :inline_config => "<source>\n  type http\n  port 2222\n </source>",
-      :use_v1_config => false
-    }
-    assert_nothing_raised do
-      Fluent::Supervisor.new(opts)
-    end
-    create_warn_dummy_logger
-  end
-
-  def create_warn_dummy_logger
-    dl_opts = {}
-    dl_opts[:log_level] = ServerEngine::DaemonLogger::WARN
-    logdev = Fluent::Test::DummyLogDevice.new
-    logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
-    $log = Fluent::Log.new(logger)
-  end
-
   sub_test_case '.build' do
     test 'read config' do
       write_config("#{TMP_DIR}/build/config_build.conf", 'key value')

@@ -676,21 +676,6 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
   end
 
-  def test_inline_config
-    omit 'this feature is deprecated. see https://github.com/fluent/fluentd/issues/2711'
-
-    sv = Fluent::Supervisor.new({inline_config: '-'})
-    assert_equal '-', sv.instance_variable_get(:@inline_config)
-
-    inline_config = '<match *>\n@type stdout\n</match>'
-    stub(STDIN).read { inline_config }
-    stub(Fluent::Config).build                                # to skip
-    stub(sv).build_system_config { Fluent::SystemConfig.new } # to skip
-
-    sv.configure
-    assert_equal inline_config, sv.instance_variable_get(:@inline_config)
-  end
-
   def test_log_level_affects
     sv = Fluent::Supervisor.new({})
 
