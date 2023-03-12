@@ -568,11 +568,12 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal './fluentd.pid', se_config[:pid_path]
   end
 
-  data("supervisor", { supervise: true })
-  data("worker", { supervise: false })
-  def test_init_for_logger(data)
-    tmp_conf_path = "#{@tmp_dir}/dir/test_init_for_logger.conf"
-    conf_info_str = %[
+  sub_test_case "init logger" do
+    data("supervisor", { supervise: true })
+    data("worker", { supervise: false })
+    def test_init_for_logger(data)
+      tmp_conf_path = "#{@tmp_dir}/dir/test_init_for_logger.conf"
+      conf_info_str = %[
 <system>
   suppress_repeated_stacktrace false
   ignore_repeated_log_interval 10s
@@ -583,100 +584,101 @@ class SupervisorTest < ::Test::Unit::TestCase
   </log>
 </system>
 ]
-    write_config tmp_conf_path, conf_info_str
+      write_config tmp_conf_path, conf_info_str
 
-    s = Fluent::Supervisor.new({config_path: tmp_conf_path})
-    s.configure(supervisor: data[:supervise])
+      s = Fluent::Supervisor.new({config_path: tmp_conf_path})
+      s.configure(supervisor: data[:supervise])
 
-    assert_equal :json, $log.format
-    assert_equal '%FT%T.%L%z', $log.time_format
-    assert_equal false, $log.suppress_repeated_stacktrace
-    assert_equal 10, $log.ignore_repeated_log_interval
-    assert_equal 20, $log.ignore_same_log_interval
-  end
+      assert_equal :json, $log.format
+      assert_equal '%FT%T.%L%z', $log.time_format
+      assert_equal false, $log.suppress_repeated_stacktrace
+      assert_equal 10, $log.ignore_repeated_log_interval
+      assert_equal 20, $log.ignore_same_log_interval
+    end
 
-  data(
-    daily_age: 'daily',
-    weekly_age: 'weekly',
-    monthly_age: 'monthly',
-    integer_age: 2,
-  )
-  def test_logger_with_rotate_age_and_rotate_size(rotate_age)
-    config_path = "#{@tmp_dir}/empty.conf"
-    write_config config_path, ""
-
-    sv = Fluent::Supervisor.new(
-      config_path: config_path,
-      log_path: "#{@tmp_dir}/test",
-      log_rotate_age: rotate_age,
-      log_rotate_size: 10,
+    data(
+      daily_age: 'daily',
+      weekly_age: 'weekly',
+      monthly_age: 'monthly',
+      integer_age: 2,
     )
-    sv.__send__(:setup_global_logger)
+    def test_logger_with_rotate_age_and_rotate_size(rotate_age)
+      config_path = "#{@tmp_dir}/empty.conf"
+      write_config config_path, ""
 
-    assert_equal Fluent::LogDeviceIO, $log.out.class
-    assert_equal rotate_age, $log.out.instance_variable_get(:@shift_age)
-    assert_equal 10, $log.out.instance_variable_get(:@shift_size)
-  end
+      sv = Fluent::Supervisor.new(
+        config_path: config_path,
+        log_path: "#{@tmp_dir}/test",
+        log_rotate_age: rotate_age,
+        log_rotate_size: 10,
+      )
+      sv.__send__(:setup_global_logger)
 
-  sub_test_case "system log rotation" do
-    def parse_text(text)
-      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
-      Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+      assert_equal Fluent::LogDeviceIO, $log.out.class
+      assert_equal rotate_age, $log.out.instance_variable_get(:@shift_age)
+      assert_equal 10, $log.out.instance_variable_get(:@shift_size)
     end
 
-    def test_override_default_log_rotate
-      Tempfile.open do |file|
-        config = parse_text(<<-EOS)
-          <system>
-            <log>
-              rotate_age 3
-              rotate_size 300
-            </log>
-          </system>
-        EOS
-        file.puts(config)
-        file.flush
-        sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path})
+    sub_test_case "system log rotation" do
+      def parse_text(text)
+        basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+        Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+      end
 
-        sv.__send__(:setup_global_logger)
-        logger = $log.instance_variable_get(:@logger)
+      def test_override_default_log_rotate
+        Tempfile.open do |file|
+          config = parse_text(<<-EOS)
+            <system>
+              <log>
+                rotate_age 3
+                rotate_size 300
+              </log>
+            </system>
+          EOS
+          file.puts(config)
+          file.flush
+          sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path})
 
-        assert_equal Fluent::LogDeviceIO, $log.out.class
-        assert_equal 3, $log.out.instance_variable_get(:@shift_age)
-        assert_equal 300, $log.out.instance_variable_get(:@shift_size)
+          sv.__send__(:setup_global_logger)
+          logger = $log.instance_variable_get(:@logger)
+
+          assert_equal Fluent::LogDeviceIO, $log.out.class
+          assert_equal 3, $log.out.instance_variable_get(:@shift_age)
+          assert_equal 300, $log.out.instance_variable_get(:@shift_size)
+        end
+      end
+
+      def test_override_default_log_rotate_with_yaml_config
+        Tempfile.open do |file|
+          config = <<-EOS
+            system:
+              log:
+                rotate_age: 3
+                rotate_size: 300
+          EOS
+          file.puts(config)
+          file.flush
+          sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path, config_file_type: :yaml})
+
+          sv.__send__(:setup_global_logger)
+          logger = $log.instance_variable_get(:@logger)
+
+          assert_equal Fluent::LogDeviceIO, $log.out.class
+          assert_equal 3, $log.out.instance_variable_get(:@shift_age)
+          assert_equal 300, $log.out.instance_variable_get(:@shift_size)
+        end
       end
     end
 
-    def test_override_default_log_rotate_with_yaml_config
-      Tempfile.open do |file|
-        config = <<-EOS
-          system:
-            log:
-              rotate_age: 3
-              rotate_size: 300
-        EOS
-        file.puts(config)
-        file.flush
-        sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path, config_file_type: :yaml})
+    def test_log_level_affects
+      sv = Fluent::Supervisor.new({})
 
-        sv.__send__(:setup_global_logger)
-        logger = $log.instance_variable_get(:@logger)
+      c = Fluent::Config::Element.new('system', '', { 'log_level' => 'error' }, [])
+      stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }
 
-        assert_equal Fluent::LogDeviceIO, $log.out.class
-        assert_equal 3, $log.out.instance_variable_get(:@shift_age)
-        assert_equal 300, $log.out.instance_variable_get(:@shift_size)
-      end
+      sv.configure
+      assert_equal Fluent::Log::LEVEL_ERROR, $log.level
     end
-  end
-
-  def test_log_level_affects
-    sv = Fluent::Supervisor.new({})
-
-    c = Fluent::Config::Element.new('system', '', { 'log_level' => 'error' }, [])
-    stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }
-
-    sv.configure
-    assert_equal Fluent::Log::LEVEL_ERROR, $log.level
   end
 
   def test_enable_shared_socket
