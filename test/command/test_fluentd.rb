@@ -1185,7 +1185,9 @@ CONF
                          patterns_not_match: ["[trace]"])
     end
 
-    test 'trace' do
+    data("Trace" => "-vv")
+    data("Invalid low level should be treated as Trace level": "-vvv")
+    test 'trace' do |option|
       conf = <<CONF
 <source>
   @type sample
@@ -1194,7 +1196,7 @@ CONF
 CONF
       conf_path = create_conf_file('sample.conf', conf)
       assert File.exist?(conf_path)
-      assert_log_matches(create_cmdline(conf_path, "-vv"),
+      assert_log_matches(create_cmdline(conf_path, option),
                          "[trace]",)
     end
 
@@ -1212,7 +1214,10 @@ CONF
                          patterns_not_match: ["[info]"])
     end
 
-    test 'error' do
+    data("Error" => "-qq")
+    data("Fatal should be treated as Error level" => "-qqq")
+    data("Invalid high level should be treated as Error level": "-qqqq")
+    test 'error' do |option|
       conf = <<CONF
 <source>
   @type plugin_not_found
@@ -1221,7 +1226,7 @@ CONF
 CONF
       conf_path = create_conf_file('plugin_not_found.conf', conf)
       assert File.exist?(conf_path)
-      assert_log_matches(create_cmdline(conf_path, "-qq"),
+      assert_log_matches(create_cmdline(conf_path, option),
                          "[error]",
                          patterns_not_match: ["[warn]"])
     end
