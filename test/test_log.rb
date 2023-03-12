@@ -5,6 +5,7 @@ require 'fluent/log'
 require 'timecop'
 require 'logger'
 require 'securerandom'
+require 'pathname'
 
 class LogTest < Test::Unit::TestCase
   def tmp_dir
@@ -640,6 +641,28 @@ class LogTest < Test::Unit::TestCase
       assert_true File.exist?(path0)
       assert_true !File.exist?(path1)
     end
+  end
+
+  def test_reopen
+    path = Pathname(@tmp_dir) + "fluent.log"
+
+    logdev = Fluent::LogDeviceIO.new(path.to_s)
+    logger = ServerEngine::DaemonLogger.new(logdev)
+    log = Fluent::Log.new(logger, path: path)
+
+    message = "This is test message."
+
+    log.info message
+    log.reopen!
+    log.info message
+
+    assert { path.read.lines.select{ |line| line.include?(message) }.size == 2 }
+    # Assert reopening the same file.
+    # Especially, on Windows, the filepath is fixed for each process with rotate,
+    # so we need to care about this.
+    assert { path.parent.entries.size == 3 } # [".", "..", "fluent.log"]
+  ensure
+    logdev&.close
   end
 end
 

@@ -10,6 +10,7 @@ require 'uri'
 require 'fileutils'
 require 'tempfile'
 require 'securerandom'
+require 'pathname'
 
 if Fluent.windows?
   require 'win32/event'
@@ -679,6 +680,82 @@ class SupervisorTest < ::Test::Unit::TestCase
 
       sv.configure
       assert_equal Fluent::Log::LEVEL_ERROR, $log.level
+    end
+
+    data(supervisor: true)
+    data(worker: false)
+    def test_log_path(supervisor)
+      log_path = Pathname(@tmp_dir) + "fluentd.log"
+      config_path = Pathname(@tmp_dir) + "fluentd.conf"
+      write_config config_path.to_s, ""
+
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      assert_rr do
+        mock.proxy(File).chmod(0o777, log_path.parent.to_s).never
+        s.__send__(:setup_global_logger, supervisor: supervisor)
+      end
+
+      assert { log_path.parent.exist? }
+    ensure
+      $log.out.close
+    end
+
+    data(supervisor: true)
+    data(worker: false)
+    def test_dir_permission(supervisor)
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
+      log_path = Pathname(@tmp_dir) + "fluentd.log"
+      config_path = Pathname(@tmp_dir) + "fluentd.conf"
+      conf = <<~EOC
+        <system>
+          dir_permission 0o777
+        </system>
+      EOC
+      write_config config_path.to_s, conf
+
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      assert_rr do
+        mock.proxy(File).chmod(0o777, log_path.parent.to_s).once
+        s.__send__(:setup_global_logger, supervisor: supervisor)
+      end
+
+      assert { log_path.parent.exist? }
+      assert { (File.stat(log_path.parent).mode & 0xFFF) == 0o777 }
+    ensure
+      $log.out.close
+    end
+
+    def test_files_for_each_process_with_rotate_on_windows
+      omit "Only for Windows." unless Fluent.windows?
+
+      log_path = Pathname(@tmp_dir) + "log" + "fluentd.log"
+      config_path = Pathname(@tmp_dir) + "fluentd.conf"
+      conf = <<~EOC
+        <system>
+          <log>
+            rotate_age 5
+          </log>
+        </system>
+      EOC
+      write_config config_path.to_s, conf
+
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      s.__send__(:setup_global_logger, supervisor: true)
+      $log.out.close
+
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      s.__send__(:setup_global_logger, supervisor: false)
+      $log.out.close
+
+      ENV["SERVERENGINE_WORKER_ID"] = "1"
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      s.__send__(:setup_global_logger, supervisor: false)
+      $log.out.close
+
+      assert { log_path.parent.entries.size == 5 } # [".", "..", "logfile.log", ...]
+    ensure
+      ENV.delete("SERVERENGINE_WORKER_ID")
     end
   end
 
