@@ -135,7 +135,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
       execute_command(cmdline, @tmp_dir, env) do |pid, stdout|
         begin
           waiting(timeout) do
-            while process_exist?(pid) && !matched
+            while process_exist?(pid)
               readables, _, _ = IO.select([stdout], nil, nil, 1)
               next unless readables
               break if readables.first.eof?
@@ -146,6 +146,18 @@ class TestFluentdCommand < ::Test::Unit::TestCase
               lines = stdio_buf.split("\n")
               if pattern_list.all?{|ptn| lines.any?{|line| ptn.is_a?(Regexp) ? ptn.match(line) : line.include?(ptn) } }
                 matched = true
+              end
+
+              if Fluent.windows?
+                # https://github.com/fluent/fluentd/issues/4095
+                # On Windows, the initial process is different from the supervisor process,
+                # so we need to wait until `SUPERVISOR_PID_PATTERN` appears in the logs to get the pid.
+                # (Worker processes will be killed by the supervisor process, so we don't need it-)
+                break if matched && SUPERVISOR_PID_PATTERN =~ stdio_buf
+              else
+                # On Non-Windows, the initial process is the supervisor process,
+                # so we don't need to wait `SUPERVISOR_PID_PATTERN`.
+                break if matched
               end
             end
           end
@@ -160,6 +172,10 @@ class TestFluentdCommand < ::Test::Unit::TestCase
       end
     rescue Timeout::Error
       assert_error_msg = "execution timeout"
+      # https://github.com/fluent/fluentd/issues/4095
+      # On Windows, timeout without `@supervisor_pid` means that the test is invalid,
+      # since the supervisor process will survive without being killed correctly.
+      flunk("Invalid test: The pid of supervisor could not be taken, which is necessary on Windows.") if Fluent.windows? && @supervisor_pid.nil?
     rescue => e
       assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}"
     else
@@ -227,6 +243,10 @@ class TestFluentdCommand < ::Test::Unit::TestCase
       end
     rescue Timeout::Error
       assert_error_msg = "execution timeout with command out:\n" + stdio_buf
+      # https://github.com/fluent/fluentd/issues/4095
+      # On Windows, timeout without `@supervisor_pid` means that the test is invalid,
+      # since the supervisor process will survive without being killed correctly.
+      flunk("Invalid test: The pid of supervisor could not be taken, which is necessary on Windows.") if Fluent.windows? && @supervisor_pid.nil?
     rescue => e
       assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}\n" + stdio_buf
       assert false, assert_error_msg
@@ -1201,6 +1221,7 @@ CONF
     end
 
     test 'warn' do
+      omit "Can't run on Windows since there is no way to take pid of the supervisor." if Fluent.windows?
       conf = <<CONF
 <source>
   @type sample
@@ -1218,6 +1239,8 @@ CONF
     data("Fatal should be treated as Error level" => "-qqq")
     data("Invalid high level should be treated as Error level": "-qqqq")
     test 'error' do |option|
+      # This test can run on Windows correctly,
+      # since the process will stop automatically with an error.
       conf = <<CONF
 <source>
   @type plugin_not_found
