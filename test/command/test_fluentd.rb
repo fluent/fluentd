@@ -126,6 +126,8 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     end
   end
 
+  # ATTENTION: This stops taking logs when all `pattern_list` match or timeout,
+  # so `patterns_not_match` can test only logs up to that point.
   def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10, env: {})
     matched = false
     matched_wrongly = false
@@ -1186,6 +1188,8 @@ CONF
     end
   end
 
+  # TODO: `patterns_not_match` can test only logs up to `pattern_list`,
+  # so we need to fix some meaningless `patterns_not_match` conditions.
   sub_test_case 'log_level by command line option' do
     test 'info' do
       conf = ""
