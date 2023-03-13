@@ -53,14 +53,12 @@ module Fluent
       end
 
       def configure(conf)
-        if Fluent::Engine.supervisor_mode || (conf.respond_to?(:for_this_worker?) && conf.for_this_worker?)
-          workers = if conf.target_worker_ids && !conf.target_worker_ids.empty?
-                      conf.target_worker_ids.size
-                    else
-                      1
-                    end
-          system_config_override(workers: workers)
+        raise ArgumentError, "BUG: type of conf must be Fluent::Config::Element, but #{conf.class} is passed." unless conf.is_a?(Fluent::Config::Element)
+
+        if conf.for_this_worker? || (Fluent::Engine.supervisor_mode && !conf.for_every_workers?)
+          system_config_override(workers: conf.target_worker_ids.size)
         end
+
         super(conf, system_config.strict_config_value)
         @_state ||= State.new(false, false, false, false, false, false, false, false, false)
         @_state.configure = true
