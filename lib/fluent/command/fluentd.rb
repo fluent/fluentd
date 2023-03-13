@@ -166,7 +166,7 @@ op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueC
 op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClass) {|b|
   return unless b
   cur_level = cmd_opts.fetch(:log_level, default_opts[:log_level])
-  cmd_opts[:log_level] = [cur_level + 1, Fluent::Log::LEVEL_TRACE].max
+  cmd_opts[:log_level] = [cur_level + 1, Fluent::Log::LEVEL_ERROR].min
 }
 
 op.on('--suppress-config-dump', "suppress config dumping when fluentd starts", TrueClass) {|b|
