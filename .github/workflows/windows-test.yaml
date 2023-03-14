@@ -46,4 +46,4 @@ jobs:
       - name: Install dependencies
         run: ridk exec bundle install
       - name: Run tests
-        run: bundle exec rake test TESTOPTS=-v ${{ matrix.ruby-lib-opt }}
+        run: bundle exec rake test ${{ matrix.ruby-lib-opt }}
