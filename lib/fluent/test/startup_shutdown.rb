@@ -21,9 +21,8 @@ module Fluent
   module Test
     module StartupShutdown
       def startup
-        socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-        @server = ServerEngine::SocketManager::Server.open(socket_manager_path)
-        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
+        @server = ServerEngine::SocketManager::Server.open
+        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @server.path.to_s
       end
 
       def shutdown
@@ -31,15 +30,14 @@ module Fluent
       end
 
       def self.setup
-        @socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-        @server = ServerEngine::SocketManager::Server.open(@socket_manager_path)
-        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_path.to_s
+        @server = ServerEngine::SocketManager::Server.open
+        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @server.path.to_s
       end
 
       def self.teardown
         @server.close
-        # on Windows, socket_manager_path is a TCP port number
-        FileUtils.rm_f @socket_manager_path unless Fluent.windows?
+        # on Windows, the path is a TCP port number
+        FileUtils.rm_f @server.path unless Fluent.windows?
       end
     end
   end

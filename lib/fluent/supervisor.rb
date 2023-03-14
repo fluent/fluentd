@@ -66,9 +66,8 @@ module Fluent
       if config[:disable_shared_socket]
         $log.info "shared socket for multiple workers is disabled"
       else
-        socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-        ServerEngine::SocketManager::Server.open(socket_manager_path)
-        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
+        server = ServerEngine::SocketManager::Server.open
+        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = server.path.to_s
       end
     end
 
@@ -801,9 +800,8 @@ module Fluent
     private
 
     def create_socket_manager
-      socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-      ServerEngine::SocketManager::Server.open(socket_manager_path)
-      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
+      server = ServerEngine::SocketManager::Server.open
+      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = server.path.to_s
     end
 
     def show_plugin_config
