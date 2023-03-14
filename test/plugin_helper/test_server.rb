@@ -16,11 +16,16 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
   setup do
     @port = unused_port
-    @socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-    if @socket_manager_path.is_a?(String) && File.exist?(@socket_manager_path)
-      FileUtils.rm_f @socket_manager_path
+    if Fluent.windows?
+      @socket_manager_server = ServerEngine::SocketManager::Server.open
+      @socket_manager_path = @socket_manager_server.path
+    else
+      @socket_manager_path = ServerEngine::SocketManager::Server.generate_path
+      if @socket_manager_path.is_a?(String) && File.exist?(@socket_manager_path)
+        FileUtils.rm_f @socket_manager_path
+      end
+      @socket_manager_server = ServerEngine::SocketManager::Server.open(@socket_manager_path)
     end
-    @socket_manager_server = ServerEngine::SocketManager::Server.open(@socket_manager_path)
     ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_path.to_s
 
     @d = Dummy.new
