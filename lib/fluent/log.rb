@@ -67,8 +67,29 @@ module Fluent
       LEVEL_TEXT.map{|t| "#{LOG_EVENT_TAG_PREFIX}.#{t}" }
     end
 
+    # Create a unique path for each process.
+    #
+    # >>> per_process_path("C:/tmp/test.log", :worker, 1)
+    # C:/tmp/test-1.log
+    # >>> per_process_path("C:/tmp/test.log", :supervisor, 0)
+    # C:/tmp/test-supervisor-0.log
+    def self.per_process_path(path, process_type, worker_id)
+      path = Pathname(path)
+      ext = path.extname
+
+      if process_type == :supervisor
+        suffix = "-#{process_type}-0#{ext}"  # "-0" for backword compatibility.
+      else
+        suffix = "-#{worker_id}#{ext}"
+      end
+      return path.sub_ext(suffix).to_s
+    end
+
     def initialize(logger, opts={})
-      # overwrites logger.level= so that config reloading resets level of Fluentd::Log
+      # When ServerEngine changes the logger.level, the Fluentd logger level should also change.
+      # So overwrites logger.level= below.
+      # However, currently Fluentd doesn't use the ServerEngine's reloading feature,
+      # so maybe we don't need this overwriting anymore.
       orig_logger_level_setter = logger.class.public_instance_method(:level=).bind(logger)
       me = self
       # The original ruby logger sets the number as each log level like below.
@@ -92,6 +113,7 @@ module Fluent
       # So if serverengine's logger level is changed, fluentd's log level will be changed to that + 1.
       logger.define_singleton_method(:level=) {|level| orig_logger_level_setter.call(level); me.level = self.level + 1 }
 
+      @path = opts[:path]
       @logger = logger
       @out = logger.instance_variable_get(:@logdev)
       @level = logger.level + 1
@@ -102,7 +124,8 @@ module Fluent
       @time_format = nil
       @formatter = nil
 
-      self.format = :text
+      self.format = opts.fetch(:format, :text)
+      self.time_format = opts[:time_format] if opts.key?(:time_format)
       enable_color out.tty?
       # TODO: This variable name is unclear so we should change to better name.
       @threads_exclude_events = []
@@ -156,6 +179,10 @@ module Fluent
     attr_reader :time_format
     attr_accessor :log_event_enabled, :ignore_repeated_log_interval, :ignore_same_log_interval, :suppress_repeated_stacktrace
     attr_accessor :out
+    # Strictly speaking, we should also change @logger.level when the setter of @level is called.
+    # Currently, we don't need to do it, since Fluentd::Log doesn't use ServerEngine::DaemonLogger.level.
+    # Since We overwrites logger.level= so that @logger.level is applied to @level,
+    # we need to find a good way to do this, otherwise we will end up in an endless loop.
     attr_accessor :level
     attr_accessor :optional_header, :optional_attrs
 
@@ -202,8 +229,12 @@ module Fluent
       @time_formatter = Strftime.new(@time_format) rescue nil
     end
 
+    def stdout?
+      @out == $stdout
+    end
+
     def reopen!
-      @logger.reopen! if @logger
+      @out.reopen(@path, "a") if @path && @path != "-"
       nil
     end
 
