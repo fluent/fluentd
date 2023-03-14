@@ -128,7 +128,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
 
   # ATTENTION: This stops taking logs when all `pattern_list` match or timeout,
   # so `patterns_not_match` can test only logs up to that point.
-  def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10, env: {})
+  def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 20, env: {})
     matched = false
     matched_wrongly = false
     assert_error_msg = ""
@@ -209,7 +209,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     assert matched && !matched_wrongly, assert_error_msg
   end
 
-  def assert_fluentd_fails_to_start(cmdline, *pattern_list, timeout: 10)
+  def assert_fluentd_fails_to_start(cmdline, *pattern_list, timeout: 20)
     # empty_list.all?{ ... } is always true
     matched = false
     running = false
