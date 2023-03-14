@@ -126,7 +126,9 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     end
   end
 
-  def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10, env: {})
+  # ATTENTION: This stops taking logs when all `pattern_list` match or timeout,
+  # so `patterns_not_match` can test only logs up to that point.
+  def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 20, env: {})
     matched = false
     matched_wrongly = false
     assert_error_msg = ""
@@ -135,7 +137,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
       execute_command(cmdline, @tmp_dir, env) do |pid, stdout|
         begin
           waiting(timeout) do
-            while process_exist?(pid) && !matched
+            while process_exist?(pid)
               readables, _, _ = IO.select([stdout], nil, nil, 1)
               next unless readables
               break if readables.first.eof?
@@ -146,6 +148,18 @@ class TestFluentdCommand < ::Test::Unit::TestCase
               lines = stdio_buf.split("\n")
               if pattern_list.all?{|ptn| lines.any?{|line| ptn.is_a?(Regexp) ? ptn.match(line) : line.include?(ptn) } }
                 matched = true
+              end
+
+              if Fluent.windows?
+                # https://github.com/fluent/fluentd/issues/4095
+                # On Windows, the initial process is different from the supervisor process,
+                # so we need to wait until `SUPERVISOR_PID_PATTERN` appears in the logs to get the pid.
+                # (Worker processes will be killed by the supervisor process, so we don't need it-)
+                break if matched && SUPERVISOR_PID_PATTERN =~ stdio_buf
+              else
+                # On Non-Windows, the initial process is the supervisor process,
+                # so we don't need to wait `SUPERVISOR_PID_PATTERN`.
+                break if matched
               end
             end
           end
@@ -160,6 +174,10 @@ class TestFluentdCommand < ::Test::Unit::TestCase
       end
     rescue Timeout::Error
       assert_error_msg = "execution timeout"
+      # https://github.com/fluent/fluentd/issues/4095
+      # On Windows, timeout without `@supervisor_pid` means that the test is invalid,
+      # since the supervisor process will survive without being killed correctly.
+      flunk("Invalid test: The pid of supervisor could not be taken, which is necessary on Windows.") if Fluent.windows? && @supervisor_pid.nil?
     rescue => e
       assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}"
     else
@@ -191,7 +209,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     assert matched && !matched_wrongly, assert_error_msg
   end
 
-  def assert_fluentd_fails_to_start(cmdline, *pattern_list, timeout: 10)
+  def assert_fluentd_fails_to_start(cmdline, *pattern_list, timeout: 20)
     # empty_list.all?{ ... } is always true
     matched = false
     running = false
@@ -227,6 +245,10 @@ class TestFluentdCommand < ::Test::Unit::TestCase
       end
     rescue Timeout::Error
       assert_error_msg = "execution timeout with command out:\n" + stdio_buf
+      # https://github.com/fluent/fluentd/issues/4095
+      # On Windows, timeout without `@supervisor_pid` means that the test is invalid,
+      # since the supervisor process will survive without being killed correctly.
+      flunk("Invalid test: The pid of supervisor could not be taken, which is necessary on Windows.") if Fluent.windows? && @supervisor_pid.nil?
     rescue => e
       assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}\n" + stdio_buf
       assert false, assert_error_msg
@@ -1166,6 +1188,8 @@ CONF
     end
   end
 
+  # TODO: `patterns_not_match` can test only logs up to `pattern_list`,
+  # so we need to fix some meaningless `patterns_not_match` conditions.
   sub_test_case 'log_level by command line option' do
     test 'info' do
       conf = ""
@@ -1201,6 +1225,7 @@ CONF
     end
 
     test 'warn' do
+      omit "Can't run on Windows since there is no way to take pid of the supervisor." if Fluent.windows?
       conf = <<CONF
 <source>
   @type sample
@@ -1218,6 +1243,8 @@ CONF
     data("Fatal should be treated as Error level" => "-qqq")
     data("Invalid high level should be treated as Error level": "-qqqq")
     test 'error' do |option|
+      # This test can run on Windows correctly,
+      # since the process will stop automatically with an error.
       conf = <<CONF
 <source>
   @type plugin_not_found
