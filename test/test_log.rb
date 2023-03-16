@@ -5,6 +5,7 @@ require 'fluent/log'
 require 'timecop'
 require 'logger'
 require 'securerandom'
+require 'pathname'
 
 class LogTest < Test::Unit::TestCase
   def tmp_dir
@@ -31,6 +32,14 @@ class LogTest < Test::Unit::TestCase
       # Ruby 3.2 or later doesn't ignore Errno::EACCES:
       # https://github.com/ruby/ruby/commit/983115cf3c8f75b1afbe3274f02c1529e1ce3a81
     end
+  end
+
+  def test_per_process_path
+    path = Fluent::Log.per_process_path("C:/tmp/test.log", :supervisor, 0)
+    assert_equal(path, "C:/tmp/test-supervisor-0.log")
+
+    path = Fluent::Log.per_process_path("C:/tmp/test.log", :worker, 1)
+    assert_equal(path, "C:/tmp/test-1.log")
   end
 
   sub_test_case "log level" do
@@ -593,45 +602,71 @@ class LogTest < Test::Unit::TestCase
 
   def test_log_rotates_specified_size_with_logdevio
     with_timezone('utc') do
-      rotate_age = 2
-      rotate_size = 100
-      path = "#{@tmp_dir}/log-dev-io-#{rotate_size}-#{rotate_age}"
-      path0 = path + '.0'
-      path1 = path + '.1'
+      begin
+        rotate_age = 2
+        rotate_size = 100
+        path = "#{@tmp_dir}/log-dev-io-#{rotate_size}-#{rotate_age}"
+        path0 = path + '.0'
+        path1 = path + '.1'
 
-      logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
-      logger = ServerEngine::DaemonLogger.new(logdev)
-      log = Fluent::Log.new(logger)
+        logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
+        logger = ServerEngine::DaemonLogger.new(logdev)
+        log = Fluent::Log.new(logger)
 
-      msg = 'a' * 101
-      log.info msg
-      assert_match msg, File.read(path)
-      assert_true File.exist?(path)
-      assert_true !File.exist?(path0)
-      assert_true !File.exist?(path1)
+        msg = 'a' * 101
+        log.info msg
+        assert_match msg, File.read(path)
+        assert_true File.exist?(path)
+        assert_true !File.exist?(path0)
+        assert_true !File.exist?(path1)
 
-      # create log.0
-      msg2 = 'b' * 101
-      log.info msg2
-      c = File.read(path)
-      c0 = File.read(path0)
-      assert_match msg2, c
-      assert_match msg, c0
-      assert_true File.exist?(path)
-      assert_true File.exist?(path0)
-      assert_true !File.exist?(path1)
+        # create log.0
+        msg2 = 'b' * 101
+        log.info msg2
+        c = File.read(path)
+        c0 = File.read(path0)
+        assert_match msg2, c
+        assert_match msg, c0
+        assert_true File.exist?(path)
+        assert_true File.exist?(path0)
+        assert_true !File.exist?(path1)
 
-      # rotate
-      msg3 = 'c' * 101
-      log.info msg3
-      c = File.read(path)
-      c0 = File.read(path0)
-      assert_match msg3, c
-      assert_match msg2, c0
-      assert_true File.exist?(path)
-      assert_true File.exist?(path0)
-      assert_true !File.exist?(path1)
+        # rotate
+        msg3 = 'c' * 101
+        log.info msg3
+        c = File.read(path)
+        c0 = File.read(path0)
+        assert_match msg3, c
+        assert_match msg2, c0
+        assert_true File.exist?(path)
+        assert_true File.exist?(path0)
+        assert_true !File.exist?(path1)
+      ensure
+       logdev&.close
+     end
     end
+  end
+
+  def test_reopen
+    path = Pathname(@tmp_dir) + "fluent.log"
+
+    logdev = Fluent::LogDeviceIO.new(path.to_s)
+    logger = ServerEngine::DaemonLogger.new(logdev)
+    log = Fluent::Log.new(logger, path: path)
+
+    message = "This is test message."
+
+    log.info message
+    log.reopen!
+    log.info message
+
+    assert { path.read.lines.select{ |line| line.include?(message) }.size == 2 }
+    # Assert reopening the same file.
+    # Especially, on Windows, the filepath is fixed for each process with rotate,
+    # so we need to care about this.
+    assert { path.parent.entries.size == 3 } # [".", "..", "fluent.log"]
+  ensure
+    logdev&.close
   end
 end
 

@@ -361,11 +361,11 @@ module Fluent
     private
 
     def reopen_log
-      if (log = config[:logger_initializer])
+      if $log
         # Creating new thread due to mutex can't lock
         # in main thread during trap context
         Thread.new do
-          log.reopen!
+          $log.reopen!
         end
       end
     end
@@ -442,7 +442,6 @@ module Fluent
         logger: $log,
         log: $log.out,
         log_level: params['log_level'],
-        logger_initializer: params['logger_initializer'],
         chuser: params['chuser'],
         chgroup: params['chgroup'],
         chumask: params['chumask'],
@@ -468,104 +467,6 @@ module Fluent
       se_config[:pid_path] = pid_path if daemonize
 
       se_config
-    end
-
-    class LoggerInitializer
-      def initialize(path, level, chuser, chgroup, opts, log_rotate_age: nil, log_rotate_size: nil)
-        @path = path
-        @level = level
-        @chuser = chuser
-        @chgroup = chgroup
-        @opts = opts
-        @log_rotate_age = log_rotate_age
-        @log_rotate_size = log_rotate_size
-      end
-
-      # Create a unique path for each process.
-      #
-      # >>> per_process_path(:worker, 1, "C:/tmp/test.log")
-      # C:/tmp/test-1.log
-      # >>> per_process_path(:supervisor, 0, "C:/tmp/test.log")
-      # C:/tmp/test-supervisor-0.log
-      def self.per_process_path(path, process_type, worker_id)
-        path = Pathname(path)
-        ext = path.extname
-
-        if process_type == :supervisor
-          suffix = "-#{process_type}-0#{ext}"  # "-0" for backword compatibility.
-        else
-          suffix = "-#{worker_id}#{ext}"
-        end
-        return path.sub_ext(suffix).to_s
-      end
-
-      def init(process_type, worker_id)
-        @opts[:process_type] = process_type
-        @opts[:worker_id] = worker_id
-
-        if @path && @path != "-"
-          unless File.exist?(@path)
-            FileUtils.mkdir_p(File.dirname(@path))
-          end
-
-          if @log_rotate_age || @log_rotate_size
-            # We need to prepare a unique path for each worker since
-            # Windows locks files.
-            @path = LoggerInitializer.per_process_path(@path, process_type, worker_id) if Fluent.windows?
-            @logdev = Fluent::LogDeviceIO.new(@path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
-          else
-            @logdev = File.open(@path, "a")
-          end
-
-          if @chuser || @chgroup
-            chuid = @chuser ? ServerEngine::Privilege.get_etc_passwd(@chuser).uid : nil
-            chgid = @chgroup ? ServerEngine::Privilege.get_etc_group(@chgroup).gid : nil
-            File.chown(chuid, chgid, @path)
-          end
-        else
-          @logdev = STDOUT
-        end
-
-        dl_opts = {}
-        # subtract 1 to match serverengine daemon logger side logging severity.
-        dl_opts[:log_level] = @level - 1
-        dl_opts[:log_rotate_age] = @log_rotate_age if @log_rotate_age
-        dl_opts[:log_rotate_size] = @log_rotate_size if @log_rotate_size
-        logger = ServerEngine::DaemonLogger.new(@logdev, dl_opts)
-        $log = Fluent::Log.new(logger, @opts)
-        $log.enable_color(false) if @path
-        $log.enable_debug if @level <= Fluent::Log::LEVEL_DEBUG
-        $log.info "init #{process_type} logger", path: @path, rotate_age: @log_rotate_age, rotate_size: @log_rotate_size
-      end
-
-      def stdout?
-        @logdev == STDOUT
-      end
-
-      def reopen!
-        if @path && @path != "-"
-          @logdev.reopen(@path, "a")
-        end
-        self
-      end
-
-      def apply_options(format: nil, time_format: nil, log_dir_perm: nil,
-                        ignore_repeated_log_interval: nil, ignore_same_log_interval: nil, suppress_repeated_stacktrace: nil)
-        $log.format = format if format
-        $log.time_format = time_format if time_format
-        $log.ignore_repeated_log_interval = ignore_repeated_log_interval if ignore_repeated_log_interval
-        $log.ignore_same_log_interval = ignore_same_log_interval if ignore_same_log_interval
-        $log.suppress_repeated_stacktrace = suppress_repeated_stacktrace unless suppress_repeated_stacktrace.nil?
-
-        if @path && log_dir_perm
-          File.chmod(log_dir_perm || Fluent::DEFAULT_DIR_PERMISSION, File.dirname(@path))
-        end
-      end
-
-      def level=(level)
-        @level = level
-        $log.level = level
-      end
     end
 
     def self.default_options
@@ -624,35 +525,18 @@ module Fluent
       @chgroup = opt[:chgroup]
       @chuser = opt[:chuser]
       @chumask = opt[:chumask]
-
-      @log_rotate_age = opt[:log_rotate_age]
-      @log_rotate_size = opt[:log_rotate_size]
       @signame = opt[:signame]
 
-      @conf = nil
-      # parse configuration immediately to initialize logger in early stage
-      if @config_path and File.exist?(@config_path)
-        @conf = Fluent::Config.build(config_path: @config_path,
-                                     encoding: @conf_encoding ? @conf_encoding : 'utf-8',
-                                     additional_config: @inline_config ? @inline_config : nil,
-                                     use_v1_config: !!@use_v1_config,
-                                     type: @config_file_type,
-                                    )
-        @system_config = build_system_config(@conf)
-        if @system_config.log
-          @log_rotate_age ||= @system_config.log.rotate_age
-          @log_rotate_size ||= @system_config.log.rotate_size
-        end
-        @conf = nil
-      end
+      # TODO: `@log_rotate_age` and `@log_rotate_size` should be removed
+      # since it should be merged with SystemConfig in `build_system_config()`.
+      # We should always use `system_config.log.rotate_age` and `system_config.log.rotate_size`.
+      # However, currently, there is a bug that `system_config.log` parameters
+      # are not in `Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS`, and these
+      # parameters are not merged in `build_system_config()`.
+      # Until we fix the bug of `Fluent::SystemConfig`, we need to use these instance variables.
+      @log_rotate_age = opt[:log_rotate_age]
+      @log_rotate_size = opt[:log_rotate_size]
 
-      log_opts = {suppress_repeated_stacktrace: opt[:suppress_repeated_stacktrace], ignore_repeated_log_interval: opt[:ignore_repeated_log_interval],
-                  ignore_same_log_interval: opt[:ignore_same_log_interval]}
-      @log = LoggerInitializer.new(
-        @log_path, opt[:log_level], @chuser, @chgroup, log_opts,
-        log_rotate_age: @log_rotate_age,
-        log_rotate_size: @log_rotate_size
-      )
       @finished = false
     end
 
@@ -737,17 +621,7 @@ module Fluent
     end
 
     def configure(supervisor: false)
-      if supervisor
-        @log.init(:supervisor, 0)
-      else
-        worker_id = ENV['SERVERENGINE_WORKER_ID'].to_i
-        process_type = case
-                       when @standalone_worker then :standalone
-                       when worker_id == 0 then :worker0
-                       else :workers
-                       end
-        @log.init(process_type, worker_id)
-      end
+      setup_global_logger(supervisor: supervisor)
 
       if @show_plugin_config
         show_plugin_config
@@ -765,16 +639,6 @@ module Fluent
         type: @config_file_type,
       )
       @system_config = build_system_config(@conf)
-
-      @log.level = @system_config.log_level
-      @log.apply_options(
-        format: @system_config.log.format,
-        time_format: @system_config.log.time_format,
-        log_dir_perm: @system_config.dir_permission,
-        ignore_repeated_log_interval: @system_config.ignore_repeated_log_interval,
-        ignore_same_log_interval: @system_config.ignore_same_log_interval,
-        suppress_repeated_stacktrace: @system_config.suppress_repeated_stacktrace,
-      )
 
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
 
@@ -798,6 +662,90 @@ module Fluent
     end
 
     private
+
+    def setup_global_logger(supervisor: false)
+      if supervisor
+        worker_id = 0
+        process_type = :supervisor
+      else
+        worker_id = ENV['SERVERENGINE_WORKER_ID'].to_i
+        process_type = case
+                       when @standalone_worker then :standalone
+                       when worker_id == 0 then :worker0
+                       else :workers
+                       end
+      end
+
+      # Parse configuration immediately to initialize logger in early stage.
+      # Since we can't confirm the log messages in this parsing process,
+      # we must parse the config again after initializing logger.
+      conf = Fluent::Config.build(
+        config_path: @config_path,
+        encoding: @conf_encoding,
+        additional_config: @inline_config,
+        use_v1_config: @use_v1_config,
+        type: @config_file_type,
+      )
+      system_config = build_system_config(conf)
+
+      # TODO: we should remove this logic. This merging process should be done
+      # in `build_system_config()`.
+      @log_rotate_age ||= system_config.log.rotate_age
+      @log_rotate_size ||= system_config.log.rotate_size
+
+      rotate = @log_rotate_age || @log_rotate_size
+      actual_log_path = @log_path
+
+      # We need to prepare a unique path for each worker since Windows locks files.
+      if Fluent.windows? && rotate
+        actual_log_path = Fluent::Log.per_process_path(@log_path, process_type, worker_id)
+      end
+
+      if actual_log_path && actual_log_path != "-"
+        FileUtils.mkdir_p(File.dirname(actual_log_path)) unless File.exist?(actual_log_path)
+        if rotate
+          logdev = Fluent::LogDeviceIO.new(
+            actual_log_path,
+            shift_age: @log_rotate_age,
+            shift_size: @log_rotate_size,
+          )
+        else
+          logdev = File.open(actual_log_path, "a")
+        end
+
+        if @chuser || @chgroup
+          chuid = @chuser ? ServerEngine::Privilege.get_etc_passwd(@chuser).uid : nil
+          chgid = @chgroup ? ServerEngine::Privilege.get_etc_group(@chgroup).gid : nil
+          File.chown(chuid, chgid, actual_log_path)
+        end
+
+        if system_config.dir_permission
+          File.chmod(system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION, File.dirname(actual_log_path))
+        end
+      else
+        logdev = STDOUT
+      end
+
+      $log = Fluent::Log.new(
+        # log_level: subtract 1 to match serverengine daemon logger side logging severity.
+        ServerEngine::DaemonLogger.new(logdev, log_level: system_config.log_level - 1),
+        path: actual_log_path,
+        process_type: process_type,
+        worker_id: worker_id,
+        format: system_config.log.format,
+        time_format: system_config.log.time_format,
+        suppress_repeated_stacktrace: system_config.suppress_repeated_stacktrace,
+        ignore_repeated_log_interval: system_config.ignore_repeated_log_interval,
+        ignore_same_log_interval: system_config.ignore_same_log_interval,
+      )
+      $log.enable_color(false) if actual_log_path
+      $log.enable_debug if system_config.log_level <= Fluent::Log::LEVEL_DEBUG
+
+      $log.info "init #{process_type} logger",
+                path: actual_log_path, 
+                rotate_age: @log_rotate_age,
+                rotate_size: @log_rotate_size
+    end
 
     def create_socket_manager
       server = ServerEngine::SocketManager::Server.open
@@ -831,7 +779,6 @@ module Fluent
 
         'workers' => @system_config.workers,
         'root_dir' => @system_config.root_dir,
-        'logger_initializer' => @log,
         'log_level' => @system_config.log_level,
         'rpc_endpoint' => @system_config.rpc_endpoint,
         'enable_get_dump' => @system_config.enable_get_dump,
@@ -935,7 +882,7 @@ module Fluent
         begin
           $log.debug "fluentd main process get SIGUSR1"
           $log.info "force flushing buffered events"
-          @log.reopen!
+          $log.reopen!
           Fluent::Engine.flush!
           $log.debug "flushing thread: flushed"
         rescue Exception => e
@@ -991,7 +938,7 @@ module Fluent
 
     def logging_with_console_output
       yield $log
-      unless @log.stdout?
+      unless $log.stdout?
         logger = ServerEngine::DaemonLogger.new(STDOUT)
         log = Fluent::Log.new(logger)
         log.level = @system_config.log_level
@@ -1048,6 +995,11 @@ module Fluent
     def build_system_config(conf)
       system_config = SystemConfig.create(conf, @cl_opt[:strict_config_value])
       # Prefer the options explicitly specified in the command line
+      # 
+      # TODO: There is a bug that `system_config.log.rotate_age/rotate_size` are
+      # not merged with the command line options since they are not in
+      # `SYSTEM_CONFIG_PARAMETERS`.
+      # We have to fix this bug.
       opt = {}
       Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS.each do |param|
         if @cl_opt.key?(param) && !@cl_opt[param].nil?

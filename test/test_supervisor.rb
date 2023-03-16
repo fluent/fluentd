@@ -10,6 +10,7 @@ require 'uri'
 require 'fileutils'
 require 'tempfile'
 require 'securerandom'
+require 'pathname'
 
 if Fluent.windows?
   require 'win32/event'
@@ -29,6 +30,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def setup
+    @stored_global_logger = $log
     @tmp_dir = tmp_dir
     @tmp_root_dir = File.join(@tmp_dir, 'root')
     FileUtils.mkdir_p(@tmp_dir)
@@ -36,6 +38,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def teardown
+    $log = @stored_global_logger
     begin
       FileUtils.rm_rf(@tmp_dir)
     rescue Errno::EACCES
@@ -322,6 +325,8 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_windows_shutdown_event
     omit "Only for Windows platform" unless Fluent.windows?
 
+    create_debug_dummy_logger
+
     server = DummyServer.new
     def server.config
       {:signame => "TestFluentdEvent"}
@@ -564,141 +569,194 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal './fluentd.pid', se_config[:pid_path]
   end
 
-  data("supervisor", { supervise: true })
-  data("worker", { supervise: false })
-  def test_init_for_logger(data)
-    tmp_conf_path = "#{@tmp_dir}/dir/test_init_for_logger.conf"
-    conf_info_str = %[
-<system>
-  suppress_repeated_stacktrace false
-  ignore_repeated_log_interval 10s
-  ignore_same_log_interval 20s
-  <log>
-    format json
-    time_format %FT%T.%L%z
-  </log>
-</system>
-]
-    write_config tmp_conf_path, conf_info_str
+  sub_test_case "init logger" do
+    data(supervisor: true)
+    data(worker: false)
+    def test_init_for_logger(supervisor)
+      tmp_conf_path = "#{@tmp_dir}/dir/test_init_for_logger.conf"
+      conf_info_str = <<~EOC
+        <system>
+          log_level warn # To suppress logs
+          suppress_repeated_stacktrace false
+          ignore_repeated_log_interval 10s
+          ignore_same_log_interval 20s
+          <log>
+            format json
+            time_format %FT%T.%L%z
+          </log>
+        </system>
+      EOC
+      write_config tmp_conf_path, conf_info_str
 
-    s = Fluent::Supervisor.new({config_path: tmp_conf_path})
-    s.configure(supervisor: data[:supervise])
+      s = Fluent::Supervisor.new({config_path: tmp_conf_path})
+      s.configure(supervisor: supervisor)
 
-    assert_equal :json, $log.format
-    assert_equal '%FT%T.%L%z', $log.time_format
-    assert_equal false, $log.suppress_repeated_stacktrace
-    assert_equal 10, $log.ignore_repeated_log_interval
-    assert_equal 20, $log.ignore_same_log_interval
-  end
-
-  def test_logger
-    sv = Fluent::Supervisor.new({})
-    log = sv.instance_variable_get(:@log)
-    log.init(:standalone, 0)
-    logger = $log.instance_variable_get(:@logger)
-
-    assert_equal Fluent::Log::LEVEL_INFO, $log.level
-
-    # test that DamonLogger#level= overwrites Fluent.log#level
-    logger.level = 'debug'
-    assert_equal Fluent::Log::LEVEL_DEBUG, $log.level
-
-    assert_equal 5, logger.instance_variable_get(:@rotate_age)
-    assert_equal 1048576, logger.instance_variable_get(:@rotate_size)
-  end
-
-  data(
-    daily_age: 'daily',
-    weekly_age: 'weekly',
-    monthly_age: 'monthly',
-    integer_age: 2,
-  )
-  def test_logger_with_rotate_age_and_rotate_size(rotate_age)
-    sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test", log_rotate_age: rotate_age, log_rotate_size: 10})
-    log = sv.instance_variable_get(:@log)
-    log.init(:standalone, 0)
-
-    assert_equal Fluent::LogDeviceIO, $log.out.class
-    assert_equal rotate_age, $log.out.instance_variable_get(:@shift_age)
-    assert_equal 10, $log.out.instance_variable_get(:@shift_size)
-  end
-
-  sub_test_case "system log rotation" do
-    def parse_text(text)
-      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
-      Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+      assert_equal :json, $log.format
+      assert_equal '%FT%T.%L%z', $log.time_format
+      assert_equal false, $log.suppress_repeated_stacktrace
+      assert_equal 10, $log.ignore_repeated_log_interval
+      assert_equal 20, $log.ignore_same_log_interval
     end
 
-    def test_override_default_log_rotate
-      Tempfile.open do |file|
-        config = parse_text(<<-EOS)
-          <system>
-            <log>
-              rotate_age 3
-              rotate_size 300
-            </log>
-          </system>
-        EOS
-        file.puts(config)
-        file.flush
-        sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path})
+    data(
+      daily_age: 'daily',
+      weekly_age: 'weekly',
+      monthly_age: 'monthly',
+      integer_age: 2,
+    )
+    def test_logger_with_rotate_age_and_rotate_size(rotate_age)
+      config_path = "#{@tmp_dir}/empty.conf"
+      write_config config_path, ""
 
-        log = sv.instance_variable_get(:@log)
-        log.init(:standalone, 0)
-        logger = $log.instance_variable_get(:@logger)
+      sv = Fluent::Supervisor.new(
+        config_path: config_path,
+        log_path: "#{@tmp_dir}/test",
+        log_rotate_age: rotate_age,
+        log_rotate_size: 10,
+      )
+      sv.__send__(:setup_global_logger)
 
-        assert_equal([3, 300],
-                     [logger.instance_variable_get(:@rotate_age),
-                      logger.instance_variable_get(:@rotate_size)])
+      assert_equal Fluent::LogDeviceIO, $log.out.class
+      assert_equal rotate_age, $log.out.instance_variable_get(:@shift_age)
+      assert_equal 10, $log.out.instance_variable_get(:@shift_size)
+    end
+
+    sub_test_case "system log rotation" do
+      def parse_text(text)
+        basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+        Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+      end
+
+      def test_override_default_log_rotate
+        Tempfile.open do |file|
+          config = parse_text(<<-EOS)
+            <system>
+              <log>
+                rotate_age 3
+                rotate_size 300
+              </log>
+            </system>
+          EOS
+          file.puts(config)
+          file.flush
+          sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path})
+
+          sv.__send__(:setup_global_logger)
+          logger = $log.instance_variable_get(:@logger)
+
+          assert_equal Fluent::LogDeviceIO, $log.out.class
+          assert_equal 3, $log.out.instance_variable_get(:@shift_age)
+          assert_equal 300, $log.out.instance_variable_get(:@shift_size)
+        end
+      end
+
+      def test_override_default_log_rotate_with_yaml_config
+        Tempfile.open do |file|
+          config = <<-EOS
+            system:
+              log:
+                rotate_age: 3
+                rotate_size: 300
+          EOS
+          file.puts(config)
+          file.flush
+          sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path, config_file_type: :yaml})
+
+          sv.__send__(:setup_global_logger)
+          logger = $log.instance_variable_get(:@logger)
+
+          assert_equal Fluent::LogDeviceIO, $log.out.class
+          assert_equal 3, $log.out.instance_variable_get(:@shift_age)
+          assert_equal 300, $log.out.instance_variable_get(:@shift_size)
+        end
       end
     end
 
-    def test_override_default_log_rotate_with_yaml_config
-      Tempfile.open do |file|
-        config = <<-EOS
-          system:
-            log:
-              rotate_age: 3
-              rotate_size: 300
-        EOS
-        file.puts(config)
-        file.flush
-        sv = Fluent::Supervisor.new({log_path: "#{@tmp_dir}/test.log", config_path: file.path, config_file_type: :yaml})
+    def test_log_level_affects
+      sv = Fluent::Supervisor.new({})
 
-        log = sv.instance_variable_get(:@log)
-        log.init(:standalone, 0)
-        logger = $log.instance_variable_get(:@logger)
+      c = Fluent::Config::Element.new('system', '', { 'log_level' => 'error' }, [])
+      stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }
 
-        assert_equal([3, 300],
-                     [logger.instance_variable_get(:@rotate_age),
-                      logger.instance_variable_get(:@rotate_size)])
-      end
+      sv.configure
+      assert_equal Fluent::Log::LEVEL_ERROR, $log.level
     end
-  end
 
-  def test_inline_config
-    omit 'this feature is deprecated. see https://github.com/fluent/fluentd/issues/2711'
+    data(supervisor: true)
+    data(worker: false)
+    def test_log_path(supervisor)
+      log_path = Pathname(@tmp_dir) + "fluentd.log"
+      config_path = Pathname(@tmp_dir) + "fluentd.conf"
+      write_config config_path.to_s, ""
 
-    sv = Fluent::Supervisor.new({inline_config: '-'})
-    assert_equal '-', sv.instance_variable_get(:@inline_config)
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      assert_rr do
+        mock.proxy(File).chmod(0o777, log_path.parent.to_s).never
+        s.__send__(:setup_global_logger, supervisor: supervisor)
+      end
 
-    inline_config = '<match *>\n@type stdout\n</match>'
-    stub(STDIN).read { inline_config }
-    stub(Fluent::Config).build                                # to skip
-    stub(sv).build_system_config { Fluent::SystemConfig.new } # to skip
+      assert { log_path.parent.exist? }
+    ensure
+      $log.out.close
+    end
 
-    sv.configure
-    assert_equal inline_config, sv.instance_variable_get(:@inline_config)
-  end
+    data(supervisor: true)
+    data(worker: false)
+    def test_dir_permission(supervisor)
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
 
-  def test_log_level_affects
-    sv = Fluent::Supervisor.new({})
+      log_path = Pathname(@tmp_dir) + "fluentd.log"
+      config_path = Pathname(@tmp_dir) + "fluentd.conf"
+      conf = <<~EOC
+        <system>
+          dir_permission 0o777
+        </system>
+      EOC
+      write_config config_path.to_s, conf
 
-    c = Fluent::Config::Element.new('system', '', { 'log_level' => 'error' }, [])
-    stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      assert_rr do
+        mock.proxy(File).chmod(0o777, log_path.parent.to_s).once
+        s.__send__(:setup_global_logger, supervisor: supervisor)
+      end
 
-    sv.configure
-    assert_equal Fluent::Log::LEVEL_ERROR, $log.level
+      assert { log_path.parent.exist? }
+      assert { (File.stat(log_path.parent).mode & 0xFFF) == 0o777 }
+    ensure
+      $log.out.close
+    end
+
+    def test_files_for_each_process_with_rotate_on_windows
+      omit "Only for Windows." unless Fluent.windows?
+
+      log_path = Pathname(@tmp_dir) + "log" + "fluentd.log"
+      config_path = Pathname(@tmp_dir) + "fluentd.conf"
+      conf = <<~EOC
+        <system>
+          <log>
+            rotate_age 5
+          </log>
+        </system>
+      EOC
+      write_config config_path.to_s, conf
+
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      s.__send__(:setup_global_logger, supervisor: true)
+      $log.out.close
+
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      s.__send__(:setup_global_logger, supervisor: false)
+      $log.out.close
+
+      ENV["SERVERENGINE_WORKER_ID"] = "1"
+      s = Fluent::Supervisor.new(config_path: config_path.to_s, log_path: log_path.to_s)
+      s.__send__(:setup_global_logger, supervisor: false)
+      $log.out.close
+
+      assert { log_path.parent.entries.size == 5 } # [".", "..", "logfile.log", ...]
+    ensure
+      ENV.delete("SERVERENGINE_WORKER_ID")
+    end
   end
 
   def test_enable_shared_socket
@@ -730,14 +788,6 @@ class SupervisorTest < ::Test::Unit::TestCase
       server.after_run
       ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
     end
-  end
-
-  def test_per_process_path
-    path = Fluent::Supervisor::LoggerInitializer.per_process_path("C:/tmp/test.log", :supervisor, 0)
-    assert_equal(path, "C:/tmp/test-supervisor-0.log")
-
-    path = Fluent::Supervisor::LoggerInitializer.per_process_path("C:/tmp/test.log", :worker, 1)
-    assert_equal(path, "C:/tmp/test-1.log")
   end
 
   def create_debug_dummy_logger

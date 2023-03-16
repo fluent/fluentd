@@ -1270,4 +1270,16 @@ CONF
                          "[debug]")
     end
   end
+
+  sub_test_case "inline_config" do
+    test "can change log_level by --inline-config" do
+      # Since we can't define multiple `<system>` directives, this use-case is not recommended.
+      # This is just for this test.
+      inline_conf = '<system>\nlog_level debug\n</system>'
+      conf_path = create_conf_file('test.conf', "")
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path, "--inline-config", inline_conf),
+                         "[debug]")
+    end
+  end
 end
