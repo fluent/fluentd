@@ -79,6 +79,10 @@ module Fluent::Plugin
                 end
             @accessor.delete(record) if @remove_key_name_field
             r = handle_parsed(tag, record, t, values)
+            # Note: If the parser returns multiple records from one raw_value,
+            # this returns only the first one record.
+            # Essentially, we should use `yield` here, but it is difficult with
+            # the current Filter structure.
             return t, r
           else
             if @emit_invalid_record_to_error
