@@ -135,4 +135,60 @@ class JsonParserTest < ::Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case "various record pattern" do
+    data("Only string", { record: '"message"', expected: [nil] }, keep: true)
+    data("Only string without quotation", { record: "message", expected: [nil] }, keep: true)
+    data("Only number", { record: "0", expected: [nil] }, keep: true)
+    data(
+      "Array of Hash",
+      {
+        record: '[{"k1": 1}, {"k2": 2}]',
+        expected: [{"k1" => 1}, {"k2" => 2}]
+      },
+      keep: true,
+    )
+    data(
+      "Array of both Hash and invalid",
+      {
+        record: '[{"k1": 1}, "string", {"k2": 2}, 0]',
+        expected: [{"k1" => 1}, nil, {"k2" => 2}, nil]
+      },
+      keep: true,
+    )
+    data(
+      "Array of all invalid",
+      {
+        record: '["string", 0, [{"k": 0}]]',
+        expected: [nil, nil, nil]
+      },
+      keep: true,
+    )
+    def test_oj(data)
+      i = 0
+      @parser.configure('json_parser' => "oj")
+      @parser.instance.parse(data[:record]) { |time, record|
+        assert_equal(data[:expected][i], record)
+        i += 1
+      }
+    end
+
+    def test_yajl(data)
+      i = 0
+      @parser.configure('json_parser' => "yajl")
+      @parser.instance.parse(data[:record]) { |time, record|
+        assert_equal(data[:expected][i], record)
+        i += 1
+      }
+    end
+
+    def test_json(json)
+      i = 0
+      @parser.configure('json_parser' => "json")
+      @parser.instance.parse(data[:record]) { |time, record|
+        assert_equal(data[:expected][i], record)
+        i += 1
+      }
+    end
+  end
 end
