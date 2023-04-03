@@ -426,7 +426,7 @@ module Fluent
           end
           @secondary.acts_as_secondary(self)
           @secondary.configure(secondary_conf)
-          if (@secondary.class != SecondaryFileOutput) &&
+          if (@secondary.class.to_s != "Fluent::Plugin::SecondaryFileOutput") &&
              (self.class != @secondary.class) &&
              (@custom_format || @secondary.implement?(:custom_format))
             log.warn "Use different plugin for secondary. Check the plugin works with primary like secondary_file", primary: self.class.to_s, secondary: @secondary.class.to_s
