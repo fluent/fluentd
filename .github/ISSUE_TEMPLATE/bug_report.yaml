@@ -1,5 +1,6 @@
 name: Bug Report
 description: Create a report with a procedure for reproducing the bug
+labels: "waiting-for-triage"
 body:
   - type: markdown
     attributes:
