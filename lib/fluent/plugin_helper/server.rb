@@ -545,6 +545,10 @@ module Fluent
               data = @sock.recv(@max_bytes, @flags)
             rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET, IOError, Errno::EBADF
               return
+            rescue Errno::EMSGSIZE
+              # Windows ONLY: This happens when the data size is larger than `@max_bytes`.
+              @log.info "A received data was ignored since it was too large."
+              return
             end
             @callback.call(data)
           rescue => e
@@ -557,6 +561,10 @@ module Fluent
             begin
               data, addr = @sock.recvfrom(@max_bytes)
             rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET, IOError, Errno::EBADF
+              return
+            rescue Errno::EMSGSIZE
+              # Windows ONLY: This happens when the data size is larger than `@max_bytes`.
+              @log.info "A received data was ignored since it was too large."
               return
             end
             @callback.call(data, UDPCallbackSocket.new(@sock, addr, close_socket: @close_socket))

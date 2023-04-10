@@ -29,6 +29,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_path.to_s
 
     @d = Dummy.new
+    @d.under_plugin_development = true
     @d.start
     @d.after_start
   end
@@ -792,6 +793,50 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         @d.server_create_udp(:s_ipv6_udp, @port, bind: '::', shared: false, max_bytes: 128) do |data, sock|
           # ...
         end
+      end
+    end
+
+    sub_test_case 'over max_bytes' do
+      data("cut off on Non-Windows", { max_bytes: 32, records: ["a" * 40], expected: ["a" * 32] }, keep: true) unless Fluent.windows?
+      data("drop on Windows", { max_bytes: 32, records: ["a" * 40], expected: [] }, keep: true) if Fluent.windows?
+      test 'with sock' do |data|
+        max_bytes, records, expected = data.values
+
+        actual_records = []
+        @d.server_create_udp(:myserver, @port, max_bytes: max_bytes) do |data, sock|
+          actual_records << data
+        end
+
+        open_client(:udp, "127.0.0.1", @port) do |sock|
+          records.each do |record|
+            sock.send(record, 0)
+          end
+        end
+
+        waiting(10) { sleep 0.1 until actual_records.size >= expected.size }
+        sleep 1 if expected.size == 0 # To confirm no record recieved.
+
+        assert_equal expected, actual_records
+      end
+
+      test 'without sock' do |data|
+        max_bytes, records, expected = data.values
+
+        actual_records = []
+        @d.server_create_udp(:myserver, @port, max_bytes: max_bytes) do |data|
+          actual_records << data
+        end
+
+        open_client(:udp, "127.0.0.1", @port) do |sock|
+          records.each do |record|
+            sock.send(record, 0)
+          end
+        end
+
+        waiting(10) { sleep 0.1 until actual_records.size >= expected.size }
+        sleep 1 if expected.size == 0 # To confirm no record recieved.
+
+        assert_equal expected, actual_records
       end
     end
   end
@@ -1575,6 +1620,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
   def open_client(proto, addr, port)
     client = case proto
+             when :udp
+               c = UDPSocket.open
+               c.connect(addr, port)
+               c
              when :tcp
                TCPSocket.open(addr, port)
              when :tls
