@@ -218,16 +218,14 @@ class TcpInputTest < Test::Unit::TestCase
           </client>
         </security>
       !)
-      d.run(shutdown: false, expect_records: 1, timeout: 2) do
+      d.run(expect_records: 1, timeout: 2) do
         create_tcp_socket('127.0.0.1', @port) do |sock|
           sock.send("hello\n", 0)
         end
       end
 
-      assert_equal 1, d.instance.log.logs.count { |l| l =~ /anonymous client/ }
+      assert_equal 1, d.logs.count { |l| l =~ /anonymous client/ }
       assert_equal 0, d.events.size
-    ensure
-      d.instance_shutdown if d&.instance
     end
   end
 
