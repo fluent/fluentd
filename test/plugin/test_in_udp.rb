@@ -265,4 +265,32 @@ class UdpInputTest < Test::Unit::TestCase
       end
     end
   end
+
+  test 'message_length_limit' do
+    message_length_limit = 32
+    d = create_driver(base_config + %!
+      format none
+      message_length_limit #{message_length_limit}
+    !)
+    d.run(expect_records: 3) do
+      create_udp_socket('127.0.0.1', @port) do |u|
+        3.times do |i|
+          u.send("#{i}" * 40 + "\n", 0)
+        end
+      end
+    end
+
+    if Fluent.windows?
+      expected_records = []
+    else
+      expected_records = 3.times.collect do |i|
+        "#{i}" * message_length_limit
+      end
+    end
+    actual_records = d.events.collect do |event|
+      event[2]["message"]
+    end
+
+    assert_equal expected_records, actual_records
+  end
 end
