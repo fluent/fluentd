@@ -49,7 +49,7 @@ module Fluent
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
 
-    def each(unapcker: nil, &block)
+    def each(unpacker: nil, &block)
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
 
