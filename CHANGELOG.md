@@ -1,5 +1,42 @@
 # v1.16
 
+## Release v1.16.1 - 2023/04/17
+
+### Enhancement
+
+* in_tcp: Add `message_length_limit` to drop large incoming data
+  https://github.com/fluent/fluentd/pull/4137
+
+### Bug Fix
+
+* Fix NameError of `SecondaryFileOutput` when setting secondary other than
+  `out_secondary_file`
+  https://github.com/fluent/fluentd/pull/4124
+* Server helper: Suppress error of `UDPServer` over `max_bytes` on Windows
+  https://github.com/fluent/fluentd/pull/4131
+* Buffer: Fix that `compress` setting causes unexpected error when receiving
+  already compressed MessagePack
+  https://github.com/fluent/fluentd/pull/4147
+
+### Misc
+
+* Update MAINTAINERS.md
+  https://github.com/fluent/fluentd/pull/4119
+* Update security policy
+  https://github.com/fluent/fluentd/pull/4123
+* Plugin template: Remove unnecessary code
+  https://github.com/fluent/fluentd/pull/4128
+* Revive issue auto closer
+  https://github.com/fluent/fluentd/pull/4116
+* Fix a link for the repository of td-agent
+  https://github.com/fluent/fluentd/pull/4145
+* in_udp: add test of message_length_limit
+  https://github.com/fluent/fluentd/pull/4117
+* Fix a typo of an argument of `Fluent::EventStream#each`
+  https://github.com/fluent/fluentd/pull/4148
+* Test in_tcp: Fix undesirable way to assert logs
+  https://github.com/fluent/fluentd/pull/4138
+
 ## Release v1.16.0 - 2023/03/29
 
 ### Enhancement
