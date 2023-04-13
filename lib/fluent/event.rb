@@ -294,7 +294,7 @@ module Fluent
       super
     end
 
-    def to_compressed_msgpack_stream(time_int: false)
+    def to_compressed_msgpack_stream(time_int: false, packer: nil)
       # time_int is always ignored because @data is always packed binary in this class
       @compressed_data
     end
