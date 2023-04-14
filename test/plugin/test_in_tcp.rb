@@ -255,4 +255,76 @@ class TcpInputTest < Test::Unit::TestCase
       assert_equal 'hello', event[2]['msg']
     end
   end
+
+  sub_test_case "message_length_limit" do
+    data("batch_emit", { extract: "" }, keep: true)
+    data("single_emit", { extract: "<extract>\ntag_key tag\n</extract>\n" }, keep: true)
+    test "drop records exceeding limit" do |data|
+      message_length_limit = 10
+      d = create_driver(base_config + %!
+        message_length_limit #{message_length_limit}
+        <parse>
+          @type none
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 2, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send("a" * message_length_limit + "\n", 0)
+          sock.send("b" * (message_length_limit + 1) + "\n", 0)
+          sock.send("c" * (message_length_limit - 1) + "\n", 0)
+        end
+      end
+
+      expected_records = [
+        "a" * message_length_limit,
+        "c" * (message_length_limit - 1)
+      ]
+      actual_records = d.events.collect do |event|
+        event[2]["message"]
+      end
+
+      assert_equal expected_records, actual_records
+    end
+
+    test "clear buffer and discard the subsequent data until the next delimiter" do |data|
+      message_length_limit = 12
+      d = create_driver(base_config + %!
+        message_length_limit #{message_length_limit}
+        delimiter ";"
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 1, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send('{"message":', 0)
+          sock.send('"hello', 0)
+          sleep 1 # To make the server read data and clear the buffer here.
+          sock.send('world!"};', 0) # This subsequent data must be discarded so that a parsing failure doesn't occur.
+          sock.send('{"k":"v"};', 0) # This will succeed to parse.
+        end
+      end
+
+      logs = d.logs.collect do |log|
+        log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
+      end
+      actual_records = d.events.collect do |event|
+        event[2]
+      end
+
+      assert_equal(
+        {
+          # Asserting that '[warn]: pattern not matched message="world!\"}"' warning does not occur.
+          logs: ['[info]: The buffer size exceeds \'message_length_limit\', cleared: limit=12 size=17 head="{\"message\":\"hello"' + "\n"],
+          records: [{"k" => "v"}],
+        },
+        {
+          logs: logs[1..],
+          records: actual_records,
+        }
+      )
+    end
+  end
 end
