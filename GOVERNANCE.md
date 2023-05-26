@@ -11,7 +11,26 @@ The Fluentd community adheres to the following principles:
 
 ## Voting
 
-The Fluentd project employs "organization voting" to ensure no single organization can dominate the project.
+The Fluentd project employs "Organization Voting" and "Vetoes" to ensure no single organization can dominate the project.
+
+For formal votes, we follow these steps.
+
+1. Have enough period to discuss the topic so that all discussion members agree that there are no more points to be discussed.
+2. Add a specific statement of what is being voted on to the description of the relevant GitHub issue or pull request.
+3. Declare the start of voting.
+4. Ask maintainers to indicate their yes/no votes on the issue or PR.
+5. Tally the votes and note the outcomes after a suitable period.
+
+All the following conditions must be satisfied for the vote to be approved.
+
+- No effective objection ballot: See Vetoes, below.
+- At least effective __2-organization__ affirmative vote: See Organization Vote, below.
+- At least effective __3-maintainers__ affirmative vote.
+- At least __2-week__ for voting.
+
+Please note that the period for voting should depend on the topic. __2-week__ is merely the minimum period to ensure time for all organizations to say, "Wait! We need more discussion!". The more significant the decision's impact is, the longer the period should be.
+
+### Organization Vote
 
 Individuals not associated with or employed by a company or organization are allowed one organization vote. Each company or organization (regardless of the number of maintainers associated with or employed by that company/organization) receives one organization vote.
 
@@ -19,13 +38,19 @@ In other words, if two maintainers are employed by Company X, two by Company Y, 
 
 Any maintainer from an organization may cast the vote for that organization.
 
-For formal votes, a specific statement of what is being voted on should be added to the relevant github issue or PR, and a link to that issue or PR added to the maintainers meeting agenda document. Maintainers should indicate their yes/no vote on that issue or PR, and after a suitable period of time, the votes will be tallied and the outcome noted.
+### Vetoes
+
+The proposal is not approved as long as any maintainer votes an effective objection ballot.
+
+The maintainer who votes an objection ballot must explain the reason for the objection. Without reasonable justification, the objection ballot is not considered effective.
+
+The ballot can be changed during the voting period. For example, if the reason for the objection is solved by discussion or additional fixes, the objection ballot will be withdrawn and changed to an affirmative vote.
 
 ## Changes in Maintainership
 
-New maintainers are proposed by an existing maintainer and are elected by a 2/3 majority organization vote.
+New maintainers are proposed by an existing maintainer and are elected by the formal voting process: See Voting, above.
 
-Maintainers can be removed by a 2/3 majority organization vote.
+Maintainers can be removed by the formal voting process: See Voting, above.
 
 ## Github Project Administration
 
@@ -44,7 +69,7 @@ The fluent organization is open to receive new sub-projects under it umbrella. T
   - Data collection
   - Log management
   - Metering
-- Be supported by 2/3 majority of organization
+- Be supported by the formal voting process: See Voting, above.
 
 The submission process starts as a Pull Request on Fluentd repository with the required information mentioned above. Once a project is accepted, it's considered a __CNCF sub-project under the umbrella of Fluentd__
 
