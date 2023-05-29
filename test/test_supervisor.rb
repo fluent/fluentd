@@ -621,6 +621,19 @@ class SupervisorTest < ::Test::Unit::TestCase
       assert_equal 10, $log.out.instance_variable_get(:@shift_size)
     end
 
+    def test_can_start_with_rotate_but_no_log_path
+      config_path = "#{@tmp_dir}/empty.conf"
+      write_config config_path, ""
+
+      sv = Fluent::Supervisor.new(
+        config_path: config_path,
+        log_rotate_age: 5,
+      )
+      sv.__send__(:setup_global_logger)
+
+      assert_true $log.stdout?
+    end
+
     sub_test_case "system log rotation" do
       def parse_text(text)
         basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
