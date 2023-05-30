@@ -697,7 +697,7 @@ module Fluent
       actual_log_path = @log_path
 
       # We need to prepare a unique path for each worker since Windows locks files.
-      if Fluent.windows? && rotate
+      if Fluent.windows? && rotate && @log_path && @log_path != "-"
         actual_log_path = Fluent::Log.per_process_path(@log_path, process_type, worker_id)
       end
 
