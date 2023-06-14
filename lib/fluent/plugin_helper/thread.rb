@@ -105,12 +105,12 @@ module Fluent
       end
 
       def thread_started?(title)
-        t = @_threads.values.select{|thread| title == thread[:_fluentd_plugin_helper_thread_title] }.first
+        t = @_threads.values.find{|thread| title == thread[:_fluentd_plugin_helper_thread_title] }
         t && t[:_fluentd_plugin_helper_thread_started]
       end
 
       def thread_running?(title)
-        t = @_threads.values.select{|thread| title == thread[:_fluentd_plugin_helper_thread_title] }.first
+        t = @_threads.values.find{|thread| title == thread[:_fluentd_plugin_helper_thread_title] }
         t && t[:_fluentd_plugin_helper_thread_running]
       end
 

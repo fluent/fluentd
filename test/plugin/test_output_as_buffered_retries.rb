@@ -93,7 +93,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
   end
   def get_log_time(msg, logs)
     log_time = nil
-    log = logs.select{|l| l.include?(msg) }.first
+    log = logs.find{|l| l.include?(msg) }
     if log && /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4}) \[error\]/ =~ log
       log_time = Time.parse($1)
     end

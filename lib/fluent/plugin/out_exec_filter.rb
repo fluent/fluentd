@@ -187,7 +187,7 @@ module Fluent::Plugin
       @rr = 0
 
       exit_callback = ->(status){
-        c = @children.select{|child| child.pid == status.pid }.first
+        c = @children.find{|child| child.pid == status.pid }
         if c
           unless self.stopped?
             log.warn "child process exits with error code", code: status.to_i, status: status.exitstatus, signal: status.termsig

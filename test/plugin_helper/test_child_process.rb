@@ -584,7 +584,7 @@ class ChildProcessTest < Test::Unit::TestCase
         m.lock
         pid = pids.first
         # 16357 sleeeeeeeeeper -e sleep 10; puts "hello"
-        assert{ proc_lines.select{|line| line =~ /^\s*#{pid}\s/ }.first.strip.split(/\s+/)[1] == "sleeeeeeeeeper" }
+        assert{ proc_lines.find{|line| line =~ /^\s*#{pid}\s/ }.strip.split(/\s+/)[1] == "sleeeeeeeeeper" }
         @d.stop; @d.shutdown; @d.close; @d.terminate
       end
     end
