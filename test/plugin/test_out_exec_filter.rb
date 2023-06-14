@@ -597,8 +597,8 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     # the number of pids should be same with number of child processes
     assert_equal 2, pid_list.size
     logs = d.instance.log.out.logs
-    assert_equal 2, logs.select { |l| l.include?('child process exits with error code') }.size
-    assert_equal 2, logs.select { |l| l.include?('respawning child process') }.size
+    assert_equal 2, logs.count { |l| l.include?('child process exits with error code') }
+    assert_equal 2, logs.count { |l| l.include?('respawning child process') }
 
   ensure
     d.run(start: false, shutdown: true)

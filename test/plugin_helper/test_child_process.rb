@@ -559,7 +559,7 @@ class ChildProcessTest < Test::Unit::TestCase
   unless Fluent.windows?
     test 'can specify subprocess name' do
       io = IO.popen([["cat", "caaaaaaaaaaat"], '-'])
-      process_naming_enabled = (open("|ps opid,cmd"){|_io| _io.readlines }.select{|line| line.include?("caaaaaaaaaaat") }.size > 0)
+      process_naming_enabled = (open("|ps opid,cmd"){|_io| _io.readlines }.count{|line| line.include?("caaaaaaaaaaat") } > 0)
       Process.kill(:TERM, io.pid) rescue nil
       io.close rescue nil
 

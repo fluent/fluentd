@@ -101,7 +101,7 @@ module Fluent
       end
 
       def thread_exist?(title)
-        @_threads.values.select{|thread| title == thread[:_fluentd_plugin_helper_thread_title] }.size > 0
+        @_threads.values.count{|thread| title == thread[:_fluentd_plugin_helper_thread_title] } > 0
       end
 
       def thread_started?(title)

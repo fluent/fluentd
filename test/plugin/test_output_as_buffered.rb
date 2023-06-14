@@ -510,7 +510,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       logs = @i.log.out.logs.dup
       @i.start
       @i.after_start
-      assert{ logs.select{|log| log.include?('[warn]') }.size == 0 }
+      assert{ logs.count{|log| log.include?('[warn]') } == 0 }
     end
 
     test 'a warning reported with 4 chunk keys' do
@@ -522,7 +522,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.after_start
       assert_equal ['key1', 'key2', 'key3', 'key4'], @i.chunk_keys
 
-      assert{ logs.select{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') }.size == 1 }
+      assert{ logs.count{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') } == 1 }
     end
 
     test 'a warning reported with 4 chunk keys including "tag"' do
@@ -531,7 +531,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       logs = @i.log.out.logs.dup
       @i.start # this calls `log.reset`... capturing logs about configure must be done before this line
       @i.after_start
-      assert{ logs.select{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') }.size == 1 }
+      assert{ logs.count{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') } == 1 }
     end
 
     test 'time key is not included for warned chunk keys' do
@@ -540,7 +540,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       logs = @i.log.out.logs.dup
       @i.start
       @i.after_start
-      assert{ logs.select{|log| log.include?('[warn]') }.size == 0 }
+      assert{ logs.count{|log| log.include?('[warn]') } == 0 }
     end
   end
 
@@ -968,8 +968,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       waiting(4){ sleep 0.1 until ary.size == 3 }
 
       assert_equal 3, ary.size
-      assert_equal 2, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 1, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 2, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 1, ary.count{|e| e[0] == "test.tag.2" }
 
       Timecop.freeze( Time.parse('2016-04-13 14:04:04 +0900') )
 
@@ -985,8 +985,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.buffer.stage.size == 1 && @i.write_count == 2 }
 
       assert_equal 9, ary.size
-      assert_equal 7, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 2, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 7, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 2, ary.count{|e| e[0] == "test.tag.2" }
 
       assert metachecks.all?{|e| e }
     end
@@ -1224,8 +1224,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       # events fulfills a chunk (and queued immediately)
       assert_equal 5, ary.size
-      assert_equal 5, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 0, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 5, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 0, ary.count{|e| e[0] == "test.tag.2" }
 
       Timecop.freeze( Time.parse('2016-04-13 14:04:09 +0900') )
 
@@ -1249,8 +1249,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.buffer.stage.size == 0 && @i.write_count == 3 }
 
       assert_equal 11, ary.size
-      assert_equal 8, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 3, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 8, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 3, ary.count{|e| e[0] == "test.tag.2" }
 
       assert metachecks.all?{|e| e }
     end
@@ -1315,8 +1315,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       # events fulfills a chunk (and queued immediately)
       assert_equal 5, ary.size
-      assert_equal 5, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 0, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 5, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 0, ary.count{|e| e[0] == "test.tag.2" }
 
       @i.stop
       @i.before_shutdown
@@ -1330,8 +1330,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.buffer.stage.size == 0 && @i.buffer.queue.size == 0 && @i.write_count == 3 }
 
       assert_equal 11, ary.size
-      assert_equal 8, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 3, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 8, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 3, ary.count{|e| e[0] == "test.tag.2" }
 
       assert metachecks.all?{|e| e }
     end
@@ -1435,8 +1435,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       # events fulfills a chunk (and queued immediately)
       assert_equal 5, ary.size
-      assert_equal 5, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 0, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 5, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 0, ary.count{|e| e[0] == "test.tag.2" }
       assert ary[0...5].all?{|e| e[2]["name"] == "xxx" && e[2]["service"] == "a" }
 
       Timecop.freeze( Time.parse('2016-04-13 14:04:09 +0900') )
@@ -1465,11 +1465,11 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.buffer.stage.size == 0 && @i.write_count == 4 }
 
       assert_equal 11, ary.size
-      assert_equal 8, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 3, ary.select{|e| e[0] == "test.tag.2" }.size
-      assert_equal 6, ary.select{|e| e[2]["name"] == "xxx" && e[2]["service"] == "a" }.size
-      assert_equal 3, ary.select{|e| e[2]["name"] == "yyy" && e[2]["service"] == "a" }.size
-      assert_equal 2, ary.select{|e| e[2]["name"] == "xxx" && e[2]["service"] == "b" }.size
+      assert_equal 8, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 3, ary.count{|e| e[0] == "test.tag.2" }
+      assert_equal 6, ary.count{|e| e[2]["name"] == "xxx" && e[2]["service"] == "a" }
+      assert_equal 3, ary.count{|e| e[2]["name"] == "yyy" && e[2]["service"] == "a" }
+      assert_equal 2, ary.count{|e| e[2]["name"] == "xxx" && e[2]["service"] == "b" }
 
       assert metachecks.all?{|e| e }
     end
@@ -1525,8 +1525,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       # events fulfills a chunk (and queued immediately)
       assert_equal 5, ary.size
-      assert_equal 5, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 0, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 5, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 0, ary.count{|e| e[0] == "test.tag.2" }
 
       @i.stop
       @i.before_shutdown
@@ -1540,11 +1540,11 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.buffer.stage.size == 0 && @i.buffer.queue.size == 0 && @i.write_count == 4 }
 
       assert_equal 11, ary.size
-      assert_equal 8, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 3, ary.select{|e| e[0] == "test.tag.2" }.size
-      assert_equal 6, ary.select{|e| e[2]["name"] == "xxx" && e[2]["service"] == "a" }.size
-      assert_equal 3, ary.select{|e| e[2]["name"] == "yyy" && e[2]["service"] == "a" }.size
-      assert_equal 2, ary.select{|e| e[2]["name"] == "xxx" && e[2]["service"] == "b" }.size
+      assert_equal 8, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 3, ary.count{|e| e[0] == "test.tag.2" }
+      assert_equal 6, ary.count{|e| e[2]["name"] == "xxx" && e[2]["service"] == "a" }
+      assert_equal 3, ary.count{|e| e[2]["name"] == "yyy" && e[2]["service"] == "a" }
+      assert_equal 2, ary.count{|e| e[2]["name"] == "xxx" && e[2]["service"] == "b" }
 
       assert metachecks.all?{|e| e }
     end
@@ -1683,8 +1683,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       # events fulfills a chunk (and queued immediately)
       assert_equal 5, ary.size
-      assert_equal 5, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 0, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 5, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 0, ary.count{|e| e[0] == "test.tag.2" }
 
       assert_equal 1, chunks.size
       assert !chunks.first.empty?
@@ -1716,8 +1716,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.buffer.dequeued.size == 3 }
 
       assert_equal 11, ary.size
-      assert_equal 8, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 3, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 8, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 3, ary.count{|e| e[0] == "test.tag.2" }
 
       assert_equal 3, chunks.size
       assert chunks.all?{|c| !c.empty? }
@@ -1802,8 +1802,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       # events fulfills a chunk (and queued immediately)
       assert_equal 5, ary.size
-      assert_equal 5, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 0, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 5, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 0, ary.count{|e| e[0] == "test.tag.2" }
 
       assert_equal 1, chunks.size
       assert !chunks.first.empty?
@@ -1835,8 +1835,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.buffer.dequeued.size == 3 }
 
       assert_equal 11, ary.size
-      assert_equal 8, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 3, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 8, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 3, ary.count{|e| e[0] == "test.tag.2" }
 
       assert_equal 3, chunks.size
       assert chunks.all?{|c| !c.empty? }
@@ -1892,8 +1892,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       assert{ @i.write_count == 7 }
       assert_equal 11, ary.size
-      assert_equal 8, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 3, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 8, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 3, ary.count{|e| e[0] == "test.tag.2" }
       assert{ chunks.size == 3 }
       assert{ chunks.all?{|c| !c.empty? } }
 
@@ -1963,8 +1963,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       # events fulfills a chunk (and queued immediately)
       assert_equal 5, ary.size
-      assert_equal 5, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 0, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 5, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 0, ary.count{|e| e[0] == "test.tag.2" }
 
       assert_equal 1, chunks.size
       assert !chunks.first.empty?
@@ -1999,8 +1999,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.rollback_count == 0 }
 
       assert_equal 11, ary.size
-      assert_equal 8, ary.select{|e| e[0] == "test.tag.1" }.size
-      assert_equal 3, ary.select{|e| e[0] == "test.tag.2" }.size
+      assert_equal 8, ary.count{|e| e[0] == "test.tag.1" }
+      assert_equal 3, ary.count{|e| e[0] == "test.tag.2" }
 
       assert{ chunks.size == 3 }
       assert{ chunks.all?{|c| !c.empty? } }

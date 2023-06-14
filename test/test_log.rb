@@ -660,7 +660,7 @@ class LogTest < Test::Unit::TestCase
     log.reopen!
     log.info message
 
-    assert { path.read.lines.select{ |line| line.include?(message) }.size == 2 }
+    assert { path.read.lines.count{ |line| line.include?(message) } == 2 }
     # Assert reopening the same file.
     # Especially, on Windows, the filepath is fixed for each process with rotate,
     # so we need to care about this.

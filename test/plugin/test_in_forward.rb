@@ -367,7 +367,7 @@ class ForwardInputTest < Test::Unit::TestCase
       end
 
       logs = d.instance.log.out.logs
-      assert{ logs.select{|line| line =~ /skip invalid event/ }.size == 2 }
+      assert{ logs.count{|line| line =~ /skip invalid event/ } == 2 }
 
       d.instance_shutdown
     end
@@ -593,10 +593,10 @@ class ForwardInputTest < Test::Unit::TestCase
 
       # check log
       logs = d.instance.log.logs
-      assert_equal 1, logs.select{|line|
+      assert_equal 1, logs.count{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
         line =~ / tag="test.tag" host="#{LOCALHOST_HOSTNAME}" limit=16777216 size=16777501/
-      }.size, "large chunk warning is not logged"
+      }, "large chunk warning is not logged"
 
       d.instance_shutdown
     end
@@ -619,10 +619,10 @@ class ForwardInputTest < Test::Unit::TestCase
 
       # check log
       logs = d.instance.log.logs
-      assert_equal 1, logs.select{ |line|
+      assert_equal 1, logs.count{ |line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
         line =~ / tag="test.tag" host="#{LOCALHOST_HOSTNAME}" limit=16777216 size=16777501/
-      }.size, "large chunk warning is not logged"
+      }, "large chunk warning is not logged"
 
       d.instance_shutdown
     end
@@ -653,10 +653,10 @@ class ForwardInputTest < Test::Unit::TestCase
 
       # check log
       logs = d.instance.log.logs
-      assert_equal 1, logs.select{|line|
+      assert_equal 1, logs.count{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_limit', dropped:/ &&
         line =~ / tag="test.tag" host="#{LOCALHOST_HOSTNAME}" limit=33554432 size=33554989/
-      }.size, "large chunk warning is not logged"
+      }, "large chunk warning is not logged"
 
       d.instance_shutdown
     end
@@ -676,9 +676,9 @@ class ForwardInputTest < Test::Unit::TestCase
 
       # check log
       logs = d.instance.log.logs
-      assert_equal 1, logs.select{|line|
+      assert_equal 1, logs.count{|line|
         line =~ / \[warn\]: incoming chunk is broken: host="#{LOCALHOST_HOSTNAME}" msg=#{data.inspect}/
-      }.size, "should not accept broken chunk"
+      }, "should not accept broken chunk"
 
       d.instance_shutdown
     end
