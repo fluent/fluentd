@@ -264,8 +264,8 @@ class FileOutputTest < Test::Unit::TestCase
       assert !(Dir.exist?("#{TMP_DIR}/my.data/a"))
       assert !(Dir.exist?("#{TMP_DIR}/your.data/a"))
       buffer_files = Dir.entries("#{TMP_DIR}/buf_full").reject{|e| e =~ /^\.+$/ }
-      assert_equal 2, buffer_files.select{|n| n.end_with?('.meta') }.size
-      assert_equal 2, buffer_files.select{|n| !n.end_with?('.meta') }.size
+      assert_equal 2, buffer_files.count{|n| n.end_with?('.meta') }
+      assert_equal 2, buffer_files.count{|n| !n.end_with?('.meta') }
 
       m1 = d.instance.metadata('my.data', t1, {"type" => "a"})
       m2 = d.instance.metadata('your.data', t3, {"type" => "a"})

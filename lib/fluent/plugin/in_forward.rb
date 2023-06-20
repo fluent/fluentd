@@ -430,7 +430,7 @@ module Fluent::Plugin
       end
       _ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
 
-      node = @nodes.select{|n| n[:address].include?(remote_addr) rescue false }.first
+      node = @nodes.find{|n| n[:address].include?(remote_addr) rescue false }
       if !node && !@security.allow_anonymous_source
         log.warn "Anonymous client disallowed", address: remote_addr, hostname: hostname
         return false, "anonymous source host '#{remote_addr}' denied", nil

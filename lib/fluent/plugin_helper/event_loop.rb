@@ -99,7 +99,7 @@ module Fluent
 
       def shutdown
         @_event_loop_mutex.synchronize do
-          @_event_loop_attached_watchers.reverse.each do |w|
+          @_event_loop_attached_watchers.reverse_each do |w|
             if w.attached?
               begin
                 w.detach
@@ -116,7 +116,7 @@ module Fluent
       def after_shutdown
         timeout_at = Fluent::Clock.now + EVENT_LOOP_SHUTDOWN_TIMEOUT
         @_event_loop_mutex.synchronize do
-          @_event_loop.watchers.reverse.each do |w|
+          @_event_loop.watchers.reverse_each do |w|
             begin
               w.detach
             rescue => e

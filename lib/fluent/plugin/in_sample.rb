@@ -64,7 +64,7 @@ module Fluent::Plugin
     def configure(conf)
       super
       @sample_index = 0
-      config = conf.elements.select{|e| e.name == 'storage' }.first
+      config = conf.elements.find{|e| e.name == 'storage' }
       @storage = storage_create(usage: 'suspend', conf: config, default_type: DEFAULT_STORAGE_TYPE)
     end
 

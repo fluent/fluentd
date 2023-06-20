@@ -634,8 +634,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       assert @i.retry
       logs = @i.log.out.logs
-      waiting(4){ sleep 0.1 until logs.select{|l| l.include?("[warn]: failed to flush the buffer chunk, timeout to commit.") }.size == 2 }
-      assert{ logs.select{|l| l.include?("[warn]: failed to flush the buffer chunk, timeout to commit.") }.size == 2 }
+      waiting(4){ sleep 0.1 until logs.count{|l| l.include?("[warn]: failed to flush the buffer chunk, timeout to commit.") } == 2 }
+      assert{ logs.count{|l| l.include?("[warn]: failed to flush the buffer chunk, timeout to commit.") } == 2 }
     end
 
     test 'retry_wait for secondary is same with one for primary' do

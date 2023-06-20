@@ -174,8 +174,8 @@ class UnixInputTest < Test::Unit::TestCase
     assert_equal 0, @d.events.size
 
     logs = @d.instance.log.logs
-    assert_equal 1, logs.select { |line|
+    assert_equal 1, logs.count { |line|
       line =~ / \[warn\]: incoming data is broken: msg=#{data.inspect}/
-    }.size, "should not accept broken chunk"
+    }, "should not accept broken chunk"
   end
 end unless Fluent.windows?

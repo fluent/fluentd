@@ -447,25 +447,25 @@ class OutputTest < Test::Unit::TestCase
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
         validators = @i.placeholder_validators(:path, "/my/path/${tag}/${username}/file.%Y%m%d_%H%M.log")
         assert_equal 3, validators.size
-        assert_equal 1, validators.select(&:time?).size
-        assert_equal 1, validators.select(&:tag?).size
-        assert_equal 1, validators.select(&:keys?).size
+        assert_equal 1, validators.count(&:time?)
+        assert_equal 1, validators.count(&:tag?)
+        assert_equal 1, validators.count(&:keys?)
       end
 
       test 'returns validators for time, tag and keys when a plugin is configured with these keys even if a template does not have placeholders' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,username', {'timekey' => 60})]))
         validators = @i.placeholder_validators(:path, "/my/path/file.log")
         assert_equal 3, validators.size
-        assert_equal 1, validators.select(&:time?).size
-        assert_equal 1, validators.select(&:tag?).size
-        assert_equal 1, validators.select(&:keys?).size
+        assert_equal 1, validators.count(&:time?)
+        assert_equal 1, validators.count(&:tag?)
+        assert_equal 1, validators.count(&:keys?)
       end
 
       test 'returns a validator for time if a template has timestamp placeholders' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
         validators = @i.placeholder_validators(:path, "/my/path/file.%Y-%m-%d.log")
         assert_equal 1, validators.size
-        assert_equal 1, validators.select(&:time?).size
+        assert_equal 1, validators.count(&:time?)
         assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.%Y-%m-%d.log' has timestamp placeholders, but chunk key 'time' is not configured") do
           validators.first.validate!
         end
@@ -475,7 +475,7 @@ class OutputTest < Test::Unit::TestCase
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {'timekey' => '30'})]))
         validators = @i.placeholder_validators(:path, "/my/path/to/file.log")
         assert_equal 1, validators.size
-        assert_equal 1, validators.select(&:time?).size
+        assert_equal 1, validators.count(&:time?)
         assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/to/file.log' doesn't have timestamp placeholders for timekey 30") do
           validators.first.validate!
         end
@@ -485,7 +485,7 @@ class OutputTest < Test::Unit::TestCase
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
         validators = @i.placeholder_validators(:path, "/my/path/${tag}/file.log")
         assert_equal 1, validators.size
-        assert_equal 1, validators.select(&:tag?).size
+        assert_equal 1, validators.count(&:tag?)
         assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/${tag}/file.log' has tag placeholders, but chunk key 'tag' is not configured") do
           validators.first.validate!
         end
@@ -495,7 +495,7 @@ class OutputTest < Test::Unit::TestCase
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
         validators = @i.placeholder_validators(:path, "/my/path/file.log")
         assert_equal 1, validators.size
-        assert_equal 1, validators.select(&:tag?).size
+        assert_equal 1, validators.count(&:tag?)
         assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.log' doesn't have tag placeholder") do
           validators.first.validate!
         end
@@ -505,7 +505,7 @@ class OutputTest < Test::Unit::TestCase
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
         validators = @i.placeholder_validators(:path, "/my/path/${username}/file.${group}.log")
         assert_equal 1, validators.size
-        assert_equal 1, validators.select(&:keys?).size
+        assert_equal 1, validators.count(&:keys?)
         assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/${username}/file.${group}.log' has placeholders, but chunk keys doesn't have keys group,username") do
           validators.first.validate!
         end
@@ -515,7 +515,7 @@ class OutputTest < Test::Unit::TestCase
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'username,group')]))
         validators = @i.placeholder_validators(:path, "/my/path/file.log")
         assert_equal 1, validators.size
-        assert_equal 1, validators.select(&:keys?).size
+        assert_equal 1, validators.count(&:keys?)
         assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.log' doesn't have enough placeholders for keys group,username") do
           validators.first.validate!
         end
