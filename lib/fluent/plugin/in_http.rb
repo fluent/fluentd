@@ -428,7 +428,7 @@ module Fluent::Plugin
         @content_type = ""
         @content_encoding = ""
         headers.each_pair {|k,v|
-          @env["HTTP_#{k.gsub('-','_').upcase}"] = v
+          @env["HTTP_#{k.tr('-','_').upcase}"] = v
           case k
           when /\AExpect\z/i
             expect = v
@@ -585,7 +585,7 @@ module Fluent::Plugin
           query_params = WEBrick::HTTPUtils.parse_query(uri.query)
 
           query_params.each_pair {|k,v|
-            params["QUERY_#{k.gsub('-','_').upcase}"] = v
+            params["QUERY_#{k.tr('-','_').upcase}"] = v
           }
         end
 
