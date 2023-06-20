@@ -61,7 +61,7 @@ class FluentPluginConfigFormatter
     @plugin.class.ancestors.reverse_each do |plugin_class|
       next unless plugin_class.respond_to?(:dump_config_definition)
       unless @verbose
-        next if plugin_class.name =~ /::PluginHelper::/
+        next if /::PluginHelper::/.match?(plugin_class.name)
       end
       dumped_config_definition = plugin_class.dump_config_definition
       dumped_config[plugin_class.name] = dumped_config_definition unless dumped_config_definition.empty?

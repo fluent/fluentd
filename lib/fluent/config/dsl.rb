@@ -110,7 +110,7 @@ module Fluent
 
         def include(*args)
           ::Kernel.raise ::ArgumentError, "#{name} block requires arguments for include path" if args.nil? || args.size != 1
-          if args.first =~ /\.rb$/
+          if /\.rb$/.match?(args.first)
             path = File.expand_path(args.first)
             data = File.read(path)
             self.instance_eval(data, path)

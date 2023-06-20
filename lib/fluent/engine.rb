@@ -68,7 +68,7 @@ module Fluent
     end
 
     def parse_config(io, fname, basepath = Dir.pwd, v1_config = false)
-      if fname =~ /\.rb$/
+      if /\.rb$/.match?(fname)
         require 'fluent/config/dsl'
         Config::DSL::Parser.parse(io, File.join(basepath, fname))
       else

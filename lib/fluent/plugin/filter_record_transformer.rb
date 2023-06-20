@@ -316,7 +316,7 @@ module Fluent::Plugin
         end
 
         (Object.instance_methods).each do |m|
-          undef_method m unless m.to_s =~ /^__|respond_to_missing\?|object_id|public_methods|instance_eval|method_missing|define_singleton_method|respond_to\?|new_ostruct_member|^class$/
+          undef_method m unless /^__|respond_to_missing\?|object_id|public_methods|instance_eval|method_missing|define_singleton_method|respond_to\?|new_ostruct_member|^class$/.match?(m.to_s)
         end
       end
     end

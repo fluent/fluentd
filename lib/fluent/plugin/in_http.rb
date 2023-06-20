@@ -439,9 +439,9 @@ module Fluent::Plugin
           when /\AContent-Encoding\Z/i
             @content_encoding = v
           when /\AConnection\Z/i
-            if v =~ /close/i
+            if /close/i.match?(v)
               @keep_alive = false
-            elsif v =~ /Keep-alive/i
+            elsif /Keep-alive/i.match?(v)
               @keep_alive = true
             end
           when /\AOrigin\Z/i
@@ -566,16 +566,16 @@ module Fluent::Plugin
 
         if @format_name != 'default'
           params[EVENT_RECORD_PARAMETER] = @body
-        elsif @content_type =~ /^application\/x-www-form-urlencoded/
+        elsif /^application\/x-www-form-urlencoded/.match?(@content_type)
           params.update WEBrick::HTTPUtils.parse_query(@body)
         elsif @content_type =~ /^multipart\/form-data; boundary=(.+)/
           boundary = WEBrick::HTTPUtils.dequote($1)
           params.update WEBrick::HTTPUtils.parse_form_data(@body, boundary)
-        elsif @content_type =~ /^application\/json/
+        elsif /^application\/json/.match?(@content_type)
           params['json'] = @body
-        elsif @content_type =~ /^application\/msgpack/
+        elsif /^application\/msgpack/.match?(@content_type)
           params['msgpack'] = @body
-        elsif @content_type =~ /^application\/x-ndjson/
+        elsif /^application\/x-ndjson/.match?(@content_type)
           params['ndjson'] = @body
         end
         path_info = uri.path

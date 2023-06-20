@@ -115,7 +115,7 @@ module Fluent
           stack.last << regex.pop
           regex.push ''
 
-        elsif c =~ /[a-zA-Z0-9_]/
+        elsif /[a-zA-Z0-9_]/.match?(c)
           regex.last << c
 
         else

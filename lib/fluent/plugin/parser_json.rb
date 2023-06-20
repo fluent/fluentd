@@ -60,7 +60,7 @@ module Fluent
       rescue LoadError => ex
         name = :yajl
         if log
-          if /\boj\z/ =~ ex.message
+          if /\boj\z/.match?(ex.message)
             log.info "Oj is not installed, and failing back to Yajl for json parser"
           else
             log.warn ex.message
