@@ -108,7 +108,7 @@ class BaseTest < Test::Unit::TestCase
     @p.extend m
     assert_equal [], logger.logs
 
-    ret = @p.string_safe_encoding("abc\xff.\x01f"){|s| s.split(/\./) }
+    ret = @p.string_safe_encoding("abc\xff.\x01f"){|s| s.split(".") }
     assert_equal ['abc?', "\u0001f"], ret
     assert_equal 1, logger.logs.size
     assert{ logger.logs.first.include?("invalid byte sequence is replaced in ") }
