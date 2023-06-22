@@ -145,13 +145,11 @@ module Fluent::Plugin
           if pos == UNWATCHED_POSITION
             @logger.debug "Remove unwatched line from pos_file: #{line}" if @logger
           else
-            if entries.include?(path)
-              @logger.warn("#{path} already exists. use latest one: deleted #{entries[path]}") if @logger
-            end
-
             if @follow_inodes
+              @logger&.warn("#{path} (inode: #{ino}) already exists. use latest one: deleted #{entries[ino]}") if entries.include?(ino)
               entries[ino] = Entry.new(path, pos, ino, file_pos + path.bytesize + 1)
             else
+              @logger&.warn("#{path} already exists. use latest one: deleted #{entries[path]}") if entries.include?(path)
               entries[path] = Entry.new(path, pos, ino, file_pos + path.bytesize + 1)
             end
             file_pos += line.size
