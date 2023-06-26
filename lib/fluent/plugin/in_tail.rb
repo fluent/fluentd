@@ -484,8 +484,8 @@ module Fluent::Plugin
     end
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
-    def update_watcher(target_info, pe)
-      path = target_info.path
+    def update_watcher(tail_watcher, pe, new_inode)
+      path = tail_watcher.path
 
       log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
 
@@ -499,23 +499,26 @@ module Fluent::Plugin
         end
       end
 
-      rotated_tw = @tails[path]
+      new_target_info = TargetInfo.new(path, new_inode)
 
       if @follow_inodes
-        new_position_entry = @pf[target_info]
+        # When follow_inodes is true, it's not cleaned up by refresh_watcher.
+        # So it should be unwatched here explicitly.
+        tail_watcher.unwatched = true
 
+        new_position_entry = @pf[new_target_info]
+        # If `refresh_watcher` find the new file before, this will not be zero.
+        # In this case, only we have to do is detaching the current tail_watcher.
         if new_position_entry.read_inode == 0
-          # When follow_inodes is true, it's not cleaned up by refresh_watcher.
-          # So it should be unwatched here explicitly.
-          rotated_tw.unwatched = true if rotated_tw
-          @tails[path] = setup_watcher(target_info, new_position_entry)
+          @tails[path] = setup_watcher(new_target_info, new_position_entry)
           @tails[path].on_notify
         end
       else
-        @tails[path] = setup_watcher(target_info, pe)
+        @tails[path] = setup_watcher(new_target_info, pe)
         @tails[path].on_notify
       end
-      detach_watcher_after_rotate_wait(rotated_tw, pe.read_inode) if rotated_tw
+
+      detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
     end
 
     # TailWatcher#close is called by another thread at shutdown phase.
@@ -877,18 +880,14 @@ module Fluent::Plugin
               # No need to update a watcher if stat is nil (file not present), because moving to inodes will create
               # new watcher, and old watcher will be closed by stop_watcher in refresh_watchers method
               # don't want to swap state because we need latest read offset in pos file even after rotate_wait
-              if stat
-                target_info = TargetInfo.new(@path, stat.ino)
-                @update_watcher.call(target_info, @pe)
-              end
+              @update_watcher.call(self, @pe, stat.ino) if stat
             else
               # Permit to handle if stat is nil (file not present).
               # If a file is mv-ed and a new file is created during
               # calling `#refresh_watchers`s, and `#refresh_watchers` won't run `#start_watchers`
               # and `#stop_watchers()` for the path because `target_paths_hash`
               # always contains the path.
-              target_info = TargetInfo.new(@path, stat ? stat.ino : nil)
-              @update_watcher.call(target_info, swap_state(@pe))
+              @update_watcher.call(self, swap_state(@pe), stat&.ino)
             end
           else
             @log.info "detected rotation of #{@path}"
