@@ -163,7 +163,7 @@ module Fluent::Plugin
                     0
                   elsif (@child_respawn == 'inf') || (@child_respawn == '-1')
                     -1
-                  elsif @child_respawn =~ /^\d+$/
+                  elsif /^\d+$/.match?(@child_respawn)
                     @child_respawn.to_i
                   else
                     raise ConfigError, "child_respawn option argument invalid: none(or 0), inf(or -1) or positive number"

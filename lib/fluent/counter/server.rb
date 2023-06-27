@@ -27,7 +27,7 @@ module Fluent
       DEFAULT_PORT = 24321
 
       def initialize(name, opt = {})
-        raise 'Counter server name is invalid' unless Validator::VALID_NAME =~ name
+        raise 'Counter server name is invalid' unless Validator::VALID_NAME.match?(name)
         @name = name
         @opt = opt
         @addr = @opt[:addr] || DEFAULT_ADDR

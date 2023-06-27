@@ -824,7 +824,7 @@ module Fluent
             if str.include?('${tag}')
               rvalue = rvalue.gsub('${tag}', metadata.tag)
             end
-            if str =~ CHUNK_TAG_PLACEHOLDER_PATTERN
+            if CHUNK_TAG_PLACEHOLDER_PATTERN.match?(str)
               hash = {}
               tag_parts = metadata.tag.split('.')
               tag_parts.each_with_index do |part, i|

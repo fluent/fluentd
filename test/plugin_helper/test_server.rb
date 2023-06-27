@@ -1329,7 +1329,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           # OpenSSL 1.1.1: "TLSv1.2"
           if tls_version == "TLSv1/SSLv3" || tls_version == "TLSv1.2"
             matched = true
-            unless cipher_name.match(/#{conf.ciphers}/)
+            unless cipher_name.match?(/#{conf.ciphers}/)
               matched = false
               break
             end

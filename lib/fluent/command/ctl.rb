@@ -92,7 +92,7 @@ module Fluent
 
     def call
       if Fluent.windows?
-        if @pid_or_svcname =~ /^[0-9]+$/
+        if /^[0-9]+$/.match?(@pid_or_svcname)
           # Use as PID
           return call_windows_event(@command, "fluentd_#{@pid_or_svcname}")
         end
@@ -172,7 +172,7 @@ module Fluent
         usage("PID or SVCNAME isn't specified!") if @pid_or_svcname.nil? || @pid_or_svcname.empty?
       else
         usage("PID isn't specified!") if @pid_or_svcname.nil? || @pid_or_svcname.empty?
-        usage("Invalid PID: #{pid}") unless @pid_or_svcname =~ /^[0-9]+$/
+        usage("Invalid PID: #{pid}") unless /^[0-9]+$/.match?(@pid_or_svcname)
       end
     end
   end

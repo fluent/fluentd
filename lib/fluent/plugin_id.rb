@@ -49,7 +49,7 @@ module Fluent
         # Thread::Backtrace::Location#path returns base filename or absolute path.
         # #absolute_path returns absolute_path always.
         # https://bugs.ruby-lang.org/issues/12159
-        if location.absolute_path =~ /\/test_[^\/]+\.rb$/ # location.path =~ /test_.+\.rb$/
+        if /\/test_[^\/]+\.rb$/.match?(location.absolute_path) # location.path =~ /test_.+\.rb$/
           return true
         end
       end

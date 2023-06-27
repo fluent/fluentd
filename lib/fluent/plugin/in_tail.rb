@@ -781,7 +781,7 @@ module Fluent::Plugin
       attr_accessor :group_watcher
 
       def tag
-        @parsed_tag ||= @path.tr('/', '.').gsub(/\.+/, '.').gsub(/^\./, '')
+        @parsed_tag ||= @path.tr('/', '.').squeeze('.').gsub(/^\./, '')
       end
 
       def register_watcher(watcher)

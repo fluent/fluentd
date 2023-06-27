@@ -119,7 +119,7 @@ module Fluent
         def self.validate_dot_keys(keys)
           keys.each { |key|
             next unless key.is_a?(String)
-            if /\s+/.match(key)
+            if /\s+/.match?(key)
               raise Fluent::ConfigError, "whitespace character is not allowed in dot notation. Use bracket notation: #{key}"
             end
           }

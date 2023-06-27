@@ -82,7 +82,7 @@ module Fluent
           raise Fluent::Counter::InvalidParams.new('The type of `key` should be String')
         end
 
-        unless VALID_NAME =~ name
+        unless VALID_NAME.match?(name)
           raise Fluent::Counter::InvalidParams.new('`key` is the invalid format')
         end
       end
@@ -92,7 +92,7 @@ module Fluent
           raise Fluent::Counter::InvalidParams.new('The type of `scope` should be String')
         end
 
-        unless VALID_SCOPE_NAME =~ name
+        unless VALID_SCOPE_NAME.match?(name)
           raise Fluent::Counter::InvalidParams.new('`scope` is the invalid format')
         end
       end
@@ -109,7 +109,7 @@ module Fluent
           raise Fluent::Counter::InvalidParams.new('The type of `name` should be String')
         end
 
-        unless VALID_NAME =~ name
+        unless VALID_NAME.match?(name)
           raise Fluent::Counter::InvalidParams.new("`name` is the invalid format")
         end
       end
