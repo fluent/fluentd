@@ -524,9 +524,8 @@ module Fluent::Plugin
     # At shutdown, IOHandler's io will be released automatically after detached the event loop
     def detach_watcher(tw, ino, close_io = true)
       if @follow_inodes && tw.ino != ino
-        log.warn("Skip detach_watcher because this is not the expected watcher to be detached",
-                  path: tw.path, current_ino: tw.ino, expect_ino_to_close: ino)
-        return
+        log.warn("detach_watcher could be detaching an unexpected tail_watcher with a different ino.",
+                  path: tw.path, actual_ino_in_tw: tw.ino, expect_ino_to_close: ino)
       end
       tw.watchers.each do |watcher|
         event_loop_detach(watcher)
