@@ -502,9 +502,13 @@ module Fluent::Plugin
       new_target_info = TargetInfo.new(path, new_inode)
 
       if @follow_inodes
-        # When follow_inodes is true, it's not cleaned up by refresh_watcher.
-        # So it should be unwatched here explicitly.
-        tail_watcher.unwatched = true
+        # If the old inode still exists, we can't unwatch it.
+        # If the old inode disappears, we should unwatch it here because
+        # `refresh_watcher` can't detect that the inode disappears.
+        # (It is because the path of `@tails` will be overwritten here.)
+        # (It is not a big problem if we don't unwatch here, as long as we make
+        # sure to detach it. The position will be cleared on restart eventually.)
+        tail_watcher.unwatched = true unless expand_paths.key?(tail_watcher.ino)
 
         new_position_entry = @pf[new_target_info]
         # If `refresh_watcher` find the new file before, this will not be zero.
