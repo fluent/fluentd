@@ -96,6 +96,7 @@ module Fluent::Plugin
         end
 
         entries = fetch_compacted_entries
+        @logger&.debug "Compacted entries: ", entries.keys
 
         @file_mutex.synchronize do
           if last_modified == @file.mtime && size == @file.size
@@ -119,15 +120,23 @@ module Fluent::Plugin
 
       def compact(existing_targets = nil)
         @file_mutex.synchronize do
-          entries = fetch_compacted_entries(existing_targets).values.map(&:to_entry_fmt)
+          entries = fetch_compacted_entries
+          @logger&.debug "Compacted entries: ", entries.keys
+
+          if existing_targets
+            entries = remove_deleted_files_entries(entries, existing_targets)
+            @logger&.debug "Remove missing entries.",
+                           existing_targets: existing_targets.keys,
+                           entries_after_removing: entries.keys
+          end
 
           @file.pos = 0
           @file.truncate(0)
-          @file.write(entries.join)
+          @file.write(entries.values.map(&:to_entry_fmt).join)
         end
       end
 
-      def fetch_compacted_entries(existing_targets = nil)
+      def fetch_compacted_entries
         entries = {}
 
         @file.pos = 0
@@ -156,18 +165,13 @@ module Fluent::Plugin
           end
         end
 
-        entries = remove_deleted_files_entries(entries, existing_targets)
         entries
       end
 
       def remove_deleted_files_entries(existent_entries, existing_targets)
-        if existing_targets
-          existent_entries.select { |path_or_ino|
-            existing_targets.key?(path_or_ino)
-          }
-        else
-          existent_entries
-        end
+        existent_entries.select { |path_or_ino|
+          existing_targets.key?(path_or_ino)
+        }
       end
     end
 
