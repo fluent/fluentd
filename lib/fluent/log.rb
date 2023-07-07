@@ -51,6 +51,8 @@ module Fluent
     LOG_TYPES = [LOG_TYPE_SUPERVISOR, LOG_TYPE_WORKER0, LOG_TYPE_DEFAULT].freeze
     LOG_ROTATE_AGE = %w(daily weekly monthly)
 
+    IGNORE_SAME_LOG_MAX_CACHE_SIZE = 1000 # If need, make this an option of system config.
+
     def self.str_to_level(log_level_str)
       case log_level_str.downcase
       when "trace" then LEVEL_TRACE
@@ -477,6 +479,13 @@ module Fluent
           false
         end
       else
+        if cached_log.size >= IGNORE_SAME_LOG_MAX_CACHE_SIZE
+          cached_log.reject! do |_, cached_time|
+            (time - cached_time) > @ignore_same_log_interval
+          end
+        end
+        # If the size is still over, we have no choice but to clear it.
+        cached_log.clear if cached_log.size >= IGNORE_SAME_LOG_MAX_CACHE_SIZE
         cached_log[message] = time
         false
       end
