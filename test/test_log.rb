@@ -472,6 +472,43 @@ class LogTest < Test::Unit::TestCase
       ]
       assert_equal(expected, log.out.logs)
     end
+
+    def test_reject_on_max_size
+      ignore_same_log_interval = 10
+
+      logger = Fluent::Log.new(
+        ServerEngine::DaemonLogger.new(@log_device, log_level: ServerEngine::DaemonLogger::INFO),
+        ignore_same_log_interval: ignore_same_log_interval,
+      )
+
+      # Output unique log every second.
+      Fluent::Log::IGNORE_SAME_LOG_MAX_CACHE_SIZE.times do |i|
+        logger.info "Test #{i}"
+        Timecop.freeze(@timestamp + i)
+      end
+      logger.info "Over max size!"
+
+      # The newest cache and the latest caches in `ignore_same_log_interval` should exist.
+      assert { Thread.current[:last_same_log].size == ignore_same_log_interval + 1 }
+    end
+
+    def test_clear_on_max_size
+      ignore_same_log_interval = 10
+
+      logger = Fluent::Log.new(
+        ServerEngine::DaemonLogger.new(@log_device, log_level: ServerEngine::DaemonLogger::INFO),
+        ignore_same_log_interval: ignore_same_log_interval,
+      )
+
+      # Output unique log at the same time.
+      Fluent::Log::IGNORE_SAME_LOG_MAX_CACHE_SIZE.times do |i|
+        logger.info "Test #{i}"
+      end
+      logger.info "Over max size!"
+
+      # Can't reject old logs, so all cache should be cleared and only the newest should exist.
+      assert { Thread.current[:last_same_log].size == 1 }
+    end
   end
 
   def test_dup
