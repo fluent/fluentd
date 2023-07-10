@@ -308,11 +308,15 @@ module Fluent
   end
 
   module ChunkMessagePackEventStreamer
-    # chunk.extend(ChunkEventStreamer)
+    # chunk.extend(ChunkMessagePackEventStreamer)
     #  => chunk.each{|time, record| ... }
     def each(unpacker: nil, &block)
+      # Note: If need to use `unpacker`, then implement it,
+      # e.g., `unpacker.feed_each(io.read, &block)` (Not tested)
+      raise NotImplementedError, "'unpacker' argument is not implemented." if unpacker
+
       open do |io|
-        (unpacker || Fluent::MessagePackFactory.msgpack_unpacker(io)).each(&block)
+        Fluent::MessagePackFactory.msgpack_unpacker(io).each(&block)
       end
       nil
     end
