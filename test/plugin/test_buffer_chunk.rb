@@ -57,6 +57,17 @@ class BufferChunkTest < Test::Unit::TestCase
       assert chunk.respond_to?(:msgpack_each)
     end
 
+    test 'unpacker arg is not implemented for ChunkMessagePackEventStreamer' do
+      meta = Object.new
+      chunk = Fluent::Plugin::Buffer::Chunk.new(meta)
+      chunk.extend Fluent::ChunkMessagePackEventStreamer
+
+      unpacker = Fluent::MessagePackFactory.thread_local_msgpack_unpacker
+
+      assert_raise(NotImplementedError){ chunk.each(unpacker: unpacker) }
+      assert_raise(NotImplementedError){ chunk.msgpack_each(unpacker: unpacker) }
+    end
+
     test 'some methods raise ArgumentError with an option of `compressed: :gzip` and without extending Compressble`' do
       meta = Object.new
       chunk = Fluent::Plugin::Buffer::Chunk.new(meta)
