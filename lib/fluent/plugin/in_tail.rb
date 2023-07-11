@@ -352,13 +352,13 @@ module Fluent::Plugin
 
     def existence_path
       hash = {}
-      @tails.each {|path, tw|
+      @tails.each_value do |tw|
         if @follow_inodes
           hash[tw.ino] = TargetInfo.new(tw.path, tw.ino)
         else
           hash[tw.path] = TargetInfo.new(tw.path, tw.ino)
         end
-      }
+      end
       hash
     end
 
@@ -443,7 +443,12 @@ module Fluent::Plugin
         return
       end
 
-      @tails[path] = tw
+      if @follow_inodes
+        @tails[target_info.ino] = tw
+      else
+        @tails[path] = tw
+      end
+
       tw.on_notify
     end
 
@@ -459,9 +464,17 @@ module Fluent::Plugin
         remove_path_from_group_watcher(target_info.path)
 
         if remove_watcher
-          tw = @tails.delete(target_info.path)
+          if @follow_inodes
+            tw = @tails.delete(target_info.ino)
+          else
+            tw = @tails.delete(target_info.path)
+          end
         else
-          tw = @tails[target_info.path]
+          if @follow_inodes
+            tw = @tails[target_info.ino]
+          else
+            tw = @tails[target_info.path]
+          end
         end
         if tw
           tw.unwatched = unwatched
@@ -475,8 +488,8 @@ module Fluent::Plugin
     end
 
     def close_watcher_handles
-      @tails.keys.each do |path|
-        tw = @tails.delete(path)
+      @tails.keys.each do |key|
+        tw = @tails.delete(key)
         if tw
           tw.close
         end
@@ -502,16 +515,27 @@ module Fluent::Plugin
       new_target_info = TargetInfo.new(path, new_inode)
 
       if @follow_inodes
-        # When follow_inodes is true, it's not cleaned up by refresh_watcher.
-        # So it should be unwatched here explicitly.
+        @tails.delete(tail_watcher.ino)
+
+        # TODO: This can cause log duplication. We need to fix this.
+        # (This problem exists from the start of implementation of follow_inodes)
+        #
+        # The old inode can still exist.
+        # In that case, we can't unwatch it because it causes log duplication.
+        # (`refresh_watcher` will find the inode as a new inode and read them again.)
+        #
+        # However, if the old inode already has disappeared, it must be unwatched here.
+        # It is because the old inode is removed from `@tails`, so `refresh_watcher` can't 
+        # recognize that it has disappeared and need to be unwatched.
+        # So simply removing this line causes leak of unwatch.
         tail_watcher.unwatched = true
 
         new_position_entry = @pf[new_target_info]
         # If `refresh_watcher` find the new file before, this will not be zero.
-        # In this case, only we have to do is detaching the current tail_watcher.
+        # In this case, we don't need to create a new TailWatcher.
         if new_position_entry.read_inode == 0
-          @tails[path] = setup_watcher(new_target_info, new_position_entry)
-          @tails[path].on_notify
+          @tails[new_inode] = setup_watcher(new_target_info, new_position_entry)
+          @tails[new_inode].on_notify
         end
       else
         @tails[path] = setup_watcher(new_target_info, pe)

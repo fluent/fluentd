@@ -2156,13 +2156,13 @@ class TailInputTest < Test::Unit::TestCase
       target_info = create_target_info("#{@tmp_dir}/tail.txt")
       mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, true, anything, nil, anything, anything).once
       d.run(shutdown: false)
-      assert d.instance.instance_variable_get(:@tails)[target_info.path]
+      assert d.instance.instance_variable_get(:@tails)[target_info.ino]
 
       Timecop.travel(now + 10) do
         d.instance.instance_eval do
-          sleep 0.1 until @tails[target_info.path] == nil
+          sleep 0.1 until @tails[target_info.ino] == nil
         end
-        assert_nil d.instance.instance_variable_get(:@tails)[target_info.path]
+        assert_nil d.instance.instance_variable_get(:@tails)[target_info.ino]
       end
       d.instance_shutdown
     end
@@ -2679,12 +2679,20 @@ class TailInputTest < Test::Unit::TestCase
 
         # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` updates the TailWatcher:
         #     TailWatcher(path: "tail.txt", inode: inode_0) => TailWatcher(path: "tail.txt", inode: inode_1)
-        # The old TailWathcer is detached here since `rotate_wait` is just `1s`.
+        # @tails:
+        #   @tails => {
+        #     inode_1: TailWatcher(path: "tail.txt", inode: inode_1),
+        #   }
+        # The old TailWatcher(path: "tail.txt", inode: inode_0) is detached here since `rotate_wait` is just `1s`.
         sleep 3
 
         # This reproduces the following situation:
         #     Rotation => update_watcher => refresh_watchers
         # This adds a new TailWatcher: TailWatcher(path: "tail.txt1", inode: inode_0)
+        #   @tails => {
+        #     inode_1: TailWatcher(path: "tail.txt", inode: inode_1),
+        #     inode_0: TailWatcher(path: "tail.txt1", inode: inode_0),
+        #   }
         d.instance.refresh_watchers
 
         # Append to the new current log file.
@@ -2769,15 +2777,23 @@ class TailInputTest < Test::Unit::TestCase
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "file2 log1"}
 
         # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` updates the TailWatcher:
-        #     TailWatcher(path: "tail.txt", inode: inode_0) => TailWatcher(path: "tail.txt", inode: inode_1)
+        #   TailWatcher(path: "tail.txt", inode: inode_0) => TailWatcher(path: "tail.txt", inode: inode_1)
+        # @tails:
+        #   @tails => {
+        #     inode_1: TailWatcher(path: "tail.txt", inode: inode_1),
+        #   }
         sleep 2
 
         # This reproduces the following situation:
-        #     Rotation => update_watcher => refresh_watchers
+        #   Rotation => update_watcher => refresh_watchers
         # This adds a new TailWatcher: TailWatcher(path: "tail.txt1", inode: inode_0)
+        #   @tails => {
+        #     inode_1: TailWatcher(path: "tail.txt", inode: inode_1),
+        #     inode_0: TailWatcher(path: "tail.txt1", inode: inode_0),
+        #   }
         d.instance.refresh_watchers
 
-        # The old TailWathcer is detached here since `rotate_wait` is `4s`.
+        # The old TailWatcher(path: "tail.txt", inode: inode_0) is detached here since `rotate_wait` is `4s`.
         sleep 3
 
         # Append to the new current log file.
@@ -2856,17 +2872,28 @@ class TailInputTest < Test::Unit::TestCase
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "file2 log1"}
 
         # This reproduces the following situation:
-        #     Rotation => refresh_watchers => update_watcher
+        #   Rotation => refresh_watchers => update_watcher
         # This add a new TailWatcher: TailWatcher(path: "tail.txt", inode: inode_1)
-        #     This overwrites `@tails["tail.txt"]`
+        #   @tails => {
+        #     inode_0: TailWatcher(path: "tail.txt", inode: inode_0),
+        #     inode_1: TailWatcher(path: "tail.txt", inode: inode_1),
+        #   }
         d.instance.refresh_watchers
 
-        # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` updates the TailWatcher:
+        # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` trys to update the TailWatcher:
         #     TailWatcher(path: "tail.txt", inode: inode_0) => TailWatcher(path: "tail.txt", inode: inode_1)
-        # The old TailWathcer is detached here since `rotate_wait` is just `1s`.
+        # However, it is already added in `refresh_watcher`, so this only remove and detach the old TailWatcher.
+        # It is detached here since `rotate_wait` is just `1s`.
+        #   @tails => {
+        #     inode_1: TailWatcher(path: "tail.txt", inode: inode_1),
+        #   }
         sleep 3
 
         # This adds a new TailWatcher: TailWatcher(path: "tail.txt1", inode: inode_0)
+        #   @tails => {
+        #     inode_1: TailWatcher(path: "tail.txt", inode: inode_1),
+        #     inode_0: TailWatcher(path: "tail.txt1", inode: inode_0),
+        #   }
         d.instance.refresh_watchers
 
         # Append to the new current log file.
