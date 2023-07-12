@@ -370,17 +370,30 @@ module Fluent::Plugin
     def refresh_watchers
       target_paths_hash = expand_paths
       existence_paths_hash = existence_path
-      
+
       log.debug {
         target_paths_str = target_paths_hash.collect { |key, target_info| target_info.path }.join(",")
         existence_paths_str = existence_paths_hash.collect { |key, target_info| target_info.path }.join(",")
         "tailing paths: target = #{target_paths_str} | existing = #{existence_paths_str}"
       }
 
-      unwatched_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
+      if !@follow_inodes
+        need_unwatch_in_stop_watchers = true
+      else
+        # When using @follow_inodes, need this to unwatch the rotated old inode when it disappears.
+        # After `update_watcher` detaches an old TailWatcher, the inode is lost from the `@tails`.
+        # So that inode can't be contained in `removed_hash`, and can't be unwatched by `stop_watchers`.
+        #
+        # This logic may work for `@follow_inodes false` too.
+        # Just limiting the case to supress the impact to existing logics.
+        @pf&.unwatch_removed_targets(target_paths_hash)
+        need_unwatch_in_stop_watchers = false
+      end
+
+      removed_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
 
-      stop_watchers(unwatched_hash, immediate: false, unwatched: true) unless unwatched_hash.empty?
+      stop_watchers(removed_hash, unwatched: need_unwatch_in_stop_watchers) unless removed_hash.empty?
       start_watchers(added_hash) unless added_hash.empty?
       @startup = false if @startup
     end
@@ -502,10 +515,6 @@ module Fluent::Plugin
       new_target_info = TargetInfo.new(path, new_inode)
 
       if @follow_inodes
-        # When follow_inodes is true, it's not cleaned up by refresh_watcher.
-        # So it should be unwatched here explicitly.
-        tail_watcher.unwatched = true
-
         new_position_entry = @pf[new_target_info]
         # If `refresh_watcher` find the new file before, this will not be zero.
         # In this case, only we have to do is detaching the current tail_watcher.

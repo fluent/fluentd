@@ -26,6 +26,10 @@ class IntailPositionFileTest < Test::Unit::TestCase
     "valid_path" => Fluent::Plugin::TailInput::TargetInfo.new("valid_path", 1),
     "inode23bit" => Fluent::Plugin::TailInput::TargetInfo.new("inode23bit", 0),
   }
+  TEST_CONTENT_INODES = {
+    1 => Fluent::Plugin::TailInput::TargetInfo.new("valid_path", 1),
+    0 => Fluent::Plugin::TailInput::TargetInfo.new("inode23bit", 0),
+  }
 
   def write_data(f, content)
     f.write(content)
@@ -221,7 +225,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
   end
 
   sub_test_case '#unwatch' do
-    test 'deletes entry by path' do
+    test 'unwatch entry by path' do
       write_data(@file, TEST_CONTENT)
       pf = Fluent::Plugin::TailInput::PositionFile.load(@file, false, {}, logger: $log)
       inode1 = File.stat(@file).ino
@@ -238,6 +242,32 @@ class IntailPositionFileTest < Test::Unit::TestCase
       assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p2.class
 
       assert_not_equal p1, p2
+    end
+
+    test 'unwatch entries by inode' do
+      write_data(@file, TEST_CONTENT)
+      pf = Fluent::Plugin::TailInput::PositionFile.load(@file, true, TEST_CONTENT_INODES, logger: $log)
+
+      existing_targets = TEST_CONTENT_INODES.select do |inode, target_info|
+        inode == 1
+      end
+      pe_to_unwatch = pf[TEST_CONTENT_INODES[0]]
+
+      pf.unwatch_removed_targets(existing_targets)
+
+      assert_equal(
+        {
+          map_keys: [TEST_CONTENT_INODES[1].ino],
+          unwatched_pe_pos: Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION,
+        },
+        {
+          map_keys: pf.instance_variable_get(:@map).keys,
+          unwatched_pe_pos: pe_to_unwatch.read_pos,
+        }
+      )
+
+      unwatched_pe_retaken = pf[TEST_CONTENT_INODES[0]]
+      assert_not_equal pe_to_unwatch, unwatched_pe_retaken
     end
   end
 
