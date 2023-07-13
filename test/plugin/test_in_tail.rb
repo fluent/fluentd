@@ -2704,22 +2704,14 @@ class TailInputTest < Test::Unit::TestCase
 
       assert_equal(
         {
-          # TODO: This is BUG!! We need to fix it and replace this with the next.
-          record_values: ["file1 log1", "file1 log1", "file1 log2", "file1 log2", "file2 log1", "file2 log2"],
-          # record_values: ["file1 log1", "file1 log2", "file2 log1", "file2 log2"],
+          record_values: ["file1 log1", "file1 log2", "file2 log1", "file2 log2"],
           tail_watcher_paths: ["#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt1"],
           tail_watcher_inodes: [inode_0, inode_1, inode_0],
           tail_watcher_io_handler_opened_statuses: [false, false, false],
-          # TODO: This is BUG!! We need to fix it and replace this with the next.
           position_entries: [
-            ["#{@tmp_dir}/tail.txt", "ffffffffffffffff", inode_0],
+            ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_0],
             ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_1],
-            ["#{@tmp_dir}/tail.txt1", "0000000000000016", inode_0],
           ],
-          # position_entries: [
-          #   ["#{@tmp_dir}/tail.txt", "ffffffffffffffff", inode_0],
-          #   ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_1],
-          # ],
         },
         {
           record_values: record_values,
@@ -2802,7 +2794,8 @@ class TailInputTest < Test::Unit::TestCase
           tail_watcher_inodes: [inode_0, inode_1, inode_0],
           tail_watcher_io_handler_opened_statuses: [false, false, false],
           position_entries: [
-            ["#{@tmp_dir}/tail.txt", "ffffffffffffffff", inode_0],
+            # The recorded path is old, but it is no problem. The path is not used when using follow_inodes.
+            ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_0],
             ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_1],
           ],
         },
@@ -2861,8 +2854,9 @@ class TailInputTest < Test::Unit::TestCase
         #     This overwrites `@tails["tail.txt"]`
         d.instance.refresh_watchers
 
-        # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` updates the TailWatcher:
+        # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` trys to update the TailWatcher:
         #     TailWatcher(path: "tail.txt", inode: inode_0) => TailWatcher(path: "tail.txt", inode: inode_1)
+        # However, it is already added in `refresh_watcher`, so `update_watcher` doesn't create the new TailWatcher.
         # The old TailWathcer is detached here since `rotate_wait` is just `1s`.
         sleep 3
 
@@ -2886,22 +2880,15 @@ class TailInputTest < Test::Unit::TestCase
 
       assert_equal(
         {
-          # TODO: This is BUG!! We need to fix it and replace this with the next.
-          record_values: ["file1 log1", "file1 log1", "file1 log2", "file1 log2", "file2 log1", "file2 log2"],
-          # record_values: ["file1 log1", "file1 log2", "file2 log1", "file2 log2"],
+          record_values: ["file1 log1", "file1 log2", "file2 log1", "file2 log2"],
           tail_watcher_paths: ["#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt1"],
           tail_watcher_inodes: [inode_0, inode_1, inode_0],
           tail_watcher_io_handler_opened_statuses: [false, false, false],
-          # TODO: This is BUG!! We need to fix it and replace this with the next.
           position_entries: [
-            ["#{@tmp_dir}/tail.txt", "ffffffffffffffff", inode_0],
+            # The recorded path is old, but it is no problem. The path is not used when using follow_inodes.
+            ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_0],
             ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_1],
-            ["#{@tmp_dir}/tail.txt1", "0000000000000016", inode_0],
           ],
-          # position_entries: [
-          #   ["#{@tmp_dir}/tail.txt", "ffffffffffffffff", inode_0],
-          #   ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_1],
-          # ],
         },
         {
           record_values: record_values,

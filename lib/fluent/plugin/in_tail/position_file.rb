@@ -53,10 +53,16 @@ module Fluent::Plugin
         }
       end
 
+      def unwatch_removed_targets(existing_targets)
+        @map.reject { |key, entry|
+          existing_targets.key?(key)
+        }.each_key { |key|
+          unwatch_key(key)
+        }
+      end
+
       def unwatch(target_info)
-        if (entry = @map.delete(@follow_inodes ? target_info.ino : target_info.path))
-          entry.update_pos(UNWATCHED_POSITION)
-        end
+        unwatch_key(@follow_inodes ? target_info.ino : target_info.path)
       end
 
       def load(existing_targets = nil)
@@ -117,6 +123,12 @@ module Fluent::Plugin
       end
 
       private
+
+      def unwatch_key(key)
+        if (entry = @map.delete(key))
+          entry.update_pos(UNWATCHED_POSITION)
+        end
+      end
 
       def compact(existing_targets = nil)
         @file_mutex.synchronize do
