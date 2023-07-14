@@ -498,6 +498,24 @@ module Fluent::Plugin
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(tail_watcher, pe, new_inode)
+      # TODO we should use another callback for this.
+      # To supress impact to existing logics, limit the case to `@follow_inodes`.
+      # We may not need `@follow_inodes` condition.
+      if @follow_inodes && new_inode.nil?
+        # nil inode means the file disappeared, so we only need to stop it.
+        @tails.delete(tail_watcher.path)
+        # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632 
+        # Because of this problem, log duplication can occur during `rotate_wait`.
+        # Need to set `rotate_wait 0` for a workaround.
+        # Duplication will occur if `refresh_watcher` is called during the `rotate_wait`.
+        # In that case, `refresh_watcher` will add the new TailWatcher to tail the same target,
+        # and it causes the log duplication.
+        # (Other `detach_watcher_after_rotate_wait` may have the same problem.
+        #  We need the mechanism not to add duplicated TailWathcer with detaching TailWatcher.)
+        detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
+        return
+      end
+
       path = tail_watcher.path
 
       log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
@@ -890,10 +908,14 @@ module Fluent::Plugin
 
           if watcher_needs_update
             if @follow_inodes
-              # No need to update a watcher if stat is nil (file not present), because moving to inodes will create
-              # new watcher, and old watcher will be closed by stop_watcher in refresh_watchers method
-              # don't want to swap state because we need latest read offset in pos file even after rotate_wait
-              @update_watcher.call(self, @pe, stat.ino) if stat
+              # If stat is nil (file not present), NEED to stop and discard this watcher.
+              #   When the file is disappeared but is resurrected soon, then `#refresh_watcher`
+              #   can't recognize this TailWatcher needs to be stopped.
+              #   This can happens when the file is rotated.
+              #   If a notify comes before the new file for the path is created during rotation,
+              #   then it appears as if the file was resurrected once it disappeared.
+              # Don't want to swap state because we need latest read offset in pos file even after rotate_wait
+              @update_watcher.call(self, @pe, stat&.ino)
             else
               # Permit to handle if stat is nil (file not present).
               # If a file is mv-ed and a new file is created during
