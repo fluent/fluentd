@@ -1,5 +1,42 @@
 # v1.16
 
+## Release v1.16.2 - 2023/07/14
+
+### Bug Fix
+
+* in_tail: Fix new watcher is wrongly detached on rotation when `follow_inodes`,
+  which causes stopping tailing the file
+  https://github.com/fluent/fluentd/pull/4208
+* in_tail: Prevent wrongly unwatching when `follow_inodes`, which causes log
+  duplication
+  https://github.com/fluent/fluentd/pull/4237
+* in_tail: Fix warning log about overwriting entry when `follow_inodes`
+  https://github.com/fluent/fluentd/pull/4214
+* in_tail: Ensure to discard TailWatcher with missing target when `follow_inodes`
+  https://github.com/fluent/fluentd/pull/4239
+* MessagePackFactory: Make sure to reset local unpacker to prevent received
+  broken data from affecting other receiving data
+  https://github.com/fluent/fluentd/pull/4178
+* Fix failure to launch Fluentd on Windows when the log path isn't specified in
+  the command line
+  https://github.com/fluent/fluentd/pull/4188
+* logger: Prevent growing cache size of `ignore_same_log_interval` unlimitedly
+  https://github.com/fluent/fluentd/pull/4229
+* Update sigdump to 0.2.5 to fix wrong value of object counts
+  https://github.com/fluent/fluentd/pull/4225
+
+### Misc
+
+* in_tail: Check detaching inode when `follow_inodes`
+  https://github.com/fluent/fluentd/pull/4191
+* in_tail: Add debug log for pos file compaction
+  https://github.com/fluent/fluentd/pull/4228
+* Code improvements detected by RuboCop Performance
+  https://github.com/fluent/fluentd/pull/4201
+  https://github.com/fluent/fluentd/pull/4210
+* Add notice for unused argument `unpacker` of `ChunkMessagePackEventStreamer.each`
+  https://github.com/fluent/fluentd/pull/4159
+
 ## Release v1.16.1 - 2023/04/17
 
 ### Enhancement
