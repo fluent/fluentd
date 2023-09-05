@@ -16,7 +16,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.license = "Apache-2.0"
 
-  gem.required_ruby_version = '>= 2.4'
+  gem.required_ruby_version = '>= 2.7'
 
   gem.add_runtime_dependency("bundler")
   gem.add_runtime_dependency("msgpack", [">= 1.3.1", "< 2.0.0"])
