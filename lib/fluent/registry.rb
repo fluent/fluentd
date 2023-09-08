@@ -66,7 +66,7 @@ module Fluent
         }
         unless files.empty?
           # prefer newer version
-          require files.sort.last
+          require files.max
           return
         end
       end
@@ -84,7 +84,7 @@ module Fluent
       }
       unless files.empty?
         # prefer newer version
-        require files.sort.last
+        require files.max
         return
       end
 
