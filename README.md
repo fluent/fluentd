@@ -29,7 +29,7 @@ Fluentd: Open-Source Log Collector
 
 ### Prerequisites
 
-- Ruby 2.4 or later
+- Ruby 2.7 or later
 - git
 
 `git` should be in `PATH`. On Windows, you can use `Github for Windows` and `GitShell` for easy setup.
