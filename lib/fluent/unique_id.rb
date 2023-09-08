@@ -23,7 +23,7 @@ module Fluent
     end
 
     def self.hex(unique_id)
-      unique_id.unpack('H*').first
+      unique_id.unpack1('H*')
     end
 
     module Mixin
