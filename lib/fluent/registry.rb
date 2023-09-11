@@ -60,13 +60,13 @@ module Fluent
       # search from additional plugin directories
       if @dir_search_prefix
         path = "#{@dir_search_prefix}#{type}"
-        files = @paths.map { |lp|
+        files = @paths.filter_map { |lp|
           lpath = File.expand_path(File.join(lp, "#{path}.rb"))
           File.exist?(lpath) ? lpath : nil
-        }.compact
+        }
         unless files.empty?
           # prefer newer version
-          require files.sort.last
+          require files.max
           return
         end
       end
@@ -74,17 +74,17 @@ module Fluent
       path = "#{@search_prefix}#{type}"
 
       # prefer LOAD_PATH than gems
-      files = $LOAD_PATH.map { |lp|
+      files = $LOAD_PATH.filter_map { |lp|
         if lp == FLUENT_LIB_PATH
           nil
         else
           lpath = File.expand_path(File.join(lp, "#{path}.rb"))
           File.exist?(lpath) ? lpath : nil
         end
-      }.compact
+      }
       unless files.empty?
         # prefer newer version
-        require files.sort.last
+        require files.max
         return
       end
 
