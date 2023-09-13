@@ -47,8 +47,6 @@ module Fluent
         # it's not suppressed in default event router for non-log-event events
         log_event_router.suppress_missing_match!
 
-        log_event_router = log_event_router
-
         unmatched_tags = Fluent::Log.event_tags.select { |t| !log_event_router.match?(t) }
         unless unmatched_tags.empty?
           $log.warn "match for some tags of log events are not defined in @FLUENT_LOG label (to be ignored)", tags: unmatched_tags
