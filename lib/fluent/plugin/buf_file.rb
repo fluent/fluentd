@@ -56,7 +56,7 @@ module Fluent
 
         @variable_store = Fluent::VariableStore.fetch_or_build(:buf_file)
 
-        multi_workers_configured = owner.system_config.workers > 1 ? true : false
+        multi_workers_configured = owner.system_config.workers > 1
 
         using_plugin_root_dir = false
         unless @path
