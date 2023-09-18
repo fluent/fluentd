@@ -130,7 +130,7 @@ module BinlogReaderCommand
     private
 
     def configure_option_parser
-      @options.merge!(config_params: {})
+      @options[:config_params] = {}
 
       @opt_parser.banner = "Usage: fluent-binlog-reader #{self.class.to_s.split('::').last.downcase} [options] file"
 
