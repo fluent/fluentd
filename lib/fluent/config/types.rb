@@ -123,7 +123,7 @@ module Fluent
 
       s = val.to_sym
       list = opts[:list]
-      raise "Plugin BUG: config type 'enum' requires :list of symbols" unless list.is_a?(Array) && list.all?{|v| v.is_a? Symbol }
+      raise "Plugin BUG: config type 'enum' requires :list of symbols" unless list.is_a?(Array) && list.all?(Symbol)
       unless list.include?(s)
         raise ConfigError, "valid options are #{list.join(',')} but got #{val}"
       end

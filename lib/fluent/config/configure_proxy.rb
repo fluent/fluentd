@@ -274,7 +274,7 @@ module Fluent
         option_value_type!(name, opts, :deprecated, String)
         option_value_type!(name, opts, :obsoleted, String)
         if type == :enum
-          if !opts.has_key?(:list) || !opts[:list].is_a?(Array) || opts[:list].empty? || !opts[:list].all?{|v| v.is_a?(Symbol) }
+          if !opts.has_key?(:list) || !opts[:list].is_a?(Array) || opts[:list].empty? || !opts[:list].all?(Symbol)
             raise ArgumentError, "#{name}: enum parameter requires :list of Symbols"
           end
         end
