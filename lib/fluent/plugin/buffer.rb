@@ -417,21 +417,17 @@ module Fluent
             if c.staged? && (enqueue || chunk_size_full?(c))
               m = c.metadata
               enqueue_chunk(m)
-              if unstaged_chunks[m]
+              if unstaged_chunks[m] && !unstaged_chunks[m].empty?
                 u = unstaged_chunks[m].pop
-                if !u.nil?
-                  u.synchronize do
-                    if u.unstaged? && !chunk_size_full?(u)
-                      # `u.metadata.seq` and `m.seq` can be different but Buffer#enqueue_chunk expect them to be the same value
-                      u.metadata.seq = 0
-                      synchronize {
-                        @stage[m] = u.staged!
-                        @stage_size_metrics.add(u.bytesize)
-                      }
-                    end
+                u.synchronize do
+                  if u.unstaged? && !chunk_size_full?(u)
+                    # `u.metadata.seq` and `m.seq` can be different but Buffer#enqueue_chunk expect them to be the same value
+                    u.metadata.seq = 0
+                    synchronize {
+                      @stage[m] = u.staged!
+                      @stage_size_metrics.add(u.bytesize)
+                    }
                   end
-                else
-                  log.warn "encountered nil chunk, skipping"
                 end
               end
             elsif c.unstaged?
