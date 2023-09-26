@@ -201,7 +201,7 @@ module Fluent
 
       def overwrite_defaults(other) # other is owner plugin's corresponding proxy
         self.defaults = self.defaults.merge(other.defaults)
-        self.sections.keys.each do |section_key|
+        self.sections.each_key do |section_key|
           if other.sections.has_key?(section_key)
             self.sections[section_key].overwrite_defaults(other.sections[section_key])
           end
