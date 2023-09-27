@@ -62,7 +62,7 @@ module Fluent
       config_param :time_format, :string, default: '%Y-%m-%d %H:%M:%S %z'
       config_param :rotate_age, default: nil do |v|
         if Fluent::Log::LOG_ROTATE_AGE.include?(v)
-          v.to_s
+          v.to_s 
         else
           begin
             Integer(v)
