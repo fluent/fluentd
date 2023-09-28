@@ -151,7 +151,7 @@ module Fluent::Config
       data('daily' => "daily",
            'weekly' => 'weekly',
            'monthly' => 'monthly')
-      test "symbols for rotate_age" do |age|
+      test "strings for rotate_age" do |age|
         conf = parse_text(<<-EOS)
           <system>
             <log>
@@ -160,7 +160,7 @@ module Fluent::Config
           </system>
         EOS
         sc = Fluent::SystemConfig.new(conf)
-        assert_equal(age.to_sym, sc.log.rotate_age)
+        assert_equal(age.to_s, sc.log.rotate_age)
       end
 
       test "numeric number for rotate age" do
