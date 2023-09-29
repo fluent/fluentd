@@ -5,6 +5,7 @@ require 'fluent/plugin/compressable'
 
 module EventTest
   module DeepCopyAssertion
+    def asdf; end
     def assert_duplicated_records(es1, es2)
       ary1 = []
       es1.each do |_, record|
