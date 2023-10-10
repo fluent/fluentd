@@ -65,9 +65,9 @@ module Fluent
         metrics.configure(config)
         # For multi workers environment, cmetrics should be distinguish with static labels.
         if Fluent::Engine.system_config.workers > 1
-          labels.merge!(worker_id: fluentd_worker_id.to_s)
+          labels[:worker_id] = fluentd_worker_id.to_s
         end
-        labels.merge!(plugin: @plugin_type_or_id)
+        labels[:plugin] = @plugin_type_or_id
         metrics.create(namespace: namespace, subsystem: subsystem, name: name, help_text: help_text, labels: labels)
 
         @_metrics["#{@plugin_type_or_id}_#{namespace}_#{subsystem}_#{name}"] = metrics

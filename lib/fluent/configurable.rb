@@ -31,13 +31,13 @@ module Fluent
       super
       # to simulate implicit 'attr_accessor' by config_param / config_section and its value by config_set_default
       proxy = self.class.merged_configure_proxy
-      proxy.params.keys.each do |name|
+      proxy.params.each_key do |name|
         next if name.to_s.start_with?('@')
         if proxy.defaults.has_key?(name)
           instance_variable_set("@#{name}".to_sym, proxy.defaults[name])
         end
       end
-      proxy.sections.keys.each do |name|
+      proxy.sections.each_key do |name|
         next if name.to_s.start_with?('@')
         subproxy = proxy.sections[name]
         if subproxy.multi?

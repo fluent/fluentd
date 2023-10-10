@@ -201,7 +201,7 @@ module Fluent
 
       def overwrite_defaults(other) # other is owner plugin's corresponding proxy
         self.defaults = self.defaults.merge(other.defaults)
-        self.sections.keys.each do |section_key|
+        self.sections.each_key do |section_key|
           if other.sections.has_key?(section_key)
             self.sections[section_key].overwrite_defaults(other.sections[section_key])
           end
@@ -274,7 +274,7 @@ module Fluent
         option_value_type!(name, opts, :deprecated, String)
         option_value_type!(name, opts, :obsoleted, String)
         if type == :enum
-          if !opts.has_key?(:list) || !opts[:list].is_a?(Array) || opts[:list].empty? || !opts[:list].all?{|v| v.is_a?(Symbol) }
+          if !opts.has_key?(:list) || !opts[:list].is_a?(Array) || opts[:list].empty? || !opts[:list].all?(Symbol)
             raise ArgumentError, "#{name}: enum parameter requires :list of Symbols"
           end
         end

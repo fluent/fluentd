@@ -139,7 +139,7 @@ module Fluent
             assert_equal(@expected_buffer, buffer)
           end
 
-          lines.keys.each do |meta|
+          lines.each_key do |meta|
             chunk = @instance.buffer.generate_chunk(meta).staged!
             chunk.append(lines[meta])
             begin
