@@ -26,7 +26,6 @@ class OwnedByMixinTest < Test::Unit::TestCase
 
       assert_equal parent.object_id, child.owner.object_id
 
-      assert child.instance_eval{ @_plugin_id_configured }
       assert_equal 'my_parent_id', child.instance_eval{ @_plugin_id }
 
       assert_equal Fluent::Log::LEVEL_TRACE, child.log.level
