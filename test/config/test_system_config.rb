@@ -160,7 +160,7 @@ module Fluent::Config
           </system>
         EOS
         sc = Fluent::SystemConfig.new(conf)
-        assert_equal(age.to_s, sc.log.rotate_age)
+        assert_equal(age, sc.log.rotate_age)
       end
 
       test "numeric number for rotate age" do
