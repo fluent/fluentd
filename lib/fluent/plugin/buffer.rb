@@ -580,7 +580,7 @@ module Fluent
           chunk = @dequeued.delete(chunk_id)
           return false unless chunk # already purged by other thread
           @queue.unshift(chunk)
-          log.trace "chunk taken back", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: chunk.metadata
+          log.on_trace { log.trace "chunk taken back", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: chunk.metadata }
           @queued_num[chunk.metadata] += 1 # BUG if nil
           @dequeued_num[chunk.metadata] -= 1
         end
@@ -610,7 +610,7 @@ module Fluent
             @queued_num.delete(metadata)
             @dequeued_num.delete(metadata)
           end
-          log.trace "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
+          log.on_trace { log.trace "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata }
         end
 
         nil
