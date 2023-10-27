@@ -564,7 +564,7 @@ module Fluent::Plugin
 
       tw.close if close_io
 
-      if tw.unwatched && @pf
+      if @pf && tw.unwatched && (@follow_inode || !@tails[tw.path])
         target_info = TargetInfo.new(tw.path, ino)
         @pf.unwatch(target_info)
       end
