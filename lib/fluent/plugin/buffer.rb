@@ -417,7 +417,7 @@ module Fluent
             if c.staged? && (enqueue || chunk_size_full?(c))
               m = c.metadata
               enqueue_chunk(m)
-              if unstaged_chunks[m]
+              if unstaged_chunks[m] && !unstaged_chunks[m].empty?
                 u = unstaged_chunks[m].pop
                 u.synchronize do
                   if u.unstaged? && !chunk_size_full?(u)
