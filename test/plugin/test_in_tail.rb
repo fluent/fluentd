@@ -3084,9 +3084,6 @@ class TailInputTest < Test::Unit::TestCase
         sleep 3
 
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt0", "ab") {|f| f.puts "file3 log2"}
-
-        # Wait `rotate_wait` for file2 to make sure to close all IO handlers
-        sleep 3
       end
 
       inode_0 = tail_watchers[0]&.ino

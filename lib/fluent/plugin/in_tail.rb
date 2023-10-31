@@ -52,6 +52,7 @@ module Fluent::Plugin
       super
       @paths = []
       @tails = {}
+      @tails_rotate_wait = {}
       @pf_file = nil
       @pf = nil
       @ignore_list = []
@@ -267,6 +268,9 @@ module Fluent::Plugin
       @shutdown_start_time = Fluent::Clock.now
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(existence_path, immediate: true, remove_watcher: false)
+      @tails_rotate_wait.keys.each do |tw|
+        detach_watcher(tw, @tails_rotate_wait[tw][:ino])
+      end
       @pf_file.close if @pf_file
 
       super
@@ -590,6 +594,8 @@ module Fluent::Plugin
         target_info = TargetInfo.new(tw.path, ino)
         @pf.unwatch(target_info)
       end
+
+      @tails_rotate_wait.delete(tw)
     end
 
     def throttling_is_enabled?(tw)
@@ -604,7 +610,11 @@ module Fluent::Plugin
       if @open_on_every_update
         # Detach now because it's already closed, waiting it doesn't make sense.
         detach_watcher(tw, ino)
-      elsif throttling_is_enabled?(tw)
+      end
+
+      return if @tails_rotate_wait[tw]
+
+      if throttling_is_enabled?(tw)
         # When the throttling feature is enabled, it might not reach EOF yet.
         # Should ensure to read all contents before closing it, with keeping throttling.
         start_time_to_wait = Fluent::Clock.now
@@ -615,11 +625,13 @@ module Fluent::Plugin
             detach_watcher(tw, ino)
           end
         end
+        @tails_rotate_wait[tw] = { ino: ino, timer: timer }
       else
         # when the throttling feature isn't enabled, just wait @rotate_wait
-        timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
+        timer = timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
           detach_watcher(tw, ino)
         end
+        @tails_rotate_wait[tw] = { ino: ino, timer: timer }
       end
     end
 
