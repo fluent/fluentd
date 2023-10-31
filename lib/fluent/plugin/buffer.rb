@@ -271,13 +271,13 @@ module Fluent
         synchronize do
           log.debug "closing buffer", instance: self.object_id
           @dequeued.each_pair do |chunk_id, chunk|
-            chunk.close
+            chunk.synchronize { chunk.close }
           end
           until @queue.empty?
             @queue.shift.close
           end
           @stage.each_pair do |metadata, chunk|
-            chunk.close
+            chunk.synchronize { chunk.close }
           end
         end
       end
@@ -407,9 +407,11 @@ module Fluent
           # FIX FOR stage_size miscomputation - https://github.com/fluent/fluentd/issues/2712
           #
           staged_bytesizes_by_chunk.each do |chunk, bytesize|
-            chunk.synchronize do
-              synchronize { @stage_size_metrics.add(bytesize) }
-              log.on_trace { log.trace { "chunk #{chunk.path} size_added: #{bytesize} new_size: #{chunk.bytesize}" } }
+            synchronize do
+              chunk.synchronize do
+                @stage_size_metrics.add(bytesize)
+                log.on_trace { log.trace { "chunk #{chunk.path} size_added: #{bytesize} new_size: #{chunk.bytesize}" } }
+              end
             end
           end
 
@@ -485,8 +487,8 @@ module Fluent
         end
         return nil unless chunk
 
-        chunk.synchronize do
-          synchronize do
+        synchronize do
+          chunk.synchronize do
             if chunk.empty?
               chunk.close
             else
@@ -597,9 +599,11 @@ module Fluent
           log.on_trace { log.trace "purging a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata }
 
           begin
-            bytesize = chunk.bytesize
-            chunk.purge
-            @queue_size_metrics.sub(bytesize)
+            chunk.synchronize do
+              bytesize = chunk.bytesize
+              chunk.purge
+              @queue_size_metrics.sub(bytesize)
+            end
           rescue => e
             log.error "failed to purge buffer chunk", chunk_id: dump_unique_id_hex(chunk_id), error_class: e.class, error: e
             log.error_backtrace
