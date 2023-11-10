@@ -385,13 +385,35 @@ module Fluent::Plugin
         # So that inode can't be contained in `removed_hash`, and can't be unwatched by `stop_watchers`.
         #
         # This logic may work for `@follow_inodes false` too.
-        # Just limiting the case to supress the impact to existing logics.
+        # Just limiting the case to suppress the impact to existing logics.
         @pf&.unwatch_removed_targets(target_paths_hash)
         need_unwatch_in_stop_watchers = false
       end
 
       removed_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
+
+      # If an exisiting TailWatcher already follows a target path with the different inode,
+      # it means that the TailWatcher following the rotated file still exists. In this case,
+      # `refresh_watcher` can't start the new TailWatcher for the new current file. So, we
+      # should output a warning log in order to prevent silent collection stops.
+      # (Such as https://github.com/fluent/fluentd/pull/4327)
+      # (Usually, such a TailWatcher should be removed from `@tails` in `update_watcher`.)
+      # (The similar warning may work for `@follow_inodes true` too. Just limiting the case
+      # to suppress the impact to existing logics.)
+      unless @follow_inodes
+        target_paths_hash.each do |path, target|
+          next unless @tails.key?(path)
+          # We can't use `existence_paths_hash[path].ino` because it is from `TailWatcher.ino`,
+          # which is very unstable parameter. (It can be `nil` or old).
+          # So, we need to use `TailWatcher.pe.read_inode`.
+          existing_watcher_inode = @tails[path].pe.read_inode
+          if existing_watcher_inode != target.ino
+            log.warn "Could not follow a file (inode: #{target.ino}) because an existing watcher for that filepath follows a different inode: #{existing_watcher_inode} (e.g. keeps watching a already rotated file). If you keep getting this message, please restart Fluentd.",
+              filepath: target.path
+          end
+        end
+      end
 
       stop_watchers(removed_hash, unwatched: need_unwatch_in_stop_watchers) unless removed_hash.empty?
       start_watchers(added_hash) unless added_hash.empty?
