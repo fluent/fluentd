@@ -1,5 +1,18 @@
 # v1.16
 
+## Release v1.16.3 - 2023/11/14
+
+### Bug Fix
+
+* in_tail: Fix a stall bug on !follow_inode case
+  https://github.com/fluent/fluentd/pull/4327
+* in_tail: add warning for silent stop on !follow_inodes case
+  https://github.com/fluent/fluentd/pull/4339
+* Buffer: Fix NoMethodError with empty unstaged chunk arrays
+  https://github.com/fluent/fluentd/pull/4303
+* Fix for rotate_age where Fluentd passes as Symbol
+  https://github.com/fluent/fluentd/pull/4311
+
 ## Release v1.16.2 - 2023/07/14
 
 ### Bug Fix

@@ -2,9 +2,9 @@ name: Testing on Ubuntu
 
 on:
   push:
-    branches: [master]
+    branches: [master, v1.16]
   pull_request:
-    branches: [master]
+    branches: [master, v1.16]
 
 jobs:
   test:
