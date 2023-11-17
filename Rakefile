@@ -13,7 +13,7 @@ task test: [:base_test]
 namespace :build do
   desc 'Build gems for all platforms'
   task :all do
-    Bundler.with_clean_env do
+    Bundler.with_original_env do
       %w[ruby x86-mingw32 x64-mingw32 x64-mingw-ucrt].each do |name|
         ENV['GEM_BUILD_FAKE_PLATFORM'] = name
         Rake::Task["build"].execute
