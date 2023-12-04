@@ -76,4 +76,12 @@ task :coverity do
   FileUtils.rm_rf(['./cov-int', 'cov-fluentd.tar.gz'])
 end
 
+desc 'Build SBOM files'
+task :sbom do
+  require 'fluent/version'
+  version = ENV["SBOM_VERSION"] || Fluent::VERSION
+  sh "docker sbom fluent/fluentd:v#{version}-debian-amd64-1.0 --output licenses/fluentd-latest.spdx.json --format spdx-json"
+  sh "docker sbom fluent/fluentd:v#{version}-debian-amd64-1.0 --output licenses/fluentd-latest.cyclonedx.json --format cyclonedx-json"
+end
+
 task default: [:test, :build]
