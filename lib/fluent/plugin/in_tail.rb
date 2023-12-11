@@ -113,6 +113,8 @@ module Fluent::Plugin
     config_param :follow_inodes, :bool, default: false
     desc 'Maximum length of line. The longer line is just skipped.'
     config_param :max_line_size, :size, default: nil
+    desc 'Skip ignoring files.'
+    config_param :skip_ignoring_files, :bool, defaults: false
 
     config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
       config_argument :usage, :string, default: 'in_tail_parser'
@@ -303,7 +305,7 @@ module Fluent::Plugin
                   true
                 end
               else
-                if is_file
+                if is_file && !skip_ignoring_files?
                   unless @ignore_list.include?(p)
                     log.warn "#{p} unreadable. It is excluded and would be examined next time."
                     @ignore_list << p if @ignore_repeated_permission_error
