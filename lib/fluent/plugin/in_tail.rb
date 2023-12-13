@@ -114,7 +114,7 @@ module Fluent::Plugin
     desc 'Maximum length of line. The longer line is just skipped.'
     config_param :max_line_size, :size, default: nil
     desc 'Skip ignoring files.'
-    config_param :skip_ignoring_files, :bool, defaults: false
+    config_param :skip_ignoring_files, :bool, default: false
 
     config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
       config_argument :usage, :string, default: 'in_tail_parser'
