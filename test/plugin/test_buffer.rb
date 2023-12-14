@@ -850,6 +850,57 @@ class BufferTest < Test::Unit::TestCase
     test '#compress returns :text' do
       assert_equal :text, @p.compress
     end
+
+    # https://github.com/fluent/fluentd/issues/3089
+    test "closed chunk should not be committed" do
+      assert_equal 8 * 1024 * 1024, @p.chunk_limit_size
+      assert_equal 0.95, @p.chunk_full_threshold
+
+      purge_count = 0
+
+      stub.proxy(@p).generate_chunk(anything) do |chunk|
+        stub.proxy(chunk).purge do |result|
+          purge_count += 1
+          result
+        end
+        stub.proxy(chunk).commit do |result|
+          assert_false(chunk.closed?)
+          result
+        end
+        stub.proxy(chunk).rollback do |result|
+          assert_false(chunk.closed?)
+          result
+        end
+        chunk
+      end
+
+      m = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
+      small_row = "x" * 1024 * 400
+      big_row = "x" * 1024 * 1024 * 8 # just `chunk_size_limit`, it does't cause BufferOverFlowError.
+
+      # Write 42 events in 1 event stream, last one is for triggering `ShouldRetry`
+      @p.write({m => [small_row] * 40 + [big_row] + ["x"]})
+
+      # Above event strem will be splitted twice by `Buffer#write_step_by_step`
+      #
+      # 1. `write_once`: 42 [events] * 1 [stream]
+      # 2. `write_step_by_step`: 4 [events]* 10 [streams] + 2 [events] * 1 [stream]
+      # 3. `write_step_by_step` (by `ShouldRetry`): 1 [event] * 42 [streams]
+      #
+      # The problematic data is built in the 2nd stage.
+      # In the 2nd stage, 5 streams are packed in a chunk.
+      # ((1024 * 400) [bytes] * 4 [events] * 5 [streams] = 8192000 [bytes] < `chunk_limit_size` (8MB)).
+      # So 3 chunks are used to store all data.
+      # The 1st chunk is already staged by `write_once`.
+      # The 2nd & 3rd chunks are newly created as unstaged.
+      # The 3rd chunk is purged before `ShouldRetry`, it's no problem:
+      #   https://github.com/fluent/fluentd/blob/7e9eba736ff40ad985341be800ddc46558be75f2/lib/fluent/plugin/buffer.rb#L850
+      # The 2nd chunk is purged in `rescue ShouldRetry`:
+      #   https://github.com/fluent/fluentd/blob/7e9eba736ff40ad985341be800ddc46558be75f2/lib/fluent/plugin/buffer.rb#L862
+      # It causes the issue described in https://github.com/fluent/fluentd/issues/3089#issuecomment-1811839198
+
+      assert_equal 2, purge_count
+    end
   end
 
   sub_test_case 'standard format with configuration for test with lower chunk limit size' do
