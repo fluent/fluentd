@@ -728,7 +728,6 @@ module Fluent
 
       def write_step_by_step(metadata, data, format, splits_count, &block)
         splits = []
-        errors = []
         if splits_count > data.size
           splits_count = data.size
         end
@@ -749,16 +748,14 @@ module Fluent
         modified_chunks = []
         modified_metadata = metadata
         get_next_chunk = ->(){
-          c = if staged_chunk_used
-                # Staging new chunk here is bad idea:
-                # Recovering whole state including newly staged chunks is much harder than current implementation.
-                modified_metadata = modified_metadata.dup_next
-                generate_chunk(modified_metadata)
-              else
-                synchronize { @stage[modified_metadata] ||= generate_chunk(modified_metadata).staged! }
-              end
-          modified_chunks << c
-          c
+          if staged_chunk_used
+            # Staging new chunk here is bad idea:
+            # Recovering whole state including newly staged chunks is much harder than current implementation.
+            modified_metadata = modified_metadata.dup_next
+            generate_chunk(modified_metadata)
+          else
+            synchronize { @stage[modified_metadata] ||= generate_chunk(modified_metadata).staged! }
+          end
         }
 
         writing_splits_index = 0
@@ -766,6 +763,8 @@ module Fluent
 
         while writing_splits_index < splits.size
           chunk = get_next_chunk.call
+          errors = []
+          modified_chunks << {chunk: chunk, adding_bytesize: 0, errors: errors}
           chunk.synchronize do
             raise ShouldRetry unless chunk.writable?
             staged_chunk_used = true if chunk.staged?
@@ -851,15 +850,18 @@ module Fluent
               raise
             end
 
-            block.call(chunk, chunk.bytesize - original_bytesize, errors)
-            errors = []
+            modified_chunks.last[:adding_bytesize] = chunk.bytesize - original_bytesize
           end
         end
+        modified_chunks.each do |data|
+          block.call(data[:chunk], data[:adding_bytesize], data[:errors])
+        end
       rescue ShouldRetry
-        modified_chunks.each do |mc|
-          mc.rollback rescue nil
-          if mc.unstaged?
-            mc.purge rescue nil
+        modified_chunks.each do |data|
+          chunk = data[:chunk]
+          chunk.rollback rescue nil
+          if chunk.unstaged?
+            chunk.purge rescue nil
           end
         end
         enqueue_chunk(metadata) if enqueue_chunk_before_retry
