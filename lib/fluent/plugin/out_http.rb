@@ -109,23 +109,23 @@ module Fluent::Plugin
       @proxy_uri = nil
       @formatter = nil
 
-      @Cache = []
-      @CacheIdMutex = Mutex.new
-      @CacheEntry = Struct.new(:uri, :conn)
+      @cache = []
+      @cache_id_mutex = Mutex.new
+      @cache_entry = Struct.new(:uri, :conn)
     end
 
     def close
       super
 
       # Close all open connections
-      @Cache.each {|entry| entry.conn.finish if entry.conn&.started? }
+      @cache.each {|entry| entry.conn.finish if entry.conn&.started? }
     end
 
     def configure(conf)
       super
 
-      @Cache = Array.new(actual_flush_thread_count, @CacheEntry.new("", nil)) if @reuse_connections
-      @CacheId = 0
+      @cache = Array.new(actual_flush_thread_count, @cache_entry.new("", nil)) if @reuse_connections
+      @cache_id = 0
 
       if @retryable_response_codes.nil?
         log.warn('Status code 503 is going to be removed from default `retryable_response_codes` from fluentd v2. Please add it by yourself if you wish')
@@ -321,23 +321,23 @@ module Fluent::Plugin
     def make_request_cached(uri, req)
       id = Thread.current.thread_variable_get(plugin_id)
       if id.nil?
-        @CacheIdMutex.synchronize {
-          id = @CacheId
-          @CacheId += 1
+        @cache_id_mutex.synchronize {
+          id = @cache_id
+          @cache_id += 1
         }
         Thread.current.thread_variable_set(plugin_id, id)
       end
       uri_str = uri.to_s
-      if @Cache[id].uri != uri_str
-        @Cache[id].conn.finish if @Cache[id].conn&.started?
+      if @cache[id].uri != uri_str
+        @cache[id].conn.finish if @cache[id].conn&.started?
         http =  if @proxy_uri
                   Net::HTTP.start(uri.host, uri.port, @proxy_uri.host, @proxy_uri.port, @proxy_uri.user, @proxy_uri.password, @http_opt)
                 else
                   Net::HTTP.start(uri.host, uri.port, @http_opt)
                 end
-        @Cache[id] = @CacheEntry.new(uri_str, http)
+        @cache[id] = @cache_entry.new(uri_str, http)
       end
-      @Cache[id].conn.request(req)
+      @cache[id].conn.request(req)
     end
 
     def make_request(uri, req)
