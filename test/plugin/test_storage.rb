@@ -68,7 +68,6 @@ class StorageTest < Test::Unit::TestCase
 
       assert_equal 'mytest', s.owner.system_config.process_name
       assert_equal '1', s.instance_eval{ @_plugin_id }
-      assert_equal true, s.instance_eval{ @_plugin_id_configured }
     end
 
     test 'does NOT have features for high-performance/high-consistent storages' do

@@ -21,7 +21,6 @@ module Fluent
         @_owner = plugin
 
         @_plugin_id = plugin.plugin_id
-        @_plugin_id_configured = plugin.plugin_id_configured?
 
         @log = plugin.log
       end
