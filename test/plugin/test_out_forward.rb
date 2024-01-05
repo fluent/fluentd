@@ -156,7 +156,14 @@ EOL
     normal_conf = config_element('match', '**', {}, [
         config_element('server', '', {'name' => 'test', 'host' => 'unexisting.yaaaaaaaaaaaaaay.host.example.com'})
       ])
-    assert_raise SocketError do
+
+    if Socket.const_defined?(:ResolutionError) # as of Ruby 3.3
+      error_class = Socket::ResolutionError
+    else
+      error_class = SocketError
+    end
+
+    assert_raise error_class do
       create_driver(normal_conf)
     end
 
@@ -165,7 +172,7 @@ EOL
       ])
     @d = d = create_driver(conf)
     expected_log = "failed to resolve node name when configured"
-    expected_detail = 'server="test" error_class=SocketError'
+    expected_detail = "server=\"test\" error_class=#{error_class.name}"
     logs = d.logs
     assert{ logs.any?{|log| log.include?(expected_log) && log.include?(expected_detail) } }
   end
