@@ -559,7 +559,7 @@ class ChildProcessTest < Test::Unit::TestCase
   unless Fluent.windows?
     test 'can specify subprocess name' do
       io = IO.popen([["cat", "caaaaaaaaaaat"], '-'])
-      process_naming_enabled = (open("|ps opid,cmd"){|_io| _io.readlines }.count{|line| line.include?("caaaaaaaaaaat") } > 0)
+      process_naming_enabled = (IO.popen(["ps", "opid,cmd"]){|_io| _io.readlines }.count{|line| line.include?("caaaaaaaaaaat") } > 0)
       Process.kill(:TERM, io.pid) rescue nil
       io.close rescue nil
 
@@ -576,7 +576,7 @@ class ChildProcessTest < Test::Unit::TestCase
           m.lock
           ran = true
           pids << @d.child_process_id
-          proc_lines += open("|ps opid,cmd"){|_io| _io.readlines }
+          proc_lines += IO.popen(["ps", "opid,cmd"]){|_io| _io.readlines }
           m.unlock
           readio.read
         end
@@ -635,8 +635,8 @@ class ChildProcessTest < Test::Unit::TestCase
   unless Fluent.windows?
     test 'can change working directory' do
       # check my real /tmp directory (for mac)
-      cmd = %[|ruby -e 'Dir.chdir("/tmp"); puts Dir.pwd']
-      mytmpdir = open(cmd){|io| io.read.chomp }
+      cmd = ['ruby', '-e', 'Dir.chdir("/tmp"); puts Dir.pwd']
+      mytmpdir = IO.popen(cmd){|io| io.read.chomp }
 
       m = Mutex.new
       str = nil
