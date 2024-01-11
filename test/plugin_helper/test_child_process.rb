@@ -515,6 +515,9 @@ class ChildProcessTest < Test::Unit::TestCase
   end
 
   test 'can scrub characters without exceptions' do
+    if Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('3.3.0')
+      pend "Behaviour of IO#set_encoding is changed as of Ruby 3.3 (#4058)"
+    end
     m = Mutex.new
     str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
@@ -538,6 +541,9 @@ class ChildProcessTest < Test::Unit::TestCase
   end
 
   test 'can scrub characters without exceptions and replace specified chars' do
+    if Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('3.3.0')
+      pend "Behaviour of IO#set_encoding is changed as of Ruby 3.3 (#4058)"
+    end
     m = Mutex.new
     str = nil
     replacement = "?"
