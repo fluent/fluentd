@@ -941,7 +941,7 @@ CONF
       '-external-encoding' => '--external-encoding=utf-8',
       '-internal-encoding' => '--internal-encoding=utf-8',
     )
-    test "-E option is set to RUBYOPT" do |opt|
+    test "-E option is set to RUBYOPT" do |base_opt|
       conf = <<CONF
 <source>
   @type dummy
@@ -952,6 +952,7 @@ CONF
 </match>
 CONF
       conf_path = create_conf_file('rubyopt_test.conf', conf)
+      opt = base_opt.dup
       opt << " #{ENV['RUBYOPT']}" if ENV['RUBYOPT']
       assert_log_matches(
         create_cmdline(conf_path),
@@ -991,9 +992,14 @@ CONF
 </match>
 CONF
       conf_path = create_conf_file('rubyopt_invalid_test.conf', conf)
+      if Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('3.3.0')
+        expected_phrase = 'ruby: invalid switch in RUBYOPT'
+      else
+        expected_phrase = 'Invalid option is passed to RUBYOPT'
+      end
       assert_log_matches(
         create_cmdline(conf_path),
-        'Invalid option is passed to RUBYOPT',
+        expected_phrase,
         env: { 'RUBYOPT' => 'a' },
       )
     end
