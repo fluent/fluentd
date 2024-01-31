@@ -594,8 +594,6 @@ module Fluent::Plugin
         target_info = TargetInfo.new(tw.path, ino)
         @pf.unwatch(target_info)
       end
-
-      @tails_rotate_wait.delete(tw)
     end
 
     def throttling_is_enabled?(tw)
@@ -622,6 +620,7 @@ module Fluent::Plugin
           elapsed = Fluent::Clock.now - start_time_to_wait
           if tw.eof? && elapsed >= @rotate_wait
             timer.detach
+            @tails_rotate_wait.delete(tw)
             detach_watcher(tw, ino)
           end
         end
@@ -629,6 +628,7 @@ module Fluent::Plugin
       else
         # when the throttling feature isn't enabled, just wait @rotate_wait
         timer = timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
+          @tails_rotate_wait.delete(tw)
           detach_watcher(tw, ino)
         end
         @tails_rotate_wait[tw] = { ino: ino, timer: timer }
