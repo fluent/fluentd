@@ -578,10 +578,6 @@ module Fluent::Plugin
       detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
     end
 
-    # TailWatcher#close is called by another thread at shutdown phase.
-    # It causes 'can't modify string; temporarily locked' error in IOHandler
-    # so adding close_io argument to avoid this problem.
-    # At shutdown, IOHandler's io will be released automatically after detached the event loop
     def detach_watcher(tw, ino, close_io = true)
       if @follow_inodes && tw.ino != ino
         log.warn("detach_watcher could be detaching an unexpected tail_watcher with a different ino.",
