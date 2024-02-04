@@ -340,15 +340,11 @@ module Fluent::Plugin
       @cache[id].conn.request(req)
     end
 
-    def make_request(uri, req)
+    def make_request(uri, req, &block)
       if @proxy_uri
-        Net::HTTP.start(uri.host, uri.port, @proxy_uri.host, @proxy_uri.port, @proxy_uri.user, @proxy_uri.password, @http_opt) { |http|
-          http.request(req)
-        }
+        Net::HTTP.start(uri.host, uri.port, @proxy_uri.host, @proxy_uri.port, @proxy_uri.user, @proxy_uri.password, @http_opt, &block)
       else
-        Net::HTTP.start(uri.host, uri.port, @http_opt) { |http|
-          http.request(req)
-        }
+        Net::HTTP.start(uri.host, uri.port, @http_opt, &block)
       end
     end
 
@@ -356,7 +352,7 @@ module Fluent::Plugin
       res = if @reuse_connections
               make_request_cached(uri, req)
             else
-              make_request(uri, req)
+              make_request(uri, req) { |http| http.request(req) }
             end
 
       if res.is_a?(Net::HTTPSuccess)
