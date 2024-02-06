@@ -20,6 +20,7 @@ require 'fluent/supervisor'
 require 'fluent/log'
 require 'fluent/env'
 require 'fluent/version'
+require 'fluent/process'
 
 $fluentdargv = Marshal.load(Marshal.dump(ARGV))
 
@@ -338,6 +339,18 @@ if fluentdopt = opts[:fluentdopt]
     reg['fluentdopt', Win32::Registry::REG_SZ] = fluentdopt
   end
   early_exit = true
+end
+
+begin
+  running_fluentd_conf = Fluent::ProcessDetector.running_fluentd_conf
+  if opts[:config_path] and opts[:config_path] == running_fluentd_conf
+    puts "Error: can't start duplicate Fluentd instance with same #{opts[:config_path]}"
+    exit 2
+  end
+rescue Errno::EACCES
+  # e.g. unprivileged access error, can't detect duplicated instance from command line parameter.
+rescue Errno::ENOENT
+  # e.g. can't detect duplicated instance from ps.
 end
 
 if start_service
