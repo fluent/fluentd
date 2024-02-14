@@ -292,7 +292,7 @@ module Fluent::Plugin
                else
                  date.to_time.strftime(path)
                end
-        if path.include?('*')
+        if path.include?('*') || /\[.*\]/.match(path)
           paths += Dir.glob(path).select { |p|
             begin
               is_file = !File.directory?(p)
