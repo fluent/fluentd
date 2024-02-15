@@ -1539,25 +1539,50 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     sub_test_case "expand_paths with glob" do |data|
-      data("square brackets"       => "test/plugin/data/log_numeric/[0-1][2-4].log",
-           "asterisk"              => "test/plugin/data/log/*.log",
-           "one character matcher" => "test/plugin/data/log/tes?.log",
-          )
-      def test_expand_paths_with_use_glob_p
-        path = data
-        config = config_element("", "", {
-                                  "tag" => "tail",
-                                  "path" => path,
-                                  "format" => "none",
-                                  "pos_file" => "#{@tmp_dir}/tail.pos",
-                                  "read_from_head" => true,
-                                  "refresh_interval" => 30,
-                                  "use_extended_glob" => true,
-                                  "rotate_wait" => "#{EX_ROTATE_WAIT}s",
-                                  "follow_inodes" => "#{EX_FOLLOW_INODES}",
-                                })
-        plugin = create_driver(config, false).instance
-        assert_true(!!plugin.use_glob?(path))
+      sub_test_case "use_extended_glob" do
+        data("square brackets"       => [true, "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [true, "test/plugin/data/log/*.log"],
+             "one character matcher" => [true, "test/plugin/data/log/tes?.log"],
+            )
+        def test_expand_paths_with_use_glob_p
+          result, path = data
+          config = config_element("", "", {
+                                    "tag" => "tail",
+                                    "path" => path,
+                                    "format" => "none",
+                                    "pos_file" => "#{@tmp_dir}/tail.pos",
+                                    "read_from_head" => true,
+                                    "refresh_interval" => 30,
+                                    "use_extended_glob" => true,
+                                    "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                                    "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                                  })
+          plugin = create_driver(config, false).instance
+          assert_equal(result, !!plugin.use_glob?(path))
+        end
+      end
+
+      sub_test_case "only_use_normal_glob" do
+        data("square brackets"       => [false, "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [true, "test/plugin/data/log/*.log"],
+             "one character matcher" => [false, "test/plugin/data/log/tes?.log"],
+            )
+        def test_expand_paths_with_use_glob_p
+          result, path = data
+          config = config_element("", "", {
+                                    "tag" => "tail",
+                                    "path" => path,
+                                    "format" => "none",
+                                    "pos_file" => "#{@tmp_dir}/tail.pos",
+                                    "read_from_head" => true,
+                                    "refresh_interval" => 30,
+                                    "use_extended_glob" => false,
+                                    "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                                    "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                                  })
+          plugin = create_driver(config, false).instance
+          assert_equal(result, !!plugin.use_glob?(path))
+        end
       end
     end
 
