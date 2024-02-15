@@ -64,6 +64,8 @@ module Fluent::Plugin
     config_param :path, :string
     desc 'path delimiter used for spliting path config'
     config_param :path_delimiter, :string, default: ','
+    desc 'Use extended glob patterns. Adding a capability to handle [] and ?.'
+    config_param :use_extended_glob, :bool, default: false
     desc 'The tag of the event.'
     config_param :tag, :string
     desc 'The paths to exclude the files from watcher list.'
@@ -286,7 +288,11 @@ module Fluent::Plugin
     # Curly braces is not supported for now because the default delimiter of path is ",".
     # This should be collided for wildcard pattern for curly braces.
     def use_glob?(path)
-      path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
+      if @use_extended_glob
+        path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
+      else
+        path.include?('*')
+      end
     end
 
     def expand_paths

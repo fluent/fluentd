@@ -1552,6 +1552,7 @@ class TailInputTest < Test::Unit::TestCase
                                   "pos_file" => "#{@tmp_dir}/tail.pos",
                                   "read_from_head" => true,
                                   "refresh_interval" => 30,
+                                  "use_extended_glob" => true,
                                   "rotate_wait" => "#{EX_ROTATE_WAIT}s",
                                   "follow_inodes" => "#{EX_FOLLOW_INODES}",
                                 })
@@ -1568,6 +1569,7 @@ class TailInputTest < Test::Unit::TestCase
                      "pos_file" => "#{@tmp_dir}/tail.pos",
                      "read_from_head" => true,
                      "refresh_interval" => 30,
+                     "use_extended_glob" => true,
                      "rotate_wait" => "#{EX_ROTATE_WAIT}s",
                      "follow_inodes" => "#{EX_FOLLOW_INODES}",
                    })
