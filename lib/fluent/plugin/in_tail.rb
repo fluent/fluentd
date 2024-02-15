@@ -283,6 +283,12 @@ module Fluent::Plugin
         @capability.have_capability?(:effective, :dac_override)
     end
 
+    # Curly braces is not supported for now because the default delimiter of path is ",".
+    # This should be collided for wildcard pattern for curly braces.
+    def use_glob?(path)
+      path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
+    end
+
     def expand_paths
       date = Fluent::EventTime.now
       paths = []
@@ -292,7 +298,7 @@ module Fluent::Plugin
                else
                  date.to_time.strftime(path)
                end
-        if path.include?('*') || /\[.*\]/.match(path)
+        if use_glob?(path)
           paths += Dir.glob(path).select { |p|
             begin
               is_file = !File.directory?(p)

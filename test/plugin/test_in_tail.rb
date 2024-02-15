@@ -1538,6 +1538,28 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(ex_paths - [ex_paths.last], plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
     end
 
+    sub_test_case "expand_paths with glob" do |data|
+      data("square brackets"       => "test/plugin/data/log_numeric/[0-1][2-4].log",
+           "asterisk"              => "test/plugin/data/log/*.log",
+           "one character matcher" => "test/plugin/data/log/tes?.log",
+          )
+      def test_expand_paths_with_use_glob_p
+        path = data
+        config = config_element("", "", {
+                                  "tag" => "tail",
+                                  "path" => path,
+                                  "format" => "none",
+                                  "pos_file" => "#{@tmp_dir}/tail.pos",
+                                  "read_from_head" => true,
+                                  "refresh_interval" => 30,
+                                  "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                                  "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                                })
+        plugin = create_driver(config, false).instance
+        assert_true(!!plugin.use_glob?(path))
+      end
+    end
+
     def ex_config_with_brackets
       config_element("", "", {
                      "tag" => "tail",
