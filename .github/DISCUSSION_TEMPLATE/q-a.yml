@@ -1,0 +1,47 @@
+title: "[Q&A]"
+labels: ["Q&A"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        It is recommended to support each other.
+  - type: textarea
+    id: question
+    attributes:
+      label: What is a problem?
+      description: |
+        A clear and concise description of what you want to happen.
+        What exactly did you do (or not do) that was effective (or ineffective)?
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Describe the configuration of Fluentd
+      description: |
+        If there is the actual configuration of Fluentd, it will help.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Describe the logs of Fluentd
+      description: |
+        If there are error logs of Fluentd, it will help.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        - Fluentd or td-agent version: `fluentd --version` or `td-agent --version`
+        - Operating system: `cat /etc/os-release`
+        - Kernel version: `uname -r`
+
+        Please describe your environment information. If will help to support.
+      value: |
+        - Fluentd version:
+        - TD Agent version:
+        - Fluent Package version:
+        - Docker image (tag):
+        - Operating system:
+        - Kernel version:
+      render: markdown

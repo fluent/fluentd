@@ -1,0 +1,50 @@
+title: "[QA (Japanese)]"
+labels: ["Q&A (Japanese)"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        日本語で気軽に質問するためのカテゴリです。もし他の人が困っているのを見つけたらぜひ回答してあげてください。
+  - type: textarea
+    id: question
+    attributes:
+      label: やりたいこと
+      description: |
+        何について困っているのかを書いてください。試したことや実際の結果を示してください。
+        期待する挙動と実際の結果の違いがあればそれも書くのをおすすめします。
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: 設定した内容
+      description: |
+        どのような設定をして期待する挙動を実現しようとしたのかを書いてください。(例: fluentd.confの内容を貼り付ける)
+      render: apache
+  - type: textarea
+    id: logs
+    attributes:
+      label: ログの内容
+      description: |
+        Fluentdのログを提示してください。エラーログがあると回答の助けになります。(例: fluentd.logの内容を貼り付ける)
+      render: shell
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境について
+      description: |
+        - Fluentd or td-agent version: `fluentd --version` or `td-agent --version`
+        - Operating system: `cat /etc/os-release`
+        - Kernel version: `uname -r`
+
+        どんな環境で困っているかの情報がないと、再現できないため誰も回答できないことがあります。
+        必要な情報を記入することをおすすめします。
+      value: |
+        - Fluentd version:
+        - TD Agent version:
+        - Fluent Package version:
+        - Docker image (tag):
+        - Operating system:
+        - Kernel version:
+      render: markdown
