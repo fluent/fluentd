@@ -30,6 +30,11 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("strptime", [">= 0.2.4", "< 1.0.0"])
   gem.add_runtime_dependency("webrick", ["~> 1.4"])
 
+  # gems that aren't default gems as of Ruby 3.4
+  gem.add_runtime_dependency("base64", ["~> 0.2"])
+  gem.add_runtime_dependency("csv", ["~> 3.2"])
+  gem.add_runtime_dependency("drb", ["~> 2.2"])
+
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
   gem.platform = fake_platform unless fake_platform.empty?
