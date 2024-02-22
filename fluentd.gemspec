@@ -31,6 +31,11 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("webrick", ["~> 1.4"])
   gem.add_runtime_dependency("console", ["< 1.24"])
 
+  # gems that aren't default gems as of Ruby 3.4
+  gem.add_runtime_dependency("base64", ["~> 0.2"])
+  gem.add_runtime_dependency("csv", ["~> 3.2"])
+  gem.add_runtime_dependency("drb", ["~> 2.2"])
+
   # gems that aren't default gems as of Ruby 3.5
   gem.add_runtime_dependency("logger", ["~> 1.6"])
 
