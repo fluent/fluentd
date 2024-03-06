@@ -29,6 +29,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
   gem.add_runtime_dependency("strptime", [">= 0.2.4", "< 1.0.0"])
   gem.add_runtime_dependency("webrick", ["~> 1.4"])
+  gem.add_runtime_dependency("base64", ["~> 0.1"])
 
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
