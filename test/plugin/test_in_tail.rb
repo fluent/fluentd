@@ -3049,13 +3049,13 @@ class TailInputTest < Test::Unit::TestCase
       d.run(expect_records: 6, timeout: 15) do
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt0", "ab") {|f| f.puts "file1 log2"}
 
-        sleep 1
+        sleep 1.5 # Need to be larger than 1s (the interval of watch_timer)
 
         FileUtils.move("#{@tmp_dir}/tail.txt0", "#{@tmp_dir}/tail.txt" + "1")
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt0", "wb") {|f| f.puts "file2 log1"}
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt0", "ab") {|f| f.puts "file2 log2"}
 
-        sleep 1
+        sleep 1.5 # Need to be larger than 1s (the interval of watch_timer)
 
         # Rotate again (Old TailWatcher waiting rotate_wait also calls update_watcher)
         [1, 0].each do |i|
@@ -3233,13 +3233,13 @@ class TailInputTest < Test::Unit::TestCase
       d.run(expect_records: 6, timeout: 15) do
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt0", "ab") {|f| f.puts "file1 log2"}
 
-        sleep 1
+        sleep 1.5 # Need to be larger than 1s (the interval of watch_timer)
 
         FileUtils.move("#{@tmp_dir}/tail.txt0", "#{@tmp_dir}/tail.txt" + "1")
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt0", "wb") {|f| f.puts "file2 log1"}
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt0", "ab") {|f| f.puts "file2 log2"}
 
-        sleep 1
+        sleep 1.5 # Need to be larger than 1s (the interval of watch_timer)
 
         # Rotate again (Old TailWatcher waiting rotate_wait also calls update_watcher)
         [1, 0].each do |i|
