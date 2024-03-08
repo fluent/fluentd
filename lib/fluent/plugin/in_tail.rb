@@ -269,7 +269,7 @@ module Fluent::Plugin
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(existence_path, immediate: true, remove_watcher: false)
       @tails_rotate_wait.keys.each do |tw|
-        detach_watcher(tw, @tails_rotate_wait[tw][:ino])
+        detach_watcher(tw, @tails_rotate_wait[tw][:ino], false)
       end
       @pf_file.close if @pf_file
 
@@ -279,6 +279,7 @@ module Fluent::Plugin
     def close
       super
       # close file handles after all threads stopped (in #close of thread plugin helper)
+      # It may be because we need to wait IOHanlder.ready_to_shutdown()
       close_watcher_handles
     end
 
@@ -519,6 +520,9 @@ module Fluent::Plugin
         if tw
           tw.close
         end
+      end
+      @tails_rotate_wait.keys.each do |tw|
+        tw.close
       end
     end
 
