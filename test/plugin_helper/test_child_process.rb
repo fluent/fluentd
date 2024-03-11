@@ -515,6 +515,9 @@ class ChildProcessTest < Test::Unit::TestCase
   end
 
   test 'can scrub characters without exceptions' do
+    if Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('3.3.0')
+      pend "Behaviour of IO#set_encoding is changed as of Ruby 3.3 (#4058)"
+    end
     m = Mutex.new
     str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
@@ -529,19 +532,25 @@ class ChildProcessTest < Test::Unit::TestCase
       sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding.find('utf-8'), str.encoding
-      expected = "\xEF\xBF\xBD\xEF\xBF\xBD\x00\xEF\xBF\xBD\xEF\xBF\xBD".force_encoding("utf-8")
+      replacement = "\uFFFD" # U+FFFD (REPLACEMENT CHARACTER)
+      nul = "\x00" # U+0000 (NUL)
+      expected = replacement * 2 + nul + replacement * 2
       assert_equal expected, str
       @d.stop; @d.shutdown; @d.close; @d.terminate
     end
   end
 
   test 'can scrub characters without exceptions and replace specified chars' do
+    if Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('3.3.0')
+      pend "Behaviour of IO#set_encoding is changed as of Ruby 3.3 (#4058)"
+    end
     m = Mutex.new
     str = nil
+    replacement = "?"
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
       args = ['-e', 'STDOUT.set_encoding("ascii-8bit"); STDOUT.write "\xFF\xFF\x00\xF0\xF0"']
-      @d.child_process_execute(:t13b, "ruby", arguments: args, mode: [:read], scrub: true, replace_string: '?') do |io|
+      @d.child_process_execute(:t13b, "ruby", arguments: args, mode: [:read], scrub: true, replace_string: replacement) do |io|
         m.lock
         ran = true
         str = io.read
@@ -550,7 +559,8 @@ class ChildProcessTest < Test::Unit::TestCase
       sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding.find('utf-8'), str.encoding
-      expected = "??\x00??".force_encoding("utf-8")
+      nul = "\x00" # U+0000 (NUL)
+      expected = replacement * 2 + nul + replacement * 2
       assert_equal expected, str
       @d.stop; @d.shutdown; @d.close; @d.terminate
     end
