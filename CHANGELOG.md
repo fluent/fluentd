@@ -6,11 +6,15 @@
 
 * Fix to avoid processing discarded chunks in write_step_by_step.
   It fixes not to raise pile of IOError when many `chunk
-  bytes limit exceeds` errors are occurred
-  https://github.com/fluent/fluentd/pull/4327
-* in_tail: Manage tail watchers that are `rorate_wait` state too.
+  bytes limit exceeds` errors are occurred.
+  https://github.com/fluent/fluentd/pull/4342
+* in_tail: Fix tail watchers in `rotate_wait` state not being managed.
   https://github.com/fluent/fluentd/pull/4334
-  e.g. It fixes an error which was caused by unmanaged tail watchers on shutdown.
+
+### Misc
+
+* buffer: Avoid unnecessary log processing. It will improve performance.
+  https://github.com/fluent/fluentd/pull/4331
 
 ## Release v1.16.3 - 2023/11/14
 
