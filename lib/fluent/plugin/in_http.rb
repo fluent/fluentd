@@ -573,6 +573,8 @@ module Fluent::Plugin
           params.update WEBrick::HTTPUtils.parse_form_data(@body, boundary)
         elsif /^application\/json/.match?(@content_type)
           params['json'] = @body
+        elsif /^application\/csp-report/.match?(@content_type)
+          params['json'] = @body
         elsif /^application\/msgpack/.match?(@content_type)
           params['msgpack'] = @body
         elsif /^application\/x-ndjson/.match?(@content_type)
@@ -580,7 +582,7 @@ module Fluent::Plugin
         end
         path_info = uri.path
 
-        if (@add_query_params) 
+        if (@add_query_params)
 
           query_params = WEBrick::HTTPUtils.parse_query(uri.query)
 
