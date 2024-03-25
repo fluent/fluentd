@@ -1539,13 +1539,13 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     sub_test_case "expand_paths with glob" do |data|
-      sub_test_case "use_extended_glob" do
-        data("square brackets"       => [true, "test/plugin/data/log_numeric/[0-1][2-4].log"],
-             "asterisk"              => [true, "test/plugin/data/log/*.log"],
-             "one character matcher" => [true, "test/plugin/data/log/tes?.log"],
+      sub_test_case "extended_glob" do
+        data("square brackets"       => [true, "extended", "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [true, "extended", "test/plugin/data/log/*.log"],
+             "one character matcher" => [true, "extended", "test/plugin/data/log/tes?.log"],
             )
         def test_expand_paths_with_use_glob_p
-          result, path = data
+          result, option, path = data
           config = config_element("", "", {
                                     "tag" => "tail",
                                     "path" => path,
@@ -1553,7 +1553,7 @@ class TailInputTest < Test::Unit::TestCase
                                     "pos_file" => "#{@tmp_dir}/tail.pos",
                                     "read_from_head" => true,
                                     "refresh_interval" => 30,
-                                    "use_extended_glob" => true,
+                                    "enable_glob" => option,
                                     "rotate_wait" => "#{EX_ROTATE_WAIT}s",
                                     "follow_inodes" => "#{EX_FOLLOW_INODES}",
                                   })
@@ -1562,13 +1562,13 @@ class TailInputTest < Test::Unit::TestCase
         end
       end
 
-      sub_test_case "only_use_normal_glob" do
-        data("square brackets"       => [false, "test/plugin/data/log_numeric/[0-1][2-4].log"],
-             "asterisk"              => [true, "test/plugin/data/log/*.log"],
-             "one character matcher" => [false, "test/plugin/data/log/tes?.log"],
+      sub_test_case "only_use_with_wildcards" do
+        data("square brackets"       => [false, "with_wildcards", "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [true, "with_wildcards", "test/plugin/data/log/*.log"],
+             "one character matcher" => [false, "with_wildcards", "test/plugin/data/log/tes?.log"],
             )
         def test_expand_paths_with_use_glob_p
-          result, path = data
+          result, option, path = data
           config = config_element("", "", {
                                     "tag" => "tail",
                                     "path" => path,
@@ -1576,7 +1576,7 @@ class TailInputTest < Test::Unit::TestCase
                                     "pos_file" => "#{@tmp_dir}/tail.pos",
                                     "read_from_head" => true,
                                     "refresh_interval" => 30,
-                                    "use_extended_glob" => false,
+                                    "enable_glob" => option,
                                     "rotate_wait" => "#{EX_ROTATE_WAIT}s",
                                     "follow_inodes" => "#{EX_FOLLOW_INODES}",
                                   })
@@ -1594,7 +1594,7 @@ class TailInputTest < Test::Unit::TestCase
                      "pos_file" => "#{@tmp_dir}/tail.pos",
                      "read_from_head" => true,
                      "refresh_interval" => 30,
-                     "use_extended_glob" => true,
+                     "enable_glob" => "extended",
                      "rotate_wait" => "#{EX_ROTATE_WAIT}s",
                      "follow_inodes" => "#{EX_FOLLOW_INODES}",
                    })
