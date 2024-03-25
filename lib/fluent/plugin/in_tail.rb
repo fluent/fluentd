@@ -342,7 +342,7 @@ module Fluent::Plugin
                else
                  date.to_time.strftime(path)
                end
-        path.include?('*') ? Dir.glob(path) : path
+        use_glob?(path) ? Dir.glob(path) : path
       }.flatten.uniq
       # filter out non existing files, so in case pattern is without '*' we don't do unnecessary work
       hash = {}
