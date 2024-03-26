@@ -1540,12 +1540,36 @@ class TailInputTest < Test::Unit::TestCase
 
     sub_test_case "expand_paths with glob" do |data|
       sub_test_case "extended_glob" do
-        data("square brackets"       => [true, "extended", "test/plugin/data/log_numeric/[0-1][2-4].log"],
-             "asterisk"              => [true, "extended", "test/plugin/data/log/*.log"],
-             "one character matcher" => [true, "extended", "test/plugin/data/log/tes?.log"],
+        data("curly braces"          => [true, "always", "test/plugin/data/log_numeric/{0,1}*.log"],
+             "square brackets"       => [true, "always", "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [true, "always", "test/plugin/data/log/*.log"],
+             "one character matcher" => [true, "always", "test/plugin/data/log/tes?.log"],
+            )
+        def test_expand_paths_with_use_glob_p_and_almost_set_of_patterns
+          result, option, path = data
+          config = config_element("", "", {
+                                    "tag" => "tail",
+                                    "path" => path,
+                                    "format" => "none",
+                                    "pos_file" => "#{@tmp_dir}/tail.pos",
+                                    "read_from_head" => true,
+                                    "refresh_interval" => 30,
+                                    "glob_policy" => option,
+                                    "path_delimiter" => "|",
+                                    "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                                    "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                                  })
+          plugin = create_driver(config, false).instance
+          assert_equal(result, !!plugin.use_glob?(path))
+        end
+
+        data("curly braces"          => [true, false, "extended", "test/plugin/data/log_numeric/{0,1}*.log"],
+             "square brackets"       => [false, true, "extended", "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [false, true, "extended", "test/plugin/data/log/*.log"],
+             "one character matcher" => [false, true, "extended", "test/plugin/data/log/tes?.log"],
             )
         def test_expand_paths_with_use_glob_p
-          result, option, path = data
+          emit_exception_p, result, option, path = data
           config = config_element("", "", {
                                     "tag" => "tail",
                                     "path" => path,
@@ -1557,8 +1581,14 @@ class TailInputTest < Test::Unit::TestCase
                                     "rotate_wait" => "#{EX_ROTATE_WAIT}s",
                                     "follow_inodes" => "#{EX_FOLLOW_INODES}",
                                   })
-          plugin = create_driver(config, false).instance
-          assert_equal(result, !!plugin.use_glob?(path))
+          if emit_exception_p
+            assert_raise(Fluent::ConfigError) do
+              plugin = create_driver(config, false).instance
+            end
+          else
+            plugin = create_driver(config, false).instance
+            assert_equal(result, !!plugin.use_glob?(path))
+          end
         end
       end
 
