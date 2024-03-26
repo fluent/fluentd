@@ -1540,9 +1540,9 @@ class TailInputTest < Test::Unit::TestCase
 
     sub_test_case "expand_paths with glob" do |data|
       sub_test_case "extended_glob" do
-        data("square brackets"       => [true, "extended", "test/plugin/data/log_numeric/[0-1][2-4].log"],
-             "asterisk"              => [true, "extended", "test/plugin/data/log/*.log"],
-             "one character matcher" => [true, "extended", "test/plugin/data/log/tes?.log"],
+        data("square brackets"       => [true, "always", "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [true, "always", "test/plugin/data/log/*.log"],
+             "one character matcher" => [true, "always", "test/plugin/data/log/tes?.log"],
             )
         def test_expand_paths_with_use_glob_p
           result, option, path = data
@@ -1594,7 +1594,7 @@ class TailInputTest < Test::Unit::TestCase
                      "pos_file" => "#{@tmp_dir}/tail.pos",
                      "read_from_head" => true,
                      "refresh_interval" => 30,
-                     "enable_glob" => "extended",
+                     "enable_glob" => "always",
                      "rotate_wait" => "#{EX_ROTATE_WAIT}s",
                      "follow_inodes" => "#{EX_FOLLOW_INODES}",
                    })
