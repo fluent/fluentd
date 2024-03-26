@@ -64,8 +64,8 @@ module Fluent::Plugin
     config_param :path, :string
     desc 'path delimiter used for spliting path config'
     config_param :path_delimiter, :string, default: ','
-    desc 'Choose using glob patterns. Adding whether a capability to handle [] and ? or not.'
-    config_param :glob_policy, :enum, list: [:backward_compatible, :extended], default: :backward_compatible
+    desc 'Choose using glob patterns. Adding capabilities to handle [] and ?, and {}.'
+    config_param :glob_policy, :enum, list: [:backward_compatible, :extended, :always], default: :backward_compatible
     desc 'The tag of the event.'
     config_param :tag, :string
     desc 'The paths to exclude the files from watcher list.'
@@ -140,6 +140,10 @@ module Fluent::Plugin
 
       if !@enable_watch_timer && !@enable_stat_watcher
         raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
+      end
+
+      if @glob_policy == :always && @path_delimiter == ','
+        raise Fluent::ConfigError, "cannot use glob_policy as always with the default path_delimitor: `,\""
       end
 
       if RESERVED_CHARS.include?(@path_delimiter)
@@ -288,7 +292,9 @@ module Fluent::Plugin
     # Curly braces is not supported for now because the default delimiter of path is ",".
     # This should be collided for wildcard pattern for curly braces.
     def use_glob?(path)
-      if @glob_policy == :extended
+      if @glob_policy == :always
+        path.include?('*') || path.include?('?') || /\[.*\]/.match(path) || /\{.*,.*\}/.match(path)
+      elsif @glob_policy == :extended
         path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
       elsif @glob_policy == :backward_compatible
         path.include?('*')

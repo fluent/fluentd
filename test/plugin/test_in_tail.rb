@@ -1600,6 +1600,43 @@ class TailInputTest < Test::Unit::TestCase
                    })
     end
 
+    def test_config_with_always_with_default_delimiter
+      assert_raise(Fluent::ConfigError) do
+        config = config_element("", "", {
+                         "tag" => "tail",
+                         "path" => "test/plugin/data/log_numeric/[0-1][2-4].log",
+                         "format" => "none",
+                         "pos_file" => "#{@tmp_dir}/tail.pos",
+                         "read_from_head" => true,
+                         "refresh_interval" => 30,
+                         "glob_policy" => "always",
+                         "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                         "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                       })
+
+        create_driver(config, false).instance
+      end
+    end
+
+    def test_config_with_always_with_custom_delimiter
+      assert_nothing_raised do
+        config = config_element("", "", {
+                         "tag" => "tail",
+                         "path" => "test/plugin/data/log_numeric/[0-1][2-4].log",
+                         "format" => "none",
+                         "pos_file" => "#{@tmp_dir}/tail.pos",
+                         "read_from_head" => true,
+                         "refresh_interval" => 30,
+                         "glob_policy" => "always",
+                         "path_delimiter" => "|",
+                         "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                         "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                       })
+
+        create_driver(config, false).instance
+      end
+    end
+
     def test_expand_paths_with_brackets
       expanded_paths = [
         create_target_info('test/plugin/data/log_numeric/01.log'),
