@@ -64,8 +64,8 @@ module Fluent::Plugin
     config_param :path, :string
     desc 'path delimiter used for spliting path config'
     config_param :path_delimiter, :string, default: ','
-    desc 'Use extended glob patterns. Adding a capability to handle [] and ?.'
-    config_param :enable_glob, :enum, list: [:with_wildcards, :extended, :no], default: :with_wildcards
+    desc 'Choose using glob patterns. Adding whether a capability to handle [] and ? or not.'
+    config_param :enable_glob, :enum, list: [:with_wildcards, :extended], default: :with_wildcards
     desc 'The tag of the event.'
     config_param :tag, :string
     desc 'The paths to exclude the files from watcher list.'
@@ -292,9 +292,6 @@ module Fluent::Plugin
         path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
       elsif @enable_glob == :with_wildcards
         path.include?('*')
-      elsif @enable_glob == :no
-        # Always return false when glob is turned off.
-        false
       end
     end
 
