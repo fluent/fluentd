@@ -764,8 +764,10 @@ module Fluent
         while writing_splits_index < splits.size
           chunk = get_next_chunk.call
           errors = []
+          # The chunk must be locked until being passed to &block.
+          chunk.mon_enter
           modified_chunks << {chunk: chunk, adding_bytesize: 0, errors: errors}
-          chunk.synchronize do
+
             raise ShouldRetry unless chunk.writable?
             staged_chunk_used = true if chunk.staged?
 
@@ -851,7 +853,6 @@ module Fluent
             end
 
             modified_chunks.last[:adding_bytesize] = chunk.bytesize - original_bytesize
-          end
         end
         modified_chunks.each do |data|
           block.call(data[:chunk], data[:adding_bytesize], data[:errors])
@@ -863,9 +864,15 @@ module Fluent
           if chunk.unstaged?
             chunk.purge rescue nil
           end
+          chunk.mon_exit rescue nil
         end
         enqueue_chunk(metadata) if enqueue_chunk_before_retry
         retry
+      ensure
+        modified_chunks.each do |data|
+          chunk = data[:chunk]
+          chunk.mon_exit
+        end
       end
 
       STATS_KEYS = [
