@@ -1538,6 +1538,147 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(ex_paths - [ex_paths.last], plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
     end
 
+    sub_test_case "expand_paths with glob" do |data|
+      sub_test_case "extended_glob" do
+        data("curly braces"          => [true, "always", "test/plugin/data/log_numeric/{0,1}*.log"],
+             "square brackets"       => [true, "always", "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [true, "always", "test/plugin/data/log/*.log"],
+             "one character matcher" => [true, "always", "test/plugin/data/log/tes?.log"],
+            )
+        def test_expand_paths_with_use_glob_p_and_almost_set_of_patterns
+          result, option, path = data
+          config = config_element("", "", {
+                                    "tag" => "tail",
+                                    "path" => path,
+                                    "format" => "none",
+                                    "pos_file" => "#{@tmp_dir}/tail.pos",
+                                    "read_from_head" => true,
+                                    "refresh_interval" => 30,
+                                    "glob_policy" => option,
+                                    "path_delimiter" => "|",
+                                    "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                                    "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                                  })
+          plugin = create_driver(config, false).instance
+          assert_equal(result, !!plugin.use_glob?(path))
+        end
+
+        data("curly braces"          => [true, false, "extended", "test/plugin/data/log_numeric/{0,1}*.log"],
+             "square brackets"       => [false, true, "extended", "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [false, true, "extended", "test/plugin/data/log/*.log"],
+             "one character matcher" => [false, true, "extended", "test/plugin/data/log/tes?.log"],
+            )
+        def test_expand_paths_with_use_glob_p
+          emit_exception_p, result, option, path = data
+          config = config_element("", "", {
+                                    "tag" => "tail",
+                                    "path" => path,
+                                    "format" => "none",
+                                    "pos_file" => "#{@tmp_dir}/tail.pos",
+                                    "read_from_head" => true,
+                                    "refresh_interval" => 30,
+                                    "glob_policy" => option,
+                                    "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                                    "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                                  })
+          if emit_exception_p
+            assert_raise(Fluent::ConfigError) do
+              plugin = create_driver(config, false).instance
+            end
+          else
+            plugin = create_driver(config, false).instance
+            assert_equal(result, !!plugin.use_glob?(path))
+          end
+        end
+      end
+
+      sub_test_case "only_use_backward_compatible" do
+        data("square brackets"       => [false, "backward_compatible", "test/plugin/data/log_numeric/[0-1][2-4].log"],
+             "asterisk"              => [true,  "backward_compatible", "test/plugin/data/log/*.log"],
+             "one character matcher" => [false, "backward_compatible", "test/plugin/data/log/tes?.log"],
+            )
+        def test_expand_paths_with_use_glob_p
+          result, option, path = data
+          config = config_element("", "", {
+                                    "tag" => "tail",
+                                    "path" => path,
+                                    "format" => "none",
+                                    "pos_file" => "#{@tmp_dir}/tail.pos",
+                                    "read_from_head" => true,
+                                    "refresh_interval" => 30,
+                                    "glob_policy" => option,
+                                    "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                                    "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                                  })
+          plugin = create_driver(config, false).instance
+          assert_equal(result, !!plugin.use_glob?(path))
+        end
+      end
+    end
+
+    def ex_config_with_brackets
+      config_element("", "", {
+                     "tag" => "tail",
+                     "path" => "test/plugin/data/log_numeric/[0-1][2-4].log",
+                     "format" => "none",
+                     "pos_file" => "#{@tmp_dir}/tail.pos",
+                     "read_from_head" => true,
+                     "refresh_interval" => 30,
+                     "glob_policy" => "extended",
+                     "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                     "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                   })
+    end
+
+    def test_config_with_always_with_default_delimiter
+      assert_raise(Fluent::ConfigError) do
+        config = config_element("", "", {
+                         "tag" => "tail",
+                         "path" => "test/plugin/data/log_numeric/[0-1][2-4].log",
+                         "format" => "none",
+                         "pos_file" => "#{@tmp_dir}/tail.pos",
+                         "read_from_head" => true,
+                         "refresh_interval" => 30,
+                         "glob_policy" => "always",
+                         "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                         "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                       })
+
+        create_driver(config, false).instance
+      end
+    end
+
+    def test_config_with_always_with_custom_delimiter
+      assert_nothing_raised do
+        config = config_element("", "", {
+                         "tag" => "tail",
+                         "path" => "test/plugin/data/log_numeric/[0-1][2-4].log",
+                         "format" => "none",
+                         "pos_file" => "#{@tmp_dir}/tail.pos",
+                         "read_from_head" => true,
+                         "refresh_interval" => 30,
+                         "glob_policy" => "always",
+                         "path_delimiter" => "|",
+                         "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                         "follow_inodes" => "#{EX_FOLLOW_INODES}",
+                       })
+
+        create_driver(config, false).instance
+      end
+    end
+
+    def test_expand_paths_with_brackets
+      expanded_paths = [
+        create_target_info('test/plugin/data/log_numeric/01.log'),
+        create_target_info('test/plugin/data/log_numeric/02.log'),
+        create_target_info('test/plugin/data/log_numeric/12.log'),
+        create_target_info('test/plugin/data/log_numeric/14.log'),
+      ]
+
+      plugin = create_driver(ex_config_with_brackets, false).instance
+      assert_equal(expanded_paths - [expanded_paths.first], plugin.expand_paths.values.sort_by { |path_ino| path_ino.path })
+    end
+
     def test_expand_paths_with_duplicate_configuration
       expanded_paths = [
         create_target_info('test/plugin/data/log/foo/bar.log'),
