@@ -1606,7 +1606,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config, false)
       d.end_if { d.instance.instance_variable_get(:@tails).keys.size >= 1 }
       d.run(expect_emits: 1, shutdown: false) do
-        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f| f.puts "test3\n" }
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") { |f| f.puts "test3\n"; f.fsync }
       end
 
       cleanup_file("#{@tmp_dir}/tail.txt")
