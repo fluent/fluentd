@@ -1,5 +1,13 @@
 # v1.16
 
+## Release v1.16.5 - 2024/03/27
+
+### Bug Fix
+
+* Buffer: Fix emit error of v1.16.4 sometimes failing to process large data
+  exceeding chunk size limit
+  https://github.com/fluent/fluentd/pull/4447
+
 ## Release v1.16.4 - 2024/03/14
 
 ### Bug Fix
