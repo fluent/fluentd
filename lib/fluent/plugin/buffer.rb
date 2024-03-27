@@ -764,94 +764,95 @@ module Fluent
         while writing_splits_index < splits.size
           chunk = get_next_chunk.call
           errors = []
+          # The chunk must be locked until being passed to &block.
+          chunk.mon_enter
           modified_chunks << {chunk: chunk, adding_bytesize: 0, errors: errors}
-          chunk.synchronize do
-            raise ShouldRetry unless chunk.writable?
-            staged_chunk_used = true if chunk.staged?
 
-            original_bytesize = committed_bytesize = chunk.bytesize
-            begin
-              while writing_splits_index < splits.size
-                split = splits[writing_splits_index]
-                formatted_split = format ? format.call(split) : nil
+          raise ShouldRetry unless chunk.writable?
+          staged_chunk_used = true if chunk.staged?
 
-                if split.size == 1 # Check BufferChunkOverflowError
+          original_bytesize = committed_bytesize = chunk.bytesize
+          begin
+            while writing_splits_index < splits.size
+              split = splits[writing_splits_index]
+              formatted_split = format ? format.call(split) : nil
+
+              if split.size == 1 # Check BufferChunkOverflowError
+                determined_bytesize = nil
+                if @compress != :text
                   determined_bytesize = nil
-                  if @compress != :text
-                    determined_bytesize = nil
-                  elsif formatted_split
-                    determined_bytesize = formatted_split.bytesize
-                  elsif split.first.respond_to?(:bytesize)
-                    determined_bytesize = split.first.bytesize
-                  end
-
-                  if determined_bytesize && determined_bytesize > @chunk_limit_size
-                    # It is a obvious case that BufferChunkOverflowError should be raised here.
-                    # But if it raises here, already processed 'split' or
-                    # the proceeding 'split' will be lost completely.
-                    # So it is a last resort to delay raising such a exception
-                    errors << "a #{determined_bytesize} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
-                    writing_splits_index += 1
-                    next
-                  end
-
-                  if determined_bytesize.nil? || chunk.bytesize + determined_bytesize > @chunk_limit_size
-                    # The split will (might) cause size over so keep already processed
-                    # 'split' content here (allow performance regression a bit).
-                    chunk.commit
-                    committed_bytesize = chunk.bytesize
-                  end
+                elsif formatted_split
+                  determined_bytesize = formatted_split.bytesize
+                elsif split.first.respond_to?(:bytesize)
+                  determined_bytesize = split.first.bytesize
                 end
 
-                if format
-                  chunk.concat(formatted_split, split.size)
-                else
-                  chunk.append(split, compress: @compress)
+                if determined_bytesize && determined_bytesize > @chunk_limit_size
+                  # It is a obvious case that BufferChunkOverflowError should be raised here.
+                  # But if it raises here, already processed 'split' or
+                  # the proceeding 'split' will be lost completely.
+                  # So it is a last resort to delay raising such a exception
+                  errors << "a #{determined_bytesize} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
+                  writing_splits_index += 1
+                  next
                 end
-                adding_bytes = chunk.bytesize - committed_bytesize
 
-                if chunk_size_over?(chunk) # split size is larger than difference between size_full? and size_over?
-                  chunk.rollback
+                if determined_bytesize.nil? || chunk.bytesize + determined_bytesize > @chunk_limit_size
+                  # The split will (might) cause size over so keep already processed
+                  # 'split' content here (allow performance regression a bit).
+                  chunk.commit
                   committed_bytesize = chunk.bytesize
-
-                  if split.size == 1 # Check BufferChunkOverflowError again
-                    if adding_bytes > @chunk_limit_size
-                      errors << "concatenated/appended a #{adding_bytes} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
-                      writing_splits_index += 1
-                      next
-                    else
-                      # As already processed content is kept after rollback, then unstaged chunk should be queued.
-                      # After that, re-process current split again.
-                      # New chunk should be allocated, to do it, modify @stage and so on.
-                      synchronize { @stage.delete(modified_metadata) }
-                      staged_chunk_used = false
-                      chunk.unstaged!
-                      break
-                    end
-                  end
-
-                  if chunk_size_full?(chunk) || split.size == 1
-                    enqueue_chunk_before_retry = true
-                  else
-                    splits_count *= 10
-                  end
-
-                  raise ShouldRetry
-                end
-
-                writing_splits_index += 1
-
-                if chunk_size_full?(chunk)
-                  break
                 end
               end
-            rescue
-              chunk.purge if chunk.unstaged? # unstaged chunk will leak unless purge it
-              raise
-            end
 
-            modified_chunks.last[:adding_bytesize] = chunk.bytesize - original_bytesize
+              if format
+                chunk.concat(formatted_split, split.size)
+              else
+                chunk.append(split, compress: @compress)
+              end
+              adding_bytes = chunk.bytesize - committed_bytesize
+
+              if chunk_size_over?(chunk) # split size is larger than difference between size_full? and size_over?
+                chunk.rollback
+                committed_bytesize = chunk.bytesize
+
+                if split.size == 1 # Check BufferChunkOverflowError again
+                  if adding_bytes > @chunk_limit_size
+                    errors << "concatenated/appended a #{adding_bytes} bytes record (nth: #{writing_splits_index}) is larger than buffer chunk limit size (#{@chunk_limit_size})"
+                    writing_splits_index += 1
+                    next
+                  else
+                    # As already processed content is kept after rollback, then unstaged chunk should be queued.
+                    # After that, re-process current split again.
+                    # New chunk should be allocated, to do it, modify @stage and so on.
+                    synchronize { @stage.delete(modified_metadata) }
+                    staged_chunk_used = false
+                    chunk.unstaged!
+                    break
+                  end
+                end
+
+                if chunk_size_full?(chunk) || split.size == 1
+                  enqueue_chunk_before_retry = true
+                else
+                  splits_count *= 10
+                end
+
+                raise ShouldRetry
+              end
+
+              writing_splits_index += 1
+
+              if chunk_size_full?(chunk)
+                break
+              end
+            end
+          rescue
+            chunk.purge if chunk.unstaged? # unstaged chunk will leak unless purge it
+            raise
           end
+
+          modified_chunks.last[:adding_bytesize] = chunk.bytesize - original_bytesize
         end
         modified_chunks.each do |data|
           block.call(data[:chunk], data[:adding_bytesize], data[:errors])
@@ -863,9 +864,15 @@ module Fluent
           if chunk.unstaged?
             chunk.purge rescue nil
           end
+          chunk.mon_exit rescue nil
         end
         enqueue_chunk(metadata) if enqueue_chunk_before_retry
         retry
+      ensure
+        modified_chunks.each do |data|
+          chunk = data[:chunk]
+          chunk.mon_exit
+        end
       end
 
       STATS_KEYS = [
