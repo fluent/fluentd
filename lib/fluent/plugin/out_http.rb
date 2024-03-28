@@ -60,6 +60,8 @@ module Fluent::Plugin
     config_param :read_timeout, :integer, default: nil
     desc 'The TLS timeout in seconds'
     config_param :ssl_timeout, :integer, default: nil
+    desc 'Try to reuse connections'
+    config_param :reuse_connections, :bool, default: false
 
     desc 'The CA certificate path for TLS'
     config_param :tls_ca_cert_path, :string, default: nil
@@ -100,10 +102,24 @@ module Fluent::Plugin
       @uri = nil
       @proxy_uri = nil
       @formatter = nil
+
+      @cache = []
+      @cache_id_mutex = Mutex.new
+      @cache_entry = Struct.new(:uri, :conn)
+    end
+
+    def close
+      super
+
+      # Close all open connections
+      @cache.each {|entry| entry.conn.finish if entry.conn&.started? }
     end
 
     def configure(conf)
       super
+
+      @cache = Array.new(actual_flush_thread_count, @cache_entry.new("", nil)) if @reuse_connections
+      @cache_id = 0
 
       if @retryable_response_codes.nil?
         log.warn('Status code 503 is going to be removed from default `retryable_response_codes` from fluentd v2. Please add it by yourself if you wish')
@@ -244,15 +260,41 @@ module Fluent::Plugin
       req
     end
 
+    def make_request_cached(uri, req)
+      id = Thread.current.thread_variable_get(plugin_id)
+      if id.nil?
+        @cache_id_mutex.synchronize {
+          id = @cache_id
+          @cache_id += 1
+        }
+        Thread.current.thread_variable_set(plugin_id, id)
+      end
+      uri_str = uri.to_s
+      if @cache[id].uri != uri_str
+        @cache[id].conn.finish if @cache[id].conn&.started?
+        http =  if @proxy_uri
+                  Net::HTTP.start(uri.host, uri.port, @proxy_uri.host, @proxy_uri.port, @proxy_uri.user, @proxy_uri.password, @http_opt)
+                else
+                  Net::HTTP.start(uri.host, uri.port, @http_opt)
+                end
+        @cache[id] = @cache_entry.new(uri_str, http)
+      end
+      @cache[id].conn.request(req)
+    end
+
+    def make_request(uri, req, &block)
+      if @proxy_uri
+        Net::HTTP.start(uri.host, uri.port, @proxy_uri.host, @proxy_uri.port, @proxy_uri.user, @proxy_uri.password, @http_opt, &block)
+      else
+        Net::HTTP.start(uri.host, uri.port, @http_opt, &block)
+      end
+    end
+
     def send_request(uri, req)
-      res = if @proxy_uri
-              Net::HTTP.start(uri.host, uri.port, @proxy_uri.host, @proxy_uri.port, @proxy_uri.user, @proxy_uri.password, @http_opt) { |http|
-                http.request(req)
-              }
+      res = if @reuse_connections
+              make_request_cached(uri, req)
             else
-              Net::HTTP.start(uri.host, uri.port, @http_opt) { |http|
-                http.request(req)
-              }
+              make_request(uri, req) { |http| http.request(req) }
             end
 
       if res.is_a?(Net::HTTPSuccess)
