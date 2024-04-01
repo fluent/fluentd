@@ -20,6 +20,8 @@ require 'openssl'
 require 'fluent/tls'
 require 'fluent/plugin/output'
 require 'fluent/plugin_helper/socket'
+require 'aws-sigv4'
+require 'aws-sdk-core'
 
 # patch Net::HTTP to support extra_chain_cert which was added in Ruby feature #9758.
 # see: https://github.com/ruby/ruby/commit/31af0dafba6d3769d2a39617c0dddedb97883712
@@ -87,11 +89,17 @@ module Fluent::Plugin
 
     config_section :auth, required: false, multi: false do
       desc 'The method for HTTP authentication'
-      config_param :method, :enum, list: [:basic], default: :basic
+      config_param :method, :enum, list: [:basic, :aws_sigv4], default: :basic
       desc 'The username for basic authentication'
       config_param :username, :string, default: nil
       desc 'The password for basic authentication'
       config_param :password, :string, default: nil, secret: true
+      desc 'The AWS service to authenticate against'
+      config_param :aws_service, :string, default: nil
+      desc 'The AWS region to use when authenticating'
+      config_param :aws_region, :string, default: nil
+      desc 'The AWS role ARN to assume when authenticating'
+      config_param :aws_role_arn, :string, default: nil
     end
 
     def initialize
@@ -120,6 +128,30 @@ module Fluent::Plugin
           raise Fluent::ConfigError, "json_array option could be used with json formatter only"
         end
         define_singleton_method(:format, method(:format_json_array))
+      end
+
+      if @auth and @auth.method == :aws_sigv4
+
+        raise Fluent::ConfigError, "aws_service is required for aws_sigv4 auth" unless @auth.aws_service != nil
+        raise Fluent::ConfigError, "aws_region is required for aws_sigv4 auth" unless @auth.aws_region != nil
+
+        if @auth.aws_role_arn == nil
+          aws_credentials = Aws::CredentialProviderChain.new.resolve
+        else
+          aws_credentials = Aws::AssumeRoleCredentials.new(
+            client: Aws::STS::Client.new(
+              region: @auth.aws_region
+            ),
+            role_arn: @auth.aws_role_arn,
+            role_session_name: "fluentd"
+          )
+        end
+
+        @aws_signer = Aws::Sigv4::Signer.new(
+          service: @auth.aws_service,
+          region: @auth.aws_region,
+          credentials_provider: aws_credentials
+        )
       end
     end
 
@@ -215,7 +247,7 @@ module Fluent::Plugin
       URI.parse(endpoint)
     end
 
-    def set_headers(req, chunk)
+    def set_headers(req, uri, chunk)
       if @headers
         @headers.each do |k, v|
           req[k] = v
@@ -227,6 +259,7 @@ module Fluent::Plugin
         end
       end
       req['Content-Type'] = @content_type
+      req['Host'] = uri.host
     end
 
     def create_request(chunk, uri)
@@ -236,11 +269,28 @@ module Fluent::Plugin
             when :put
               Net::HTTP::Put.new(uri.request_uri)
             end
-      if @auth
-        req.basic_auth(@auth.username, @auth.password)
-      end
-      set_headers(req, chunk)
+      set_headers(req, uri, chunk)
       req.body = @json_array ? "[#{chunk.read.chop}]" : chunk.read
+
+      if @auth
+        if @auth.method == :basic
+          req.basic_auth(@auth.username, @auth.password)
+        elsif @auth.method == :aws_sigv4
+          signature = @aws_signer.sign_request(
+            http_method: req.method,
+            url: uri.request_uri,
+            headers: {
+              'Content-Type' => @content_type,
+              'Host' => uri.host
+            },
+            body: req.body
+          )
+          req.add_field('x-amz-date', signature.headers['x-amz-date'])
+          req.add_field('x-amz-security-token', signature.headers['x-amz-security-token'])
+          req.add_field('x-amz-content-sha256', signature.headers['x-amz-content-sha256'])
+          req.add_field('authorization', signature.headers['authorization'])
+        end
+      end
       req
     end
 

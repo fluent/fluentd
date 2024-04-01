@@ -29,6 +29,9 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
   gem.add_runtime_dependency("strptime", [">= 0.2.4", "< 1.0.0"])
   gem.add_runtime_dependency("webrick", ["~> 1.4"])
+  gem.add_runtime_dependency("aws-sigv4", ["~> 1.8"])
+  gem.add_runtime_dependency("aws-sdk-sts", ["~> 1.11"])
+  gem.add_runtime_dependency("rexml", ["~> 3.2"])
 
   # gems that aren't default gems as of Ruby 3.4
   gem.add_runtime_dependency("base64", ["~> 0.2"])
