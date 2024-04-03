@@ -251,6 +251,7 @@ module Fluent
         :generate_cert_country, :generate_cert_state, :generate_cert_state,
         :generate_cert_locality, :generate_cert_common_name,
         :generate_cert_expiration, :generate_cert_digest,
+        :ensure_fips,
       ]
 
       def server_create_transport_section_object(opts)
@@ -294,6 +295,7 @@ module Fluent
           config_param :max_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: nil
           config_param :ciphers, :string, default: Fluent::TLS::CIPHERS_DEFAULT
           config_param :insecure, :bool, default: false
+          config_param :ensure_fips, :bool, default: false
 
           # Cert signed by public CA
           config_param :ca_path, :string, default: nil
