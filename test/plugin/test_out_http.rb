@@ -432,7 +432,6 @@ class HTTPOutputTest < Test::Unit::TestCase
       assert_equal 'application/x-ndjson', result.content_type
       assert_equal test_events, result.data
       assert_not_empty result.headers
-      assert_equal '127.0.0.1', result.headers['host']
       assert_not_nil result.headers['authorization']
       assert_match /AWS4-HMAC-SHA256 Credential=[a-zA-Z0-9]*\/\d+\/my-region-1\/someservice\/aws4_request/, result.headers['authorization']
       assert_match /SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token/, result.headers['authorization']
@@ -470,7 +469,6 @@ class HTTPOutputTest < Test::Unit::TestCase
       assert_equal 'application/x-ndjson', result.content_type
       assert_equal test_events, result.data
       assert_not_empty result.headers
-      assert_equal '127.0.0.1', result.headers['host']
       assert_not_nil result.headers['authorization']
       assert_match /AWS4-HMAC-SHA256 Credential=[a-zA-Z0-9]*\/\d+\/my-region-1\/someservice\/aws4_request/, result.headers['authorization']
       assert_match /SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token/, result.headers['authorization']

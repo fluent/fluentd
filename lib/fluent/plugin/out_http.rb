@@ -263,7 +263,6 @@ module Fluent::Plugin
         end
       end
       req['Content-Type'] = @content_type
-      req['Host'] = uri.host
     end
 
     def set_auth(req, uri)
