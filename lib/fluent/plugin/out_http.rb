@@ -20,8 +20,6 @@ require 'openssl'
 require 'fluent/tls'
 require 'fluent/plugin/output'
 require 'fluent/plugin_helper/socket'
-require 'aws-sigv4'
-require 'aws-sdk-core'
 
 # patch Net::HTTP to support extra_chain_cert which was added in Ruby feature #9758.
 # see: https://github.com/ruby/ruby/commit/31af0dafba6d3769d2a39617c0dddedb97883712
@@ -131,6 +129,12 @@ module Fluent::Plugin
       end
 
       if @auth and @auth.method == :aws_sigv4
+        begin
+          require 'aws-sigv4'
+          require 'aws-sdk-core'
+        rescue LoadError
+          raise Fluent::ConfigError, "The aws-sigv4 and aws-sdk-core gems are required for aws_sigv4 auth. Run: 'gem install aws-sigv4 -v 1.8.0' and 'gem install aws-sdk-core -v 3.191'."
+        end
 
         raise Fluent::ConfigError, "aws_service is required for aws_sigv4 auth" unless @auth.aws_service != nil
         raise Fluent::ConfigError, "aws_region is required for aws_sigv4 auth" unless @auth.aws_region != nil
@@ -262,16 +266,7 @@ module Fluent::Plugin
       req['Host'] = uri.host
     end
 
-    def create_request(chunk, uri)
-      req = case @http_method
-            when :post
-              Net::HTTP::Post.new(uri.request_uri)
-            when :put
-              Net::HTTP::Put.new(uri.request_uri)
-            end
-      set_headers(req, uri, chunk)
-      req.body = @json_array ? "[#{chunk.read.chop}]" : chunk.read
-
+    def set_auth(req, uri)
       if @auth
         if @auth.method == :basic
           req.basic_auth(@auth.username, @auth.password)
@@ -291,8 +286,23 @@ module Fluent::Plugin
           req.add_field('authorization', signature.headers['authorization'])
         end
       end
+    end
+
+    def create_request(chunk, uri)
+      req = case @http_method
+            when :post
+              Net::HTTP::Post.new(uri.request_uri)
+            when :put
+              Net::HTTP::Put.new(uri.request_uri)
+            end
+      set_headers(req, uri, chunk)
+      req.body = @json_array ? "[#{chunk.read.chop}]" : chunk.read
+
+      # At least one authentication method requires the body and other headers, so the order of this call matters
+      set_auth(req, uri)
       req
     end
+
 
     def send_request(uri, req)
       res = if @proxy_uri
