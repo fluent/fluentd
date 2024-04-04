@@ -301,6 +301,10 @@ module Fluent::Plugin
     # This should be collided for wildcard pattern for curly braces.
     def use_glob?(path)
       if @glob_policy == :always
+        # For future extensions, we decided to use `always' term to handle
+        # regular expressions as much as possible.
+        # This is because not using `true' as a returning value
+        # when choosing :always here.
         extended_glob_pattern(path) || /\{.*,.*\}/.match(path)
       elsif @glob_policy == :extended
         extended_glob_pattern(path)
