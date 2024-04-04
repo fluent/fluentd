@@ -297,8 +297,10 @@ module Fluent::Plugin
       path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
     end
 
-    # Curly braces is not supported for now because the default delimiter of path is ",".
-    # This should be collided for wildcard pattern for curly braces.
+    # Curly braces is not supported with default path_delimiter
+    # because the default delimiter of path is ",".
+    # This should be collided for wildcard pattern for curly braces and
+    # be handled as an error on #configure.
     def use_glob?(path)
       if @glob_policy == :always
         # For future extensions, we decided to use `always' term to handle
