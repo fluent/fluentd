@@ -65,6 +65,8 @@ module Fluent::Plugin
     config_param :path, :string
     desc 'path delimiter used for spliting path config'
     config_param :path_delimiter, :string, default: ','
+    desc 'Choose using glob patterns. Adding capabilities to handle [] and ?, and {}.'
+    config_param :glob_policy, :enum, list: [:backward_compatible, :extended, :always], default: :backward_compatible
     desc 'The tag of the event.'
     config_param :tag, :string
     desc 'The paths to exclude the files from watcher list.'
@@ -139,6 +141,14 @@ module Fluent::Plugin
 
       if !@enable_watch_timer && !@enable_stat_watcher
         raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
+      end
+
+      if @glob_policy == :always && @path_delimiter == ','
+        raise Fluent::ConfigError, "cannot use glob_policy as always with the default path_delimitor: `,\""
+      end
+
+      if @glob_policy == :extended && /\{.*,.*\}/.match(@path) && extended_glob_pattern(@path)
+        raise Fluent::ConfigError, "cannot include curly braces with glob patterns in `#{@path}\". Use glob_policy always instead."
       end
 
       if RESERVED_CHARS.include?(@path_delimiter)
@@ -288,6 +298,28 @@ module Fluent::Plugin
         @capability.have_capability?(:effective, :dac_override)
     end
 
+    def extended_glob_pattern(path)
+      path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
+    end
+
+    # Curly braces is not supported with default path_delimiter
+    # because the default delimiter of path is ",".
+    # This should be collided for wildcard pattern for curly braces and
+    # be handled as an error on #configure.
+    def use_glob?(path)
+      if @glob_policy == :always
+        # For future extensions, we decided to use `always' term to handle
+        # regular expressions as much as possible.
+        # This is because not using `true' as a returning value
+        # when choosing :always here.
+        extended_glob_pattern(path) || /\{.*,.*\}/.match(path)
+      elsif @glob_policy == :extended
+        extended_glob_pattern(path)
+      elsif @glob_policy == :backward_compatible
+        path.include?('*')
+      end
+    end
+
     def expand_paths
       date = Fluent::EventTime.now
       paths = []
@@ -297,7 +329,7 @@ module Fluent::Plugin
                else
                  date.to_time.strftime(path)
                end
-        if path.include?('*')
+        if use_glob?(path)
           paths += Dir.glob(path).select { |p|
             begin
               is_file = !File.directory?(p)
@@ -332,7 +364,7 @@ module Fluent::Plugin
                else
                  date.to_time.strftime(path)
                end
-        path.include?('*') ? Dir.glob(path) : path
+        use_glob?(path) ? Dir.glob(path) : path
       }.flatten.uniq
       # filter out non existing files, so in case pattern is without '*' we don't do unnecessary work
       hash = {}
