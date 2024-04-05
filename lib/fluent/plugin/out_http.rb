@@ -133,7 +133,7 @@ module Fluent::Plugin
           require 'aws-sigv4'
           require 'aws-sdk-core'
         rescue LoadError
-          raise Fluent::ConfigError, "The aws-sigv4 and aws-sdk-core gems are required for aws_sigv4 auth. Run: 'gem install aws-sigv4 -v 1.8.0' and 'gem install aws-sdk-core -v 3.191'."
+          raise Fluent::ConfigError, "The aws-sdk-core and aws-sigv4 gems are required for aws_sigv4 auth. Run: gem install aws-sdk-core -v '~> 3.191'"
         end
 
         raise Fluent::ConfigError, "aws_service is required for aws_sigv4 auth" unless @auth.aws_service != nil
@@ -266,24 +266,24 @@ module Fluent::Plugin
     end
 
     def set_auth(req, uri)
-      if @auth
-        if @auth.method == :basic
-          req.basic_auth(@auth.username, @auth.password)
-        elsif @auth.method == :aws_sigv4
-          signature = @aws_signer.sign_request(
-            http_method: req.method,
-            url: uri.request_uri,
-            headers: {
-              'Content-Type' => @content_type,
-              'Host' => uri.host
-            },
-            body: req.body
-          )
-          req.add_field('x-amz-date', signature.headers['x-amz-date'])
-          req.add_field('x-amz-security-token', signature.headers['x-amz-security-token'])
-          req.add_field('x-amz-content-sha256', signature.headers['x-amz-content-sha256'])
-          req.add_field('authorization', signature.headers['authorization'])
-        end
+      return unless @auth
+
+      if @auth.method == :basic
+        req.basic_auth(@auth.username, @auth.password)
+      elsif @auth.method == :aws_sigv4
+        signature = @aws_signer.sign_request(
+          http_method: req.method,
+          url: uri.request_uri,
+          headers: {
+            'Content-Type' => @content_type,
+            'Host' => uri.host
+          },
+          body: req.body
+        )
+        req.add_field('x-amz-date', signature.headers['x-amz-date'])
+        req.add_field('x-amz-security-token', signature.headers['x-amz-security-token'])
+        req.add_field('x-amz-content-sha256', signature.headers['x-amz-content-sha256'])
+        req.add_field('authorization', signature.headers['authorization'])
       end
     end
 
