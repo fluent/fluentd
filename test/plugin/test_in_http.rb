@@ -517,6 +517,28 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[1][1]
   end
 
+  def test_csp_report
+    d = create_driver
+    time = event_time("2011-01-02 13:14:15 UTC")
+    time_i = time.to_i
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}],
+    ]
+    res_codes = []
+
+    d.run(expect_records: 2) do
+      events.each do |tag, t, record|
+        res = post("/#{tag}?time=#{time_i.to_s}", record.to_json, {"Content-Type"=>"application/csp-report; charset=utf-8"})
+        res_codes << res.code
+      end
+    end
+    assert_equal ["200", "200"], res_codes
+    assert_equal events, d.events
+    assert_equal_event_time time, d.events[0][1]
+    assert_equal_event_time time, d.events[1][1]
+  end
+
   def test_application_msgpack
     d = create_driver
     time = event_time("2011-01-02 13:14:15 UTC")
@@ -982,7 +1004,7 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal ["403", "403"], res_codes
   end
 
-  def test_add_query_params 
+  def test_add_query_params
     d = create_driver(config + "add_query_params true")
     assert_equal true, d.instance.add_query_params
 
