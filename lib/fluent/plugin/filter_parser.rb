@@ -79,6 +79,10 @@ module Fluent::Plugin
                 end
             @accessor.delete(record) if @remove_key_name_field
             r = handle_parsed(tag, record, t, values)
+            # Note: https://github.com/fluent/fluentd/issues/4100
+            # If the parser returns multiple records from one raw_value,
+            # this returns only the first one record.
+            # This should be fixed in the future version.
             return t, r
           else
             if @emit_invalid_record_to_error
