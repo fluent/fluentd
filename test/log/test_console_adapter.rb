@@ -72,11 +72,18 @@ class ConsoleAdapterTest < Test::Unit::TestCase
        fatal: :fatal)
   def test_options(level)
     @console_logger.send(level, "subject", kwarg1: "opt1", kwarg2: "opt2")
+    lines = @logdev.logs[0].split("\n")
+    args = JSON.load(lines[1..].collect { |str| str.sub(/\s+\|/, "") }.join("\n"));
     assert_equal([
-                   "#{@timestamp_str} [#{level}]:   0.0s: subject\n" +
-                   "      | {\"kwarg1\":\"opt1\",\"kwarg2\":\"opt2\"}\n"
+                   1,
+                   "#{@timestamp_str} [#{level}]:   0.0s: subject",
+                   { "kwarg1" => "opt1", "kwarg2" => "opt2" }
                  ],
-                 @logdev.logs)
+                 [
+                   @logdev.logs.size,
+                   lines[0],
+                   args
+                 ])
   end
 
   data(debug: :debug,
