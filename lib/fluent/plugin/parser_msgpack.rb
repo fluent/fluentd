@@ -31,9 +31,9 @@ module Fluent
         :binary
       end
 
-      def parse(data)
+      def parse(data, &block)
         @unpacker.feed_each(data) do |obj|
-          yield convert_values(parse_time(obj), obj)
+          parse_unpacked_data(obj, &block)
         end
       end
       alias parse_partial_data parse
@@ -41,8 +41,29 @@ module Fluent
       def parse_io(io, &block)
         u = Fluent::MessagePackFactory.engine_factory.unpacker(io)
         u.each do |obj|
-          time, record = convert_values(parse_time(obj), obj)
+          parse_unpacked_data(obj, &block)
+        end
+      end
+
+      def parse_unpacked_data(data)
+        if data.is_a?(Hash)
+          time, record = convert_values(parse_time(data), data)
           yield time, record
+          return
+        end
+
+        unless data.is_a?(Array)
+          yield nil, nil
+          return
+        end
+
+        data.each do |record|
+          unless record.is_a?(Hash)
+            yield nil, nil
+            next
+          end
+          time, converted_record = convert_values(parse_time(record), record)
+          yield time, converted_record
         end
       end
     end
