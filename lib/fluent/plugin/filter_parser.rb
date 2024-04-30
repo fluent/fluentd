@@ -70,6 +70,13 @@ module Fluent::Plugin
         end
       end
       begin
+        # Note: https://github.com/fluent/fluentd/issues/4100
+        # If the parser returns multiple records from one raw_value,
+        # this returns only the first one record.
+        # This should be fixed in the future version.
+        result_time = nil
+        result_record = nil
+
         @parser.parse(raw_value) do |t, values|
           if values
             t = if @reserve_time
@@ -79,24 +86,31 @@ module Fluent::Plugin
                 end
             @accessor.delete(record) if @remove_key_name_field
             r = handle_parsed(tag, record, t, values)
-            # Note: https://github.com/fluent/fluentd/issues/4100
-            # If the parser returns multiple records from one raw_value,
-            # this returns only the first one record.
-            # This should be fixed in the future version.
-            return t, r
+
+            if result_record.nil?
+              result_time = t
+              result_record = r
+            else
+              if @emit_invalid_record_to_error
+                router.emit_error_event(tag, t, r, Fluent::Plugin::Parser::ParserError.new(
+                  "Could not emit the event. The parser returned multiple results, but currently filter_parser plugin only returns the first parsed result. Raw data: '#{raw_value}'"
+                ))
+              end
+            end
           else
             if @emit_invalid_record_to_error
               router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("pattern not matched with data '#{raw_value}'"))
             end
-            if @reserve_data
-              t = time
-              r = handle_parsed(tag, record, time, {})
-              return t, r
-            else
-              return FAILED_RESULT
-            end
+
+            next unless @reserve_data
+            next unless result_record.nil?
+
+            result_time = time
+            result_record = handle_parsed(tag, record, time, {})
           end
         end
+
+        return result_time, result_record
       rescue Fluent::Plugin::Parser::ParserError => e
         if @emit_invalid_record_to_error
           raise e
