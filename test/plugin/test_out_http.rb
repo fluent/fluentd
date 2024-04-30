@@ -518,4 +518,40 @@ class HTTPOutputTest < Test::Unit::TestCase
       assert_not_empty result.headers
     end
   end
+
+  sub_test_case 'connection_reuse' do
+    def server_port
+      19883
+    end
+
+    def test_connection_recreation
+      d = create_driver(%[
+        endpoint http://127.0.0.1:#{server_port}/test
+        reuse_connections true
+      ])
+
+      d.run(default_tag: 'test.http', shutdown: false) do
+        d.feed(test_events[0])
+      end
+
+      data = @@result.data
+
+      # Restart server to simulate connection loss
+      @@http_server_thread.kill
+      @@http_server_thread.join
+      @@http_server_thread = Thread.new do
+        run_http_server
+      end
+
+      d.run(default_tag: 'test.http') do
+        d.feed(test_events[1])
+      end
+
+      result = @@result
+      assert_equal 'POST', result.method
+      assert_equal 'application/x-ndjson', result.content_type
+      assert_equal test_events, data.concat(result.data)
+      assert_not_empty result.headers
+    end
+  end
 end
