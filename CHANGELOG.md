@@ -1,3 +1,45 @@
+# v1.17
+
+## Release v1.17.0 - 2024/04/30
+
+### Enhancement
+
+* in_http: Recognize CSP reports as JSON data
+  https://github.com/fluent/fluentd/pull/4282
+* out_http: Add option to reuse connections
+  https://github.com/fluent/fluentd/pull/4330
+* in_tail: Expand glob capability for square brackets and one character matcher
+  https://github.com/fluent/fluentd/pull/4401
+* out_http: Support AWS Signature Version 4 authentication
+  https://github.com/fluent/fluentd/pull/4459
+
+### Bug Fix
+
+* Make sure `parser_json` and `parser_msgpack` return `Hash`.
+  Make `parser_json` and `parser_msgpack` accept only `Hash` or `Array` of `Hash`.
+  https://github.com/fluent/fluentd/pull/4474
+* filter_parser: Add error event for multiple parsed results
+  https://github.com/fluent/fluentd/pull/4478
+
+### Misc
+
+* Raise minimum required ruby version
+  https://github.com/fluent/fluentd/pull/4288
+* Require missing dependent gems as of Ruby 3.4-dev
+  https://github.com/fluent/fluentd/pull/4411
+* Minor code refactoring
+  https://github.com/fluent/fluentd/pull/4294
+  https://github.com/fluent/fluentd/pull/4299
+  https://github.com/fluent/fluentd/pull/4302
+  https://github.com/fluent/fluentd/pull/4320
+* CI fixes
+  https://github.com/fluent/fluentd/pull/4369
+  https://github.com/fluent/fluentd/pull/4433
+  https://github.com/fluent/fluentd/pull/4452
+  https://github.com/fluent/fluentd/pull/4477
+* github: unify YAML file extension to .yml
+  https://github.com/fluent/fluentd/pull/4429
+
 # v1.16
 
 ## Release v1.16.5 - 2024/03/27
