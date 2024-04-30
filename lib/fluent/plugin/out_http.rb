@@ -37,6 +37,8 @@ module Fluent::Plugin
 
     class RetryableResponse < StandardError; end
 
+    CacheEntry = Struct.new(:uri, :conn)
+
     helpers :formatter
 
     desc 'The endpoint for HTTP request, e.g. http://example.com/api'
@@ -111,7 +113,6 @@ module Fluent::Plugin
 
       @cache = []
       @cache_id_mutex = Mutex.new
-      @cache_entry = Struct.new(:uri, :conn)
     end
 
     def close
@@ -124,7 +125,7 @@ module Fluent::Plugin
     def configure(conf)
       super
 
-      @cache = Array.new(actual_flush_thread_count, @cache_entry.new("", nil)) if @reuse_connections
+      @cache = Array.new(actual_flush_thread_count, CacheEntry.new("", nil)) if @reuse_connections
       @cache_id = 0
 
       if @retryable_response_codes.nil?
@@ -335,7 +336,7 @@ module Fluent::Plugin
                 else
                   Net::HTTP.start(uri.host, uri.port, @http_opt)
                 end
-        @cache[id] = @cache_entry.new(uri_str, http)
+        @cache[id] = CacheEntry.new(uri_str, http)
       end
       @cache[id].conn.request(req)
     end
