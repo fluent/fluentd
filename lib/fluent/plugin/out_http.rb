@@ -104,6 +104,18 @@ module Fluent::Plugin
       config_param :aws_role_arn, :string, default: nil
     end
 
+    def connection_cache_id_thread_key
+      "#{plugin_id}_connection_cache_id"
+    end
+
+    def connection_cache_id_for_thread
+      Thread.current[connection_cache_id_thread_key]
+    end
+
+    def connection_cache_id_for_thread=(id)
+      Thread.current[connection_cache_id_thread_key] = id
+    end
+
     def initialize
       super
 
@@ -113,6 +125,7 @@ module Fluent::Plugin
 
       @connection_cache = []
       @connection_cache_id_mutex = Mutex.new
+      @connection_cache_next_id = 0
     end
 
     def close
@@ -125,7 +138,6 @@ module Fluent::Plugin
       super
 
       @connection_cache = Array.new(actual_flush_thread_count, ConnectionCache.new("", nil)) if @reuse_connections
-      @connection_cache_id = 0
 
       if @retryable_response_codes.nil?
         log.warn('Status code 503 is going to be removed from default `retryable_response_codes` from fluentd v2. Please add it by yourself if you wish')
@@ -319,13 +331,13 @@ module Fluent::Plugin
     end
 
     def make_request_cached(uri, req)
-      id = Thread.current.thread_variable_get(plugin_id)
+      id = self.connection_cache_id_for_thread
       if id.nil?
         @connection_cache_id_mutex.synchronize {
-          id = @connection_cache_id
-          @connection_cache_id += 1
+          id = @connection_cache_next_id
+          @connection_cache_next_id += 1
         }
-        Thread.current.thread_variable_set(plugin_id, id)
+        self.connection_cache_id_for_thread = id
       end
       uri_str = uri.to_s
       if @connection_cache[id].uri != uri_str
