@@ -138,6 +138,10 @@ module Fluent
             sb.add_line('@id', v)
           end
 
+          if (v = config.delete('$log_level'))
+            sb.add_line('@log_level', v)
+          end
+
           config.each do |key, val|
             if val.is_a?(Array)
               val.each do |v|
