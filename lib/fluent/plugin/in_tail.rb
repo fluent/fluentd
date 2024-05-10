@@ -696,14 +696,6 @@ module Fluent::Plugin
 
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
     def receive_lines(lines, tail_watcher)
-      lines = lines.reject do |line|
-        skip_line = @max_line_size ? line.bytesize > @max_line_size : false
-        if skip_line
-          log.warn "received line length is longer than #{@max_line_size}"
-          log.debug "skipped line: #{line.chomp}"
-        end
-        skip_line
-      end
       es = @receive_handler.call(lines, tail_watcher)
       unless es.empty?
         tag = if @tag_prefix || @tag_suffix
@@ -819,6 +811,7 @@ module Fluent::Plugin
         from_encoding: @from_encoding,
         encoding: @encoding,
         metrics: @metrics,
+        max_line_size: @max_line_size,
         &method(:receive_lines)
       )
     end
@@ -1011,15 +1004,18 @@ module Fluent::Plugin
       end
 
       class FIFO
-        def initialize(from_encoding, encoding)
+        def initialize(from_encoding, encoding, log, max_line_size=nil)
           @from_encoding = from_encoding
           @encoding = encoding
           @need_enc = from_encoding != encoding
           @buffer = ''.force_encoding(from_encoding)
           @eol = "\n".encode(from_encoding).freeze
+          @max_line_size = max_line_size
+          @was_long_line = false
+          @log = log
         end
 
-        attr_reader :from_encoding, :encoding, :buffer
+        attr_reader :from_encoding, :encoding, :buffer, :max_line_size
 
         def <<(chunk)
           # Although "chunk" is most likely transient besides String#force_encoding itself
@@ -1059,7 +1055,27 @@ module Fluent::Plugin
             rbuf = @buffer.slice(0, idx + 1)
             @buffer = @buffer.slice(idx + 1, @buffer.size)
             idx = @buffer.index(@eol)
-            lines << convert(rbuf)
+
+            is_long_line = !@max_line_size.nil? && (
+              rbuf.bytesize > @max_line_size || @was_long_line
+            )
+
+            if !is_long_line
+              lines << convert(rbuf)
+            else
+              @log.warn "received line length is longer than #{@max_line_size}"
+              @log.debug "skipped line"
+              @was_long_line = false
+            end
+          end
+
+          is_long_line = !@max_line_size.nil? && (
+            @buffer.bytesize > @max_line_size || @was_long_line
+          )
+
+          if is_long_line
+            @buffer = ''.force_encoding(@from_encoding)
+            @was_long_line = true
           end
         end
 
@@ -1074,14 +1090,14 @@ module Fluent::Plugin
 
         attr_accessor :shutdown_timeout
 
-        def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, log:, open_on_every_update:, from_encoding: nil, encoding: nil, metrics:, &receive_lines)
+        def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, max_line_size: nil, log:, open_on_every_update:, from_encoding: nil, encoding: nil, metrics:, &receive_lines)
           @watcher = watcher
           @path = path
           @read_lines_limit = read_lines_limit
           @read_bytes_limit_per_second = read_bytes_limit_per_second
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
-          @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT)
+          @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT, log, max_line_size)
           @iobuf = ''.force_encoding('ASCII-8BIT')
           @lines = []
           @io = nil
