@@ -130,7 +130,7 @@ class FileOutputTest < Test::Unit::TestCase
           'path' => "#{TMP_DIR}/${tag}/${type}/conf_test.%Y%m%d.%H%M.log",
           'add_path_suffix' => 'false',
           'append' => "true",
-          'symlink_path' => "#{TMP_DIR}/conf_test.current.log",
+          'symlink_path' => "#{TMP_DIR}/${tag}/conf_test.current.log",
           'compress' => 'gzip',
           'recompress' => 'true',
         }, [
@@ -181,6 +181,25 @@ class FileOutputTest < Test::Unit::TestCase
       ])
       assert_nothing_raised do
         Fluent::Test::Driver::Output.new(Fluent::Plugin::NullOutput).configure(conf)
+      end
+    end
+
+    test 'symlink path has not tag placeholder or key placeholder' do
+      conf = config_element('match', '**', {
+          'path' => "#{TMP_DIR}/${tag}/${key1}/${key2}/conf_test.%Y%m%d.%H%M.log",
+          'symlink_path' => "#{TMP_DIR}/conf_test.current.log",
+        }, [
+          config_element('buffer', 'time,tag,key1,key2', {
+              '@type' => 'file',
+              'timekey' => '1d',
+              'path' => "#{TMP_DIR}/buf_conf_test",
+          }),
+      ])
+      assert_nothing_raised do
+        d = create_driver(conf)
+        assert do
+          d.logs.count { |log| log.include?("symlink_path:") } == 2
+        end
       end
     end
   end
