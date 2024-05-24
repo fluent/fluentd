@@ -172,15 +172,14 @@ module Fluent::Plugin
           log.warn "symlink_path is unavailable on Windows platform. disabled."
           @symlink_path = nil
         else
-          #add check if symlink_path has a tag placeholder.
-            placeholder_validators(:symlink_path, @symlink_path).reject{|v| v.type == :time }.each do |v|
+          placeholder_validators(:symlink_path, @symlink_path).reject{ |v| v.type == :time }.each do |v|
             begin
               v.validate!
+            rescue Fluent::ConfigError => e
+              log.warn "#{e}. This means multiple chunks are competing for a single symlink_path, so some logs may not be taken from the symlink."
             end
-          rescue Fluent::ConfigError => e
-            log.warn "#{e}. This means multiple chunks are competing for a single symlink_path, so some logs may not be taken from the symlink."
           end
-          
+
           @buffer.extend SymlinkBufferMixin
           @buffer.symlink_path = @symlink_path
           @buffer.output_plugin_for_symlink = self

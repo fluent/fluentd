@@ -184,7 +184,8 @@ class FileOutputTest < Test::Unit::TestCase
       end
     end
 
-    test 'symlink path has not tag placeholder or key placeholder' do
+    test 'warning for symlink_path not including correct placeholders corresponding to chunk keys' do
+      omit "Windows doesn't support symlink" if Fluent.windows?
       conf = config_element('match', '**', {
           'path' => "#{TMP_DIR}/${tag}/${key1}/${key2}/conf_test.%Y%m%d.%H%M.log",
           'symlink_path' => "#{TMP_DIR}/conf_test.current.log",
@@ -198,7 +199,7 @@ class FileOutputTest < Test::Unit::TestCase
       assert_nothing_raised do
         d = create_driver(conf)
         assert do
-          d.logs.count { |log| log.include?("symlink_path:") } == 2
+          d.logs.count { |log| log.include?("multiple chunks are competing for a single symlink_path") } == 2
         end
       end
     end
