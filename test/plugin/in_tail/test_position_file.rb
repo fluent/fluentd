@@ -6,13 +6,12 @@ require 'fileutils'
 require 'tempfile'
 
 class IntailPositionFileTest < Test::Unit::TestCase
-  setup do
-    @file = Tempfile.new('intail_position_file_test').binmode
-  end
-
-  teardown do
-    @file.close rescue nil
-    @file.unlink rescue nil
+  def setup
+    Tempfile.create('intail_position_file_test') do |file|
+      file.binmode
+      @file = file
+      yield
+    end
   end
 
   UNWATCHED_STR = '%016x' % Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION
