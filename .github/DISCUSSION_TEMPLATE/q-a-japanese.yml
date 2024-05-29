@@ -12,7 +12,6 @@ body:
       description: |
         何について困っているのかを書いてください。試したことや実際の結果を示してください。
         期待する挙動と実際の結果の違いがあればそれも書くのをおすすめします。
-      render: markdown
     validations:
       required: true
   - type: textarea
