@@ -1056,7 +1056,7 @@ module Fluent::Plugin
             @buffer = @buffer.slice(idx + 1, @buffer.size)
             idx = @buffer.index(@eol)
 
-            is_long_line = !@max_line_size.nil? && (
+            is_long_line = @max_line_size && (
               rbuf.bytesize > @max_line_size || @was_long_line
             )
 
