@@ -1070,7 +1070,7 @@ module Fluent::Plugin
             lines << convert(rbuf)
           end
 
-          is_long_line = !@max_line_size.nil? && (
+          is_long_line = @max_line_size && (
             @buffer.bytesize > @max_line_size || @was_long_line
           )
 
