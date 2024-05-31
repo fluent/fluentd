@@ -87,24 +87,47 @@ class IntailFIFO < Test::Unit::TestCase
       assert_equal [], lines
     end
 
-    test 'return empty line when line size is bigger than max_line_size' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log, 5)
-      t = "test" * 3
-      text = ("#{t}\n" * 3).force_encoding(Encoding::ASCII_8BIT)
-      fifo << text
+    data('bigger than max_line_size', [
+      ["test test test\n" * 3],
+      [],
+    ])
+    data('less than or equal to max_line_size', [
+      ["test\n" * 2],
+      ["test\n", "test\n"],
+    ])
+    data('mix', [
+      ["test test test\ntest\ntest test test\ntest\ntest test test\n"],
+      ["test\n", "test\n"],
+    ])
+    data('mix and multiple', [
+      [
+        "test test test\ntest\n",
+        "test",
+        " test test\nt",
+        "est\nt"
+      ],
+      ["test\n", "test\n"],
+    ])
+    data('remaining data bigger than max_line_size should be discarded', [
+      [
+        "test\nlong line still not having EOL",
+        "following texts to the previous long line\ntest\n",
+      ],
+      ["test\n", "test\n"],
+    ])
+    test 'return lines only that size is less than or equal to max_line_size' do |(input_texts, expected)|
+      max_line_size = 5
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log, max_line_size)
       lines = []
-      fifo.read_lines(lines)
-      assert_equal [], lines
-    end
 
-    test 'return lines when line size is less than or equal to max_line_size' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log, 5)
-      t = "test"
-      text = ("#{t}\n" * 2).force_encoding(Encoding::ASCII_8BIT)
-      fifo << text
-      lines = []
-      fifo.read_lines(lines)
-      assert_equal ["test\n", "test\n"], lines
+      input_texts.each do |text|
+        fifo << text.force_encoding(Encoding::ASCII_8BIT)
+        fifo.read_lines(lines)
+        # The size of remaining buffer (i.e. a line still not having EOL) must not exceed max_line_size.
+        assert { fifo.bytesize <= max_line_size }
+      end
+
+      assert_equal expected, lines
     end
   end
 
