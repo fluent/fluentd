@@ -3418,7 +3418,7 @@ class TailInputTest < Test::Unit::TestCase
                     [{"message" => "foo"},{"message" => "bar"}],
                     [
                       "2021-11-29 11:22:33 +0000 [warn]: received line length is longer than #{size}\n",
-                      "2021-11-29 11:22:33 +0000 [debug]: skipped line\n"
+                      "2021-11-29 11:22:33 +0000 [debug]: skipped line: #{'x' * size}\n"
                     ]
                   ],
                   [
