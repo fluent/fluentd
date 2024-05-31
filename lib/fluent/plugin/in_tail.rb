@@ -1060,13 +1060,14 @@ module Fluent::Plugin
               rbuf.bytesize > @max_line_size || @was_long_line
             )
 
-            if !is_long_line
-              lines << convert(rbuf)
-            else
+            if is_long_line
               @log.warn "received line length is longer than #{@max_line_size}"
-              @log.debug "skipped line"
+              @log.debug("skipped line: ") { convert(rbuf).chomp }
               @was_long_line = false
+              next
             end
+
+            lines << convert(rbuf)
           end
 
           is_long_line = !@max_line_size.nil? && (
