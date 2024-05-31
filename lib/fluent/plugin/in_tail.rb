@@ -1075,7 +1075,7 @@ module Fluent::Plugin
           )
 
           if is_long_line
-            @buffer = ''.force_encoding(@from_encoding)
+            @buffer.clear
             @was_long_line = true
           end
         end
