@@ -50,7 +50,9 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency("parallel_tests", ["~> 0.15.3"])
   gem.add_development_dependency("simplecov", ["~> 0.7"])
   gem.add_development_dependency("rr", ["~> 3.0"])
-  gem.add_development_dependency("timecop", ["~> 0.9"])
+  # timecop v0.9.9 supports `Process.clock_gettime`. It breaks some tests.
+  # (https://github.com/fluent/fluentd/pull/4521)
+  gem.add_development_dependency("timecop", ["< 0.9.9"])
   gem.add_development_dependency("test-unit", ["~> 3.3"])
   gem.add_development_dependency("test-unit-rr", ["~> 1.0"])
   gem.add_development_dependency("oj", [">= 2.14", "< 4"])
