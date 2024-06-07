@@ -167,6 +167,7 @@ class ConfigTest < Test::Unit::TestCase
             tag: tag.dummy
         - source:
             $type: tcp
+            $log_level: info
             tag: tag.tcp
             parse:
               $arg:
@@ -176,6 +177,7 @@ class ConfigTest < Test::Unit::TestCase
         - match:
             $tag: tag.*
             $type: stdout
+            $log_level: debug
             buffer:
               $type: memory
               flush_interval: 1s
@@ -208,10 +210,12 @@ class ConfigTest < Test::Unit::TestCase
           'tag.dummy',
           'tcp',
           'tag.tcp',
+          'info',
           'none',
           'why.parse.section.doesnot.have.arg,huh',
           'stdout',
           'tag.*',
+          'debug',
           'null',
           '**',
           '@FLUENT_LOG',
@@ -224,10 +228,12 @@ class ConfigTest < Test::Unit::TestCase
           dummy_source_conf['tag'],
           tcp_source_conf['@type'],
           tcp_source_conf['tag'],
+          tcp_source_conf['@log_level'],
           parse_tcp_conf['@type'],
           parse_tcp_conf.arg,
           match_conf['@type'],
           match_conf.arg,
+          match_conf['@log_level'],
           fluent_log_conf['@type'],
           fluent_log_conf.arg,
           label_conf.arg,
