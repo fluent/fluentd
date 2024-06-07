@@ -5,20 +5,19 @@ require 'fluent/plugin/metrics_local'
 require 'tempfile'
 
 class IntailIOHandlerTest < Test::Unit::TestCase
-  setup do
-    @file = Tempfile.new('intail_io_handler').binmode
-    opened_file_metrics = Fluent::Plugin::LocalMetrics.new
-    opened_file_metrics.configure(config_element('metrics', '', {}))
-    closed_file_metrics = Fluent::Plugin::LocalMetrics.new
-    closed_file_metrics.configure(config_element('metrics', '', {}))
-    rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
-    rotated_file_metrics.configure(config_element('metrics', '', {}))
-    @metrics = Fluent::Plugin::TailInput::MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics)
-  end
-
-  teardown do
-    @file.close rescue nil
-    @file.unlink rescue nil
+  def setup
+    Tempfile.create('intail_io_handler') do |file|
+      file.binmode
+      @file = file
+      opened_file_metrics = Fluent::Plugin::LocalMetrics.new
+      opened_file_metrics.configure(config_element('metrics', '', {}))
+      closed_file_metrics = Fluent::Plugin::LocalMetrics.new
+      closed_file_metrics.configure(config_element('metrics', '', {}))
+      rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
+      rotated_file_metrics.configure(config_element('metrics', '', {}))
+      @metrics = Fluent::Plugin::TailInput::MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics)
+      yield
+    end
   end
 
   def create_target_info
