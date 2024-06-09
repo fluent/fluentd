@@ -146,36 +146,35 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       assert_equal 5, returned_lines[0].size
       assert_equal 3, returned_lines[1].size
     end
+  end
 
-    test 'call receive_lines some times when long line(more than 8192) and max_line_size is 4096' do
-      t = 'line' * (8192 / 8)
-      text = "#{t}\n" * 8
-      t = 'line' * 8
-      text += "#{t}\n" * 8
+  test 'does not call receive_lines when line_size exceeds max_line_size' do
+    t = 'x' * (8192)
+    text = "#{t}\n"
 
-      @file.write(text)
-      @file.close
+    max_line_size = 8192
 
-      update_pos = 0
+    @file.write(text)
+    @file.close
 
-      watcher = create_watcher
-      stub(watcher).pe do
-        pe = 'position_file'
-        stub(pe).read_pos {0}
-        stub(pe).update_pos { |val| update_pos = val }
-        pe
-      end
+    update_pos = 0
 
-      returned_lines = []
-      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 5, read_bytes_limit_per_second: -1, max_line_size: 4096, log: $log, open_on_every_update: false, metrics: @metrics) do |lines, _watcher|
-        returned_lines << lines.dup
-        true
-      end
-
-      r.on_notify
-      assert_equal text.bytesize, update_pos
-      assert_equal 1, returned_lines.size
-      assert_equal 8, returned_lines[0].size
+    watcher = create_watcher
+    stub(watcher).pe do
+      pe = 'position_file'
+      stub(pe).read_pos {0}
+      stub(pe).update_pos { |val| update_pos = val }
+      pe
     end
+
+    returned_lines = []
+    r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 1000, read_bytes_limit_per_second: -1, max_line_size: max_line_size, log: $log, open_on_every_update: false, metrics: @metrics) do |lines, _watcher|
+      returned_lines << lines.dup
+      true
+    end
+
+    r.on_notify
+    assert_equal text.bytesize, update_pos
+    assert_equal 0, returned_lines.size
   end
 end

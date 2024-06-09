@@ -566,7 +566,7 @@ module Fluent::Plugin
       if @follow_inodes && new_inode.nil?
         # nil inode means the file disappeared, so we only need to stop it.
         @tails.delete(tail_watcher.path)
-        # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632 
+        # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632
         # Because of this problem, log duplication can occur during `rotate_wait`.
         # Need to set `rotate_wait 0` for a workaround.
         # Duplication will occur if `refresh_watcher` is called during the `rotate_wait`.
@@ -1012,6 +1012,7 @@ module Fluent::Plugin
           @eol = "\n".encode(from_encoding).freeze
           @max_line_size = max_line_size
           @was_long_line = false
+          @has_skipped_line = false
           @log = log
         end
 
@@ -1047,6 +1048,7 @@ module Fluent::Plugin
 
         def read_lines(lines)
           idx = @buffer.index(@eol)
+          @has_skipped_line = false
 
           until idx.nil?
             # Using freeze and slice is faster than slice!
@@ -1064,6 +1066,7 @@ module Fluent::Plugin
               @log.warn "received line length is longer than #{@max_line_size}"
               @log.debug("skipped line: ") { convert(rbuf).chomp }
               @was_long_line = false
+              @has_skipped_line = true
               next
             end
 
@@ -1077,11 +1080,16 @@ module Fluent::Plugin
           if is_long_line
             @buffer.clear
             @was_long_line = true
+            @has_skipped_line = true
           end
         end
 
         def bytesize
           @buffer.bytesize
+        end
+
+        def has_skipped_line?
+          @has_skipped_line
         end
       end
 
@@ -1181,6 +1189,7 @@ module Fluent::Plugin
           with_io do |io|
             begin
               read_more = false
+              has_skipped_line = false
 
               if !io.nil? && @lines.empty?
                 begin
@@ -1195,6 +1204,7 @@ module Fluent::Plugin
 
                     n_lines_before_read = @lines.size
                     @fifo.read_lines(@lines)
+                    has_skipped_line = @fifo.has_skipped_line?
                     group_watcher&.update_lines_read(@path, @lines.size - n_lines_before_read)
 
                     group_watcher_limit = group_watcher&.limit_lines_reached?(@path)
@@ -1215,6 +1225,10 @@ module Fluent::Plugin
                 rescue EOFError
                   @eof = true
                 end
+              end
+
+              if @lines.empty? && has_skipped_line
+                @watcher.pe.update_pos(io.pos - @fifo.bytesize)
               end
 
               unless @lines.empty?
