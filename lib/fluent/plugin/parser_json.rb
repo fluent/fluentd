@@ -50,23 +50,15 @@ module Fluent
       def configure_json_parser(name)
         case name
         when :oj
-          raise LoadError unless Fluent::OjOptions.available?
-          [Oj.method(:load), Oj::ParseError]
+          return [Oj.method(:load), Oj::ParseError] if Fluent::OjOptions.available?
+
+          log&.info "Oj is not installed, and failing back to Yajl for json parser"
+          configure_json_parser(:yajl)
         when :json then [JSON.method(:load), JSON::ParserError]
         when :yajl then [Yajl.method(:load), Yajl::ParseError]
         else
           raise "BUG: unknown json parser specified: #{name}"
         end
-      rescue LoadError => ex
-        name = :yajl
-        if log
-          if /\boj\z/.match?(ex.message)
-            log.info "Oj is not installed, and failing back to Yajl for json parser"
-          else
-            log.warn ex.message
-          end
-        end
-        retry
       end
 
       def parse(text)
