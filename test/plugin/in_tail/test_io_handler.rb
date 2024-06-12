@@ -148,33 +148,144 @@ class IntailIOHandlerTest < Test::Unit::TestCase
     end
   end
 
-  test 'does not call receive_lines when line_size exceeds max_line_size' do
-    t = 'x' * (8192)
-    text = "#{t}\n"
+  sub_test_case 'max_line_size' do
+    test 'does not call receive_lines when line_size exceeds max_line_size' do
+      t = 'x' * (8192)
+      text = "#{t}\n"
 
-    max_line_size = 8192
+      max_line_size = 8192
 
-    @file.write(text)
-    @file.close
+      @file.write(text)
+      @file.close
 
-    update_pos = 0
+      update_pos = 0
 
-    watcher = create_watcher
-    stub(watcher).pe do
-      pe = 'position_file'
-      stub(pe).read_pos {0}
-      stub(pe).update_pos { |val| update_pos = val }
-      pe
+      watcher = create_watcher
+      stub(watcher).pe do
+        pe = 'position_file'
+        stub(pe).read_pos {0}
+        stub(pe).update_pos { |val| update_pos = val }
+        pe
+      end
+
+      returned_lines = []
+      r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 1000, read_bytes_limit_per_second: -1, max_line_size: max_line_size, log: $log, open_on_every_update: false, metrics: @metrics) do |lines, _watcher|
+        returned_lines << lines.dup
+        true
+      end
+
+      r.on_notify
+      assert_equal text.bytesize, update_pos
+      assert_equal 0, returned_lines.size
     end
 
-    returned_lines = []
-    r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 1000, read_bytes_limit_per_second: -1, max_line_size: max_line_size, log: $log, open_on_every_update: false, metrics: @metrics) do |lines, _watcher|
-      returned_lines << lines.dup
-      true
+    data(
+      "open_on_every_update false" => false,
+      "open_on_every_update true" => true,
+    )
+    test 'manage pos correctly if a long line not having EOL occurs' do |open_on_every_update|
+      max_line_size = 20
+      returned_lines = []
+      pos = 0
+
+      watcher = create_watcher
+      stub(watcher).pe do
+        pe = 'position_file'
+        stub(pe).read_pos { pos }
+        stub(pe).update_pos { |val| pos = val }
+        pe
+      end
+
+      io_handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+        watcher, path: @file.path, read_lines_limit: 1000, read_bytes_limit_per_second: -1,
+        max_line_size: max_line_size, log: $log, open_on_every_update: open_on_every_update,
+        metrics: @metrics
+      ) do |lines, _watcher|
+        returned_lines << lines.dup
+        true
+      end
+
+      short_line = "short line\n"
+      long_lines = [
+        "long line still not having EOL",
+        " end of the line\n",
+      ]
+
+      @file.write(short_line)
+      @file.write(long_lines[0])
+      @file.flush
+      io_handler.on_notify
+
+      assert_equal [[short_line]], returned_lines
+      assert_equal short_line.bytesize, pos
+
+      @file.write(long_lines[1])
+      @file.flush
+      io_handler.on_notify
+
+      assert_equal [[short_line]], returned_lines
+      expected_size = short_line.bytesize + long_lines[0..1].map{|l| l.bytesize}.sum
+      assert_equal expected_size, pos
+
+      io_handler.close
     end
 
-    r.on_notify
-    assert_equal text.bytesize, update_pos
-    assert_equal 0, returned_lines.size
+    data(
+      "open_on_every_update false" => false,
+      "open_on_every_update true" => true,
+    )
+    test 'discards a subsequent data in a long line even if restarting occurs between' do |open_on_every_update|
+      max_line_size = 20
+      returned_lines = []
+      pos = 0
+
+      watcher = create_watcher
+      stub(watcher).pe do
+        pe = 'position_file'
+        stub(pe).read_pos { pos }
+        stub(pe).update_pos { |val| pos = val }
+        pe
+      end
+
+      io_handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+        watcher, path: @file.path, read_lines_limit: 1000, read_bytes_limit_per_second: -1,
+        max_line_size: max_line_size, log: $log, open_on_every_update: open_on_every_update,
+        metrics: @metrics
+      ) do |lines, _watcher|
+        returned_lines << lines.dup
+        true
+      end
+
+      short_line = "short line\n"
+      long_lines = [
+        "long line still not having EOL",
+        " end of the line\n",
+      ]
+
+      @file.write(short_line)
+      @file.write(long_lines[0])
+      @file.flush
+      io_handler.on_notify
+
+      assert_equal [[short_line]], returned_lines
+
+      io_handler.close
+      io_handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+        watcher, path: @file.path, read_lines_limit: 1000, read_bytes_limit_per_second: -1,
+        max_line_size: max_line_size, log: $log, open_on_every_update: open_on_every_update,
+        metrics: @metrics
+      ) do |lines, _watcher|
+        returned_lines << lines.dup
+        true
+      end
+
+      @file.write(long_lines[1])
+      @file.flush
+      io_handler.on_notify
+
+      assert_equal [[short_line]], returned_lines
+
+      io_handler.close
+    end
   end
 end

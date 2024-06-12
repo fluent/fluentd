@@ -124,7 +124,7 @@ class IntailFIFO < Test::Unit::TestCase
         fifo << text.force_encoding(Encoding::ASCII_8BIT)
         fifo.read_lines(lines)
         # The size of remaining buffer (i.e. a line still not having EOL) must not exceed max_line_size.
-        assert { fifo.bytesize <= max_line_size }
+        assert { fifo.buffer.bytesize <= max_line_size }
       end
 
       assert_equal expected, lines
@@ -142,23 +142,50 @@ class IntailFIFO < Test::Unit::TestCase
     end
   end
 
-  sub_test_case '#bytesize' do
-    test 'reutrns buffer size' do
+  sub_test_case '#reading_bytesize' do
+    test 'returns buffer size' do
       fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
       text = "test\n" * 3 + 'test'
       fifo << text
 
-      assert_equal text.bytesize, fifo.bytesize
+      assert_equal text.bytesize, fifo.reading_bytesize
       lines = []
       fifo.read_lines(lines)
       assert_equal ["test\n", "test\n", "test\n"], lines
 
-      assert_equal 'test'.bytesize, fifo.bytesize
+      assert_equal 'test'.bytesize, fifo.reading_bytesize
       fifo << "2\n"
       fifo.read_lines(lines)
       assert_equal ["test\n", "test\n", "test\n", "test2\n"], lines
 
-      assert_equal 0, fifo.bytesize
+      assert_equal 0, fifo.reading_bytesize
+    end
+
+    test 'returns the entire line size even if the size is over max_line_size' do
+      max_line_size = 20
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log, max_line_size)
+      lines = []
+
+      text = "long line still not having EOL"
+      fifo << text
+      fifo.read_lines(lines)
+      assert_equal [], lines
+      assert_equal 0, fifo.buffer.bytesize
+      assert_equal text.bytesize, fifo.reading_bytesize
+
+      text2 = " following texts"
+      fifo << text2
+      fifo.read_lines(lines)
+      assert_equal [], lines
+      assert_equal 0, fifo.buffer.bytesize
+      assert_equal text.bytesize + text2.bytesize, fifo.reading_bytesize
+
+      text3 = " end of the line\n"
+      fifo << text3
+      fifo.read_lines(lines)
+      assert_equal [], lines
+      assert_equal 0, fifo.buffer.bytesize
+      assert_equal 0, fifo.reading_bytesize
     end
   end
 end

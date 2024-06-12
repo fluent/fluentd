@@ -1012,6 +1012,7 @@ module Fluent::Plugin
           @eol = "\n".encode(from_encoding).freeze
           @max_line_size = max_line_size
           @skip_current_line = false
+          @skipping_current_line_bytesize = 0
           @log = log
         end
 
@@ -1064,8 +1065,9 @@ module Fluent::Plugin
             if is_long_line
               @log.warn "received line length is longer than #{@max_line_size}"
               @log.debug("skipped line: ") { convert(rbuf).chomp }
-              @skip_current_line = false
               has_skipped_line = true
+              @skip_current_line = false
+              @skipping_current_line_bytesize = 0
               next
             end
 
@@ -1077,14 +1079,16 @@ module Fluent::Plugin
           )
 
           if is_long_current_line
-            @buffer.clear
             @skip_current_line = true
+            @skipping_current_line_bytesize += @buffer.bytesize
+            @buffer.clear
           end
 
           return has_skipped_line
         end
 
-        def bytesize
+        def reading_bytesize
+          return @skipping_current_line_bytesize if @skip_current_line
           @buffer.bytesize
         end
       end
@@ -1223,10 +1227,10 @@ module Fluent::Plugin
               end
 
               if @lines.empty?
-                @watcher.pe.update_pos(io.pos - @fifo.bytesize) if has_skipped_line
+                @watcher.pe.update_pos(io.pos - @fifo.reading_bytesize) if has_skipped_line
               else
                 if @receive_lines.call(@lines, @watcher)
-                  @watcher.pe.update_pos(io.pos - @fifo.bytesize)
+                  @watcher.pe.update_pos(io.pos - @fifo.reading_bytesize)
                   @lines.clear
                 else
                   read_more = false
@@ -1238,12 +1242,12 @@ module Fluent::Plugin
 
         def open
           io = Fluent::FileWrapper.open(@path)
-          io.seek(@watcher.pe.read_pos + @fifo.bytesize)
+          io.seek(@watcher.pe.read_pos + @fifo.reading_bytesize)
           @metrics.opened.inc
           io
         rescue RangeError
           io.close if io
-          raise WatcherSetupError, "seek error with #{@path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.bytesize.to_s(16)}"
+          raise WatcherSetupError, "seek error with #{@path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.reading_bytesize.to_s(16)}"
         rescue Errno::EACCES => e
           @log.warn "#{e}"
           nil
