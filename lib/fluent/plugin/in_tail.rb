@@ -1011,7 +1011,7 @@ module Fluent::Plugin
           @buffer = ''.force_encoding(from_encoding)
           @eol = "\n".encode(from_encoding).freeze
           @max_line_size = max_line_size
-          @was_long_line = false
+          @skip_current_line = false
           @log = log
         end
 
@@ -1058,13 +1058,13 @@ module Fluent::Plugin
             idx = @buffer.index(@eol)
 
             is_long_line = @max_line_size && (
-              rbuf.bytesize > @max_line_size || @was_long_line
+              @skip_current_line || rbuf.bytesize > @max_line_size
             )
 
             if is_long_line
               @log.warn "received line length is longer than #{@max_line_size}"
               @log.debug("skipped line: ") { convert(rbuf).chomp }
-              @was_long_line = false
+              @skip_current_line = false
               has_skipped_line = true
               next
             end
@@ -1072,13 +1072,13 @@ module Fluent::Plugin
             lines << convert(rbuf)
           end
 
-          is_long_line = @max_line_size && (
-            @buffer.bytesize > @max_line_size || @was_long_line
+          is_long_current_line = @max_line_size && (
+            @skip_current_line || @buffer.bytesize > @max_line_size
           )
 
-          if is_long_line
+          if is_long_current_line
             @buffer.clear
-            @was_long_line = true
+            @skip_current_line = true
           end
 
           return has_skipped_line
