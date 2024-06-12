@@ -1012,7 +1012,6 @@ module Fluent::Plugin
           @eol = "\n".encode(from_encoding).freeze
           @max_line_size = max_line_size
           @was_long_line = false
-          @has_skipped_line = false
           @log = log
         end
 
@@ -1048,7 +1047,7 @@ module Fluent::Plugin
 
         def read_lines(lines)
           idx = @buffer.index(@eol)
-          @has_skipped_line = false
+          has_skipped_line = false
 
           until idx.nil?
             # Using freeze and slice is faster than slice!
@@ -1066,7 +1065,7 @@ module Fluent::Plugin
               @log.warn "received line length is longer than #{@max_line_size}"
               @log.debug("skipped line: ") { convert(rbuf).chomp }
               @was_long_line = false
-              @has_skipped_line = true
+              has_skipped_line = true
               next
             end
 
@@ -1080,16 +1079,13 @@ module Fluent::Plugin
           if is_long_line
             @buffer.clear
             @was_long_line = true
-            @has_skipped_line = true
           end
+
+          return has_skipped_line
         end
 
         def bytesize
           @buffer.bytesize
-        end
-
-        def has_skipped_line?
-          @has_skipped_line
         end
       end
 
@@ -1203,8 +1199,7 @@ module Fluent::Plugin
                     @fifo << data
 
                     n_lines_before_read = @lines.size
-                    @fifo.read_lines(@lines)
-                    has_skipped_line = @fifo.has_skipped_line?
+                    has_skipped_line = @fifo.read_lines(@lines) || has_skipped_line
                     group_watcher&.update_lines_read(@path, @lines.size - n_lines_before_read)
 
                     group_watcher_limit = group_watcher&.limit_lines_reached?(@path)
@@ -1227,11 +1222,9 @@ module Fluent::Plugin
                 end
               end
 
-              if @lines.empty? && has_skipped_line
-                @watcher.pe.update_pos(io.pos - @fifo.bytesize)
-              end
-
-              unless @lines.empty?
+              if @lines.empty?
+                @watcher.pe.update_pos(io.pos - @fifo.bytesize) if has_skipped_line
+              else
                 if @receive_lines.call(@lines, @watcher)
                   @watcher.pe.update_pos(io.pos - @fifo.bytesize)
                   @lines.clear
