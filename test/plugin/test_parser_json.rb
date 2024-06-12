@@ -8,6 +8,37 @@ class JsonParserTest < ::Test::Unit::TestCase
     @parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
   end
 
+  sub_test_case "configure_json_parser" do
+    data("oj", [:oj, [Oj.method(:load), Oj::ParseError]])
+    data("json", [:json, [JSON.method(:load), JSON::ParserError]])
+    data("yajl", [:yajl, [Yajl.method(:load), Yajl::ParseError]])
+    def test_return_each_loader((input, expected_return))
+      result = @parser.instance.configure_json_parser(input)
+      assert_equal expected_return, result
+    end
+
+    def test_raise_exception_for_unknown_input
+      assert_raise RuntimeError do
+        @parser.instance.configure_json_parser(:unknown)
+      end
+    end
+
+    def test_fall_back_oj_to_yajl_if_oj_not_available
+      stub(Fluent::OjOptions).available? { false }
+
+      result = @parser.instance.configure_json_parser(:oj)
+
+      assert_equal [Yajl.method(:load), Yajl::ParseError], result
+      logs = @parser.logs.collect do |log|
+        log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
+      end
+      assert_equal(
+        ["[info]: Oj is not installed, and failing back to Yajl for json parser\n"],
+        logs
+      )
+    end
+  end
+
   data('oj' => 'oj', 'yajl' => 'yajl')
   def test_parse(data)
     @parser.configure('json_parser' => data)
