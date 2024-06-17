@@ -32,14 +32,14 @@ body:
     attributes:
       label: Your Environment
       description: |
-        - Fluentd or td-agent version: `fluentd --version` or `td-agent --version`
+        - Fluentd or its package version: `fluentd --version` (Fluentd, fluent-package) or `td-agent --version` (td-agent)
         - Operating system: `cat /etc/os-release`
         - Kernel version: `uname -r`
 
         Tip: If you hit the problem with older fluentd version, try latest version first.
       value: |
         - Fluentd version:
-        - TD Agent version:
+        - Package version:
         - Operating system:
         - Kernel version:
       render: markdown
