@@ -45,6 +45,8 @@ module Fluent::Plugin
     config_param :run_interval, :time, default: nil
     desc 'The default block size to read if parser requires partial read.'
     config_param :read_block_size, :size, default: 10240 # 10k
+    desc 'The encoding to receive the result of the command, especially for none-ascii characters.'
+    config_param :encoding, :string, default: nil
 
     attr_reader :parser
 
@@ -63,7 +65,14 @@ module Fluent::Plugin
       if !@tag && (!@extract_config || !@extract_config.tag_key)
         raise Fluent::ConfigError, "'tag' or 'tag_key' option is required on exec input"
       end
+      validate_encoding(@encoding) if @encoding
       @parser = parser_create
+    end
+
+    def validate_encoding(encoding)
+      Encoding.find(encoding)
+    rescue ArgumentError => e
+      raise Fluent::ConfigError, e.message
     end
 
     def multi_workers_ready?
@@ -73,10 +82,13 @@ module Fluent::Plugin
     def start
       super
 
+      options = { mode: [@connect_mode] }
+      options[:external_encoding] = @encoding if @encoding
+
       if @run_interval
-        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [@connect_mode], &method(:run))
+        child_process_execute(:exec_input, @command, interval: @run_interval, **options, &method(:run))
       else
-        child_process_execute(:exec_input, @command, immediate: true, mode: [@connect_mode], &method(:run))
+        child_process_execute(:exec_input, @command, immediate: true, **options, &method(:run))
       end
     end
 
