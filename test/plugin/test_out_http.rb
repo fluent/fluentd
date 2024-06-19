@@ -75,21 +75,30 @@ class HTTPOutputTest < Test::Unit::TestCase
         @@result.headers[key] = value
       end
 
+      body = ""
       data = []
+
+      case req['content-encoding']
+      when 'gzip'
+        body = Zlib::GzipReader.new(StringIO.new(req.body)).read
+      else 
+        body = req.body
+      end
+
       case req.content_type
       when 'application/x-ndjson'
-        req.body.each_line { |l|
+        body.each_line { |l|
           data << JSON.parse(l)
         }
       when 'application/json'
-        data = JSON.parse(req.body)
+        data = JSON.parse(body)
       when 'text/plain'
         # Use single_value in this test
-        req.body.each_line { |line|
+        body.each_line { |line|
           data << line.chomp
         }
       else
-        data << req.body
+        data << body
       end
       @@result.data = data
 
@@ -515,6 +524,41 @@ class HTTPOutputTest < Test::Unit::TestCase
       assert_equal 'POST', result.method
       assert_equal 'application/x-ndjson', result.content_type
       assert_equal test_events, result.data
+      assert_not_empty result.headers
+    end
+  end
+
+  sub_test_case 'GZIP' do
+    def server_port
+      19882
+    end
+
+    data(:json_array, [false, true])
+    data(:buffer_compress, ["text", "gzip"])
+    def test_write_with_gzip
+      d = create_driver(%[
+        endpoint http://127.0.0.1:#{server_port}/test
+        compress gzip
+        json_array #{data[:json_array]}
+        <buffer>
+          @type memory
+          compress #{data[:buffer_compress]}
+        </buffer>
+      ])
+      d.run(default_tag: 'test.http') do
+        test_events.each { |event|
+          d.feed(event)
+        }
+      end
+
+      result = @@result
+      assert_equal 'POST', result.method
+      assert_equal(
+        data[:json_array] ? 'application/json' : 'application/x-ndjson',
+        result.content_type
+      )
+      assert_equal 'gzip', result.headers['content-encoding']
+      assert_equal test_events,  result.data
       assert_not_empty result.headers
     end
   end
