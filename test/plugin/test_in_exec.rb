@@ -221,7 +221,7 @@ EOC
   sub_test_case 'encoding' do
     data(immediate: "")
     data(run_interval: "run_interval 1")
-    test 'can handle none-ascii characters' do |additional_setting|
+    test 'can handle non-ascii characters' do |additional_setting|
       content = 'ひらがな漢字'
 
       d = create_driver %[

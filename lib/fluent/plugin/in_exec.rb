@@ -45,7 +45,7 @@ module Fluent::Plugin
     config_param :run_interval, :time, default: nil
     desc 'The default block size to read if parser requires partial read.'
     config_param :read_block_size, :size, default: 10240 # 10k
-    desc 'The encoding to receive the result of the command, especially for none-ascii characters.'
+    desc 'The encoding to receive the result of the command, especially for non-ascii characters.'
     config_param :encoding, :string, default: nil
 
     attr_reader :parser
