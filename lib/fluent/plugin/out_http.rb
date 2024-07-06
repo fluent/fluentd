@@ -55,6 +55,8 @@ module Fluent::Plugin
     config_param :headers, :hash, default: nil
     desc 'Additional placeholder based headers for HTTP request'
     config_param :headers_from_placeholders, :hash, default: nil
+    desc 'Compress HTTP request body'
+    config_param :compress, :enum, list: [:text, :gzip], default: :text
 
     desc 'The connection open timeout in seconds'
     config_param :open_timeout, :integer, default: nil
@@ -290,6 +292,9 @@ module Fluent::Plugin
           req[k] = extract_placeholders(v, chunk)
         end
       end
+      if @compress == :gzip
+        req['Content-Encoding'] = "gzip"
+      end
       req['Content-Type'] = @content_type
     end
 
@@ -323,7 +328,14 @@ module Fluent::Plugin
               Net::HTTP::Put.new(uri.request_uri)
             end
       set_headers(req, uri, chunk)
+
       req.body = @json_array ? "[#{chunk.read.chop}]" : chunk.read
+
+      if @compress == :gzip
+        gz = Zlib::GzipWriter.new(StringIO.new)
+        gz << req.body
+        req.body = gz.close.string
+      end
 
       # At least one authentication method requires the body and other headers, so the order of this call matters
       set_auth(req, uri)
