@@ -1064,7 +1064,11 @@ module Fluent::Plugin
 
             if is_long_line
               @log.warn "received line length is longer than #{@max_line_size}"
-              @log.debug("skipped line: ") { convert(rbuf).chomp }
+              if @skip_current_line
+                @log.debug("The continuing line is finished. Finally discarded data: ") { convert(rbuf).chomp }
+              else
+                @log.debug("skipped line: ") { convert(rbuf).chomp }
+              end
               has_skipped_line = true
               @skip_current_line = false
               @skipping_current_line_bytesize = 0
@@ -1079,6 +1083,11 @@ module Fluent::Plugin
           )
 
           if is_long_current_line
+            @log.debug(
+              "The continuing current line length is longer than #{@max_line_size}." +
+              " The received data will be discarded until this line is finished." +
+              " Discarded data: "
+            ) { convert(@buffer).chomp }
             @skip_current_line = true
             @skipping_current_line_bytesize += @buffer.bytesize
             @buffer.clear
