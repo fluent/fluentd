@@ -566,7 +566,7 @@ module Fluent::Plugin
       if @follow_inodes && new_inode.nil?
         # nil inode means the file disappeared, so we only need to stop it.
         @tails.delete(tail_watcher.path)
-        # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632 
+        # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632
         # Because of this problem, log duplication can occur during `rotate_wait`.
         # Need to set `rotate_wait 0` for a workaround.
         # Duplication will occur if `refresh_watcher` is called during the `rotate_wait`.
@@ -696,14 +696,6 @@ module Fluent::Plugin
 
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
     def receive_lines(lines, tail_watcher)
-      lines = lines.reject do |line|
-        skip_line = @max_line_size ? line.bytesize > @max_line_size : false
-        if skip_line
-          log.warn "received line length is longer than #{@max_line_size}"
-          log.debug "skipped line: #{line.chomp}"
-        end
-        skip_line
-      end
       es = @receive_handler.call(lines, tail_watcher)
       unless es.empty?
         tag = if @tag_prefix || @tag_suffix
@@ -819,6 +811,7 @@ module Fluent::Plugin
         from_encoding: @from_encoding,
         encoding: @encoding,
         metrics: @metrics,
+        max_line_size: @max_line_size,
         &method(:receive_lines)
       )
     end
@@ -1011,15 +1004,19 @@ module Fluent::Plugin
       end
 
       class FIFO
-        def initialize(from_encoding, encoding)
+        def initialize(from_encoding, encoding, log, max_line_size=nil)
           @from_encoding = from_encoding
           @encoding = encoding
           @need_enc = from_encoding != encoding
           @buffer = ''.force_encoding(from_encoding)
           @eol = "\n".encode(from_encoding).freeze
+          @max_line_size = max_line_size
+          @skip_current_line = false
+          @skipping_current_line_bytesize = 0
+          @log = log
         end
 
-        attr_reader :from_encoding, :encoding, :buffer
+        attr_reader :from_encoding, :encoding, :buffer, :max_line_size
 
         def <<(chunk)
           # Although "chunk" is most likely transient besides String#force_encoding itself
@@ -1051,6 +1048,7 @@ module Fluent::Plugin
 
         def read_lines(lines)
           idx = @buffer.index(@eol)
+          has_skipped_line = false
 
           until idx.nil?
             # Using freeze and slice is faster than slice!
@@ -1059,11 +1057,47 @@ module Fluent::Plugin
             rbuf = @buffer.slice(0, idx + 1)
             @buffer = @buffer.slice(idx + 1, @buffer.size)
             idx = @buffer.index(@eol)
+
+            is_long_line = @max_line_size && (
+              @skip_current_line || rbuf.bytesize > @max_line_size
+            )
+
+            if is_long_line
+              @log.warn "received line length is longer than #{@max_line_size}"
+              if @skip_current_line
+                @log.debug("The continuing line is finished. Finally discarded data: ") { convert(rbuf).chomp }
+              else
+                @log.debug("skipped line: ") { convert(rbuf).chomp }
+              end
+              has_skipped_line = true
+              @skip_current_line = false
+              @skipping_current_line_bytesize = 0
+              next
+            end
+
             lines << convert(rbuf)
           end
+
+          is_long_current_line = @max_line_size && (
+            @skip_current_line || @buffer.bytesize > @max_line_size
+          )
+
+          if is_long_current_line
+            @log.debug(
+              "The continuing current line length is longer than #{@max_line_size}." +
+              " The received data will be discarded until this line is finished." +
+              " Discarded data: "
+            ) { convert(@buffer).chomp }
+            @skip_current_line = true
+            @skipping_current_line_bytesize += @buffer.bytesize
+            @buffer.clear
+          end
+
+          return has_skipped_line
         end
 
-        def bytesize
+        def reading_bytesize
+          return @skipping_current_line_bytesize if @skip_current_line
           @buffer.bytesize
         end
       end
@@ -1074,14 +1108,14 @@ module Fluent::Plugin
 
         attr_accessor :shutdown_timeout
 
-        def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, log:, open_on_every_update:, from_encoding: nil, encoding: nil, metrics:, &receive_lines)
+        def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, max_line_size: nil, log:, open_on_every_update:, from_encoding: nil, encoding: nil, metrics:, &receive_lines)
           @watcher = watcher
           @path = path
           @read_lines_limit = read_lines_limit
           @read_bytes_limit_per_second = read_bytes_limit_per_second
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
-          @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT)
+          @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT, log, max_line_size)
           @iobuf = ''.force_encoding('ASCII-8BIT')
           @lines = []
           @io = nil
@@ -1164,6 +1198,7 @@ module Fluent::Plugin
           with_io do |io|
             begin
               read_more = false
+              has_skipped_line = false
 
               if !io.nil? && @lines.empty?
                 begin
@@ -1177,7 +1212,7 @@ module Fluent::Plugin
                     @fifo << data
 
                     n_lines_before_read = @lines.size
-                    @fifo.read_lines(@lines)
+                    has_skipped_line = @fifo.read_lines(@lines) || has_skipped_line
                     group_watcher&.update_lines_read(@path, @lines.size - n_lines_before_read)
 
                     group_watcher_limit = group_watcher&.limit_lines_reached?(@path)
@@ -1200,9 +1235,11 @@ module Fluent::Plugin
                 end
               end
 
-              unless @lines.empty?
+              if @lines.empty?
+                @watcher.pe.update_pos(io.pos - @fifo.reading_bytesize) if has_skipped_line
+              else
                 if @receive_lines.call(@lines, @watcher)
-                  @watcher.pe.update_pos(io.pos - @fifo.bytesize)
+                  @watcher.pe.update_pos(io.pos - @fifo.reading_bytesize)
                   @lines.clear
                 else
                   read_more = false
@@ -1214,12 +1251,12 @@ module Fluent::Plugin
 
         def open
           io = Fluent::FileWrapper.open(@path)
-          io.seek(@watcher.pe.read_pos + @fifo.bytesize)
+          io.seek(@watcher.pe.read_pos + @fifo.reading_bytesize)
           @metrics.opened.inc
           io
         rescue RangeError
           io.close if io
-          raise WatcherSetupError, "seek error with #{@path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.bytesize.to_s(16)}"
+          raise WatcherSetupError, "seek error with #{@path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.reading_bytesize.to_s(16)}"
         rescue Errno::EACCES => e
           @log.warn "#{e}"
           nil
