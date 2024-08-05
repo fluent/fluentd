@@ -36,7 +36,7 @@ module Fluent::Plugin
     helpers :timer, :event_loop, :parser, :compat_parameters
 
     RESERVED_CHARS = ['/', '*', '%'].freeze
-    MetricsInfo = Struct.new(:opened, :closed, :rotated)
+    MetricsInfo = Struct.new(:opened, :closed, :rotated, :throttled)
 
     class WatcherSetupError < StandardError
       def initialize(msg)
@@ -208,7 +208,8 @@ module Fluent::Plugin
       opened_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_opened_total", help_text: "Total number of opened files")
       closed_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_closed_total", help_text: "Total number of closed files")
       rotated_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_rotated_total", help_text: "Total number of rotated files")
-      @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics)
+      throttling_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_throttled_total", help_text: "Total number of times throttling occurs per file when throttling enabled")
+      @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics)
     end
 
     def configure_tag
@@ -793,6 +794,7 @@ module Fluent::Plugin
           'opened_file_count' => @metrics.opened.get,
           'closed_file_count' => @metrics.closed.get,
           'rotated_file_count' => @metrics.rotated.get,
+          'throttled_log_count' => @metrics.throttled.get,
         })
       }
       stats
@@ -1192,8 +1194,9 @@ module Fluent::Plugin
         end
 
         def handle_notify
-          return if limit_bytes_per_second_reached?
-          return if group_watcher&.limit_lines_reached?(@path)
+          if limit_bytes_per_second_reached? || group_watcher&.limit_lines_reached?(@path)
+            @metrics.throttled.inc
+            return
 
           with_io do |io|
             begin
@@ -1220,6 +1223,7 @@ module Fluent::Plugin
 
                     if group_watcher_limit || limit_bytes_per_second_reached? || should_shutdown_now?
                       # Just get out from tailing loop.
+                      @metrics.throttled.inc
                       read_more = false
                       break
                     end
