@@ -1197,6 +1197,7 @@ module Fluent::Plugin
           if limit_bytes_per_second_reached? || group_watcher&.limit_lines_reached?(@path)
             @metrics.throttled.inc
             return
+          end
 
           with_io do |io|
             begin
