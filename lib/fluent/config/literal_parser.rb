@@ -285,7 +285,6 @@ EOM
         end
 
         JSON.dump(result)
-
       end
     end
   end
