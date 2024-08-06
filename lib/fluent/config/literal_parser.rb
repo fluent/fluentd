@@ -155,11 +155,11 @@ module Fluent
       end
 
       def scan_embedded_code
-        src = '#{'+@ss.rest+"\n=begin\n=end\n}"
+        src = '"#{'+@ss.rest+"\n=begin\n=end\n}"
 
         seek = -1
         while (seek = src.index('}', seek + 1))
-          unless Ripper.sexp(src[0..seek]).nil? # eager parsing until valid expression
+          unless Ripper.sexp(src[0..seek] + '"').nil? # eager parsing until valid expression
             break
           end
         end
@@ -168,7 +168,7 @@ module Fluent
           raise Fluent::ConfigParseError, @ss.rest
         end
 
-        code = src[2, seek-2]
+        code = src[3, seek-3]
 
         if @ss.rest.length < code.length
           @ss.pos += @ss.rest.length
@@ -176,6 +176,7 @@ module Fluent
         end
 
         @ss.pos += code.length
+
         '"#{' + code + '}"'
       end
 
