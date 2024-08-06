@@ -176,7 +176,6 @@ module Fluent
         end
 
         @ss.pos += code.length
-        p code
         '"#{' + code + '}"'
       end
 
