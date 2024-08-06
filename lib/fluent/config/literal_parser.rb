@@ -176,7 +176,7 @@ module Fluent
         end
 
         @ss.pos += code.length
-
+        p code
         '"#{' + code + '}"'
       end
 
@@ -254,11 +254,13 @@ EOM
               buffer << line_buffer + "\n"
               line_buffer = ""
             else
-              # '#' is a char in json string
-              if skip(/\{/)
+              if @ss.exist?(/\{[^}]+\}/)
+                # if it's interpolated string
+                skip(/\{/)
                 line_buffer << eval_embedded_code(scan_embedded_code)
                 skip(/\}/)
               else
+                # '#' is a char in json string
                 line_buffer << char
               end
             end
