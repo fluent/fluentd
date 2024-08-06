@@ -1224,7 +1224,7 @@ module Fluent::Plugin
 
                     if group_watcher_limit || limit_bytes_per_second_reached? || should_shutdown_now?
                       # Just get out from tailing loop.
-                      @metrics.throttled.inc
+                      @metrics.throttled.inc if group_watcher_limit || limit_bytes_per_second_reached?
                       read_more = false
                       break
                     end
