@@ -155,11 +155,11 @@ module Fluent
       end
 
       def scan_embedded_code
-        src = '"#{'+@ss.rest+"\n=begin\n=end\n}"
+        src = '#{'+@ss.rest+"\n=begin\n=end\n}"
 
         seek = -1
         while (seek = src.index('}', seek + 1))
-          unless Ripper.sexp(src[0..seek] + '"').nil? # eager parsing until valid expression
+          unless Ripper.sexp(src[0..seek]).nil? # eager parsing until valid expression
             break
           end
         end
@@ -168,7 +168,7 @@ module Fluent
           raise Fluent::ConfigParseError, @ss.rest
         end
 
-        code = src[3, seek-3]
+        code = src[2, seek-2]
 
         if @ss.rest.length < code.length
           @ss.pos += @ss.rest.length
@@ -255,7 +255,12 @@ EOM
               line_buffer = ""
             else
               # '#' is a char in json string
-              line_buffer << char
+              if skip(/\{/)
+                line_buffer << eval_embedded_code(scan_embedded_code)
+                skip(/\}/)
+              else
+                line_buffer << char
+              end
             end
 
             next # This char '#' MUST NOT terminate json object.
@@ -280,6 +285,7 @@ EOM
         end
 
         JSON.dump(result)
+
       end
     end
   end
