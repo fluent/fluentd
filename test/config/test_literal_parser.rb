@@ -259,6 +259,17 @@ module Fluent::Config
       test('[ "a" , "b" ]') { assert_text_parsed_as_json(["a","b"], '[ "a" , "b" ]') }
       test("[\n\"a\"\n,\n\"b\"\n]") { assert_text_parsed_as_json(["a","b"], "[\n\"a\"\n,\n\"b\"\n]") }
       test('["ab","cd"]') { assert_text_parsed_as_json(["ab","cd"], '["ab","cd"]') }
+      test('["a","#{v1}"') { assert_text_parsed_as_json(["a","#{v1}"], '["a","#{v1}"]') }
+      test('["a","#{v1}","#{v2}"]') { assert_text_parsed_as_json(["a","#{v1}","#{v2}"], '["a","#{v1}","#{v2}"]') }
+      test('["a","#{v1} #{v2}"]') { assert_text_parsed_as_json(["a","#{v1} #{v2}"], '["a","#{v1} #{v2}"]') }
+      test('["a","#{hostname}"]') { assert_text_parsed_as_json(["a","#{Socket.gethostname}"], '["a","#{hostname}"]') }
+      test('["a","foo#{worker_id}"]') {
+        ENV.delete('SERVERENGINE_WORKER_ID')
+        assert_text_parsed_as('["a","foo"]', '["a","foo#{worker_id}"]')
+        ENV['SERVERENGINE_WORKER_ID'] = '1'
+        assert_text_parsed_as('["a","foo1"]', '["a","foo#{worker_id}"]')
+        ENV.delete('SERVERENGINE_WORKER_ID')
+      }
       json_array_with_js_comment = <<EOA
 [
  "a", // this is a
@@ -296,6 +307,18 @@ EOA
       test('{"a":"b","c":"d"}') { assert_text_parsed_as_json({"a"=>"b","c"=>"d"}, '{"a":"b","c":"d"}') }
       test('{ "a" : "b" , "c" : "d" }') { assert_text_parsed_as_json({"a"=>"b","c"=>"d"}, '{ "a" : "b" , "c" : "d" }') }
       test('{\n\"a\"\n:\n\"b\"\n,\n\"c\"\n:\n\"d\"\n}') { assert_text_parsed_as_json({"a"=>"b","c"=>"d"}, "{\n\"a\"\n:\n\"b\"\n,\n\"c\"\n:\n\"d\"\n}") }
+      test('{"a":"b","c":"#{v1}"}') { assert_text_parsed_as_json({"a"=>"b","c"=>"#{v1}"}, '{"a":"b","c":"#{v1}"}') }
+      test('{"a":"b","#{v1}":"d"}') { assert_text_parsed_as_json({"a"=>"b","#{v1}"=>"d"}, '{"a":"b","#{v1}":"d"}') }
+      test('{"a":"#{v1}","c":"#{v2}"}') { assert_text_parsed_as_json({"a"=>"#{v1}","c"=>"#{v2}"}, '{"a":"#{v1}","c":"#{v2}"}') }
+      test('{"a":"b","c":"d #{v1} #{v2}"}') { assert_text_parsed_as_json({"a"=>"b","c"=>"d #{v1} #{v2}"}, '{"a":"b","c":"d #{v1} #{v2}"}') }
+      test('{"a":"#{hostname}"}') { assert_text_parsed_as_json({"a"=>"#{Socket.gethostname}"}, '{"a":"#{hostname}"}') }
+      test('{"a":"foo#{worker_id}"}') {
+        ENV.delete('SERVERENGINE_WORKER_ID')
+        assert_text_parsed_as('{"a":"foo"}', '{"a":"foo#{worker_id}"}')
+        ENV['SERVERENGINE_WORKER_ID'] = '1'
+        assert_text_parsed_as('{"a":"foo1"}', '{"a":"foo#{worker_id}"}')
+        ENV.delete('SERVERENGINE_WORKER_ID')
+      }
       json_hash_with_comment = <<EOH
 {
  "a": 1, # this is a
