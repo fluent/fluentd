@@ -10,7 +10,7 @@ permissions: read-all
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
+    continue-on-error: false
     strategy:
       fail-fast: false
       matrix:
