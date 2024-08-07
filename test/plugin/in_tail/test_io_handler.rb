@@ -15,7 +15,9 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       closed_file_metrics.configure(config_element('metrics', '', {}))
       rotated_file_metrics = Fluent::Plugin::LocalMetrics.new
       rotated_file_metrics.configure(config_element('metrics', '', {}))
-      @metrics = Fluent::Plugin::TailInput::MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics)
+      throttling_metrics = Fluent::Plugin::LocalMetrics.new
+      throttling_metrics.configure(config_element('metrics', '', {}))
+      @metrics = Fluent::Plugin::TailInput::MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics)
       yield
     end
   end
