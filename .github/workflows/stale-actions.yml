@@ -18,7 +18,7 @@ jobs:
         close-pr-message: "This PR was automatically closed because of stale in 7 days"
         stale-pr-label: "stale"
         stale-issue-label: "stale"
-        exempt-issue-labels: "waiting-for-triage,bug,enhancement,feature request,pending,work_in_progress,v1,v2"
-        exempt-pr-labels: "waiting-for-triage,bug,enhancement,feature request,pending,work_in_progress,v1,v2"
+        exempt-issue-labels: "waiting-for-triage,bug,enhancement,feature request,pending,work-in-progress,v1,v2"
+        exempt-pr-labels: "waiting-for-triage,bug,enhancement,feature request,pending,work-in-progress,v1,v2"
         exempt-all-assignees: true
         exempt-all-milestones: true
