@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/test/driver/output'
 require 'fluent/plugin/out_file'
@@ -400,7 +402,7 @@ class FileOutputTest < Test::Unit::TestCase
   def check_gzipped_result(path, expect)
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520
-    result = ''
+    result = +''
     File.open(path, "rb") { |io|
       loop do
         gzr = Zlib::GzipReader.new(StringIO.new(io.read))
@@ -579,7 +581,7 @@ class FileOutputTest < Test::Unit::TestCase
         </buffer>
       ]
       if compression
-        config << "        compress gz"
+        config += "        compress gz"
       end
       d = create_driver(config)
       d.run(default_tag: 'test'){
@@ -589,7 +591,7 @@ class FileOutputTest < Test::Unit::TestCase
       d.instance.last_written_path
     }
 
-    log_file_name = "out_file_test.20110102.log"
+    log_file_name = +"out_file_test.20110102.log"
     if compression
       log_file_name << ".gz"
     end

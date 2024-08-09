@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../../helper'
 
 require 'fluent/plugin/in_tail'
@@ -40,13 +42,13 @@ class IntailIOHandlerTest < Test::Unit::TestCase
     update_pos = 0
 
     stub(watcher).pe do
-      pe = 'position_file'
+      pe = +'position_file'
       stub(pe).read_pos { 0 }
       stub(pe).update_pos { |val| update_pos = val }
       pe
     end
 
-    returned_lines = ''
+    returned_lines = +''
     r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: false, metrics: @metrics) do |lines, _watcher|
       returned_lines << lines.join
       true
@@ -72,13 +74,13 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       watcher = create_watcher
       stub(watcher).pe do
-        pe = 'position_file'
+        pe = +'position_file'
         stub(pe).read_pos { 0 }
         stub(pe).update_pos { |val| update_pos = val }
         pe
       end
 
-      returned_lines = ''
+      returned_lines = +''
       r = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1, log: $log, open_on_every_update: true, metrics: @metrics) do |lines, _watcher|
         returned_lines << lines.join
         true
@@ -103,7 +105,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       watcher = create_watcher
       stub(watcher).pe do
-        pe = 'position_file'
+        pe = +'position_file'
         stub(pe).read_pos { 0 }
         stub(pe).update_pos { |val| update_pos = val }
         pe
@@ -130,7 +132,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       watcher = create_watcher
       stub(watcher).pe do
-        pe = 'position_file'
+        pe = +'position_file'
         stub(pe).read_pos { 0 }
         stub(pe).update_pos { |val| update_pos = val }
         pe
@@ -163,7 +165,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       watcher = create_watcher
       stub(watcher).pe do
-        pe = 'position_file'
+        pe = +'position_file'
         stub(pe).read_pos {0}
         stub(pe).update_pos { |val| update_pos = val }
         pe
@@ -191,7 +193,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       watcher = create_watcher
       stub(watcher).pe do
-        pe = 'position_file'
+        pe = +'position_file'
         stub(pe).read_pos { pos }
         stub(pe).update_pos { |val| pos = val }
         pe
@@ -242,7 +244,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
 
       watcher = create_watcher
       stub(watcher).pe do
-        pe = 'position_file'
+        pe = +'position_file'
         stub(pe).read_pos { pos }
         stub(pe).update_pos { |val| pos = val }
         pe

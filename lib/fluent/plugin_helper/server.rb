@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -465,7 +467,7 @@ module Fluent
         def initialize(sock)
           super("tcp", sock, ENABLED_EVENTS)
           @peeraddr = (@sock.peeraddr rescue PEERADDR_FAILED)
-          @buffer = ''
+          @buffer = +''
         end
 
         def write(data)
@@ -675,7 +677,7 @@ module Fluent
             socket_option_setter.call(sock)
             @_handler_socket = OpenSSL::SSL::SSLSocket.new(sock, context)
             @_handler_socket.sync_close = true
-            @_handler_write_buffer = ''.force_encoding('ascii-8bit')
+            @_handler_write_buffer = (+'').force_encoding('ascii-8bit')
             @_handler_accepted = false
             super(@_handler_socket)
 

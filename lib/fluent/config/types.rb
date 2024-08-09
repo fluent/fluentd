@@ -183,7 +183,7 @@ module Fluent
         value
       else
         case type
-        when :string  then value.to_s.force_encoding(Encoding::UTF_8)
+        when :string  then (+(value.to_s)).force_encoding(Encoding::UTF_8)
         when :integer then INTEGER_TYPE.call(value, opts, name)
         when :float   then FLOAT_TYPE.call(value, opts, name)
         when :size then Config.size_value(value, opts, name)

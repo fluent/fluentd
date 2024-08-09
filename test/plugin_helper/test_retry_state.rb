@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/plugin_helper/retry_state'
 require 'fluent/plugin/base'
@@ -965,7 +967,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
       trying_count = 1000 # just for avoiding infinite loop
 
       retry_records = []
-      msg = ""
+      msg = +""
 
       s = @d.retry_state_create(
         :t15, :exponential_backoff, data[:wait], data[:timeout],

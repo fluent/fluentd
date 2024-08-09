@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/plugin_helper/parser'
 require 'fluent/plugin/base'

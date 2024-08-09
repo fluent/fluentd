@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -719,7 +721,7 @@ module Fluent::Plugin
 
     def convert_line_to_event(line, es, tail_watcher)
       begin
-        line.chomp!  # remove \n
+        line = line.chomp # remove \n
         @parser.parse(line) { |time, record|
           if time && record
             record[@path_key] ||= tail_watcher.path unless @path_key.nil?
@@ -771,13 +773,13 @@ module Fluent::Plugin
           end
         }
       else
-        lb ||= ''
+        lb ||= +''
         lines.each do |line|
           lb << line
           @parser.parse(lb) { |time, record|
             if time && record
               convert_line_to_event(lb, es, tail_watcher)
-              lb = ''
+              lb = +''
             end
           }
         end
@@ -1010,7 +1012,7 @@ module Fluent::Plugin
           @from_encoding = from_encoding
           @encoding = encoding
           @need_enc = from_encoding != encoding
-          @buffer = ''.force_encoding(from_encoding)
+          @buffer = (+'').force_encoding(from_encoding)
           @eol = "\n".encode(from_encoding).freeze
           @max_line_size = max_line_size
           @skip_current_line = false
@@ -1032,6 +1034,7 @@ module Fluent::Plugin
           # quad-byte encoding to IO#readpartial as the second arguments results in an
           # assertion failure on Ruby < 2.4.0 for unknown reasons.
           orig_encoding = chunk.encoding
+          chunk = chunk.frozen? ? chunk.dup : chunk
           chunk.force_encoding(from_encoding)
           @buffer << chunk
           # Thus the encoding needs to be reverted back here
@@ -1118,7 +1121,7 @@ module Fluent::Plugin
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
           @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT, log, max_line_size)
-          @iobuf = ''.force_encoding('ASCII-8BIT')
+          @iobuf = (+'').force_encoding('ASCII-8BIT')
           @lines = []
           @io = nil
           @notify_mutex = Mutex.new

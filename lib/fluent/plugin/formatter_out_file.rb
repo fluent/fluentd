@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -43,7 +45,7 @@ module Fluent
       end
 
       def format(tag, time, record)
-        header = ''
+        header = +''
         header << "#{@timef.format(time)}#{@delimiter}" if @output_time
         header << "#{tag}#{@delimiter}" if @output_tag
         "#{header}#{Yajl.dump(record)}#{@newline}"

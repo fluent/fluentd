@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -67,7 +69,7 @@ module Fluent
     end
 
     def help_text
-      text = "\n"
+      text = +"\n"
       if Fluent.windows?
         text << "Usage: #{$PROGRAM_NAME} COMMAND [PID_OR_SVCNAME]\n"
       else

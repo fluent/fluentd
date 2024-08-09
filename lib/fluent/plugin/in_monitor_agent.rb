@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -102,7 +104,7 @@ module Fluent::Plugin
 
       def render_ltsv(obj, code: 200)
         normalized = JSON.parse(obj.to_json)
-        text = ''
+        text = +''
         normalized.each do |hash|
           row = []
           hash.each do |k, v|

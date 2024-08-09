@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -30,7 +32,7 @@ module Fluent
 
         StringValue = Struct.new(:val, :context) do
           def to_s
-            context.instance_eval("\"#{val}\"")
+            context.instance_eval("\"#{val}\"").freeze
           rescue Fluent::SetNil => _
             ''
           rescue Fluent::SetDefault => _

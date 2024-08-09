@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'time'
 require 'fileutils'
@@ -113,7 +115,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
   def check_gzipped_result(path, expect)
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520
-    result = ""
+    result = +""
     waiting(10) do
       # we can expect that GzipReader#read can wait unflushed raw data of `io` on disk
       File.open(path, "rb") { |io|

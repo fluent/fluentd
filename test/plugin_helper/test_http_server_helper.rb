@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'flexmock/test_unit'
 require 'fluent/plugin_helper/http_server'

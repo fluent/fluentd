@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../../helper'
 
 require 'fluent/plugin/in_tail'
@@ -57,7 +59,7 @@ class IntailFIFO < Test::Unit::TestCase
         lines = []
         fifo.read_lines(lines)
         assert_equal Encoding::ASCII_8BIT, lines[0].encoding
-        assert_equal ["てすと\n", "てすと\n", "てすと\n"].map { |e| e.force_encoding(Encoding::ASCII_8BIT) }, lines
+        assert_equal ["てすと\n", "てすと\n", "てすと\n"].map { |e| (+e).force_encoding(Encoding::ASCII_8BIT) }, lines
       end
 
       test 'replaces character with ? when convert error happens' do
@@ -67,7 +69,7 @@ class IntailFIFO < Test::Unit::TestCase
         lines = []
         fifo.read_lines(lines)
         assert_equal Encoding::ASCII_8BIT, lines[0].encoding
-        assert_equal ["???\n", "???\n", "???\n"].map { |e| e.force_encoding(Encoding::ASCII_8BIT) }, lines
+        assert_equal ["???\n", "???\n", "???\n"].map { |e| (+e).force_encoding(Encoding::ASCII_8BIT) }, lines
       end
     end
 
@@ -121,7 +123,7 @@ class IntailFIFO < Test::Unit::TestCase
       lines = []
 
       input_texts.each do |text|
-        fifo << text.force_encoding(Encoding::ASCII_8BIT)
+        fifo << (+text).force_encoding(Encoding::ASCII_8BIT)
         fifo.read_lines(lines)
         # The size of remaining buffer (i.e. a line still not having EOL) must not exceed max_line_size.
         assert { fifo.buffer.bytesize <= max_line_size }

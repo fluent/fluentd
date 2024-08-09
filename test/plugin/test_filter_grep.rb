@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/plugin/filter_grep'
 require 'fluent/test/driver/filter'
@@ -329,7 +331,7 @@ class GrepFilterTest < Test::Unit::TestCase
 
       test "don't raise an exception" do
         assert_nothing_raised { 
-          filter(%[regexp1 message WARN], ["\xff".force_encoding('UTF-8')])
+          filter(%[regexp1 message WARN], [(+"\xff").force_encoding('UTF-8')])
         }
       end
     end

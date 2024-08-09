@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'helper'
 require 'fluent/event_router'
 require 'fluent/system_config'

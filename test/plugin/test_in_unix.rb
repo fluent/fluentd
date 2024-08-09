@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/test/driver/input'
 require 'fluent/plugin/in_unix'
@@ -115,7 +117,7 @@ class UnixInputTest < Test::Unit::TestCase
     ]
 
     @d.run(expect_records: records.length, timeout: 20) do
-      entries = ''
+      entries = +''
       records.each {|_tag, _time, record|
         packer(entries).write([_time, record]).flush
       }

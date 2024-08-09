@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 
 require 'test-unit'
@@ -28,7 +30,7 @@ class TestFluentdCtl < ::Test::Unit::TestCase
 
     if Fluent.windows?
       event_name = "fluentd_54321"
-      event_name << "_#{event_suffix}" unless event_suffix.empty?
+      event_name += "_#{event_suffix}" unless event_suffix.empty?
       assert_win32_event(event_name, command, "54321")
     else
       got_signal = false
@@ -49,7 +51,7 @@ class TestFluentdCtl < ::Test::Unit::TestCase
 
     command, event_suffix = data
     event_name = "testfluentdwinsvc"
-    event_name << "_#{event_suffix}" unless event_suffix.empty?
+    event_name += "_#{event_suffix}" unless event_suffix.empty?
 
     assert_win32_event(event_name, command, "testfluentdwinsvc")
   end

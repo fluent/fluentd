@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -187,8 +189,7 @@ module Fluent::Plugin
         send_keepalive_packet: @send_keepalive_packet
       ) do |conn|
         conn.data do |data|
-          buffer = conn.buffer
-          buffer << data
+          buffer = conn.buffer + data
           pos = 0
           if octet_count_frame
             while idx = buffer.index(delimiter, pos)

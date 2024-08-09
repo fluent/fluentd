@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../../helper'
 require 'fluent/test/driver/output'
 require 'flexmock/test_unit'
@@ -13,7 +15,7 @@ class ConnectionManager < Test::Unit::TestCase
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
           secure: false,
-          connection_factory: -> (_, _, _) { sock = 'sock'; mock(sock).close.never; sock },
+          connection_factory: -> (_, _, _) { sock = +'sock'; mock(sock).close.never; sock },
           socket_cache: nil,
         )
 
@@ -28,7 +30,7 @@ class ConnectionManager < Test::Unit::TestCase
           log: $log,
           secure: false,
           connection_factory: -> (_, _, _) {
-            sock = 'sock'
+            sock = +'sock'
             mock(sock).close.once
             mock(sock).close_write.once
             sock
@@ -47,7 +49,7 @@ class ConnectionManager < Test::Unit::TestCase
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
           secure: true,
-          connection_factory: -> (_, _, _) { sock = 'sock'; mock(sock).close.never; sock },
+          connection_factory: -> (_, _, _) { sock = +'sock'; mock(sock).close.never; sock },
           socket_cache: nil,
         )
 
@@ -58,7 +60,7 @@ class ConnectionManager < Test::Unit::TestCase
       end
 
       test 'when passed ack' do
-        sock = 'sock'
+        sock = +'sock'
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
           secure: false,
@@ -71,7 +73,7 @@ class ConnectionManager < Test::Unit::TestCase
         )
 
         mock.proxy(cm).connect_keepalive(anything).never
-        ack = mock('ack').enqueue(sock).once.subject
+        ack = mock(+'ack').enqueue(sock).once.subject
         cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |sock, ri|
           assert_equal(sock, 'sock')
           assert_equal(ri.state, :established)
@@ -87,7 +89,7 @@ class ConnectionManager < Test::Unit::TestCase
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
           secure: false,
-          connection_factory: -> (_, _, _) { sock = 'sock'; mock(sock).close.never; sock },
+          connection_factory: -> (_, _, _) { sock = +'sock'; mock(sock).close.never; sock },
           socket_cache: cache,
         )
 
@@ -105,7 +107,7 @@ class ConnectionManager < Test::Unit::TestCase
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
           secure: false,
-          connection_factory: -> (_, _, _) { sock = 'sock'; mock(sock); sock },
+          connection_factory: -> (_, _, _) { sock = +'sock'; mock(sock); sock },
           socket_cache: cache,
         )
 
@@ -120,8 +122,8 @@ class ConnectionManager < Test::Unit::TestCase
       test 'does not call dec_ref when ack is passed' do
         cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
         mock(cache).checkin('sock').never
-        sock = 'sock'
-        ack = stub('ack').enqueue(sock).once.subject
+        sock = +'sock'
+        ack = stub(+'ack').enqueue(sock).once.subject
 
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,

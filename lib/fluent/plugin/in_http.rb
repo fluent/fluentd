@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -56,7 +58,7 @@ module Fluent::Plugin
 
     helpers :parser, :compat_parameters, :event_loop, :server
 
-    EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
+    EMPTY_GIF_IMAGE = (+"GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;").force_encoding("UTF-8")
 
     desc 'The port to listen to.'
     config_param :port, :integer, default: 9880
@@ -375,7 +377,7 @@ module Fluent::Plugin
       end
 
       def on_message_begin
-        @body = ''
+        @body = +''
       end
 
       def on_headers_complete(headers)
@@ -602,7 +604,7 @@ module Fluent::Plugin
         header['Content-Length'] ||= body.bytesize
         header['Content-Type'] ||= 'text/plain'.freeze
 
-        data = %[HTTP/1.1 #{code}\r\n]
+        data = +"HTTP/1.1 #{code}\r\n"
         header.each_pair {|k,v|
           data << "#{k}: #{v}\r\n"
         }
@@ -613,7 +615,7 @@ module Fluent::Plugin
       end
 
       def send_response_nobody(code, header)
-        data = %[HTTP/1.1 #{code}\r\n]
+        data = +"HTTP/1.1 #{code}\r\n"
         header.each_pair {|k,v|
           data << "#{k}: #{v}\r\n"
         }

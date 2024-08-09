@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -22,7 +24,7 @@ module Fluent
       class MemoryChunk < Chunk
         def initialize(metadata, compress: :text)
           super
-          @chunk = ''.force_encoding(Encoding::ASCII_8BIT)
+          @chunk = (+'').force_encoding(Encoding::ASCII_8BIT)
           @chunk_bytes = 0
           @adding_bytes = 0
           @adding_size = 0
@@ -68,7 +70,7 @@ module Fluent
 
         def purge
           super
-          @chunk = ''.force_encoding("ASCII-8BIT")
+          @chunk = (+'').force_encoding("ASCII-8BIT")
           @chunk_bytes = @size = @adding_bytes = @adding_size = 0
           true
         end

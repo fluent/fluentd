@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -79,7 +81,7 @@ class FluentPluginConfigFormatter
   private
 
   def dump_txt(dumped_config)
-    dumped = ""
+    dumped = +""
     plugin_helpers = dumped_config.delete(:plugin_helpers)
     if plugin_helpers && !plugin_helpers.empty?
       dumped << "helpers: #{plugin_helpers.join(',')}\n"
@@ -101,7 +103,7 @@ class FluentPluginConfigFormatter
   end
 
   def dump_section_txt(base_section, level = 0)
-    dumped = ""
+    dumped = +""
     indent = " " * level
     if base_section[:section]
       sections = []
@@ -135,10 +137,10 @@ class FluentPluginConfigFormatter
   end
 
   def dump_markdown(dumped_config)
-    dumped = ""
+    dumped = +""
     plugin_helpers = dumped_config.delete(:plugin_helpers)
     if plugin_helpers && !plugin_helpers.empty?
-      dumped = "## Plugin helpers\n\n"
+      dumped = +"## Plugin helpers\n\n"
       plugin_helpers.each do |plugin_helper|
         dumped << "* #{plugin_helper_markdown_link(plugin_helper)}\n"
       end
@@ -156,7 +158,7 @@ class FluentPluginConfigFormatter
   end
 
   def dump_section_markdown(base_section, level = 0)
-    dumped = ""
+    dumped = +""
     if base_section[:section]
       sections = []
       params = base_section

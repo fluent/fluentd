@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -205,7 +207,7 @@ module Fluent
         @format = :text
         @formatter = Proc.new { |type, time, level, msg|
           r = caller_line(type, time, @depth_offset, level)
-          r << msg
+          r += msg
           r
         }
       when :json
@@ -550,7 +552,7 @@ module Fluent
 
     def event(level, args)
       time = Time.now
-      message = @optional_header ? @optional_header.dup : ''
+      message = @optional_header ? @optional_header.dup : +''
       map = @optional_attrs ? @optional_attrs.dup : {}
       args.each {|a|
         if a.is_a?(Hash)
