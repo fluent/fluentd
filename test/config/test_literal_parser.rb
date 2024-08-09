@@ -319,6 +319,9 @@ EOA
         assert_text_parsed_as('{"a":"foo1"}', '{"a":"foo#{worker_id}"}')
         ENV.delete('SERVERENGINE_WORKER_ID')
       }
+      test('no quote') { assert_text_parsed_as_json({'a'=>'b','c'=>'test'}, '{"a":"b","c":"#{v1}"}') }
+      test('single quote') { assert_text_parsed_as_json({'a'=>'b','c'=>'#{v1}'}, '\'{"a":"b","c":"#{v1}"}\'') }
+      test('double quote') { assert_text_parsed_as_json({'a'=>'b','c'=>'test'}, '"{\"a\":\"b\",\"c\":\"#{v1}\"}"') }
       json_hash_with_comment = <<EOH
 {
  "a": 1, # this is a
