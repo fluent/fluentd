@@ -254,7 +254,7 @@ EOM
               buffer << line_buffer + "\n"
               line_buffer = ""
             else
-              if @ss.exist?(/\{[^}]+\}/)
+              if @ss.exist?(/^\{[^}]+\}/)
                 # if it's interpolated string
                 skip(/\{/)
                 line_buffer << eval_embedded_code(scan_embedded_code)
