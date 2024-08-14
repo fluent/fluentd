@@ -41,7 +41,7 @@ module Fluent
       def start
         super
         unless self.started?
-          @@_super_start[self.class].bind(self).call
+          @@_super_start[self.class].bind_call(self)
           # #super will reset logdev (especially in test), so this warn should be after calling it
           log.warn "super was not called in #start: called it forcedly", plugin: self.class
         end
@@ -51,7 +51,7 @@ module Fluent
         super
         unless self.before_shutdown?
           log.warn "super was not called in #before_shutdown: calling it forcedly", plugin: self.class
-          @@_super_before_shutdown[self.class].bind(self).call
+          @@_super_before_shutdown[self.class].bind_call(self)
         end
       end
 
@@ -68,7 +68,7 @@ module Fluent
         super
         unless self.shutdown?
           log.warn "super was not called in #shutdown: calling it forcedly", plugin: self.class
-          @@_super_shutdown[self.class].bind(self).call
+          @@_super_shutdown[self.class].bind_call(self)
         end
       end
     end
