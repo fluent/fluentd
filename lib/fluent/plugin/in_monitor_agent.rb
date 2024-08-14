@@ -125,21 +125,21 @@ module Fluent::Plugin
 
       def build_object(opts)
         qs = opts[:query]
-        if tag = qs['tag'.freeze].first
+        if tag = qs['tag'].first
           # ?tag= to search an output plugin by match pattern
           if obj = @agent.plugin_info_by_tag(tag, opts)
             list = [obj]
           else
             list = []
           end
-        elsif plugin_id = (qs['@id'.freeze].first || qs['id'.freeze].first)
+        elsif plugin_id = (qs['@id'].first || qs['id'].first)
           # ?@id= to search a plugin by 'id <plugin_id>' config param
           if obj = @agent.plugin_info_by_id(plugin_id, opts)
             list = [obj]
           else
             list = []
           end
-        elsif plugin_type = (qs['@type'.freeze].first || qs['type'.freeze].first)
+        elsif plugin_type = (qs['@type'].first || qs['type'].first)
           # ?@type= to search plugins by 'type <type>' config param
           list = @agent.plugins_info_by_type(plugin_type, opts)
         else
@@ -160,22 +160,22 @@ module Fluent::Plugin
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
         # and :pretty_json for render_json_error
         opts = { query: qs }
-        if qs['debug'.freeze].first
+        if qs['debug'].first
           opts[:with_debug_info] = true
           opts[:pretty_json] = true
         end
 
-        if ivars = qs['with_ivars'.freeze].first
+        if ivars = qs['with_ivars'].first
           opts[:ivars] = ivars.split(',')
         end
 
-        if with_config = qs['with_config'.freeze].first
+        if with_config = qs['with_config'].first
           opts[:with_config] = Fluent::Config.bool_value(with_config)
         else
           opts[:with_config] = @agent.include_config
         end
 
-        if with_retry = qs['with_retry'.freeze].first
+        if with_retry = qs['with_retry'].first
           opts[:with_retry] = Fluent::Config.bool_value(with_retry)
         else
           opts[:with_retry] = @agent.include_retry
@@ -388,13 +388,13 @@ module Fluent::Plugin
     def plugin_category(pe)
       case pe
       when Fluent::Plugin::Input
-        'input'.freeze
+        'input'
       when Fluent::Plugin::Output, Fluent::Plugin::MultiOutput, Fluent::Plugin::BareOutput
-        'output'.freeze
+        'output'
       when Fluent::Plugin::Filter
-        'filter'.freeze
+        'filter'
       else
-        'unknown'.freeze
+        'unknown'
       end
     end
 

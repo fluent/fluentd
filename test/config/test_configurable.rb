@@ -535,7 +535,7 @@ module Fluent::Config
 
         test 'can accept frozen string' do
           b2 = ConfigurableSpec::Base2.new
-          assert_instance_of(ConfigurableSpec::Base2, b2.configure(config_element("", "", {"name1" => "t1".freeze, "name5" => "t5", "opt3" => "a"})))
+          assert_instance_of(ConfigurableSpec::Base2, b2.configure(config_element("", "", {"name1" => "t1", "name5" => "t5", "opt3" => "a"})))
         end
 
         test 'raise errors without any specifications for param without defaults' do

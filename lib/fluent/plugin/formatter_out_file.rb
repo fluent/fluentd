@@ -31,9 +31,9 @@ module Fluent
       config_param :output_tag, :bool, default: true
       config_param :delimiter, default: "\t" do |val|
         case val
-        when /SPACE/i then ' '.freeze
-        when /COMMA/i then ','.freeze
-        else "\t".freeze
+        when /SPACE/i then ' '
+        when /COMMA/i then ','
+        else "\t"
         end
       end
       config_set_default :time_type, :string
