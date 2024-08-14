@@ -448,7 +448,7 @@ module Fluent::Plugin
       # Azure App Service sends GET requests for health checking purpose.
       # Respond with `200 OK` to accommodate it.
       def handle_get_request
-          return send_response_and_close(RES_200_STATUS, {}, "")
+        return send_response_and_close(RES_200_STATUS, {}, "")
       end
 
       # Web browsers can send an OPTIONS request before performing POST

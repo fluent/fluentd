@@ -76,10 +76,10 @@ module Fluent
       parse_options!(@argv)
 
       target_file = if !!@opts[:target_file]
-                       @opts[:target_file]
-                     else
-                       File.readlink("/proc/self/exe")
-                     end
+                      @opts[:target_file]
+                    else
+                      File.readlink("/proc/self/exe")
+                    end
 
       if @opts[:clear_capabilities]
         clear_capabilities(@opts, target_file)

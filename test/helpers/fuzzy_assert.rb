@@ -33,9 +33,9 @@ class FuzzyIncludeAssertion
 
   def assert_same_class
     if @expected.class != @actual.class
-     if (@expected.class.ancestors | @actual.class.ancestors).empty?
-       assert_equal(@expected.class, @actual.class, @message)
-     end
+      if (@expected.class.ancestors | @actual.class.ancestors).empty?
+        assert_equal(@expected.class, @actual.class, @message)
+      end
     end
   end
 

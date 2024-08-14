@@ -89,7 +89,7 @@ module Fluent::Plugin
 
       case @copy_mode
       when :no_copy
-         nil
+        nil
       when :shallow
         Proc.new { |es| es.dup }
       when :deep

@@ -98,16 +98,16 @@ module FluentPluginOutputTest
 end
 
 class OutputTest < Test::Unit::TestCase
-    class << self
-      def startup
-        $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '../scripts'))
-        require 'fluent/plugin/out_test'
-      end
-
-      def shutdown
-        $LOAD_PATH.shift
-      end
+  class << self
+    def startup
+      $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '../scripts'))
+      require 'fluent/plugin/out_test'
     end
+
+    def shutdown
+      $LOAD_PATH.shift
+    end
+  end
 
   def create_output(type=:full)
     case type
