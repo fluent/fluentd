@@ -442,8 +442,8 @@ class HTTPOutputTest < Test::Unit::TestCase
       assert_equal test_events, result.data
       assert_not_empty result.headers
       assert_not_nil result.headers['authorization']
-      assert_match /AWS4-HMAC-SHA256 Credential=[a-zA-Z0-9]*\/\d+\/my-region-1\/someservice\/aws4_request/, result.headers['authorization']
-      assert_match /SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token/, result.headers['authorization']
+      assert_match(/AWS4-HMAC-SHA256 Credential=[a-zA-Z0-9]*\/\d+\/my-region-1\/someservice\/aws4_request/, result.headers['authorization'])
+      assert_match(/SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token/, result.headers['authorization'])
       assert_equal @@fake_aws_credentials.session_token, result.headers['x-amz-security-token']
       assert_not_nil result.headers['x-amz-content-sha256']
       assert_not_empty result.headers['x-amz-content-sha256']
@@ -479,8 +479,8 @@ class HTTPOutputTest < Test::Unit::TestCase
       assert_equal test_events, result.data
       assert_not_empty result.headers
       assert_not_nil result.headers['authorization']
-      assert_match /AWS4-HMAC-SHA256 Credential=[a-zA-Z0-9]*\/\d+\/my-region-1\/someservice\/aws4_request/, result.headers['authorization']
-      assert_match /SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token/, result.headers['authorization']
+      assert_match(/AWS4-HMAC-SHA256 Credential=[a-zA-Z0-9]*\/\d+\/my-region-1\/someservice\/aws4_request/, result.headers['authorization'])
+      assert_match(/SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token/, result.headers['authorization'])
       assert_equal @@fake_aws_credentials.session_token, result.headers['x-amz-security-token']
       assert_not_nil result.headers['x-amz-content-sha256']
       assert_not_empty result.headers['x-amz-content-sha256']
