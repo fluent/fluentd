@@ -39,6 +39,9 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("csv", ["~> 3.2"])
   gem.add_runtime_dependency("drb", ["~> 2.2"])
 
+  # gems that aren't default gems as of Ruby 3.5
+  gem.add_runtime_dependency("logger", ["~> 1.6"])
+
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
   gem.platform = fake_platform unless fake_platform.empty?
