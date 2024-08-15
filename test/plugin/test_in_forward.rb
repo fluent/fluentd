@@ -12,7 +12,7 @@ require 'fluent/plugin/compressable'
 require 'timecop'
 
 class ForwardInputTest < Test::Unit::TestCase
- include Fluent::Plugin::Compressable
+  include Fluent::Plugin::Compressable
 
   def setup
     Fluent::Test.setup

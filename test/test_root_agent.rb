@@ -662,7 +662,7 @@ EOC
       end
 
       begin
-      @ra.handle_emits_error("tag", nil, e)
+        @ra.handle_emits_error("tag", nil, e)
       rescue
       end
 

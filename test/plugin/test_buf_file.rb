@@ -352,7 +352,7 @@ class FileBufferTest < Test::Unit::TestCase
         m = metadata()
         c = nil
         Fluent::SystemConfig.overwrite_system_config("file_permission" => "700") do
-           c = plugin.generate_chunk(m)
+          c = plugin.generate_chunk(m)
         end
 
         assert c.is_a? Fluent::Plugin::Buffer::FileChunk

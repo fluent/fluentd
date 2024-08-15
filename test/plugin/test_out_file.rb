@@ -791,9 +791,9 @@ class FileOutputTest < Test::Unit::TestCase
       end
       path = d.instance.last_written_path
       assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13.log", path
-     end
+    end
 
-     test '*' do
+    test '*' do
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test.*.txt
         time_slice_format %Y-%m-%d-%H

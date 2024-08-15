@@ -679,8 +679,8 @@ class LogTest < Test::Unit::TestCase
         assert_true File.exist?(path0)
         assert_true !File.exist?(path1)
       ensure
-       logdev&.close
-     end
+        logdev&.close
+      end
     end
   end
 
