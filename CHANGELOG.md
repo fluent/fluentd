@@ -1,5 +1,51 @@
 # v1.17
 
+## Release v1.17.1 - 2024/08/19
+
+### Enhancement
+
+* yaml_parser: Support $log_level element
+  https://github.com/fluent/fluentd/pull/4482
+* out_file: Add warn message for symlink_path setting
+  https://github.com/fluent/fluentd/pull/4502
+* out_http: Add `compress gzip` option
+  https://github.com/fluent/fluentd/pull/4528
+* in_exec: Add `encoding` option to handle non-ascii characters
+  https://github.com/fluent/fluentd/pull/4533
+* in_tail: Add throttling metrics
+  https://github.com/fluent/fluentd/pull/4578
+* compat: Improve method call performance
+  https://github.com/fluent/fluentd/pull/4588
+* in_sample: Add `reuse_record` parameter to reuse the sample data
+  https://github.com/fluent/fluentd/pull/4586
+  * `in_sample` has changed to copy sample data by default to avoid the impact of destructive changes by subsequent plugins.
+  * This increases the load when generating large amounts of sample data.
+  * You can use this new parameter to have the same performance as before.
+
+### Bug Fix
+
+* logger: Fix LoadError with console gem v1.25
+  https://github.com/fluent/fluentd/pull/4492
+* parser_json: Fix wrong LoadError warning
+  https://github.com/fluent/fluentd/pull/4522
+* in_tail: Fix an issue where a large single line could consume a large amount of memory even though `max_line_size` is set
+  https://github.com/fluent/fluentd/pull/4530
+
+### Misc
+
+* Comment out inappropriate default configuration about out_forward
+  https://github.com/fluent/fluentd/pull/4523
+* gemspec: Remove unnecessary files from released gem
+  https://github.com/fluent/fluentd/pull/4534
+* plugin-generator: Update gemspec to remove unnecessary files
+  https://github.com/fluent/fluentd/pull/4535
+* Suppress non-parenthesis warnings
+  https://github.com/fluent/fluentd/pull/4594
+* Fix FrozenError in http_server plugin helper
+  https://github.com/fluent/fluentd/pull/4598
+* Add logger gem dependency for Ruby 3.5
+  https://github.com/fluent/fluentd/pull/4589
+
 ## Release v1.17.0 - 2024/04/30
 
 ### Enhancement
