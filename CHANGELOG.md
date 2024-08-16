@@ -1,5 +1,21 @@
 # v1.16
 
+## Release v1.16.6 - 2024/08/16
+
+### Enhancement
+
+* yaml_parser: Support $log_level element
+  https://github.com/fluent/fluentd/pull/4486
+
+### Bug Fix
+
+* Fix LoadError with console gem v1.25
+  https://github.com/fluent/fluentd/pull/4510
+* out_file: Add warn message for symlink_path setting
+  https://github.com/fluent/fluentd/pull/4512
+* parser_json: Fix wrong LoadError warning
+  https://github.com/fluent/fluentd/pull/4592
+
 ## Release v1.16.5 - 2024/03/27
 
 ### Bug Fix
