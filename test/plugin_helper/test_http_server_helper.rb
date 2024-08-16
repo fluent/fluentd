@@ -152,7 +152,7 @@ class HttpHelperTest < Test::Unit::TestCase
   end
 
   sub_test_case 'Create a HTTP server' do
-    test 'monunt given path' do
+    test 'mount given path' do
       on_driver do |driver|
         driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
@@ -176,6 +176,17 @@ class HttpHelperTest < Test::Unit::TestCase
           assert_equal("hello #{n}", resp.body)
           assert_equal('text/plain', resp['Content-Type'])
         end
+      end
+    end
+
+    test 'mount frozen path' do
+      on_driver do |driver|
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/example/hello'.freeze) { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
+        end
+
+        resp = get("http://127.0.0.1:#{@port}/example/hello/")
+        assert_equal('200', resp.code)
       end
     end
 
