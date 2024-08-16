@@ -39,6 +39,8 @@ module Fluent::Plugin
     config_param :auto_increment_key, :string, default: nil
     desc "The boolean to suspend-and-resume incremental value after restart"
     config_param :suspend, :bool, default: false,deprecated: 'This parameters is ignored'
+    desc "Reuse the sample data to reduce the load when sending large amounts of data. You can enable it if filter does not do destructive change"
+    config_param :reuse_record, :bool, default: false
     desc "The sample data to be generated. An array of JSON hashes or a single JSON hash."
     config_param :sample, alias: :dummy, default: [{"message" => "sample"}] do |val|
       begin
@@ -117,15 +119,19 @@ module Fluent::Plugin
       end
     end
 
-    def generate
-      d = @sample[@sample_index]
-      unless d
-        @sample_index = 0
-        d = @sample[@sample_index]
-      end
+    def next_sample
+      d = @reuse_record ? @sample[@sample_index] : @sample[@sample_index].dup
       @sample_index += 1
+      return d if d
+
+      @sample_index = 0
+      next_sample
+    end
+
+    def generate
+      d = next_sample
       if @auto_increment_key
-        d = d.dup
+        d = d.dup if @reuse_record
         d[@auto_increment_key] = @storage.update(:auto_increment_value){|v| v + 1 }
       end
       d
