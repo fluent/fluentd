@@ -46,7 +46,7 @@ op.on('--show-plugin-config=PLUGIN', "[DEPRECATED] Show PLUGIN configuration and
 }
 
 op.on('-p', '--plugin DIR', "add plugin directory") {|s|
-  (cmd_opts[:plugin_dirs] ||= []) << s
+  (cmd_opts[:plugin_dirs] ||= default_opts[:plugin_dirs]) << s
 }
 
 op.on('-I PATH', "add library path") {|s|
