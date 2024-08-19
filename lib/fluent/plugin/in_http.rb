@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -56,7 +58,7 @@ module Fluent::Plugin
 
     helpers :parser, :compat_parameters, :event_loop, :server
 
-    EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
+    EMPTY_GIF_IMAGE = (+"GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;").force_encoding("UTF-8")
 
     desc 'The port to listen to.'
     config_param :port, :integer, default: 9880
@@ -193,11 +195,11 @@ module Fluent::Plugin
     end
 
     RES_TEXT_HEADER = {'Content-Type' => 'text/plain'}.freeze
-    RESPONSE_200 = ["200 OK".freeze, RES_TEXT_HEADER, "".freeze].freeze
-    RESPONSE_204 = ["204 No Content".freeze, {}.freeze].freeze
-    RESPONSE_IMG = ["200 OK".freeze, {'Content-Type'=>'image/gif; charset=utf-8'}.freeze, EMPTY_GIF_IMAGE].freeze
-    RES_400_STATUS = "400 Bad Request".freeze
-    RES_500_STATUS = "500 Internal Server Error".freeze
+    RESPONSE_200 = ["200 OK", RES_TEXT_HEADER, ""].freeze
+    RESPONSE_204 = ["204 No Content", {}.freeze].freeze
+    RESPONSE_IMG = ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}.freeze, EMPTY_GIF_IMAGE].freeze
+    RES_400_STATUS = "400 Bad Request"
+    RES_500_STATUS = "500 Internal Server Error"
 
     def on_request(path_info, params)
       begin
@@ -304,7 +306,7 @@ module Fluent::Plugin
     def add_params_to_record(record, params)
       if @add_http_headers
         params.each_pair { |k, v|
-          if k.start_with?("HTTP_".freeze)
+          if k.start_with?("HTTP_")
             record[k] = v
           end
         }
@@ -312,7 +314,7 @@ module Fluent::Plugin
 
       if @add_query_params
         params.each_pair { |k, v|
-          if k.start_with?("QUERY_".freeze)
+          if k.start_with?("QUERY_")
             record[k] = v
           end
         }
@@ -375,7 +377,7 @@ module Fluent::Plugin
       end
 
       def on_message_begin
-        @body = ''
+        @body = +''
       end
 
       def on_headers_complete(headers)
@@ -420,7 +422,7 @@ module Fluent::Plugin
           end
         }
         if expect
-          if expect == '100-continue'.freeze
+          if expect == '100-continue'
             if !size || size < @body_size_limit
               send_response_nobody("100 Continue", {})
             else
@@ -442,8 +444,8 @@ module Fluent::Plugin
         @body << chunk
       end
 
-      RES_200_STATUS = "200 OK".freeze
-      RES_403_STATUS = "403 Forbidden".freeze
+      RES_200_STATUS = "200 OK"
+      RES_403_STATUS = "403 Forbidden"
 
       # Azure App Service sends GET requests for health checking purpose.
       # Respond with `200 OK` to accommodate it.
@@ -487,11 +489,11 @@ module Fluent::Plugin
       def on_message_complete
         return if closing?
 
-        if @parser.http_method == 'GET'.freeze
+        if @parser.http_method == 'GET'
           return handle_get_request()
         end
 
-        if @parser.http_method == 'OPTIONS'.freeze
+        if @parser.http_method == 'OPTIONS'
           return handle_options_request()
         end
 
@@ -511,9 +513,9 @@ module Fluent::Plugin
         # Decode payload according to the "Content-Encoding" header.
         # For now, we only support 'gzip' and 'deflate'.
         begin
-          if @content_encoding == 'gzip'.freeze
+          if @content_encoding == 'gzip'
             @body = Zlib::GzipReader.new(StringIO.new(@body)).read
-          elsif @content_encoding == 'deflate'.freeze
+          elsif @content_encoding == 'deflate'
             @body = Zlib::Inflate.inflate(@body)
           end
         rescue
@@ -574,7 +576,7 @@ module Fluent::Plugin
         end
 
         if @keep_alive
-          header['Connection'] = 'Keep-Alive'.freeze
+          header['Connection'] = 'Keep-Alive'
           send_response(code, header, body)
         else
           send_response_and_close(code, header, body)
@@ -600,24 +602,24 @@ module Fluent::Plugin
 
       def send_response(code, header, body)
         header['Content-Length'] ||= body.bytesize
-        header['Content-Type'] ||= 'text/plain'.freeze
+        header['Content-Type'] ||= 'text/plain'
 
-        data = %[HTTP/1.1 #{code}\r\n]
+        data = +"HTTP/1.1 #{code}\r\n"
         header.each_pair {|k,v|
           data << "#{k}: #{v}\r\n"
         }
-        data << "\r\n".freeze
+        data << "\r\n"
         @io.write(data)
 
         @io.write(body)
       end
 
       def send_response_nobody(code, header)
-        data = %[HTTP/1.1 #{code}\r\n]
+        data = +"HTTP/1.1 #{code}\r\n"
         header.each_pair {|k,v|
           data << "#{k}: #{v}\r\n"
         }
-        data << "\r\n".freeze
+        data << "\r\n"
         @io.write(data)
       end
 

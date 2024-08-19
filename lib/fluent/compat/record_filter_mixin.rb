@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -21,7 +23,7 @@ module Fluent
       end
 
       def format_stream(tag, es)
-        out = ''
+        out = +''
         es.each {|time,record|
           tag_temp = tag.dup
           filter_record(tag_temp, time, record)

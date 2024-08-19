@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/test/driver/output'
 require 'fluent/plugin/out_stdout'

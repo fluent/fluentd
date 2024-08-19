@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -228,8 +230,8 @@ EOM
         # Yajl does not raise ParseError for incomplete json string, like '[1', '{"h"', '{"h":' or '{"h1":1'
         # This is the reason to use JSON module.
 
-        buffer = (is_array ? "[" : "{")
-        line_buffer = ""
+        buffer = +(is_array ? "[" : "{")
+        line_buffer = +""
 
         until result
           char = getch
@@ -252,7 +254,7 @@ EOM
                 # ignore comment char
               end
               buffer << line_buffer + "\n"
-              line_buffer = ""
+              line_buffer = +""
             else
               # '#' is a char in json string
               line_buffer << char
@@ -263,7 +265,7 @@ EOM
 
           if char == "\n"
             buffer << line_buffer + "\n"
-            line_buffer = ""
+            line_buffer = +""
             next
           end
 

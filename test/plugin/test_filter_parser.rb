@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'timecop'
 require 'fluent/test/driver/filter'
@@ -575,7 +577,7 @@ class ParserFilterTest < Test::Unit::TestCase
     replace_invalid_sequence true
   ]
   def test_filter_invalid_byte
-    invalid_utf8 = "\xff".force_encoding('UTF-8')
+    invalid_utf8 = (+"\xff").force_encoding('UTF-8')
 
     d = create_driver(CONFIG_NOT_REPLACE)
     d.run do
@@ -594,7 +596,7 @@ class ParserFilterTest < Test::Unit::TestCase
     filtered = d.filtered
     assert_equal 1, filtered.length
     assert_nil filtered[0][1]['data']
-    assert_equal '?'.force_encoding('UTF-8'), filtered[0][1]['message']
+    assert_equal (+'?').force_encoding('UTF-8'), filtered[0][1]['message']
 
     d = create_driver(CONFIG_INVALID_BYTE + %[reserve_data yes])
     assert_nothing_raised {
@@ -605,9 +607,9 @@ class ParserFilterTest < Test::Unit::TestCase
     filtered = d.filtered
     assert_equal 1, filtered.length
     assert_equal invalid_utf8, filtered[0][1]['data']
-    assert_equal '?'.force_encoding('UTF-8'), filtered[0][1]['message']
+    assert_equal (+'?').force_encoding('UTF-8'), filtered[0][1]['message']
 
-    invalid_ascii = "\xff".force_encoding('US-ASCII')
+    invalid_ascii = (+"\xff").force_encoding('US-ASCII')
     d = create_driver(CONFIG_INVALID_BYTE)
     assert_nothing_raised {
       d.run do
@@ -617,7 +619,7 @@ class ParserFilterTest < Test::Unit::TestCase
     filtered = d.filtered
     assert_equal 1, filtered.length
     assert_nil filtered[0][1]['data']
-    assert_equal '?'.force_encoding('US-ASCII'), filtered[0][1]['message']
+    assert_equal (+'?').force_encoding('US-ASCII'), filtered[0][1]['message']
   end
 
   CONFIG_NOT_IGNORE = %[

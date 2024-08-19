@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -24,7 +26,7 @@ module Fluent
       class FileChunk < Chunk
         class FileChunkError < StandardError; end
 
-        BUFFER_HEADER = "\xc1\x00".force_encoding(Encoding::ASCII_8BIT).freeze
+        BUFFER_HEADER = (+"\xc1\x00").force_encoding(Encoding::ASCII_8BIT).freeze
 
         ### buffer path user specified : /path/to/directory/user_specified_prefix.*.log
         ### buffer chunk path          : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log

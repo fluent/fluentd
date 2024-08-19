@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/plugin_helper/server'
 require 'fluent/plugin_helper/cert_option' # to create certs for tests
@@ -393,7 +395,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'creates a tcp server just to read data' do
-      received = ""
+      received = +""
       @d.server_create_tcp(:s, @port) do |data|
         received << data
       end
@@ -408,7 +410,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'creates a tcp server to read and write data' do
-      received = ""
+      received = +""
       responses = []
       @d.server_create_tcp(:s, @port) do |data, conn|
         received << data
@@ -429,7 +431,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'creates a tcp server to read and write data using IPv6' do
       omit "IPv6 unavailable here" unless ipv6_enabled?
 
-      received = ""
+      received = +""
       responses = []
       @d.server_create_tcp(:s, @port, bind: "::1") do |data, conn|
         received << data
@@ -448,7 +450,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'does not resolve name of client address in default' do
-      received = ""
+      received = +""
       sources = []
       @d.server_create_tcp(:s, @port) do |data, conn|
         received << data
@@ -467,7 +469,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'does resolve name of client address if resolve_name is true' do
       hostname = Socket.getnameinfo([nil, nil, nil, "127.0.0.1"])[0]
 
-      received = ""
+      received = +""
       sources = []
       @d.server_create_tcp(:s, @port, resolve_name: true) do |data, conn|
         received << data
@@ -488,7 +490,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'raises error if plugin registers data callback for connection object from #server_create' do
-      received = ""
+      received = +""
       errors = []
       @d.server_create_tcp(:s, @port) do |data, conn|
         received << data
@@ -508,7 +510,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'can call write_complete callback if registered' do
-      buffer = ""
+      buffer = +""
       lines = []
       responses = []
       response_completes = []
@@ -539,7 +541,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'can call close callback if registered' do
-      buffer = ""
+      buffer = +""
       lines = []
       callback_results = []
       @d.server_create_tcp(:s, @port) do |data, conn|
@@ -594,7 +596,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'creates a udp server just to read data' do
-      received = ""
+      received = +""
       @d.server_create_udp(:s, @port, max_bytes: 128) do |data|
         received << data
       end
@@ -612,7 +614,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'creates a udp server to read and write data' do
-      received = ""
+      received = +""
       responses = []
       @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
         received << data
@@ -652,7 +654,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'creates a udp server to read and write data using IPv6' do
       omit "IPv6 unavailable here" unless ipv6_enabled?
 
-      received = ""
+      received = +""
       responses = []
       @d.server_create_udp(:s, @port, bind: "::1", max_bytes: 128) do |data, sock|
         received << data
@@ -680,7 +682,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'does not resolve name of client address in default' do
-      received = ""
+      received = +""
       sources = []
       @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
         received << data
@@ -700,7 +702,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'does resolve name of client address if resolve_name is true' do
       hostname = Socket.getnameinfo([nil, nil, nil, "127.0.0.1"])[0]
 
-      received = ""
+      received = +""
       sources = []
       @d.server_create_udp(:s, @port, resolve_name: true, max_bytes: 128) do |data, sock|
         received << data
@@ -718,7 +720,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'raises error if plugin registers data callback for connection object from #server_create' do
-      received = ""
+      received = +""
       errors = []
       @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
         received << data
@@ -740,7 +742,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'raise error if plugin registers write_complete callback for udp' do
-      received = ""
+      received = +""
       errors = []
       @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
         received << data
@@ -762,7 +764,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'raises error if plugin registers close callback for udp' do
-      received = ""
+      received = +""
       errors = []
       @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
         received << data
@@ -995,7 +997,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           generate_cert_digest: :sha256,
         }
 
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port, tls_options: tls_options) do |data, conn|
           received << data
         end
@@ -1034,7 +1036,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           private_key_path: private_key_path,
         }
         tls_options[:private_key_passphrase] = private_key_passphrase if private_key_passphrase
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port, tls_options: tls_options) do |data, conn|
           received << data
         end
@@ -1069,7 +1071,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           generate_private_key_length: 2048,
         }
         tls_options[:ca_private_key_passphrase] = ca_key_passphrase if ca_key_passphrase
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port, tls_options: tls_options) do |data, conn|
           received << data
         end
@@ -1108,7 +1110,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           private_key_path: private_key_path,
         }
         tls_options[:private_key_passphrase] = private_key_passphrase if private_key_passphrase
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port, tls_options: tls_options) do |data, conn|
           received << data
         end
@@ -1138,7 +1140,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           private_key_path: private_key_path,
         }
         tls_options[:private_key_passphrase] = private_key_passphrase if private_key_passphrase
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port, tls_options: tls_options) do |data, conn|
           received << data
         end
@@ -1162,7 +1164,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         @d.configure(conf); @d.start; @d.after_start
 
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port) do |data, conn|
           received << data
         end
@@ -1197,7 +1199,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         @d.configure(conf); @d.start; @d.after_start
 
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port) do |data, conn|
           received << data
         end
@@ -1232,7 +1234,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         @d.configure(conf); @d.start; @d.after_start
 
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port) do |data, conn|
           received << data
         end
@@ -1265,7 +1267,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         @d.configure(conf); @d.start; @d.after_start
 
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port) do |data, conn|
           received << data
         end
@@ -1296,7 +1298,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         @d.configure(conf); @d.start; @d.after_start
 
-        received = ""
+        received = +""
         @d.server_create_tls(:s, @port) do |data, conn|
           received << data
         end
@@ -1380,7 +1382,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'creates a tls server just to read data' do
-      received = ""
+      received = +""
       @d.server_create_tls(:s, @port, tls_options: @tls_options) do |data, conn|
         received << data
       end
@@ -1396,7 +1398,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'creates a tls server to read and write data' do
-      received = ""
+      received = +""
       responses = []
       @d.server_create_tls(:s, @port, tls_options: @tls_options) do |data, conn|
         received << data
@@ -1419,7 +1421,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'creates a tls server to read and write data using IPv6' do
       omit "IPv6 unavailable here" unless ipv6_enabled?
 
-      received = ""
+      received = +""
       responses = []
       @d.server_create_tls(:s, @port, bind: "::1",  tls_options: @tls_options) do |data, conn|
         received << data
@@ -1440,7 +1442,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'does not resolve name of client address in default' do
-      received = ""
+      received = +""
       sources = []
       @d.server_create_tls(:s, @port, tls_options: @tls_options) do |data, conn|
         received << data
@@ -1460,7 +1462,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'does resolve name of client address if resolve_name is true' do
       hostname = Socket.getnameinfo([nil, nil, nil, "127.0.0.1"])[0]
 
-      received = ""
+      received = +""
       sources = []
       @d.server_create_tls(:s, @port, resolve_name: true, tls_options: @tls_options) do |data, conn|
         received << data
@@ -1482,7 +1484,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'raises error if plugin registers data callback for connection object from #server_create' do
-      received = ""
+      received = +""
       errors = []
       @d.server_create_tls(:s, @port, tls_options: @tls_options) do |data, conn|
         received << data
@@ -1502,7 +1504,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'can call write_complete callback if registered' do
-      buffer = ""
+      buffer = +""
       lines = []
       responses = []
       response_completes = []
@@ -1533,7 +1535,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'can call close callback if registered' do
-      buffer = ""
+      buffer = +""
       lines = []
       callback_results = []
       @d.server_create_tls(:s, @port, tls_options: @tls_options) do |data, conn|
@@ -1666,7 +1668,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(protocols)
     test 'does not resolve name of client address in default' do |(proto, kwargs)|
-      received = ""
+      received = +""
       sources = []
       @d.server_create_connection(:s, @port, proto: proto, **kwargs) do |conn|
         sources << conn.remote_host
@@ -1688,7 +1690,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'does resolve name of client address if resolve_name is true' do |(proto, kwargs)|
       hostname = Socket.getnameinfo([nil, nil, nil, "127.0.0.1"])[0]
 
-      received = ""
+      received = +""
       sources = []
       @d.server_create_connection(:s, @port, proto: proto, resolve_name: true, **kwargs) do |conn|
         sources << conn.remote_host
@@ -1709,7 +1711,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     data(protocols)
     test 'creates a server to provide connection, which can read, write and close' do |(proto, kwargs)|
       lines = []
-      buffer = ""
+      buffer = +""
       @d.server_create_connection(:s, @port, proto: proto, **kwargs) do |conn|
         conn.data do |d|
           buffer << d
@@ -1759,7 +1761,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     data(protocols)
     test 'creates a server to provide connection, which accepts callbacks for data, write_complete, and close' do |(proto, kwargs)|
       lines = []
-      buffer = ""
+      buffer = +""
       written = 0
       closed = 0
       @d.server_create_connection(:s, @port, proto: proto, **kwargs) do |conn|
@@ -1794,7 +1796,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(protocols)
     test 'creates a server, and does not leak connections' do |(proto, kwargs)|
-      buffer = ""
+      buffer = +""
       closed = 0
       @d.server_create_connection(:s, @port, proto: proto, **kwargs) do |conn|
         conn.on(:close){|_c| closed += 1 }
@@ -1825,7 +1827,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
       assert_false connected
 
-      received = ""
+      received = +""
       @d.server_create_connection(:s, @port, proto: proto, shared: false, **kwargs) do |conn|
         conn.on(:data) do |data|
           received << data

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -27,7 +29,7 @@ module Fluent
       helpers :record_accessor
 
       config_param :delimiter, default: ',' do |val|
-        ['\t', 'TAB'].include?(val) ? "\t".freeze : val.freeze
+        ['\t', 'TAB'].include?(val) ? "\t" : val.freeze
       end
       config_param :force_quotes, :bool, default: true
       # "array" looks good for type of :fields, but this implementation removes tailing comma
@@ -50,13 +52,13 @@ module Fluent
         end
 
         @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes, headers: @fields,
-                          row_sep: @add_newline ? :auto : "".force_encoding(Encoding::ASCII_8BIT)}
+                          row_sep: @add_newline ? :auto : (+"").force_encoding(Encoding::ASCII_8BIT)}
         # Cache CSV object per thread to avoid internal state sharing
         @cache = {}
       end
 
       def format(tag, time, record)
-        csv = (@cache[Thread.current] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
+        csv = (@cache[Thread.current] ||= CSV.new((+"").force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
         line = (csv << record).string.dup
         # Need manual cleanup because CSV writer doesn't provide such method.
         csv.rewind
@@ -65,7 +67,7 @@ module Fluent
       end
 
       def format_with_nested_fields(tag, time, record)
-        csv = (@cache[Thread.current] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
+        csv = (@cache[Thread.current] ||= CSV.new((+"").force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
         values = @accessors.map { |a| a.call(record) }
         line = (csv << values).string.dup
         # Need manual cleanup because CSV writer doesn't provide such method.

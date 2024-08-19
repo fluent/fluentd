@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/plugin_helper/compat_parameters'
 require 'fluent/plugin/input'

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/test/driver/parser'
 require 'fluent/plugin/parser_tsv'

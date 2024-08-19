@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -43,7 +45,7 @@ module Fluent
       end
 
       stack = []
-      regex = ['']
+      regex = [+'']
       escape = false
       dot = false
 
@@ -105,7 +107,7 @@ module Fluent
         elsif c == "{"
           # or
           stack.push []
-          regex.push ''
+          regex.push(+'')
 
         elsif c == "}" && !stack.empty?
           stack.last << regex.pop
@@ -113,7 +115,7 @@ module Fluent
 
         elsif c == "," && !stack.empty?
           stack.last << regex.pop
-          regex.push ''
+          regex.push(+'')
 
         elsif /[a-zA-Z0-9_]/.match?(c)
           regex.last << c

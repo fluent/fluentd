@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/plugin/buffer/file_single_chunk'
 require 'fluent/plugin/compressable'
@@ -178,7 +180,7 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
     end
 
     test 'has its contents in binary (ascii-8bit)' do
-      data1 = "aaa bbb ccc".force_encoding('utf-8')
+      data1 = (+"aaa bbb ccc").force_encoding('utf-8')
       @c.append([data1])
       @c.commit
       assert_equal Encoding::ASCII_8BIT, @c.instance_eval{ @chunk.external_encoding }

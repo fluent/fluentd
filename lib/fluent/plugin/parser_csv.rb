@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -63,7 +65,7 @@ module Fluent
       # This method avoids the overhead of CSV.parse_line for typical patterns
       def parse_fast_internal(text)
         record = {}
-        text.chomp!
+        text = text.chomp
 
         return record if text.empty?
 

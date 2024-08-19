@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 
 # require 'fluent/command/fluentd'
@@ -132,7 +134,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     matched = false
     matched_wrongly = false
     assert_error_msg = ""
-    stdio_buf = ""
+    stdio_buf = +""
     begin
       execute_command(cmdline, @tmp_dir, env) do |pid, stdout|
         begin
@@ -197,6 +199,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
                             lines.any?{|line| line.include?(ptn) }
                           end
         if matched_wrongly
+          assert_error_msg = assert_error_msg.frozen? ? assert_error_msg.dup : assert_error_msg
           assert_error_msg << "\n" unless assert_error_msg.empty?
           assert_error_msg << "pattern exists in logs wrongly: #{ptn}"
         end
@@ -214,7 +217,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     matched = false
     running = false
     assert_error_msg = "failed to start correctly"
-    stdio_buf = ""
+    stdio_buf = +""
     begin
       execute_command(cmdline) do |pid, stdout|
         begin
@@ -532,7 +535,7 @@ CONF
 
   sub_test_case 'configuration to load plugin file with syntax error' do
     test 'failed to start' do
-      script =  "require 'fluent/plugin/input'\n"
+      script = +"require 'fluent/plugin/input'\n"
       script << "module Fluent::Plugin\n"
       script << "  class BuggyInput < Input\n"
       script << "    Fluent::Plugin.register_input('buggy', self)\n"
@@ -566,7 +569,7 @@ CONF
 
   sub_test_case 'configuration to load plugin which raises unrecoverable error in #start' do
     test 'failed to start' do
-      script =  "require 'fluent/plugin/input'\n"
+      script = +"require 'fluent/plugin/input'\n"
       script << "require 'fluent/error'\n"
       script << "module Fluent::Plugin\n"
       script << "  class CrashingInput < Input\n"
@@ -701,7 +704,7 @@ CONF
     end
 
     test 'failed to start workers when configured plugins do not support multi worker configuration' do
-      script =  "require 'fluent/plugin/input'\n"
+      script = +"require 'fluent/plugin/input'\n"
       script << "module Fluent::Plugin\n"
       script << "  class SingleInput < Input\n"
       script << "    Fluent::Plugin.register_input('single', self)\n"

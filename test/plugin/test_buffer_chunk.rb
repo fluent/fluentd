@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/plugin/buffer/chunk'
 
@@ -83,7 +85,7 @@ class BufferChunkTest < Test::Unit::TestCase
     attr_accessor :data
     def initialize(meta)
       super
-      @data = ''
+      @data = +''
     end
     def size
       @data.size

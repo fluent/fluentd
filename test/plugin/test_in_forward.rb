@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 
 require 'fluent/test/driver/input'
@@ -397,7 +399,7 @@ class ForwardInputTest < Test::Unit::TestCase
       ]
 
       d.run(expect_records: records.length, timeout: 20) do
-        entries = ''
+        entries = +''
         records.each {|_tag, _time, record|
           packer(entries).write([_time, record]).flush
         }
@@ -425,7 +427,7 @@ class ForwardInputTest < Test::Unit::TestCase
       ]
 
       @d.run(expect_records: records.length, timeout: 20) do
-        entries = ''
+        entries = +''
         records.each {|_tag, _time, record|
           packer(entries).write([_time, record]).flush
         }
@@ -457,7 +459,7 @@ class ForwardInputTest < Test::Unit::TestCase
       ]
 
       d.run(expect_records: records.length, timeout: 20) do
-        entries = ''
+        entries = +''
         records.each {|tag, _time, record|
           packer(entries).write([_time, record]).flush
         }
@@ -493,7 +495,7 @@ class ForwardInputTest < Test::Unit::TestCase
         # These entries are skipped
         entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
 
-        packed_entries = ''
+        packed_entries = +''
         entries.each { |_time, record|
           packer(packed_entries).write([_time, record]).flush
         }
@@ -518,7 +520,7 @@ class ForwardInputTest < Test::Unit::TestCase
       ]
 
       # create compressed entries
-      entries = ''
+      entries = +''
       events.each do |_tag, _time, record|
         v = [_time, record].to_msgpack
         entries << compress(v)
@@ -545,7 +547,7 @@ class ForwardInputTest < Test::Unit::TestCase
       ]
 
       # create compressed entries
-      entries = ''
+      entries = +''
       events.each do |_tag, _time, record|
         v = [_time, record].to_msgpack
         entries << compress(v)
@@ -785,7 +787,7 @@ class ForwardInputTest < Test::Unit::TestCase
       expected_acks = []
 
       d.run(expect_records: events.size) do
-        entries = ''
+        entries = +''
         events.each {|_tag, _time,record|
           [time, record].to_msgpack(entries)
         }
@@ -928,7 +930,7 @@ class ForwardInputTest < Test::Unit::TestCase
       ]
 
       d.run(expect_records: events.size, timeout: 20) do
-        entries = ''
+        entries = +''
         events.each {|tag, _time, record|
           [_time, record].to_msgpack(entries)
         }
@@ -988,7 +990,7 @@ class ForwardInputTest < Test::Unit::TestCase
   # '' : socket is disconnected without any data
   # nil: socket read timeout
   def read_data(io, timeout, &block)
-    res = ''
+    res = +''
     select_timeout = 0.5
     clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
     timeout_at = Process.clock_gettime(clock_id) + timeout
@@ -999,7 +1001,7 @@ class ForwardInputTest < Test::Unit::TestCase
         if IO.select([io], nil, nil, select_timeout)
           io_activated = true
           buf = io.readpartial(2048)
-          res ||= ''
+          res ||= +''
           res << buf
 
           break if block.call(res)
@@ -1129,7 +1131,7 @@ class ForwardInputTest < Test::Unit::TestCase
     )
     test 'packed forward protocol' do |keys|
       execute_test_with_source_hostname_key(*keys) { |events|
-        entries = ''
+        entries = +''
         events.each { |tag, time, record|
           Fluent::MessagePackFactory.msgpack_packer(entries).write([time, record]).flush
         }

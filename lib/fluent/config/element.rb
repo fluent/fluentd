@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -141,7 +143,7 @@ module Fluent
       def to_s(nest = 0)
         indent = "  " * nest
         nindent = "  " * (nest + 1)
-        out = ""
+        out = +""
         if @arg.nil? || @arg.empty?
           out << "#{indent}<#{@name}>\n"
         else
@@ -230,7 +232,7 @@ module Fluent
       end
 
       def self.unescape_parameter(v)
-        result = ''
+        result = +''
         v.each_char { |c| result << LiteralParser.unescape_char(c) }
         result
       end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -116,7 +118,7 @@ module Fluent
       end
 
       def expect_format(str)
-        (@expected_buffer ||= '') << str
+        (@expected_buffer ||= +'') << str
       end
 
       def run(&block)
@@ -124,7 +126,7 @@ module Fluent
         super {
           block.call if block
 
-          buffer = ''
+          buffer = +''
           lines = {}
           # v0.12 TimeSlicedOutput doesn't call #format_stream
           @entries.each do |time, record|

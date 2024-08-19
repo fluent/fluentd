@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -205,7 +207,7 @@ module Fluent
         @format = :text
         @formatter = Proc.new { |type, time, level, msg|
           r = caller_line(type, time, @depth_offset, level)
-          r << msg
+          r += msg
           r
         }
       when :json
@@ -550,7 +552,7 @@ module Fluent
 
     def event(level, args)
       time = Time.now
-      message = @optional_header ? @optional_header.dup : ''
+      message = @optional_header ? @optional_header.dup : +''
       map = @optional_attrs ? @optional_attrs.dup : {}
       args.each {|a|
         if a.is_a?(Hash)
@@ -563,7 +565,7 @@ module Fluent
       }
 
       map.each_pair {|k,v|
-        if k == "error".freeze && v.is_a?(Exception) && !map.has_key?("error_class")
+        if k == "error" && v.is_a?(Exception) && !map.has_key?("error_class")
           message << " error_class=#{v.class.to_s} error=#{v.to_s.inspect}"
         else
           message << " #{k}=#{v.inspect}"
@@ -598,7 +600,7 @@ module Fluent
       worker_id_part = if type == :default && (@process_type == :worker0 || @process_type == :workers)
                          @worker_id_part
                        else
-                         "".freeze
+                         ""
                        end
       log_msg = "#{format_time(time)} [#{LEVEL_TEXT[level]}]: #{worker_id_part}"
       if @debug_mode

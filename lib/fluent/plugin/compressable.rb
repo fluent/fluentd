@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -57,7 +59,7 @@ module Fluent
       def string_decompress(compressed_data)
         io = StringIO.new(compressed_data)
 
-        out = ''
+        out = +''
         loop do
           gz = Zlib::GzipReader.new(io)
           out << gz.read

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../../helper'
 require 'flexmock/test_unit'
 
@@ -12,7 +14,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: hostname, shared_key: 'shared_key', password: nil, username: nil)
       ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:helo)
 
-      sock = StringIO.new('')
+      sock = StringIO.new(+'')
       handshake.invoke(sock, ri, ['HELO', {}])
 
       assert_equal(ri.state, :pingpong)
@@ -34,7 +36,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: hostname, shared_key: 'shared_key', password: pass, username: username)
       ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:helo)
 
-      sock = StringIO.new('')
+      sock = StringIO.new(+'')
       handshake.invoke(sock, ri, ['HELO', { 'auth' => 'auth' }])
 
       assert_equal(ri.state, :pingpong)
@@ -57,7 +59,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: 'hostname', shared_key: 'shared_key', password: nil, username: nil)
       ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:helo)
 
-      sock = StringIO.new('')
+      sock = StringIO.new(+'')
       assert_raise(Fluent::Plugin::ForwardOutput::HeloError) do
         handshake.invoke(sock, ri, msg)
       end

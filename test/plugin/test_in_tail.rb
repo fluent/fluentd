@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../helper'
 require 'fluent/test/driver/input'
 require 'fluent/plugin/in_tail'
@@ -1165,7 +1167,7 @@ class TailInputTest < Test::Unit::TestCase
         "encoding" => "utf-8"
       })
     d = create_driver(conf)
-    cp932_message = "\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
+    cp932_message = (+"\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7").force_encoding(Encoding::CP932)
     utf8_message = cp932_message.encode(Encoding::UTF_8)
 
     d.run(expect_emits: 1) do
@@ -1375,8 +1377,8 @@ class TailInputTest < Test::Unit::TestCase
                })
       d = create_driver(conf)
 
-      cp932_message = "s \x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
-      utf8_message = "\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".encode(Encoding::UTF_8, Encoding::CP932)
+      cp932_message = (+"s \x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7").force_encoding(Encoding::CP932)
+      utf8_message = (+"\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7").encode(Encoding::UTF_8, Encoding::CP932)
       d.run(expect_emits: 1) do
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "w:cp932") { |f|
           f.puts cp932_message

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # Fluentd
 #
@@ -81,7 +83,7 @@ module Fluent::Plugin
     desc 'If true, add source host to event record.'
     config_param :include_source_host, :bool, default: false, deprecated: 'use "source_hostname_key" or "source_address_key" instead.'
     desc 'Specify key of source host when include_source_host is true.'
-    config_param :source_host_key, :string, default: 'source_host'.freeze
+    config_param :source_host_key, :string, default: 'source_host'
     desc 'Enable the option to emit unmatched lines.'
     config_param :emit_unmatched_lines, :bool, default: false
 
@@ -187,8 +189,7 @@ module Fluent::Plugin
         send_keepalive_packet: @send_keepalive_packet
       ) do |conn|
         conn.data do |data|
-          buffer = conn.buffer
-          buffer << data
+          buffer = conn.buffer + data
           pos = 0
           if octet_count_frame
             while idx = buffer.index(delimiter, pos)
