@@ -518,7 +518,6 @@ module Fluent
       @inline_config = opt[:inline_config]
       @use_v1_config = opt[:use_v1_config]
       @conf_encoding = opt[:conf_encoding]
-      @log_path = opt[:log_path]
       @show_plugin_config = opt[:show_plugin_config]
       @libs = opt[:libs]
       @plugin_dirs = opt[:plugin_dirs]
@@ -527,13 +526,15 @@ module Fluent
       @chumask = opt[:chumask]
       @signame = opt[:signame]
 
-      # TODO: `@log_rotate_age` and `@log_rotate_size` should be removed
+      # TODO: `@log_path`, `@log_rotate_age` and `@log_rotate_size` should be removed
       # since it should be merged with SystemConfig in `build_system_config()`.
-      # We should always use `system_config.log.rotate_age` and `system_config.log.rotate_size`.
+      # We should always use `system_config.log.path`, `system_config.log.rotate_age`
+      # and `system_config.log.rotate_size`.
       # However, currently, there is a bug that `system_config.log` parameters
       # are not in `Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS`, and these
       # parameters are not merged in `build_system_config()`.
       # Until we fix the bug of `Fluent::SystemConfig`, we need to use these instance variables.
+      @log_path = opt[:log_path]
       @log_rotate_age = opt[:log_rotate_age]
       @log_rotate_size = opt[:log_rotate_size]
 
@@ -690,6 +691,7 @@ module Fluent
 
       # TODO: we should remove this logic. This merging process should be done
       # in `build_system_config()`.
+      @log_path ||= system_config.log.path
       @log_rotate_age ||= system_config.log.rotate_age
       @log_rotate_size ||= system_config.log.rotate_size
 

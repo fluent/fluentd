@@ -58,6 +58,7 @@ module Fluent
       v.to_i(8)
     end
     config_section :log, required: false, init: true, multi: false do
+      config_param :path, :string, default: nil
       config_param :format, :enum, list: [:text, :json], default: :text
       config_param :time_format, :string, default: '%Y-%m-%d %H:%M:%S %z'
       config_param :rotate_age, default: nil do |v|

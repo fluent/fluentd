@@ -67,6 +67,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   log_level info
   root_dir #{@tmp_root_dir}
   <log>
+    path /tmp/fluentd.log
     format json
     time_format %Y
   </log>
@@ -94,6 +95,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal "process_name", sys_conf.process_name
     assert_equal 2, sys_conf.log_level
     assert_equal @tmp_root_dir, sys_conf.root_dir
+    assert_equal "/tmp/fluentd.log", sys_conf.log.path
     assert_equal :json, sys_conf.log.format
     assert_equal '%Y', sys_conf.log.time_format
     counter_server = sys_conf.counter_server
@@ -134,6 +136,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         log_level: info
         root_dir: !fluent/s "#{@tmp_root_dir}"
         log:
+          path: /tmp/fluentd.log
           format: json
           time_format: "%Y"
         counter_server:
@@ -161,6 +164,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         "process_name",
         2,
         @tmp_root_dir,
+        "/tmp/fluentd.log",
         :json,
         '%Y',
         '127.0.0.1',
@@ -180,6 +184,7 @@ class SupervisorTest < ::Test::Unit::TestCase
         sys_conf.process_name,
         sys_conf.log_level,
         sys_conf.root_dir,
+        sys_conf.log.path,
         sys_conf.log.format,
         sys_conf.log.time_format,
         counter_server.bind,
