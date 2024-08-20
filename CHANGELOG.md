@@ -9,14 +9,17 @@
 
 ### Bug Fix
 
-* Fix LoadError with console gem v1.25
-  https://github.com/fluent/fluentd/pull/4510
 * out_file: Add warn message for symlink_path setting
   https://github.com/fluent/fluentd/pull/4512
 * parser_json: Fix wrong LoadError warning
   https://github.com/fluent/fluentd/pull/4592
 * `fluentd` command: Fix `--plugin` (`-p`) option not to overwrite default value
   https://github.com/fluent/fluentd/pull/4605
+
+### Misc
+
+* Keep console gem v1.23 to avoid LoadError
+  https://github.com/fluent/fluentd/pull/4510
 
 ## Release v1.16.5 - 2024/03/27
 
