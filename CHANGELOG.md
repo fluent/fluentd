@@ -4,10 +4,6 @@
 
 ### Enhancement
 
-* yaml_parser: Support $log_level element
-  https://github.com/fluent/fluentd/pull/4482
-* out_file: Add warn message for symlink_path setting
-  https://github.com/fluent/fluentd/pull/4502
 * out_http: Add `compress gzip` option
   https://github.com/fluent/fluentd/pull/4528
 * in_exec: Add `encoding` option to handle non-ascii characters
@@ -30,6 +26,8 @@
   https://github.com/fluent/fluentd/pull/4522
 * in_tail: Fix an issue where a large single line could consume a large amount of memory even though `max_line_size` is set
   https://github.com/fluent/fluentd/pull/4530
+* yaml_parser: Support $log_level element
+  https://github.com/fluent/fluentd/pull/4482
 
 ### Misc
 
@@ -45,6 +43,8 @@
   https://github.com/fluent/fluentd/pull/4598
 * Add logger gem dependency for Ruby 3.5
   https://github.com/fluent/fluentd/pull/4589
+* out_file: Add warn message for symlink_path setting
+  https://github.com/fluent/fluentd/pull/4502
 
 ## Release v1.17.0 - 2024/04/30
 
