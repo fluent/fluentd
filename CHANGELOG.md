@@ -15,6 +15,8 @@
   https://github.com/fluent/fluentd/pull/4512
 * parser_json: Fix wrong LoadError warning
   https://github.com/fluent/fluentd/pull/4592
+* `fluentd` command: Fix `--plugin` (`-p`) option not to overwrite default value
+  https://github.com/fluent/fluentd/pull/4605
 
 ## Release v1.16.5 - 2024/03/27
 
