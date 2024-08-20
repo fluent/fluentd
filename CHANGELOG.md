@@ -6,8 +6,6 @@
 
 * YAML config syntax: Fix issue where `$log_level` element was not supported correctly
   https://github.com/fluent/fluentd/pull/4486
-* out_file: Add warn message for symlink_path setting
-  https://github.com/fluent/fluentd/pull/4512
 * parser_json: Fix wrong LoadError warning
   https://github.com/fluent/fluentd/pull/4592
 * `fluentd` command: Fix `--plugin` (`-p`) option not to overwrite default value
@@ -15,6 +13,8 @@
 
 ### Misc
 
+* out_file: Add warn message for symlink_path setting
+  https://github.com/fluent/fluentd/pull/4512
 * Keep console gem v1.23 to avoid LoadError
   https://github.com/fluent/fluentd/pull/4510
 
