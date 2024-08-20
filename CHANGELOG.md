@@ -2,13 +2,10 @@
 
 ## Release v1.16.6 - 2024/08/16
 
-### Enhancement
-
-* yaml_parser: Support $log_level element
-  https://github.com/fluent/fluentd/pull/4486
-
 ### Bug Fix
 
+* YAML config syntax: Fix issue where `$log_level` element was not supported correctly
+  https://github.com/fluent/fluentd/pull/4486
 * out_file: Add warn message for symlink_path setting
   https://github.com/fluent/fluentd/pull/4512
 * parser_json: Fix wrong LoadError warning
