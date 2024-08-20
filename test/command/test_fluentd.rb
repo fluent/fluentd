@@ -128,11 +128,14 @@ class TestFluentdCommand < ::Test::Unit::TestCase
 
   # ATTENTION: This stops taking logs when all `pattern_list` match or timeout,
   # so `patterns_not_match` can test only logs up to that point.
+  # You can pass a block to assert something after log matching.
   def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 20, env: {})
     matched = false
     matched_wrongly = false
-    assert_error_msg = ""
+    error_msg_match = ""
     stdio_buf = ""
+    succeeded_block = true
+    error_msg_block = ""
     begin
       execute_command(cmdline, @tmp_dir, env) do |pid, stdout|
         begin
@@ -163,6 +166,13 @@ class TestFluentdCommand < ::Test::Unit::TestCase
               end
             end
           end
+
+          begin
+            yield if block_given?
+          rescue => e
+            succeeded_block = false
+            error_msg_block = "failed block execution after matching: #{e}"
+          end
         ensure
           if SUPERVISOR_PID_PATTERN =~ stdio_buf
             @supervisor_pid = $1.to_i
@@ -173,19 +183,19 @@ class TestFluentdCommand < ::Test::Unit::TestCase
         end
       end
     rescue Timeout::Error
-      assert_error_msg = "execution timeout"
+      error_msg_match = "execution timeout"
       # https://github.com/fluent/fluentd/issues/4095
       # On Windows, timeout without `@supervisor_pid` means that the test is invalid,
       # since the supervisor process will survive without being killed correctly.
       flunk("Invalid test: The pid of supervisor could not be taken, which is necessary on Windows.") if Fluent.windows? && @supervisor_pid.nil?
     rescue => e
-      assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}"
+      error_msg_match = "unexpected error in launching fluentd: #{e.inspect}"
     else
-      assert_error_msg = "log doesn't match" unless matched
+      error_msg_match = "log doesn't match" unless matched
     end
 
     if patterns_not_match.empty?
-      assert_error_msg = build_message(assert_error_msg,
+      error_msg_match = build_message(error_msg_match,
                                        "<?>\nwas expected to include:\n<?>",
                                        stdio_buf, pattern_list)
     else
@@ -197,16 +207,17 @@ class TestFluentdCommand < ::Test::Unit::TestCase
                             lines.any?{|line| line.include?(ptn) }
                           end
         if matched_wrongly
-          assert_error_msg << "\n" unless assert_error_msg.empty?
-          assert_error_msg << "pattern exists in logs wrongly: #{ptn}"
+          error_msg_match << "\n" unless error_msg_match.empty?
+          error_msg_match << "pattern exists in logs wrongly: #{ptn}"
         end
       end
-      assert_error_msg = build_message(assert_error_msg,
+      error_msg_match = build_message(error_msg_match,
                                        "<?>\nwas expected to include:\n<?>\nand not include:\n<?>",
                                        stdio_buf, pattern_list, patterns_not_match)
     end
 
-    assert matched && !matched_wrongly, assert_error_msg
+    assert matched && !matched_wrongly, error_msg_match
+    assert succeeded_block, error_msg_block if block_given?
   end
 
   def assert_fluentd_fails_to_start(cmdline, *pattern_list, timeout: 20)
@@ -1286,6 +1297,42 @@ CONF
       assert File.exist?(conf_path)
       assert_log_matches(create_cmdline(conf_path, "--inline-config", inline_conf),
                          "[debug]")
+    end
+  end
+
+  sub_test_case "plugin option" do
+    test "should be the default value when not specifying" do
+      conf_path = create_conf_file('test.conf', <<~CONF)
+        <source>
+          @type monitor_agent
+        </source>
+      CONF
+      assert File.exist?(conf_path)
+      cmdline = create_cmdline(conf_path)
+
+      assert_log_matches(cmdline, "fluentd worker is now running") do
+        response = Net::HTTP.get(URI.parse("http://localhost:24220/api/config.json"))
+        actual_conf = JSON.parse(response)
+        assert_equal Fluent::Supervisor.default_options[:plugin_dirs], actual_conf["plugin_dirs"]
+      end
+    end
+
+    data(short: "-p")
+    data(long: "--plugin")
+    test "can be added by specifying the option" do |option_name|
+      conf_path = create_conf_file('test.conf', <<~CONF)
+        <source>
+          @type monitor_agent
+        </source>
+      CONF
+      assert File.exist?(conf_path)
+      cmdline = create_cmdline(conf_path, option_name, @tmp_dir, option_name, @tmp_dir)
+
+      assert_log_matches(cmdline, "fluentd worker is now running") do
+        response = Net::HTTP.get(URI.parse("http://localhost:24220/api/config.json"))
+        actual_conf = JSON.parse(response)
+        assert_equal Fluent::Supervisor.default_options[:plugin_dirs] + [@tmp_dir, @tmp_dir], actual_conf["plugin_dirs"]
+      end
     end
   end
 end
