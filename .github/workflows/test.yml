@@ -3,8 +3,14 @@ name: Test
 on:
   push:
     branches: [v1.16]
+    paths-ignore:
+      - '*.md'
+      - 'lib/fluent/version.rb'
   pull_request:
     branches: [v1.16]
+    paths-ignore:
+      - '*.md'
+      - 'lib/fluent/version.rb'
 
 jobs:
   test:
