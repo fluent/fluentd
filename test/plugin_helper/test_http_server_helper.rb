@@ -132,7 +132,7 @@ class HttpHelperTest < Test::Unit::TestCase
     resp = nil
     error = nil
 
-    Async do
+    Sync do
       Console.logger = Fluent::Log::ConsoleAdapter.wrap(NULL_LOGGER)
       begin
         response = yield(client)
@@ -141,7 +141,7 @@ class HttpHelperTest < Test::Unit::TestCase
       end
 
       if response
-        resp = Response.new(response.status.to_s, response.body.read, response.headers)
+        resp = Response.new(response.status.to_s, response.read, response.headers)
       end
     end
 
