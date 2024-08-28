@@ -67,6 +67,12 @@ module Fluent
             if notify
               notify.push(:ready)
             end
+
+            if async_v2?
+              @server_task_queue = ::Thread::Queue.new
+              @server_task_queue.pop
+              @server_task&.stop
+            end
           end
 
           @logger.debug('Finished HTTP server')
@@ -74,9 +80,10 @@ module Fluent
 
         def stop
           @logger.debug('closing HTTP server')
-
-          if @server_task
-            @server_task.stop
+          if async_v2?
+            @server_task_queue&.push(:stop)
+          else
+            @server_task&.stop
           end
         end
 
@@ -92,6 +99,10 @@ module Fluent
 
             @router.mount(name, path, app || block)
           end
+        end
+
+        private def async_v2?
+          Gem::Version.new(Async::VERSION) >= Gem::Version.new('2.0')
         end
       end
     end
