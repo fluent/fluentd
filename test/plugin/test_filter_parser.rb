@@ -206,6 +206,23 @@ class ParserFilterTest < Test::Unit::TestCase
 
   end
 
+  def test_filter_with_multiple_records
+    d1 = create_driver(%[
+      key_name data
+      <parse>
+        @type json
+      </parse>
+    ])
+    time = Fluent::EventTime.from_time(@default_time)
+    d1.run(default_tag: @tag) do
+      d1.feed(time, {'data' => '[{"xxx_1":"first","yyy":"second"}, {"xxx_2":"first", "yyy_2":"second"}]'})
+    end
+    filtered = d1.filtered
+    assert_equal 2, filtered.length
+    assert_equal ({"xxx_1"=>"first", "yyy"=>"second"}), filtered[0][1]
+    assert_equal ({"xxx_2"=>"first", "yyy_2"=>"second"}), filtered[1][1]
+  end
+
   data(:keep_key_name => false,
        :remove_key_name => true)
   def test_filter_with_reserved_data(remove_key_name)
