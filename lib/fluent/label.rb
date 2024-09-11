@@ -35,8 +35,8 @@ module Fluent
       end
     end
 
-    def emit_error_event(tag, time, record, e)
-      @root_agent.emit_error_event(tag, time, record, e)
+    def emit_error_event(tag, time, record, e, plugin_id: nil)
+      @root_agent.emit_error_event(tag, time, record, e, plugin_id: plugin_id)
     end
 
     def handle_emits_error(tag, es, e)

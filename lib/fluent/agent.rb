@@ -159,7 +159,7 @@ module Fluent
     end
 
     # For handling invalid record
-    def emit_error_event(tag, time, record, error)
+    def emit_error_event(tag, time, record, error, plugin_id: nil)
     end
 
     def handle_emits_error(tag, es, error)

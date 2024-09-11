@@ -402,8 +402,9 @@ module Fluent
       end
     end
 
-    def emit_error_event(tag, time, record, error)
+    def emit_error_event(tag, time, record, error, plugin_id: nil)
       error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time}
+      error_info[:plugin_id] = plugin_id if plugin_id
       if @error_collector
         # A record is not included in the logs because <@ERROR> handles it. This warn is for the notification
         log.warn "send an error event to @ERROR:", error_info
