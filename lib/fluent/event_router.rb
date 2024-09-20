@@ -286,7 +286,7 @@ module Fluent
 
     def find(tag)
       pipeline = nil
-      @match_rules.each_with_index { |rule, i|
+      @match_rules.each do |rule|
         if rule.match?(tag)
           if rule.collector.is_a?(Plugin::Filter)
             pipeline ||= Pipeline.new
@@ -301,7 +301,7 @@ module Fluent
             return pipeline
           end
         end
-      }
+      end
 
       if pipeline
         # filter is matched but no match
