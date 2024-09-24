@@ -77,6 +77,7 @@ module Fluent::Config
       assert_nil(sc.enable_size_metrics)
       assert_nil(sc.enable_msgpack_time_support)
       assert(!sc.enable_jit)
+      assert_nil(sc.log.path)
       assert_equal(:text, sc.log.format)
       assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
     end
@@ -117,6 +118,7 @@ module Fluent::Config
       conf = parse_text(<<-EOS)
           <system>
             <log>
+              path /tmp/fluentd.log
               format json
               time_format %Y
             </log>
@@ -125,6 +127,7 @@ module Fluent::Config
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
       sc.overwrite_variables(**s.for_system_config)
+      assert_equal('/tmp/fluentd.log', sc.log.path)
       assert_equal(:json, sc.log.format)
       assert_equal('%Y', sc.log.time_format)
     end
