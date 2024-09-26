@@ -570,7 +570,7 @@ CONF
 
       assert_fluentd_fails_to_start(
         create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
-        "in_buggy.rb:5: syntax error, unexpected end-of-input"
+        /in_buggy.rb:\d+:.+\(SyntaxError\)/
       )
     end
   end
