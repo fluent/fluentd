@@ -70,6 +70,15 @@ module Fluent
       def multi_workers_ready?
         false
       end
+
+      def limited_mode_ready?
+        false
+      end
+
+      def shift_to_limited_mode!
+        raise "BUG: use shift_to_limited_mode although this plugin is not ready for the limited mode" unless limited_mode_ready?
+        event_emitter_force_limited_router
+      end
     end
   end
 end

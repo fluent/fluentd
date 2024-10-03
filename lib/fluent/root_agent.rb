@@ -60,10 +60,16 @@ module Fluent
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
       @enable_input_metrics = !!system_config.enable_input_metrics
+
+      @limited_mode_agent = nil
+      @limited_router = nil
+      @limited_mode_forwarding_port = "29140"
+      @limited_mode_forwarding_buf_path = File.join(system_config.root_dir || DEFAULT_BACKUP_DIR, "limited_mode_buffer")
     end
 
     attr_reader :inputs
     attr_reader :labels
+    attr_reader :limited_router
 
     def configure(conf)
       used_worker_ids = []
@@ -161,6 +167,9 @@ module Fluent
           add_source(type, e)
         }
       end
+
+      # TODO Stop doing this when it is not needed.
+      add_source_to_receive_from_limited_mode_agent
     end
 
     def setup_error_label(e)
@@ -192,10 +201,15 @@ module Fluent
             yield instance, display_kind
           end
         end
-        if kind_callback
-          kind_callback.call
-        end
+
+        kind_callback&.call
       end
+
+      return unless @limited_mode_agent
+      @limited_mode_agent.lifecycle do |plugin, display_kind|
+        yield plugin, display_kind
+      end
+      kind_callback&.call
     end
 
     def start
@@ -229,6 +243,84 @@ module Fluent
         end
       end
       flushing_threads.each{|t| t.join }
+    end
+
+    def shift_to_limited_mode!
+      log.info "shifts to the limited mode"
+
+      limited_mode_agent = create_limited_mode_agent
+      @limited_router = limited_mode_agent.event_router
+      limited_mode_agent.lifecycle(desc: true) do |plugin|
+        plugin.start unless plugin.started?
+        plugin.after_start unless plugin.after_started?
+      end
+
+      lifecycle_control_list[:input].select do |instance|
+        instance.limited_mode_ready?
+      end.each do |instance|
+        instance.shift_to_limited_mode!
+      end
+
+      SHUTDOWN_SEQUENCES.each do |sequence|
+        if sequence.safe?
+          lifecycle do |instance, kind|
+            next if kind == :input and instance.limited_mode_ready?
+            execute_shutdown_sequence(sequence, instance, kind)
+          end
+          next
+        end
+
+        operation_threads = []
+        callback = ->(){
+          operation_threads.each { |t| t.join }
+          operation_threads.clear
+        }
+        lifecycle(kind_callback: callback) do |instance, kind|
+          next if kind == :input and instance.limited_mode_ready?
+          t = Thread.new do
+            Thread.current.abort_on_exception = true
+            execute_shutdown_sequence(sequence, instance, kind)
+          end
+          operation_threads << t
+        end
+      end
+
+      @limited_mode_agent = limited_mode_agent
+    end
+
+    def create_limited_mode_agent
+      limited_mode_agent = Agent.new(log: log)
+      limited_mode_agent.configure(
+        Config::Element.new('LIMITED_MODE_OUTPUT', '', {}, [
+          Config::Element.new('match', '**', {'@type' => 'forward'}, [
+            Config::Element.new('server', '', {
+              'host' => 'localhost',
+              'port' => @limited_mode_forwarding_port,
+            }, []),
+            Config::Element.new('buffer', '', {
+              '@type' => 'file',
+              'path' => @limited_mode_forwarding_buf_path,
+              'flush_at_shutdown' => 'true',
+              'retry_type' => 'periodic',
+              'retry_wait' => '10s',
+              'retry_randomize' => 'false',
+            }, []),
+          ])
+        ])
+      )
+      limited_mode_agent
+    end
+
+    def add_source_to_receive_from_limited_mode_agent
+      add_source(
+        'forward',
+        Config::Element.new('source', '', {
+          '@type' => 'forward',
+          'bind' => 'localhost',
+          'port' => @limited_mode_forwarding_port,
+          }, []
+        ),
+      )
     end
 
     class ShutdownSequence

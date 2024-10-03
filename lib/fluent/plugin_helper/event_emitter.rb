@@ -26,6 +26,9 @@ module Fluent
 
       def router
         @_event_emitter_used_actually = true
+
+        return Engine.root_agent.limited_router if @_event_emitter_force_limited_router
+
         if @_event_emitter_lazy_init
           @router = @primary_instance.router
         end
@@ -46,6 +49,10 @@ module Fluent
 
       def event_emitter_used_actually?
         @_event_emitter_used_actually
+      end
+
+      def event_emitter_force_limited_router
+        @_event_emitter_force_limited_router = true
       end
 
       def event_emitter_router(label_name)
@@ -72,6 +79,7 @@ module Fluent
         super
         @_event_emitter_used_actually = false
         @_event_emitter_lazy_init = false
+        @_event_emitter_force_limited_router = false
         @router = nil
       end
 

@@ -136,6 +136,10 @@ module Fluent
       @root_agent.flush!
     end
 
+    def shift_to_limited_mode!
+      @root_agent.shift_to_limited_mode!
+    end
+
     def now
       # TODO thread update
       Fluent::EventTime.now
