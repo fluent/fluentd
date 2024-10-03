@@ -84,6 +84,8 @@ module Fluent::Plugin
     config_param :dump_error_log, :bool, default: true
     desc 'Add QUERY_ prefix query params to record'
     config_param :add_query_params, :bool, default: false
+    desc "Add prefix to incoming tag"
+    config_param :add_tag_prefix, :string, default: nil
 
     config_section :parse do
       config_set_default :@type, 'in_http'
@@ -119,6 +121,8 @@ module Fluent::Plugin
           raise Fluent::ConfigError, "Cannot enable cors_allow_credentials without specific origins"
         end
       end
+
+      raise Fluent::ConfigError, "'add_tag_prefix' parameter must not be empty" if @add_tag_prefix && @add_tag_prefix.empty?
 
       m = if @parser_configs.first['@type'] == 'in_http'
             @parser_msgpack = parser_create(usage: 'parser_in_http_msgpack', type: 'msgpack')
@@ -203,6 +207,7 @@ module Fluent::Plugin
       begin
         path = path_info[1..-1]  # remove /
         tag = path.split('/').join('.')
+        tag = "#{@add_tag_prefix}.#{tag}" if @add_tag_prefix
 
         mes = Fluent::MultiEventStream.new
         parse_params(params) do |record_time, record|
