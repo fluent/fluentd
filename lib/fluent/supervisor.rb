@@ -43,6 +43,7 @@ module Fluent
       @rpc_endpoint = nil
       @rpc_server = nil
       @counter = nil
+      @socket_manager_server = nil
 
       @fluentd_lock_dir = Dir.mktmpdir("fluentd-lock-")
       ENV['FLUENTD_LOCK_DIR'] = @fluentd_lock_dir
@@ -66,8 +67,12 @@ module Fluent
       if config[:disable_shared_socket]
         $log.info "shared socket for multiple workers is disabled"
       else
-        server = ServerEngine::SocketManager::Server.open
-        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = server.path.to_s
+        if ENV.key?('SERVERENGINE_SOCKETMANAGER_PATH')
+          @socket_manager_server = ServerEngine::SocketManager::Server.take_over_another_server(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
+        else
+          @socket_manager_server = ServerEngine::SocketManager::Server.open
+          ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_server.path.to_s
+        end
       end
     end
 
@@ -138,7 +143,7 @@ module Fluent
       @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
         $log.debug "fluentd RPC got /api/config.gracefulReload request"
         if Fluent.windows?
-          supervisor_sigusr2_handler
+          graceful_reload
         else
           Process.kill :USR2, Process.pid
         end
@@ -186,8 +191,34 @@ module Fluent
       end
 
       trap :USR2 do
+        # ダウンタイム無し更新
         $log.debug 'fluentd supervisor process got SIGUSR2'
-        supervisor_sigusr2_handler
+
+        # TODO: Worker を終了させた際に ServerEngine によって自動的に再起動されないようにする
+        scale_down
+
+        # ダウンタイム無し更新、worker をすべて停止
+        send_signal_to_workers(:TERM)
+
+        @prepared_zero_downtime_updating = true
+      end
+
+      trap 34 do
+        # ワーカーが完全停止したら 34 シグナルを受信する
+        if @prepared_zero_downtime_updating
+          # ダウンタイム無し更新の処理途中なら残りを実施する
+
+          @prepared_zero_downtime_updating = false
+
+          # 新しいプロセスを起動して更新を反映する
+          start_new_supervisor
+
+          # TODO: 少なくとも worker を１つでも起動できるように戻さないと自身が死ななかった
+          scale_up
+
+          # 古いプロセス(自分自身)を止める
+          Process.kill :TERM, Process.pid
+        end
       end
     end
 
@@ -254,7 +285,7 @@ module Fluent
             when :usr1
               supervisor_sigusr1_handler
             when :usr2
-              supervisor_sigusr2_handler
+              graceful_reload
             when :cont
               supervisor_dump_handler_for_windows
             when :stop_event_thread
@@ -284,7 +315,7 @@ module Fluent
       send_signal_to_workers(:USR1)
     end
 
-    def supervisor_sigusr2_handler
+    def graceful_reload
       conf = nil
       t = Thread.new do
         $log.info 'Reloading new config'
@@ -312,6 +343,14 @@ module Fluent
       $log.error "Failed to reload config file: #{e}"
     end
 
+    def start_new_supervisor
+      commands = [ServerEngine.ruby_bin_path, $0] + ARGV
+      env_to_add = {"SERVERENGINE_SOCKETMANAGER_INTERNAL_TOKEN" => ServerEngine::SocketManager::INTERNAL_TOKEN}
+      Process.spawn(env_to_add, commands.join(" "))
+    rescue => e
+      $log.error "Failed to start a new supervisor: #{e}"
+    end
+
     def supervisor_dump_handler_for_windows
       # As for UNIX-like, SIGCONT signal to each process makes the process output its dump-file,
       # and it is implemented before the implementation of the function for Windows.
@@ -330,6 +369,13 @@ module Fluent
       send_signal_to_workers(:CONT)
     rescue => e
       $log.error "failed to dump: #{e}"
+    end
+
+    def scale_down
+      self.scale_workers(0)
+    end
+    def scale_up
+      self.scale_workers(1)
     end
 
     def kill_worker
@@ -500,11 +546,12 @@ module Fluent
     end
 
     def self.cleanup_resources
-      unless Fluent.windows?
-        if ENV.has_key?('SERVERENGINE_SOCKETMANAGER_PATH')
-          FileUtils.rm_f(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
-        end
-      end
+      # TODO: 2回目の USR2 シグナル発火時に SERVERENGINE_SOCKETMANAGER_PATH のファイルが見つからずに起動に失敗するためコメントアウト
+      # unless Fluent.windows?
+      #   if ENV.has_key?('SERVERENGINE_SOCKETMANAGER_PATH')
+      #     FileUtils.rm_f(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
+      #   end
+      # end
     end
 
     def initialize(cl_opt)

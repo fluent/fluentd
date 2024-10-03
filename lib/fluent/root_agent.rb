@@ -270,6 +270,8 @@ module Fluent
         callback = ->(){
           operation_threads.each { |t| t.join }
           operation_threads.clear
+          # TODO: サーバープロセスにワーカーが停止したことをシグナル送信。もう少しマシな方法はないのか？
+          Process.kill 34, Process.ppid
         }
         lifecycle(kind_callback: callback) do |instance, kind|
           t = Thread.new do
