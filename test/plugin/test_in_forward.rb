@@ -553,7 +553,7 @@ class ForwardInputTest < Test::Unit::TestCase
       chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
 
       # check CompressedMessagePackEventStream is created
-      mock(Fluent::CompressedMessagePackEventStream).new(entries, nil, 0)
+      mock(Fluent::CompressedMessagePackEventStream).new(entries, nil, 0, compress: :gzip)
 
       d.run do
         Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|

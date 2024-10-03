@@ -268,10 +268,11 @@ module Fluent
   end
 
   class CompressedMessagePackEventStream < MessagePackEventStream
-    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil)
-      super
+    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil, compress: :gzip)
+      super(data, cached_unpacker, size, unpacked_times: unpacked_times, unpacked_records: unpacked_records)
       @decompressed_data = nil
       @compressed_data = data
+      @type = compress
     end
 
     def empty?
@@ -303,7 +304,7 @@ module Fluent
 
     def ensure_decompressed!
       return if @decompressed_data
-      @data = @decompressed_data = decompress(@data)
+      @data = @decompressed_data = decompress(@data, type: @type)
     end
   end
 
