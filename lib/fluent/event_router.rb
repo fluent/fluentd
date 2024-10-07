@@ -123,7 +123,7 @@ module Fluent
     end
 
     def emit_error_event(tag, time, record, error)
-      @emit_error_handler.emit_error_event(tag, time, record, error)
+      @emit_error_handler.emit_error_event(tag, time, record, error, plugin_id: @caller_plugin_id)
     end
 
     def match?(tag)
