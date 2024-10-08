@@ -309,8 +309,7 @@ module Fluent::Plugin
         # PackedForward
         option = msg[2]
         size = (option && option['size']) || 0
-        es_class = (option && option['compressed'] == 'gzip') ? Fluent::CompressedMessagePackEventStream : Fluent::MessagePackEventStream
-        es = es_class.new(entries, nil, size.to_i)
+        es = (option && option['compressed']!=nil && option['compressed']!="text") ? Fluent::CompressedMessagePackEventStream.new(entries, nil, size.to_i, compress: option['compressed'].to_sym) : Fluent::MessagePackEventStream.new(entries, nil, size.to_i)
         es = check_and_skip_invalid_event(tag, es, conn.remote_host) if @skip_invalid_event
         if @enable_field_injection
           es = add_source_info(es, conn)
