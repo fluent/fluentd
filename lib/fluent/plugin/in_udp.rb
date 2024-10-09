@@ -65,6 +65,10 @@ module Fluent::Plugin
       true
     end
 
+    def limited_mode_ready?
+      true
+    end
+
     def start
       super
 

@@ -43,6 +43,8 @@ module Fluent
       @rpc_endpoint = nil
       @rpc_server = nil
       @counter = nil
+      @socket_manager_server = nil
+      @is_limited_mode = false
 
       @fluentd_lock_dir = Dir.mktmpdir("fluentd-lock-")
       ENV['FLUENTD_LOCK_DIR'] = @fluentd_lock_dir
@@ -66,8 +68,12 @@ module Fluent
       if config[:disable_shared_socket]
         $log.info "shared socket for multiple workers is disabled"
       else
-        server = ServerEngine::SocketManager::Server.open
-        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = server.path.to_s
+        if ENV.key?('SERVERENGINE_SOCKETMANAGER_PATH')
+          @socket_manager_server = ServerEngine::SocketManager::Server.take_over_another_server(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
+        else
+          @socket_manager_server = ServerEngine::SocketManager::Server.open
+          ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_server.path.to_s
+        end
       end
     end
 
@@ -76,7 +82,7 @@ module Fluent
       stop_rpc_server if @rpc_endpoint
       stop_counter_server if @counter
       cleanup_lock_dir
-      Fluent::Supervisor.cleanup_resources
+      Fluent::Supervisor.cleanup_resources unless @is_limited_mode
     end
 
     def cleanup_lock_dir
@@ -138,7 +144,7 @@ module Fluent
       @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
         $log.debug "fluentd RPC got /api/config.gracefulReload request"
         if Fluent.windows?
-          supervisor_sigusr2_handler
+          graceful_reload
         else
           Process.kill :USR2, Process.pid
         end
@@ -187,7 +193,11 @@ module Fluent
 
       trap :USR2 do
         $log.debug 'fluentd supervisor process got SIGUSR2'
-        supervisor_sigusr2_handler
+        if Fluent.windows?
+          graceful_reload
+        else
+          start_new_supervisor
+        end
       end
     end
 
@@ -254,7 +264,7 @@ module Fluent
             when :usr1
               supervisor_sigusr1_handler
             when :usr2
-              supervisor_sigusr2_handler
+              graceful_reload
             when :cont
               supervisor_dump_handler_for_windows
             when :stop_event_thread
@@ -284,7 +294,7 @@ module Fluent
       send_signal_to_workers(:USR1)
     end
 
-    def supervisor_sigusr2_handler
+    def graceful_reload
       conf = nil
       t = Thread.new do
         $log.info 'Reloading new config'
@@ -310,6 +320,17 @@ module Fluent
       @fluentd_conf = conf.to_s
     rescue => e
       $log.error "Failed to reload config file: #{e}"
+    end
+
+    def start_new_supervisor
+      send_signal_to_workers(:USR2)
+      sleep 5 # TODO Wait until all workers finish shifting to the limited mode. How?
+      @is_limited_mode = true
+      commands = [ServerEngine.ruby_bin_path, $0] + ARGV
+      env_to_add = {"SERVERENGINE_SOCKETMANAGER_INTERNAL_TOKEN" => ServerEngine::SocketManager::INTERNAL_TOKEN}
+      Process.spawn(env_to_add, commands.join(" "))
+    rescue => e
+      $log.error "Failed to start a new supervisor: #{e}"
     end
 
     def supervisor_dump_handler_for_windows
@@ -834,7 +855,7 @@ module Fluent
         end
 
         trap :USR2 do
-          reload_config
+          shift_to_limited_mode
         end
 
         trap :CONT do
@@ -889,6 +910,16 @@ module Fluent
           $log.debug "flushing thread: flushed"
         rescue Exception => e
           $log.warn "flushing thread error: #{e}"
+        end
+      end
+    end
+
+    def shift_to_limited_mode
+      Thread.new do
+        begin
+          Fluent::Engine.shift_to_limited_mode!
+        rescue Exception => e
+          $log.warn "failed to shift to the limited mode: #{e}"
         end
       end
     end
