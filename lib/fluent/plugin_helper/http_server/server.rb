@@ -39,7 +39,8 @@ module Fluent
           scheme = tls_context ? 'https' : 'http'
           @uri = URI("#{scheme}://#{@addr}:#{@port}").to_s
           @router = Router.new(default_app)
-          @reactor = Async::Reactor.new(nil, logger: Fluent::Log::ConsoleAdapter.wrap(@logger))
+          @server_task = nil
+          Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
 
           opts = if tls_context
                    { ssl_context: tls_context }
@@ -54,24 +55,35 @@ module Fluent
         end
 
         def start(notify = nil)
+          Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
           @logger.debug("Start async HTTP server listening #{@uri}")
-          task = @reactor.run do
-            @server.run
 
+          Async do |task|
+            Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
+            @server_task = task.async do
+              Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
+              @server.run
+            end
             if notify
               notify.push(:ready)
             end
+
+            if async_v2?
+              @server_task_queue = ::Thread::Queue.new
+              @server_task_queue.pop
+              @server_task&.stop
+            end
           end
 
-          task.stop
           @logger.debug('Finished HTTP server')
         end
 
         def stop
           @logger.debug('closing HTTP server')
-
-          if @reactor
-            @reactor.stop
+          if async_v2?
+            @server_task_queue&.push(:stop)
+          else
+            @server_task&.stop
           end
         end
 
@@ -87,6 +99,10 @@ module Fluent
 
             @router.mount(name, path, app || block)
           end
+        end
+
+        private def async_v2?
+          Gem::Version.new(Async::VERSION) >= Gem::Version.new('2.0')
         end
       end
     end
