@@ -127,6 +127,10 @@ op.on('--without-source', "invoke a fluentd without input plugins", TrueClass) {
   cmd_opts[:without_source] = b
 }
 
+op.on('--with-source-only', "invoke a fluentd only with input plugins", TrueClass) {|b|
+  cmd_opts[:with_source_only] = b
+}
+
 op.on('--config-file-type VALU', 'guessing file type of fluentd configuration. yaml/yml or guess') { |s|
   if (s == 'yaml') || (s == 'yml')
     cmd_opts[:config_file_type] = s.to_sym

@@ -25,7 +25,7 @@ module Fluent
       :workers, :restart_worker_interval, :root_dir, :log_level,
       :suppress_repeated_stacktrace, :emit_error_log_interval, :suppress_config_dump,
       :log_event_verbose, :ignore_repeated_log_interval, :ignore_same_log_interval,
-      :without_source, :rpc_endpoint, :enable_get_dump, :process_name,
+      :without_source, :with_source_only, :rpc_endpoint, :enable_get_dump, :process_name,
       :file_permission, :dir_permission, :counter_server, :counter_client,
       :strict_config_value, :enable_msgpack_time_support, :disable_shared_socket,
       :metrics, :enable_input_metrics, :enable_size_metrics, :enable_jit
@@ -41,7 +41,8 @@ module Fluent
     config_param :emit_error_log_interval,      :time, default: nil
     config_param :suppress_config_dump, :bool, default: nil
     config_param :log_event_verbose,    :bool, default: nil
-    config_param :without_source,  :bool, default: nil
+    config_param :without_source, :bool, default: nil
+    config_param :with_source_only, :bool, default: nil
     config_param :rpc_endpoint,    :string, default: nil
     config_param :enable_get_dump, :bool, default: nil
     config_param :process_name,    :string, default: nil

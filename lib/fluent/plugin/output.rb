@@ -1384,6 +1384,7 @@ module Fluent
       end
 
       def submit_flush_once
+        return unless @buffer_config.flush_thread_count > 0
         # Without locks: it is rough but enough to select "next" writer selection
         @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]

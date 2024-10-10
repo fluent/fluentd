@@ -136,6 +136,10 @@ module Fluent
       @root_agent.flush!
     end
 
+    def cancel_source_only!
+      @root_agent.cancel_source_only!
+    end
+
     def now
       # TODO thread update
       Fluent::EventTime.now

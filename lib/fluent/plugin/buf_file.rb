@@ -42,6 +42,8 @@ module Fluent
       config_param :file_permission, :string, default: nil # '0644' (Fluent::DEFAULT_FILE_PERMISSION)
       config_param :dir_permission,  :string, default: nil # '0755' (Fluent::DEFAULT_DIR_PERMISSION)
 
+      attr_reader :buffer_path
+
       def initialize
         super
         @symlink_path = nil
