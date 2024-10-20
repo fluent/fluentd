@@ -5,7 +5,7 @@ require 'fluent/plugin/in_udp'
 class UdpInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @port = unused_port
+    @port = unused_port(protocol: :udp)
   end
 
   def teardown

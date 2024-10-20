@@ -392,7 +392,7 @@ EOC
     end
 
     test "emit" do
-      port = unused_port
+      port = unused_port(protocol: :tcp)
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
@@ -451,7 +451,7 @@ EOC
 
   sub_test_case "servlets" do
     setup do
-      @port = unused_port
+      @port = unused_port(protocol: :tcp)
       # check @type and type in one configuration
       conf = <<-EOC
 <source>
@@ -759,7 +759,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
     end
 
     setup do
-      @port = unused_port
+      @port = unused_port(protocol: :tcp)
       # check @type and type in one configuration
       conf = <<-EOC
 <source>
@@ -840,7 +840,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
 
   sub_test_case "check the port number of http server" do
     test "on single worker environment" do
-      port = unused_port
+      port = unused_port(protocol: :tcp)
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
@@ -851,7 +851,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
     end
 
     test "worker_id = 2 on multi worker environment" do
-      port = unused_port
+      port = unused_port(protocol: :tcp)
       Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
         d = Fluent::Test::Driver::Input.new(Fluent::Plugin::MonitorAgentInput)
         d.instance.instance_eval{ @_fluentd_worker_id = 2 }
@@ -905,7 +905,7 @@ EOC
     end
 
     test "plugins have a variable named buffer does not throws NoMethodError" do
-      port = unused_port
+      port = unused_port(protocol: :tcp)
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
