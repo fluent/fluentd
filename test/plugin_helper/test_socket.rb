@@ -11,7 +11,7 @@ class SocketHelperTest < Test::Unit::TestCase
   CERT_CHAINS_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/cert_chains')
 
   def setup
-    @port = unused_port
+    @port = unused_port(protocol: :tcp)
   end
 
   def teardown
