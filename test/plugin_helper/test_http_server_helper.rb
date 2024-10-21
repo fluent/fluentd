@@ -14,7 +14,7 @@ class HttpHelperTest < Test::Unit::TestCase
   CERT_CA_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/with_ca')
 
   def setup
-    @port = unused_port
+    @port = unused_port(protocol: :tcp)
   end
 
   def teardown

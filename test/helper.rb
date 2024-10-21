@@ -71,15 +71,29 @@ end
 
 include Fluent::Test::Helpers
 
-def unused_port(num = 1, protocol: :tcp, bind: "0.0.0.0")
+def unused_port(num = 1, protocol:, bind: "0.0.0.0")
   case protocol
-  when :tcp
+  when :tcp, :tls
     unused_port_tcp(num)
   when :udp
     unused_port_udp(num, bind: bind)
+  when :all
+    unused_port_tcp_udp(num)
   else
     raise ArgumentError, "unknown protocol: #{protocol}"
   end
+end
+
+def unused_port_tcp_udp(num = 1)
+  raise "not support num > 1" if num > 1
+
+  # The default maximum number of file descriptors in macOS is 256.
+  # It might need to set num to a smaller value than that.
+  tcp_ports = unused_port_tcp(200)
+  port = unused_port_udp(1, port_list: tcp_ports)
+  raise "can't find unused port" unless port
+
+  port
 end
 
 def unused_port_tcp(num = 1)
@@ -90,7 +104,7 @@ def unused_port_tcp(num = 1)
     sockets << s
     ports << s.addr[1]
   end
-  sockets.each{|s| s.close }
+  sockets.each(&:close)
   if num == 1
     return ports.first
   else
@@ -100,12 +114,15 @@ end
 
 PORT_RANGE_AVAILABLE = (1024...65535)
 
-def unused_port_udp(num = 1, bind: "0.0.0.0")
+def unused_port_udp(num = 1, port_list: [], bind: "0.0.0.0")
   family = IPAddr.new(IPSocket.getaddress(bind)).ipv4? ? ::Socket::AF_INET : ::Socket::AF_INET6
   ports = []
   sockets = []
-  while ports.size < num
-    port = rand(PORT_RANGE_AVAILABLE)
+
+  use_random_port = port_list.empty?
+  i = 0
+  loop do
+    port = use_random_port ? rand(PORT_RANGE_AVAILABLE) : port_list[i]
     u = UDPSocket.new(family)
     if (u.bind(bind, port) rescue nil)
       ports << port
@@ -113,8 +130,11 @@ def unused_port_udp(num = 1, bind: "0.0.0.0")
     else
       u.close
     end
+    i += 1
+    break if ports.size >= num
+    break if !use_random_port && i >= port_list.size
   end
-  sockets.each{|s| s.close }
+  sockets.each(&:close)
   if num == 1
     return ports.first
   else
