@@ -272,7 +272,7 @@ class UdpInputTest < Test::Unit::TestCase
       format none
       message_length_limit #{message_length_limit}
     !)
-    d.run(expect_records: 3) do
+    d.run(expect_records: 3, timeout: 5) do
       create_udp_socket('127.0.0.1', @port) do |u|
         3.times do |i|
           u.send("#{i}" * 40 + "\n", 0)
