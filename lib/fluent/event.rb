@@ -203,7 +203,7 @@ module Fluent
     # https://github.com/msgpack/msgpack-ruby/issues/119
 
     # Keep cached_unpacker argument for existing plugins
-    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil)
+    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil, compress: nil)
       @data = data
       @size = size
       @unpacked_times = unpacked_times
@@ -268,10 +268,11 @@ module Fluent
   end
 
   class CompressedMessagePackEventStream < MessagePackEventStream
-    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil)
+    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil, compress: :gzip)
       super
       @decompressed_data = nil
       @compressed_data = data
+      @type = compress
     end
 
     def empty?
@@ -303,7 +304,7 @@ module Fluent
 
     def ensure_decompressed!
       return if @decompressed_data
-      @data = @decompressed_data = decompress(@data)
+      @data = @decompressed_data = decompress(@data, type: @type)
     end
   end
 
