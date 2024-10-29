@@ -611,7 +611,6 @@ EOL
 
     @d = d = create_driver(config + %[
       require_ack_response true
-      ack_response_timeout 1s
       <buffer tag>
         flush_mode immediate
         retry_type periodic
@@ -659,7 +658,6 @@ EOL
 
     @d = d = create_driver(config + %[
       require_ack_response true
-      ack_response_timeout 10s
       <buffer tag>
         flush_mode immediate
         retry_type periodic
