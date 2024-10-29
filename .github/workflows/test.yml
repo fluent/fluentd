@@ -12,6 +12,10 @@ on:
       - '*.md'
       - 'lib/fluent/version.rb'
 
+concurrency:
+  group: ${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 permissions: read-all
 
 jobs:
