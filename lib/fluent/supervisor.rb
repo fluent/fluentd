@@ -189,6 +189,11 @@ module Fluent
         $log.debug 'fluentd supervisor process got SIGUSR2'
         supervisor_sigusr2_handler
       end
+
+      trap 34 do
+        $log.debug 'fluentd supervisor process got SIGRTMIN'
+        cancel_source_only
+      end
     end
 
     if Fluent.windows?
@@ -310,6 +315,10 @@ module Fluent
       @fluentd_conf = conf.to_s
     rescue => e
       $log.error "Failed to reload config file: #{e}"
+    end
+
+    def cancel_source_only
+      send_signal_to_workers(34)
     end
 
     def supervisor_dump_handler_for_windows
@@ -486,6 +495,7 @@ module Fluent
         suppress_repeated_stacktrace: true,
         ignore_repeated_log_interval: nil,
         without_source: nil,
+        with_source_only: nil,
         enable_input_metrics: nil,
         enable_size_metrics: nil,
         use_v1_config: true,
@@ -840,6 +850,10 @@ module Fluent
         trap :CONT do
           dump_non_windows
         end
+
+        trap 34 do
+          cancel_source_only
+        end
       end
     end
 
@@ -889,6 +903,16 @@ module Fluent
           $log.debug "flushing thread: flushed"
         rescue Exception => e
           $log.warn "flushing thread error: #{e}"
+        end
+      end
+    end
+
+    def cancel_source_only
+      Thread.new do
+        begin
+          Fluent::Engine.cancel_source_only!
+        rescue Exception => e
+          $log.warn "failed to cancel source only", error: e
         end
       end
     end
