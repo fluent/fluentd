@@ -43,9 +43,14 @@ module Fluent::Plugin
     desc "Remove newline from the end of incoming payload"
     config_param :remove_newline, :bool, default: true
     desc "The max size of socket receive buffer. SO_RCVBUF"
-    config_param :receive_buffer_size, :size, default: nil
+    config_param :receive_buffer_size, :size, default: nil, deprecated: "use receive_buffer_size in transport section instead."
 
     config_param :blocking_timeout, :time, default: 0.5
+
+    # overwrite server plugin to change default to :udp and remove tcp/tls protocol from list
+    config_section :transport, required: false, multi: false, init: true, param_name: :transport_config do
+      config_argument :protocol, :enum, list: [:udp], default: :udp
+    end
 
     def configure(conf)
       compat_parameters_convert(conf, :parser)
