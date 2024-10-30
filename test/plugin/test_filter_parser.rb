@@ -2,11 +2,8 @@ require_relative '../helper'
 require 'timecop'
 require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_parser'
-require 'flexmock/test_unit'
 
 class ParserFilterTest < Test::Unit::TestCase
-  include FlexMock::TestCase
-
   def setup
     Fluent::Test.setup
     @tag = 'test'
@@ -538,194 +535,290 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal t, filtered[2][0]
   end
 
-  CONFIG_INVALID_TIME_VALUE = %[
-    key_name data
-    <parse>
-      @type json
-    </parse>
-  ] # 'time' is implicit @time_key
-  def test_filter_invalid_time_data
-    # should not raise errors
-    time = Time.now.to_i
-    d = create_driver(CONFIG_INVALID_TIME_VALUE)
-    assert_nothing_raised {
-      d.run(default_tag: @tag) do
-        d.feed(time, {'data' => '{"time":[], "f1":"v1"}'})
-        d.feed(time, {'data' => '{"time":"thisisnottime", "f1":"v1"}'})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-
-    assert_equal 0, filtered[0][0].to_i
-    assert_equal 'v1', filtered[0][1]['f1']
-    assert_equal nil, filtered[0][1]['time']
-  end
-
-  # REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
-
-  CONFIG_NOT_REPLACE = %[
-    key_name data
-    <parse>
-      @type regexp
-      expression /^(?<message>.*)$/
-    </parse>
-  ]
-  CONFIG_INVALID_BYTE = CONFIG_NOT_REPLACE + %[
-    replace_invalid_sequence true
-  ]
-  def test_filter_invalid_byte
-    invalid_utf8 = "\xff".force_encoding('UTF-8')
-
-    d = create_driver(CONFIG_NOT_REPLACE)
-    d.run do
-      d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
-    end
-    error_event = d.error_events.first
-    assert_equal "test", error_event[0]
-    assert_instance_of ArgumentError, error_event[3]
-
-    d = create_driver(CONFIG_INVALID_BYTE)
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-    assert_nil filtered[0][1]['data']
-    assert_equal '?'.force_encoding('UTF-8'), filtered[0][1]['message']
-
-    d = create_driver(CONFIG_INVALID_BYTE + %[reserve_data yes])
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-    assert_equal invalid_utf8, filtered[0][1]['data']
-    assert_equal '?'.force_encoding('UTF-8'), filtered[0][1]['message']
-
-    invalid_ascii = "\xff".force_encoding('US-ASCII')
-    d = create_driver(CONFIG_INVALID_BYTE)
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_ascii})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-    assert_nil filtered[0][1]['data']
-    assert_equal '?'.force_encoding('US-ASCII'), filtered[0][1]['message']
-  end
-
-  CONFIG_NOT_IGNORE = %[
-    key_name data
-    hash_value_field parsed
-    <parse>
-      @type json
-    </parse>
-  ]
-  CONFIG_PASS_SAME_RECORD = CONFIG_NOT_IGNORE + %[
-    reserve_data true
-  ]
-  def test_filter_key_not_exist
-    d = create_driver(CONFIG_NOT_IGNORE)
-    flexmock(d.instance.router).should_receive(:emit_error_event).
-      with(String, Integer, Hash, ArgumentError.new("data does not exist")).once
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
-      end
-    }
-
-    d = create_driver(CONFIG_PASS_SAME_RECORD)
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-    assert_nil filtered[0][1]['data']
-    assert_equal 'bar', filtered[0][1]['foo']
-  end
-
-  # emit_error_event test
-  INVALID_MESSAGE = 'foo bar'
-  VALID_MESSAGE   = 'col1=foo col2=bar'
-
-  def test_call_emit_error_event_when_parser_error
-    d = create_driver(CONFIG_INVALID_TIME_VALUE)
-    flexmock(d.instance.router).should_receive(:emit_error_event).
-      with(String, Integer, Hash, ParserError).once
-    d.run do
-      d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => '{"time":[], "f1":"v1"}'})
-    end
-  end
-
-  CONFIG_UNMATCHED_PATTERN_LOG = %[
-    key_name message
-    <parse>
-      @type regexp
-      expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
-    </parse>
-  ]
-
-  class UnmatchedPatternLogTest < self
-    setup do
-      @d = create_driver(CONFIG_UNMATCHED_PATTERN_LOG)
-    end
-
-    def test_call_emit_error_event_when_pattern_is_mismached
-      flexmock(@d.instance.router).should_receive(:emit_error_event).
-        with(String, Integer, Hash, ParserError.new("pattern not matched with data '#{INVALID_MESSAGE}'")).once
-      @d.run do
-        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
-      end
-    end
-
-    def test_not_call_emit_error_event_when_pattern_is_mached
-      flexmock(@d.instance.router).should_receive(:emit_error_event).never
-      @d.run do
-        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
-      end
-    end
-  end
-
-  class EmitInvalidRecordToErrorTest < self
-    def test_pattern_is_mismached_with_emit_invalid_record_to_error
-      d = create_driver(CONFIG_UNMATCHED_PATTERN_LOG + "emit_invalid_record_to_error false")
-      flexmock(d.instance.router).should_receive(:emit_error_event).never
-      assert_nothing_raised {
-        d.run do
-          d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
+  sub_test_case "abnormal cases" do
+    module HashExcept
+      refine Hash do
+        def except(*keys)
+          reject do |key, _|
+            keys.include?(key)
+          end
         end
-      }
-      assert_equal 0, d.filtered.length
+      end
     end
 
-    def test_parser_error_with_emit_invalid_record_to_error
-      d = create_driver(CONFIG_INVALID_TIME_VALUE + "emit_invalid_record_to_error false")
-      flexmock(d.instance.router).should_receive(:emit_error_event).never
-      assert_nothing_raised {
-        d.run do
-          d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => '{"time":[], "f1":"v1"}'})
+    # Ruby 2.x does not support Hash#except.
+    using HashExcept unless {}.respond_to?(:except)
+
+    def run_and_assert(driver, records:, expected_records:, expected_error_records:, expected_errors:)
+      driver.run do
+        records.each do |record|
+          driver.feed(@tag, Fluent::EventTime.now.to_i, record)
         end
-      }
-      assert_equal 0, d.filtered.length
+      end
+
+      assert_equal(
+        [
+          expected_records,
+          expected_error_records,
+          expected_errors.collect { |e| [e.class, e.message] },
+        ],
+        [
+          driver.filtered_records,
+          driver.error_events.collect { |_, _, record, _| record },
+          driver.error_events.collect { |_, _, _, e| [e.class, e.message] },
+        ]
+      )
     end
 
-    def test_key_not_exist_with_emit_invalid_record_to_error
-      d = create_driver(CONFIG_NOT_IGNORE + "emit_invalid_record_to_error false")
-      flexmock(d.instance.router).should_receive(:emit_error_event).never
-      assert_nothing_raised {
-        d.run do
-          d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
+    data(
+      "with default" => {
+        records: [{"foo" => "bar"}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{"foo" => "bar"}],
+        expected_errors: [ArgumentError.new("data does not exist")],
+      },
+      "with reserve_data" => {
+        records: [{"foo" => "bar"}],
+        additional_config: "reserve_data",
+        expected_records: [{"foo" => "bar"}],
+        expected_error_records: [{"foo" => "bar"}],
+        expected_errors: [ArgumentError.new("data does not exist")],
+      },
+      "with disabled emit_invalid_record_to_error" => {
+        records: [{"foo" => "bar"}],
+        additional_config: "emit_invalid_record_to_error false",
+        expected_records: [],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "with reserve_data and disabled emit_invalid_record_to_error" => {
+        records: [{"foo" => "bar"}],
+        additional_config: ["reserve_data", "emit_invalid_record_to_error false"].join("\n"),
+        expected_records: [{"foo" => "bar"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "with reserve_data and hash_value_field" => {
+        records: [{"foo" => "bar"}],
+        additional_config: ["reserve_data", "hash_value_field parsed"].join("\n"),
+        expected_records: [{"foo" => "bar", "parsed" => {}}],
+        expected_error_records: [{"foo" => "bar"}],
+        expected_errors: [ArgumentError.new("data does not exist")],
+      },
+    )
+    def test_filter_key_not_exist(data)
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type json
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
+    end
+
+    data(
+      "with default" => {
+        records: [{"data" => "foo bar"}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{"data" => "foo bar"}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("pattern not matched with data 'foo bar'")],
+      },
+      "with reserve_data" => {
+        records: [{"data" => "foo bar"}],
+        additional_config: "reserve_data",
+        expected_records: [{"data" => "foo bar"}],
+        expected_error_records: [{"data" => "foo bar"}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("pattern not matched with data 'foo bar'")],
+      },
+      "with disabled emit_invalid_record_to_error" => {
+        records: [{"data" => "foo bar"}],
+        additional_config: "emit_invalid_record_to_error false",
+        expected_records: [],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "with reserve_data and disabled emit_invalid_record_to_error" => {
+        records: [{"data" => "foo bar"}],
+        additional_config: ["reserve_data", "emit_invalid_record_to_error false"].join("\n"),
+        expected_records: [{"data" => "foo bar"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "with matched pattern" => {
+        records: [{"data" => "col1=foo col2=bar"}],
+        additional_config: "",
+        expected_records: [{"col1" => "foo", "col2" => "bar"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+    )
+    def test_pattern_not_matched(data)
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type regexp
+          expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
+    end
+
+    data(
+      "invalid format with default" => {
+        records: [{'data' => '{"time":[], "f1":"v1"}'}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{'data' => '{"time":[], "f1":"v1"}'}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("value must be a string or a number: [](Array)")],
+      },
+      "invalid format with disabled emit_invalid_record_to_error" => {
+        records: [{'data' => '{"time":[], "f1":"v1"}'}],
+        additional_config: "emit_invalid_record_to_error false",
+        expected_records: [],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "mixed valid and invalid with default" => {
+        records: [{'data' => '{"time":[], "f1":"v1"}'}, {'data' => '{"time":0, "f1":"v1"}'}],
+        additional_config: "",
+        expected_records: [{"f1" => "v1"}],
+        expected_error_records: [{'data' => '{"time":[], "f1":"v1"}'}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("value must be a string or a number: [](Array)")],
+      },
+    )
+    def test_parser_error(data)
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type json
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
+    end
+
+    data(
+      "UTF-8 with default" => {
+        records: [{"data" => "\xff"}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{"data" => "\xff"}],
+        expected_errors: [ArgumentError.new("invalid byte sequence in UTF-8")],
+      },
+      "UTF-8 with replace_invalid_sequence" => {
+        records: [{"data" => "\xff"}],
+        additional_config: "replace_invalid_sequence",
+        expected_records: [{"message" => "?"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "UTF-8 with replace_invalid_sequence and reserve_data" => {
+        records: [{"data" => "\xff"}],
+        additional_config: ["replace_invalid_sequence", "reserve_data"].join("\n"),
+        expected_records: [{"message" => "?", "data" => "\xff"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "US-ASCII with default" => {
+        records: [{"data" => "\xff".force_encoding("US-ASCII")}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{"data" => "\xff".force_encoding("US-ASCII")}],
+        expected_errors: [ArgumentError.new("invalid byte sequence in US-ASCII")],
+      },
+      "US-ASCII with replace_invalid_sequence" => {
+        records: [{"data" => "\xff".force_encoding("US-ASCII")}],
+        additional_config: "replace_invalid_sequence",
+        expected_records: [{"message" => "?".force_encoding("US-ASCII")}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "US-ASCII with replace_invalid_sequence and reserve_data" => {
+        records: [{"data" => "\xff".force_encoding("US-ASCII")}],
+        additional_config: ["replace_invalid_sequence", "reserve_data"].join("\n"),
+        expected_records: [{"message" => "?".force_encoding("US-ASCII"), "data" => "\xff".force_encoding("US-ASCII")}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+    )
+    def test_invalid_byte(data)
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type regexp
+          expression /^(?<message>.*)$/
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
+    end
+
+    test "replace_invalid_sequence should be applied only to invalid byte sequence errors" do
+      error_msg = "This is a dummy ArgumentError other than invalid byte sequence"
+      any_instance_of(Fluent::Plugin::JSONParser) do |klass|
+        stub(klass).parse do
+          raise ArgumentError, error_msg
         end
-      }
-      assert_equal 0, d.filtered.length
+      end
+
+      driver = create_driver(<<~EOC)
+        key_name data
+        replace_invalid_sequence
+        <parse>
+          @type json
+        </parse>
+      EOC
+
+      # replace_invalid_sequence should not applied
+      run_and_assert(
+        driver, 
+        records: [{'data' => '{"foo":"bar"}'}],
+        expected_records: [],
+        expected_error_records: [{'data' => '{"foo":"bar"}'}],
+        expected_errors: [ArgumentError.new(error_msg)]
+      )
+    end
+
+    data(
+      "with default" => {
+        records: [{'data' => '{"foo":"bar"}'}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{'data' => '{"foo":"bar"}'}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("parse failed This is a dummy unassumed error")],
+      },
+      "with disabled emit_invalid_record_to_error" => {
+        records: [{'data' => '{"foo":"bar"}'}],
+        additional_config: "emit_invalid_record_to_error false",
+        expected_records: [],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+    )
+    def test_unassumed_error(data)
+      any_instance_of(Fluent::Plugin::JSONParser) do |klass|
+        stub(klass).parse do
+          raise RuntimeError, "This is a dummy unassumed error"
+        end
+      end
+
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type json
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
     end
   end
 end
