@@ -48,7 +48,35 @@ module Fluent
   class RootAgent < Agent
     ERROR_LABEL = "@ERROR".freeze # @ERROR is built-in error label
 
-    def initialize(log:, system_config: SystemConfig.new)
+    class SourceOnlyMode
+      DISABELD = 0
+      NORMAL = 1
+      RESTART_WITHOUT_DOWNTIME_READY_ONLY = 2
+
+      def initialize(with_source_only, start_in_parallel)
+        if start_in_parallel
+          @mode = RESTART_WITHOUT_DOWNTIME_READY_ONLY
+        elsif with_source_only
+          @mode = NORMAL
+        else
+          @mode = DISABELD
+        end
+      end
+
+      def source_only?
+        @mode != DISABELD
+      end
+
+      def restart_without_downtime_ready_only?
+        @mode == RESTART_WITHOUT_DOWNTIME_READY_ONLY
+      end
+
+      def disable!
+        @mode = DISABELD
+      end
+    end
+
+    def initialize(log:, system_config: SystemConfig.new, start_in_parallel: false)
       super(log: log)
 
       @labels = {}
@@ -56,7 +84,7 @@ module Fluent
       @suppress_emit_error_log_interval = 0
       @next_emit_error_log_time = nil
       @without_source = system_config.without_source || false
-      @with_source_only = system_config.with_source_only || false
+      @source_only_mode = SourceOnlyMode.new(system_config.with_source_only, start_in_parallel)
       @source_only_buffer_agent = nil
       @enable_input_metrics = system_config.enable_input_metrics || false
 
@@ -67,7 +95,7 @@ module Fluent
     attr_reader :labels
 
     def source_only_router
-      raise "[BUG] 'RootAgent#source_only_router' should not be called when 'with_source_only' is false" unless @with_source_only
+      raise "[BUG] 'RootAgent#source_only_router' should not be called when 'with_source_only' is false" unless @source_only_mode.source_only?
       @source_only_buffer_agent.event_router
     end
 
@@ -154,7 +182,7 @@ module Fluent
 
       super
 
-      setup_source_only_buffer_agent if @with_source_only
+      setup_source_only_buffer_agent if @source_only_mode.source_only?
 
       # initialize <source> elements
       if @without_source
@@ -184,7 +212,7 @@ module Fluent
 
     def lifecycle(desc: false, kind_callback: nil, kind_or_agent_list: nil)
       unless kind_or_agent_list
-        if @with_source_only
+        if @source_only_mode.source_only?
           kind_or_agent_list = [:input, @source_only_buffer_agent]
         elsif @source_only_buffer_agent
           # source_only_buffer_agent can re-reroute events, so the priority is equal to output_with_router.
@@ -210,6 +238,9 @@ module Fluent
                  end
           display_kind = (kind == :output_with_router ? :output : kind)
           list.each do |instance|
+            if @source_only_mode.restart_without_downtime_ready_only?
+              next unless instance.restart_without_downtime_ready?
+            end
             yield instance, display_kind
           end
         end
@@ -254,9 +285,9 @@ module Fluent
 
     def cancel_source_only!
       # TODO exclusive lock
-      if @with_source_only
+      if @source_only_mode.source_only?
         log.info "cancel --with-source-only mode and start the other plugins"
-        @with_source_only = false
+        @source_only_mode.disable!
         start
 
         lifecycle_control_list[:input].each(&:event_emitter_cancel_source_only)
@@ -371,7 +402,7 @@ module Fluent
       # See also 'fluentd/plugin/input.rb'
       input.context_router = @event_router
       input.configure(conf)
-      input.event_emitter_set_source_only if @with_source_only
+      input.event_emitter_set_source_only if @source_only_mode.source_only?
       if @enable_input_metrics
         @event_router.add_metric_callbacks(input.plugin_id, Proc.new {|es| input.metric_callback(es) })
       end

@@ -65,6 +65,10 @@ module Fluent::Plugin
       true
     end
 
+    def restart_without_downtime_ready?
+      true
+    end
+
     def start
       super
 

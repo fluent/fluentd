@@ -43,6 +43,10 @@ module Fluent
       @rpc_endpoint = nil
       @rpc_server = nil
       @counter = nil
+      @socket_manager_server = nil
+      @starting_new_supervisor_without_downtime = false
+      @new_supervisor_pid = nil
+      start_in_parallel = ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
 
       @fluentd_lock_dir = Dir.mktmpdir("fluentd-lock-")
       ENV['FLUENTD_LOCK_DIR'] = @fluentd_lock_dir
@@ -65,10 +69,21 @@ module Fluent
 
       if config[:disable_shared_socket]
         $log.info "shared socket for multiple workers is disabled"
+      elsif start_in_parallel
+        begin
+          raise "[BUG] SERVERENGINE_SOCKETMANAGER_PATH env var must exist when starting in parallel" unless ENV.key?('SERVERENGINE_SOCKETMANAGER_PATH')
+          @socket_manager_server = ServerEngine::SocketManager::Server.share_sockets_with_another_server(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
+          $log.info "restart-without-downtime: took over the shared sockets", path: ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+        rescue => e
+          $log.error "restart-without-downtime: cancel sequence because failed to take over the shared sockets", error: e
+          raise
+        end
       else
-        server = ServerEngine::SocketManager::Server.open
-        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = server.path.to_s
+        @socket_manager_server = ServerEngine::SocketManager::Server.open
+        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_server.path.to_s
       end
+
+      stop_parallel_old_supervisor_after_delay if start_in_parallel
     end
 
     def after_run
@@ -76,7 +91,9 @@ module Fluent
       stop_rpc_server if @rpc_endpoint
       stop_counter_server if @counter
       cleanup_lock_dir
-      Fluent::Supervisor.cleanup_resources
+      Fluent::Supervisor.cleanup_socketmanager_path unless @starting_new_supervisor_without_downtime
+
+      notify_new_supervisor_that_old_one_has_stopped if @starting_new_supervisor_without_downtime
     end
 
     def cleanup_lock_dir
@@ -138,7 +155,7 @@ module Fluent
       @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
         $log.debug "fluentd RPC got /api/config.gracefulReload request"
         if Fluent.windows?
-          supervisor_sigusr2_handler
+          graceful_reload
         else
           Process.kill :USR2, Process.pid
         end
@@ -172,6 +189,47 @@ module Fluent
       @counter.stop
     end
 
+    def stop_parallel_old_supervisor_after_delay
+      # TODO if the new supervisor fails to start and this is not called,
+      # it would be necessary to update the pid in the PID file to the old one when daemonized.
+
+      Thread.new do
+        # Delay to avoid worker downtime as much as possible.
+        # Even if the downtime occurs, it is no problem because the socket buffer works,
+        # as long as the capacity is not exceeded.
+        sleep 10
+        old_pid = ENV["FLUENT_RUNNING_IN_PARALLEL_WITH_OLD"]&.to_i
+        if old_pid
+          $log.info "restart-without-downtime: stop the old supervisor"
+          Process.kill :TERM, old_pid
+        end
+      rescue => e
+        $log.warn "restart-without-downtime: failed to stop the old supervisor." +
+                  " If the old one does not exist, please send '34' signal to this new process to start to work fully." +
+                  " If it exists, something went wrong. Please kill the old one manually.",
+                  error: e
+      end
+    end
+
+    def notify_new_supervisor_that_old_one_has_stopped
+      if config[:pid_path]
+        new_pid = File.read(config[:pid_path]).to_i
+      else
+        raise "[BUG] new_supervisor_pid is not saved" unless @new_supervisor_pid
+        new_pid = @new_supervisor_pid
+      end
+
+      $log.info "restart-without-downtime: notify the new supervisor (pid: #{new_pid}) that old one has stopped"
+      Process.kill 34, new_pid
+    rescue => e
+      $log.error(
+        "restart-without-downtime: failed to notify the new supervisor." +
+        " Please send '34' signal to the new supervisor process manually" +
+        " if it does not start to work fully.",
+        error: e
+      )
+    end
+
     def install_supervisor_signal_handlers
       return if Fluent.windows?
 
@@ -187,7 +245,11 @@ module Fluent
 
       trap :USR2 do
         $log.debug 'fluentd supervisor process got SIGUSR2'
-        supervisor_sigusr2_handler
+        if Fluent.windows?
+          graceful_reload
+        else
+          restart_without_downtime
+        end
       end
 
       trap 34 do
@@ -259,7 +321,7 @@ module Fluent
             when :usr1
               supervisor_sigusr1_handler
             when :usr2
-              supervisor_sigusr2_handler
+              graceful_reload
             when :cont
               supervisor_dump_handler_for_windows
             when :stop_event_thread
@@ -289,7 +351,7 @@ module Fluent
       send_signal_to_workers(:USR1)
     end
 
-    def supervisor_sigusr2_handler
+    def graceful_reload
       conf = nil
       t = Thread.new do
         $log.info 'Reloading new config'
@@ -317,7 +379,38 @@ module Fluent
       $log.error "Failed to reload config file: #{e}"
     end
 
+    def restart_without_downtime
+      # TODO exclusive lock
+
+      $log.info "start restart-without-downtime sequence"
+
+      if @starting_new_supervisor_without_downtime
+        $log.warn "restart-without-downtime: canceled because it is already starting"
+        return
+      end
+      if ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+        $log.warn "restart-without-downtime: canceled because the previous sequence is still running"
+        return
+      end
+
+      @starting_new_supervisor_without_downtime = true
+      commands = [ServerEngine.ruby_bin_path, $0] + ARGV
+      env_to_add = {
+        "SERVERENGINE_SOCKETMANAGER_INTERNAL_TOKEN" => ServerEngine::SocketManager::INTERNAL_TOKEN,
+        "FLUENT_RUNNING_IN_PARALLEL_WITH_OLD" => "#{Process.pid}",
+      }
+      pid = Process.spawn(env_to_add, commands.join(" "))
+      @new_supervisor_pid = pid unless config[:daemonize]
+    rescue => e
+      $log.error "restart-without-downtime: failed", error: e
+      @starting_new_supervisor_without_downtime = false
+    end
+
     def cancel_source_only
+      if ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+        $log.info "restart-without-downtime: done all sequences, now the new workers starts to work fully"
+        ENV.delete("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+      end
       send_signal_to_workers(34)
     end
 
@@ -509,12 +602,11 @@ module Fluent
       }
     end
 
-    def self.cleanup_resources
-      unless Fluent.windows?
-        if ENV.has_key?('SERVERENGINE_SOCKETMANAGER_PATH')
-          FileUtils.rm_f(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
-        end
-      end
+    def self.cleanup_socketmanager_path
+      return if Fluent.windows?
+      return unless ENV.key?('SERVERENGINE_SOCKETMANAGER_PATH')
+
+      FileUtils.rm_f(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
     end
 
     def initialize(cl_opt)
@@ -578,7 +670,7 @@ module Fluent
       begin
         ServerEngine::Privilege.change(@chuser, @chgroup)
         MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
-        Fluent::Engine.init(@system_config, supervisor_mode: true)
+        Fluent::Engine.init(@system_config, supervisor_mode: true, start_in_parallel: ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD"))
         Fluent::Engine.run_configure(@conf, dry_run: dry_run)
       rescue Fluent::ConfigError => e
         $log.error 'config error', file: @config_path, error: e
@@ -623,10 +715,10 @@ module Fluent
           File.umask(@chumask.to_i(8))
         end
         MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
-        Fluent::Engine.init(@system_config)
+        Fluent::Engine.init(@system_config, start_in_parallel: ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD"))
         Fluent::Engine.run_configure(@conf)
         Fluent::Engine.run
-        self.class.cleanup_resources if @standalone_worker
+        self.class.cleanup_socketmanager_path if @standalone_worker
         exit 0
       end
     end
@@ -844,7 +936,8 @@ module Fluent
         end
 
         trap :USR2 do
-          reload_config
+          # Do nothing
+          # TODO consider suitable code for this
         end
 
         trap :CONT do
