@@ -225,7 +225,7 @@ EOC
       content = 'ひらがな漢字'
 
       d = create_driver %[
-        command ruby -e "puts '#{content}'"
+        command ruby -Eascii-8bit:ascii-8bit -e "puts '#{content}'"
         tag test
         encoding utf-8
         <parse>
