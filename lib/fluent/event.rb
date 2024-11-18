@@ -62,9 +62,9 @@ module Fluent
       out.full_pack
     end
 
-    def to_compressed_msgpack_stream(time_int: false, packer: nil)
+    def to_compressed_msgpack_stream(time_int: false, packer: nil, type: :gzip)
       packed = to_msgpack_stream(time_int: time_int, packer: packer)
-      compress(packed)
+      compress(packed, type: type)
     end
 
     def to_msgpack_stream_forced_integer(packer: nil)
