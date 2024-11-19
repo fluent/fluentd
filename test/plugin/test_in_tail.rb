@@ -3265,6 +3265,7 @@ class TailInputTest < Test::Unit::TestCase
       inode_0 = tail_watchers[0]&.ino
       inode_1 = tail_watchers[1]&.ino
       inode_2 = tail_watchers[2]&.ino
+      pos_file_inode = tail_watchers[2].pe.read_inode
       record_values = d.events.collect { |event| event[2]["message"] }.sort
       position_entries = []
       Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "r") do |f|
@@ -3282,7 +3283,7 @@ class TailInputTest < Test::Unit::TestCase
           tail_watcher_io_handler_opened_statuses: [false, false, false],
           position_entries: [
             # The recorded path is old, but it is no problem. The path is not used when using follow_inodes.
-            ["#{@tmp_dir}/tail.txt0", "0000000000000016", inode_2],
+            ["#{@tmp_dir}/tail.txt0", "0000000000000016", pos_file_inode],
           ],
         },
         {
@@ -3346,6 +3347,7 @@ class TailInputTest < Test::Unit::TestCase
       inode_0 = tail_watchers[0]&.ino
       inode_1 = tail_watchers[1]&.ino
       inode_2 = tail_watchers[2]&.ino
+      pos_file_inode = tail_watchers[2].pe.read_inode
       record_values = d.events.collect { |event| event[2]["message"] }.sort
       position_entries = []
       Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "r") do |f|
@@ -3362,7 +3364,7 @@ class TailInputTest < Test::Unit::TestCase
           tail_watcher_inodes: [inode_0, inode_1, inode_2],
           tail_watcher_io_handler_opened_statuses: [false, false, false],
           position_entries: [
-            ["#{@tmp_dir}/tail.txt0", "0000000000000016", inode_2],
+            ["#{@tmp_dir}/tail.txt0", "0000000000000016", pos_file_inode],
           ],
         },
         {
