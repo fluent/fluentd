@@ -310,7 +310,7 @@ module Fluent
 
     def add_source(type, conf)
       log_type = conf.for_this_worker? ? :default : :worker0
-      log.info log_type, "adding source", type: type
+      log.debug log_type, "adding source", type: type
 
       input = Plugin.new_input(type)
       # <source> emits events to the top-level event router (RootAgent#event_router).

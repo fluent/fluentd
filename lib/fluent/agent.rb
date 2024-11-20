@@ -125,7 +125,7 @@ module Fluent
 
     def add_match(type, pattern, conf)
       log_type = conf.for_this_worker? ? :default : :worker0
-      log.info log_type, "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
+      log.debug log_type, "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       output = Plugin.new_output(type)
       output.context_router = @event_router
@@ -147,7 +147,7 @@ module Fluent
 
     def add_filter(type, pattern, conf)
       log_type = conf.for_this_worker? ? :default : :worker0
-      log.info log_type, "adding filter#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
+      log.debug log_type, "adding filter#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       filter = Plugin.new_filter(type)
       filter.context_router = @event_router
