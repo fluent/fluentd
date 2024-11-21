@@ -21,6 +21,7 @@ module Fluent::Config
         log_event_label: nil,
         log_event_verbose: nil,
         without_source: nil,
+        with_source_only: nil,
         enable_input_metrics: nil,
         enable_size_metrics: nil,
         emit_error_log_interval: nil,
@@ -73,6 +74,7 @@ module Fluent::Config
       assert_nil(sc.emit_error_log_interval)
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
+      assert_nil(sc.with_source_only)
       assert_nil(sc.enable_input_metrics)
       assert_nil(sc.enable_size_metrics)
       assert_nil(sc.enable_msgpack_time_support)
@@ -92,6 +94,7 @@ module Fluent::Config
       'log_event_verbose' => ['log_event_verbose', true],
       'suppress_config_dump' => ['suppress_config_dump', true],
       'without_source' => ['without_source', true],
+      'with_source_only' => ['with_source_only', true],
       'strict_config_value' => ['strict_config_value', true],
       'enable_msgpack_time_support' => ['enable_msgpack_time_support', true],
       'enable_input_metrics' => ['enable_input_metrics', true],
@@ -193,6 +196,46 @@ module Fluent::Config
         sc = Fluent::SystemConfig.new(conf)
         assert_equal(size, sc.log.rotate_size)
       end
+    end
+
+    test "source-only-buffer parameters" do
+      conf = parse_text(<<~EOS)
+        <system>
+          <source_only_buffer>
+            flush_thread_count 4
+            overflow_action throw_exception
+            path /tmp/source-only-buffer
+            flush_interval 1
+            chunk_limit_size 100
+            total_limit_size 1000
+            compress gzip
+          </source_only_buffer>
+        </system>
+      EOS
+      s = FakeSupervisor.new
+      sc = Fluent::SystemConfig.new(conf)
+      sc.overwrite_variables(**s.for_system_config)
+
+      assert_equal(
+        [
+          4,
+          :throw_exception,
+          "/tmp/source-only-buffer",
+          1,
+          100,
+          1000,
+          :gzip,
+        ],
+        [
+          sc.source_only_buffer.flush_thread_count,
+          sc.source_only_buffer.overflow_action,
+          sc.source_only_buffer.path,
+          sc.source_only_buffer.flush_interval,
+          sc.source_only_buffer.chunk_limit_size,
+          sc.source_only_buffer.total_limit_size,
+          sc.source_only_buffer.compress,
+        ]
+      )
     end
   end
 end

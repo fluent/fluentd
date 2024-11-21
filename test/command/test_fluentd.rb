@@ -1335,4 +1335,19 @@ CONF
       end
     end
   end
+
+  sub_test_case "--with-source-only" do
+    setup do
+      omit "Not supported on Windows" if Fluent.windows?
+    end
+
+    test "should work without error" do
+      conf_path = create_conf_file("empty.conf", "")
+      assert File.exist?(conf_path)
+      assert_log_matches(create_cmdline(conf_path, "--with-source-only"),
+                         "with-source-only: the emitted data will be stored in the buffer files under",
+                         "fluentd worker is now running",
+                         patterns_not_match: ["[error]"])
+    end
+  end
 end
