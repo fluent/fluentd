@@ -77,6 +77,16 @@ class BufferChunkTest < Test::Unit::TestCase
       assert_raise(ArgumentError){ chunk.write_to(nil, compressed: :gzip) }
       assert_raise(ArgumentError){ chunk.append(nil, compress: :gzip) }
     end
+
+    test 'some methods raise ArgumentError with an option of `compressed: :zstd` and without extending Compressble`' do
+      meta = Object.new
+      chunk = Fluent::Plugin::Buffer::Chunk.new(meta)
+
+      assert_raise(ArgumentError){ chunk.read(compressed: :zstd) }
+      assert_raise(ArgumentError){ chunk.open(compressed: :zstd){} }
+      assert_raise(ArgumentError){ chunk.write_to(nil, compressed: :zstd) }
+      assert_raise(ArgumentError){ chunk.append(nil, compress: :zstd) }
+    end
   end
 
   class TestChunk < Fluent::Plugin::Buffer::Chunk
@@ -203,7 +213,15 @@ class BufferChunkTest < Test::Unit::TestCase
     test 'create decompressable chunk' do
       meta = Object.new
       chunk = Fluent::Plugin::Buffer::Chunk.new(meta, compress: :gzip)
-      assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::Decompressable)
+      assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::GzipDecompressable)
+    end
+  end
+
+  sub_test_case 'when compress is zstd' do
+    test 'create decompressable chunk' do
+      meta = Object.new
+      chunk = Fluent::Plugin::Buffer::Chunk.new(meta, compress: :zstd)
+      assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::ZstdDecompressable)
     end
   end
 end
