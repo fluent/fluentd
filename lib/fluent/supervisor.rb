@@ -189,6 +189,11 @@ module Fluent
         $log.debug 'fluentd supervisor process got SIGUSR2'
         supervisor_sigusr2_handler
       end
+
+      trap :WINCH do
+        $log.debug 'fluentd supervisor process got SIGWINCH'
+        cancel_source_only
+      end
     end
 
     if Fluent.windows?
@@ -312,6 +317,10 @@ module Fluent
       $log.error "Failed to reload config file: #{e}"
     end
 
+    def cancel_source_only
+      send_signal_to_workers(:WINCH)
+    end
+
     def supervisor_dump_handler_for_windows
       # As for UNIX-like, SIGCONT signal to each process makes the process output its dump-file,
       # and it is implemented before the implementation of the function for Windows.
@@ -409,6 +418,7 @@ module Fluent
       main_cmd = config[:main_cmd]
       env = {
         'SERVERENGINE_WORKER_ID' => @worker_id.to_i.to_s,
+        'FLUENT_INSTANCE_ID' => Fluent::INSTANCE_ID,
       }
       @pm = process_manager.spawn(env, *main_cmd)
     end
@@ -486,6 +496,7 @@ module Fluent
         suppress_repeated_stacktrace: true,
         ignore_repeated_log_interval: nil,
         without_source: nil,
+        with_source_only: nil,
         enable_input_metrics: nil,
         enable_size_metrics: nil,
         use_v1_config: true,
@@ -550,6 +561,10 @@ module Fluent
         raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@system_config.workers}"
       end
 
+      if Fluent.windows? && @system_config.with_source_only
+        raise Fluent::ConfigError, "with-source-only is not supported on Windows"
+      end
+
       root_dir = @system_config.root_dir
       if root_dir
         if File.exist?(root_dir)
@@ -599,6 +614,10 @@ module Fluent
 
       if @standalone_worker && @system_config.workers != 1
         raise Fluent::ConfigError, "invalid number of workers (must be 1 or unspecified) with --no-supervisor: #{@system_config.workers}"
+      end
+
+      if Fluent.windows? && @system_config.with_source_only
+        raise Fluent::ConfigError, "with-source-only is not supported on Windows"
       end
 
       install_main_process_signal_handlers
@@ -840,6 +859,10 @@ module Fluent
         trap :CONT do
           dump_non_windows
         end
+
+        trap :WINCH do
+          cancel_source_only
+        end
       end
     end
 
@@ -889,6 +912,18 @@ module Fluent
           $log.debug "flushing thread: flushed"
         rescue Exception => e
           $log.warn "flushing thread error: #{e}"
+        end
+      end
+    end
+
+    def cancel_source_only
+      Thread.new do
+        begin
+          $log.debug "fluentd main process get SIGWINCH"
+          $log.info "try to cancel with-source-only mode"
+          Fluent::Engine.cancel_source_only!
+        rescue Exception => e
+          $log.warn "failed to cancel source only", error: e
         end
       end
     end

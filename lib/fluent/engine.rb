@@ -43,6 +43,8 @@ module Fluent
       @system_config = SystemConfig.new
 
       @supervisor_mode = false
+
+      @root_agent_mutex = Mutex.new
     end
 
     MAINLOOP_SLEEP_INTERVAL = 0.3
@@ -133,7 +135,15 @@ module Fluent
     end
 
     def flush!
-      @root_agent.flush!
+      @root_agent_mutex.synchronize do
+        @root_agent.flush!
+      end
+    end
+
+    def cancel_source_only!
+      @root_agent_mutex.synchronize do
+        @root_agent.cancel_source_only!
+      end
     end
 
     def now
@@ -144,7 +154,9 @@ module Fluent
     def run
       begin
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
-        start
+        @root_agent_mutex.synchronize do
+          start
+        end
 
         @fluent_log_event_router.start
 
@@ -158,47 +170,51 @@ module Fluent
         raise
       end
 
-      stop_phase(@root_agent)
+      @root_agent_mutex.synchronize do
+        stop_phase(@root_agent)
+      end
     end
 
     # @param conf [Fluent::Config]
     # @param supervisor [Bool]
     # @reutrn nil
     def reload_config(conf, supervisor: false)
-      # configure first to reduce down time while restarting
-      new_agent = RootAgent.new(log: log, system_config: @system_config)
-      ret = Fluent::StaticConfigAnalysis.call(conf, workers: system_config.workers)
+      @root_agent_mutex.synchronize do
+        # configure first to reduce down time while restarting
+        new_agent = RootAgent.new(log: log, system_config: @system_config)
+        ret = Fluent::StaticConfigAnalysis.call(conf, workers: system_config.workers)
 
-      ret.all_plugins.each do |plugin|
-        if plugin.respond_to?(:reloadable_plugin?) && !plugin.reloadable_plugin?
-          raise Fluent::ConfigError, "Unreloadable plugin plugin: #{Fluent::Plugin.lookup_type_from_class(plugin.class)}, plugin_id: #{plugin.plugin_id}, class_name: #{plugin.class})"
+        ret.all_plugins.each do |plugin|
+          if plugin.respond_to?(:reloadable_plugin?) && !plugin.reloadable_plugin?
+            raise Fluent::ConfigError, "Unreloadable plugin plugin: #{Fluent::Plugin.lookup_type_from_class(plugin.class)}, plugin_id: #{plugin.plugin_id}, class_name: #{plugin.class})"
+          end
         end
+
+        # Assign @root_agent to new root_agent
+        # for https://github.com/fluent/fluentd/blob/fcef949ce40472547fde295ddd2cfe297e1eddd6/lib/fluent/plugin_helper/event_emitter.rb#L50
+        old_agent, @root_agent = @root_agent, new_agent
+        begin
+          @root_agent.configure(conf)
+        rescue
+          @root_agent = old_agent
+          raise
+        end
+
+        unless @suppress_config_dump
+          $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
+        end
+
+        # supervisor doesn't handle actual data. so the following code is unnecessary.
+        if supervisor
+          old_agent.shutdown      # to close thread created in #configure
+          return
+        end
+
+        stop_phase(old_agent)
+
+        $log.info 'restart fluentd worker', worker: worker_id
+        start_phase(new_agent)
       end
-
-      # Assign @root_agent to new root_agent
-      # for https://github.com/fluent/fluentd/blob/fcef949ce40472547fde295ddd2cfe297e1eddd6/lib/fluent/plugin_helper/event_emitter.rb#L50
-      old_agent, @root_agent = @root_agent, new_agent
-      begin
-        @root_agent.configure(conf)
-      rescue
-        @root_agent = old_agent
-        raise
-      end
-
-      unless @suppress_config_dump
-        $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
-      end
-
-      # supervisor doesn't handle actual data. so the following code is unnecessary.
-      if supervisor
-        old_agent.shutdown      # to close thread created in #configure
-        return
-      end
-
-      stop_phase(old_agent)
-
-      $log.info 'restart fluentd worker', worker: worker_id
-      start_phase(new_agent)
     end
 
     def stop
