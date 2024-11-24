@@ -342,6 +342,15 @@ EOL
     assert_equal :gzip, node.instance_variable_get(:@compress)
   end
 
+  test 'set_compress_is_zstd' do
+    @d = d = create_driver(config + %[compress zstd])
+    assert_equal :zstd, d.instance.compress
+    assert_equal :zstd, d.instance.buffer.compress
+
+    node = d.instance.nodes.first
+    assert_equal :zstd, node.instance_variable_get(:@compress)
+  end
+
   test 'set_compress_is_gzip_in_buffer_section' do
     mock = flexmock($log)
     mock.should_receive(:log).with("buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>")
@@ -354,6 +363,23 @@ EOL
      ])
     assert_equal :text, d.instance.compress
     assert_equal :gzip, d.instance.buffer.compress
+
+    node = d.instance.nodes.first
+    assert_equal :text, node.instance_variable_get(:@compress)
+  end
+
+  test 'set_compress_is_zstd_in_buffer_section' do
+    mock = flexmock($log)
+    mock.should_receive(:log).with("buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>")
+
+    @d = d = create_driver(config + %[
+       <buffer>
+         type memory
+         compress zstd
+       </buffer>
+     ])
+    assert_equal :text, d.instance.compress
+    assert_equal :zstd, d.instance.buffer.compress
 
     node = d.instance.nodes.first
     assert_equal :text, node.instance_variable_get(:@compress)
@@ -525,6 +551,36 @@ EOL
     @d = d = create_driver(config + %[
       flush_interval 1s
       compress gzip
+    ])
+
+    time = event_time('2011-01-02 13:14:15 UTC')
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    target_input_driver.run(expect_records: 2) do
+      d.run(default_tag: 'test') do
+        records.each do |record|
+          d.feed(time, record)
+        end
+      end
+    end
+
+    event_streams = target_input_driver.event_streams
+    assert_true event_streams[0][1].is_a?(Fluent::CompressedMessagePackEventStream)
+
+    events = target_input_driver.events
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal ['test', time, records[1]], events[1]
+  end
+
+  test 'send_comprssed_message_pack_stream_if_compress_is_zstd' do
+    target_input_driver = create_target_input_driver
+
+    @d = d = create_driver(config + %[
+      flush_interval 1s
+      compress zstd
     ])
 
     time = event_time('2011-01-02 13:14:15 UTC')
