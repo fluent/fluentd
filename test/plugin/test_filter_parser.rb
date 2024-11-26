@@ -786,5 +786,39 @@ class ParserFilterTest < Test::Unit::TestCase
         expected_errors: [ArgumentError.new(error_msg)]
       )
     end
+
+    data(
+      "with default" => {
+        records: [{'data' => '{"foo":"bar"}'}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{'data' => '{"foo":"bar"}'}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("parse failed This is a dummy unassumed error")],
+      },
+      "with disabled emit_invalid_record_to_error" => {
+        records: [{'data' => '{"foo":"bar"}'}],
+        additional_config: "emit_invalid_record_to_error false",
+        expected_records: [],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+    )
+    def test_unassumed_error(data)
+      any_instance_of(Fluent::Plugin::JSONParser) do |klass|
+        stub(klass).parse do
+          raise RuntimeError, "This is a dummy unassumed error"
+        end
+      end
+
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type json
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
+    end
   end
 end
