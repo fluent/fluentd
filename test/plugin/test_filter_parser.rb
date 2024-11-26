@@ -538,30 +538,6 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal t, filtered[2][0]
   end
 
-  CONFIG_INVALID_TIME_VALUE = %[
-    key_name data
-    <parse>
-      @type json
-    </parse>
-  ] # 'time' is implicit @time_key
-  def test_filter_invalid_time_data
-    # should not raise errors
-    time = Time.now.to_i
-    d = create_driver(CONFIG_INVALID_TIME_VALUE)
-    assert_nothing_raised {
-      d.run(default_tag: @tag) do
-        d.feed(time, {'data' => '{"time":[], "f1":"v1"}'})
-        d.feed(time, {'data' => '{"time":"thisisnottime", "f1":"v1"}'})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-
-    assert_equal 0, filtered[0][0].to_i
-    assert_equal 'v1', filtered[0][1]['f1']
-    assert_equal nil, filtered[0][1]['time']
-  end
-
   # REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
 
   CONFIG_NOT_REPLACE = %[
@@ -656,15 +632,6 @@ class ParserFilterTest < Test::Unit::TestCase
   INVALID_MESSAGE = 'foo bar'
   VALID_MESSAGE   = 'col1=foo col2=bar'
 
-  def test_call_emit_error_event_when_parser_error
-    d = create_driver(CONFIG_INVALID_TIME_VALUE)
-    flexmock(d.instance.router).should_receive(:emit_error_event).
-      with(String, Integer, Hash, ParserError).once
-    d.run do
-      d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => '{"time":[], "f1":"v1"}'})
-    end
-  end
-
   CONFIG_UNMATCHED_PATTERN_LOG = %[
     key_name message
     <parse>
@@ -706,17 +673,6 @@ class ParserFilterTest < Test::Unit::TestCase
       assert_equal 0, d.filtered.length
     end
 
-    def test_parser_error_with_emit_invalid_record_to_error
-      d = create_driver(CONFIG_INVALID_TIME_VALUE + "emit_invalid_record_to_error false")
-      flexmock(d.instance.router).should_receive(:emit_error_event).never
-      assert_nothing_raised {
-        d.run do
-          d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => '{"time":[], "f1":"v1"}'})
-        end
-      }
-      assert_equal 0, d.filtered.length
-    end
-
     def test_key_not_exist_with_emit_invalid_record_to_error
       d = create_driver(CONFIG_NOT_IGNORE + "emit_invalid_record_to_error false")
       flexmock(d.instance.router).should_receive(:emit_error_event).never
@@ -726,6 +682,77 @@ class ParserFilterTest < Test::Unit::TestCase
         end
       }
       assert_equal 0, d.filtered.length
+    end
+  end
+
+  sub_test_case "abnormal cases" do
+    module HashExcept
+      refine Hash do
+        def except(*keys)
+          reject do |key, _|
+            keys.include?(key)
+          end
+        end
+      end
+    end
+
+    # Ruby 2.x does not support Hash#except.
+    using HashExcept unless {}.respond_to?(:except)
+
+    def run_and_assert(driver, records:, expected_records:, expected_error_records:, expected_errors:)
+      driver.run do
+        records.each do |record|
+          driver.feed(@tag, Fluent::EventTime.now.to_i, record)
+        end
+      end
+
+      assert_equal(
+        [
+          expected_records,
+          expected_error_records,
+          expected_errors.collect { |e| [e.class, e.message] },
+        ],
+        [
+          driver.filtered_records,
+          driver.error_events.collect { |_, _, record, _| record },
+          driver.error_events.collect { |_, _, _, e| [e.class, e.message] },
+        ]
+      )
+    end
+
+    data(
+      "invalid format with default" => {
+        records: [{'data' => '{"time":[], "f1":"v1"}'}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{'data' => '{"time":[], "f1":"v1"}'}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("value must be a string or a number: [](Array)")],
+      },
+      "invalid format with disabled emit_invalid_record_to_error" => {
+        records: [{'data' => '{"time":[], "f1":"v1"}'}],
+        additional_config: "emit_invalid_record_to_error false",
+        expected_records: [],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "mixed valid and invalid with default" => {
+        records: [{'data' => '{"time":[], "f1":"v1"}'}, {'data' => '{"time":0, "f1":"v1"}'}],
+        additional_config: "",
+        expected_records: [{"f1" => "v1"}],
+        expected_error_records: [{'data' => '{"time":[], "f1":"v1"}'}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("value must be a string or a number: [](Array)")],
+      },
+    )
+    def test_parser_error(data)
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type json
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
     end
   end
 end
