@@ -538,64 +538,6 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal t, filtered[2][0]
   end
 
-  # REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
-
-  CONFIG_NOT_REPLACE = %[
-    key_name data
-    <parse>
-      @type regexp
-      expression /^(?<message>.*)$/
-    </parse>
-  ]
-  CONFIG_INVALID_BYTE = CONFIG_NOT_REPLACE + %[
-    replace_invalid_sequence true
-  ]
-  def test_filter_invalid_byte
-    invalid_utf8 = "\xff".force_encoding('UTF-8')
-
-    d = create_driver(CONFIG_NOT_REPLACE)
-    d.run do
-      d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
-    end
-    error_event = d.error_events.first
-    assert_equal "test", error_event[0]
-    assert_instance_of ArgumentError, error_event[3]
-
-    d = create_driver(CONFIG_INVALID_BYTE)
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-    assert_nil filtered[0][1]['data']
-    assert_equal '?'.force_encoding('UTF-8'), filtered[0][1]['message']
-
-    d = create_driver(CONFIG_INVALID_BYTE + %[reserve_data yes])
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-    assert_equal invalid_utf8, filtered[0][1]['data']
-    assert_equal '?'.force_encoding('UTF-8'), filtered[0][1]['message']
-
-    invalid_ascii = "\xff".force_encoding('US-ASCII')
-    d = create_driver(CONFIG_INVALID_BYTE)
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_ascii})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-    assert_nil filtered[0][1]['data']
-    assert_equal '?'.force_encoding('US-ASCII'), filtered[0][1]['message']
-  end
-
   CONFIG_NOT_IGNORE = %[
     key_name data
     hash_value_field parsed
@@ -753,6 +695,89 @@ class ParserFilterTest < Test::Unit::TestCase
       EOC
 
       run_and_assert(driver, **data.except(:additional_config))
+    end
+
+    data(
+      "UTF-8 with default" => {
+        records: [{"data" => "\xff"}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{"data" => "\xff"}],
+        expected_errors: [ArgumentError.new("invalid byte sequence in UTF-8")],
+      },
+      "UTF-8 with replace_invalid_sequence" => {
+        records: [{"data" => "\xff"}],
+        additional_config: "replace_invalid_sequence",
+        expected_records: [{"message" => "?"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "UTF-8 with replace_invalid_sequence and reserve_data" => {
+        records: [{"data" => "\xff"}],
+        additional_config: ["replace_invalid_sequence", "reserve_data"].join("\n"),
+        expected_records: [{"message" => "?", "data" => "\xff"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "US-ASCII with default" => {
+        records: [{"data" => "\xff".force_encoding("US-ASCII")}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{"data" => "\xff".force_encoding("US-ASCII")}],
+        expected_errors: [ArgumentError.new("invalid byte sequence in US-ASCII")],
+      },
+      "US-ASCII with replace_invalid_sequence" => {
+        records: [{"data" => "\xff".force_encoding("US-ASCII")}],
+        additional_config: "replace_invalid_sequence",
+        expected_records: [{"message" => "?".force_encoding("US-ASCII")}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "US-ASCII with replace_invalid_sequence and reserve_data" => {
+        records: [{"data" => "\xff".force_encoding("US-ASCII")}],
+        additional_config: ["replace_invalid_sequence", "reserve_data"].join("\n"),
+        expected_records: [{"message" => "?".force_encoding("US-ASCII"), "data" => "\xff".force_encoding("US-ASCII")}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+    )
+    def test_invalid_byte(data)
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type regexp
+          expression /^(?<message>.*)$/
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
+    end
+
+    test "replace_invalid_sequence should be applied only to invalid byte sequence errors" do
+      error_msg = "This is a dummy ArgumentError other than invalid byte sequence"
+      any_instance_of(Fluent::Plugin::JSONParser) do |klass|
+        stub(klass).parse do
+          raise ArgumentError, error_msg
+        end
+      end
+
+      driver = create_driver(<<~EOC)
+        key_name data
+        replace_invalid_sequence
+        <parse>
+          @type json
+        </parse>
+      EOC
+
+      # replace_invalid_sequence should not applied
+      run_and_assert(
+        driver, 
+        records: [{'data' => '{"foo":"bar"}'}],
+        expected_records: [],
+        expected_error_records: [{'data' => '{"foo":"bar"}'}],
+        expected_errors: [ArgumentError.new(error_msg)]
+      )
     end
   end
 end
