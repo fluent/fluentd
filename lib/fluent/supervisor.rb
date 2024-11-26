@@ -450,7 +450,7 @@ module Fluent
         stop_immediately_at_unrecoverable_exit: true,
         root_dir: params['root_dir'],
         logger: $log,
-        log: $log.out,
+        log: $log&.out,
         log_level: params['log_level'],
         chuser: params['chuser'],
         chgroup: params['chgroup'],
