@@ -538,38 +538,6 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal t, filtered[2][0]
   end
 
-  CONFIG_NOT_IGNORE = %[
-    key_name data
-    hash_value_field parsed
-    <parse>
-      @type json
-    </parse>
-  ]
-  CONFIG_PASS_SAME_RECORD = CONFIG_NOT_IGNORE + %[
-    reserve_data true
-  ]
-  def test_filter_key_not_exist
-    d = create_driver(CONFIG_NOT_IGNORE)
-    flexmock(d.instance.router).should_receive(:emit_error_event).
-      with(String, Integer, Hash, ArgumentError.new("data does not exist")).once
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
-      end
-    }
-
-    d = create_driver(CONFIG_PASS_SAME_RECORD)
-    assert_nothing_raised {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
-      end
-    }
-    filtered = d.filtered
-    assert_equal 1, filtered.length
-    assert_nil filtered[0][1]['data']
-    assert_equal 'bar', filtered[0][1]['foo']
-  end
-
   # emit_error_event test
   INVALID_MESSAGE = 'foo bar'
   VALID_MESSAGE   = 'col1=foo col2=bar'
@@ -614,17 +582,6 @@ class ParserFilterTest < Test::Unit::TestCase
       }
       assert_equal 0, d.filtered.length
     end
-
-    def test_key_not_exist_with_emit_invalid_record_to_error
-      d = create_driver(CONFIG_NOT_IGNORE + "emit_invalid_record_to_error false")
-      flexmock(d.instance.router).should_receive(:emit_error_event).never
-      assert_nothing_raised {
-        d.run do
-          d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
-        end
-      }
-      assert_equal 0, d.filtered.length
-    end
   end
 
   sub_test_case "abnormal cases" do
@@ -660,6 +617,55 @@ class ParserFilterTest < Test::Unit::TestCase
           driver.error_events.collect { |_, _, _, e| [e.class, e.message] },
         ]
       )
+    end
+
+    data(
+      "with default" => {
+        records: [{"foo" => "bar"}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{"foo" => "bar"}],
+        expected_errors: [ArgumentError.new("data does not exist")],
+      },
+      "with reserve_data" => {
+        records: [{"foo" => "bar"}],
+        additional_config: "reserve_data",
+        expected_records: [{"foo" => "bar"}],
+        expected_error_records: [{"foo" => "bar"}],
+        expected_errors: [ArgumentError.new("data does not exist")],
+      },
+      "with disabled emit_invalid_record_to_error" => {
+        records: [{"foo" => "bar"}],
+        additional_config: "emit_invalid_record_to_error false",
+        expected_records: [],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "with reserve_data and disabled emit_invalid_record_to_error" => {
+        records: [{"foo" => "bar"}],
+        additional_config: ["reserve_data", "emit_invalid_record_to_error false"].join("\n"),
+        expected_records: [{"foo" => "bar"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "with reserve_data and hash_value_field" => {
+        records: [{"foo" => "bar"}],
+        additional_config: ["reserve_data", "hash_value_field parsed"].join("\n"),
+        expected_records: [{"foo" => "bar", "parsed" => {}}],
+        expected_error_records: [{"foo" => "bar"}],
+        expected_errors: [ArgumentError.new("data does not exist")],
+      },
+    )
+    def test_filter_key_not_exist(data)
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type json
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
     end
 
     data(
