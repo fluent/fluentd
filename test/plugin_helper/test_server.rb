@@ -89,6 +89,23 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       assert d.log
       assert_equal 1, d.transport_config.linger_timeout
     end
+
+    test 'can change receive_buffer_size option' do
+      d = Dummy.new
+
+      transport_opts = {
+        'receive_buffer_size' => 1024,
+      }
+      transport_conf = config_element('transport', 'tcp', transport_opts)
+      conf = config_element('source', 'tag.*', {}, [transport_conf])
+
+      assert_nothing_raised do
+        d.configure(conf)
+      end
+      assert d.plugin_id
+      assert d.log
+      assert_equal 1024, d.transport_config.receive_buffer_size
+    end
   end
 
   # run tests for tcp, udp, tls and unix
