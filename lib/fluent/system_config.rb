@@ -28,7 +28,7 @@ module Fluent
       :without_source, :with_source_only, :rpc_endpoint, :enable_get_dump, :process_name,
       :file_permission, :dir_permission, :counter_server, :counter_client,
       :strict_config_value, :enable_msgpack_time_support, :disable_shared_socket,
-      :metrics, :enable_input_metrics, :enable_size_metrics, :enable_jit
+      :metrics, :enable_input_metrics, :enable_size_metrics, :enable_jit, :source_only_buffer
     ]
 
     config_param :workers,   :integer, default: 1
