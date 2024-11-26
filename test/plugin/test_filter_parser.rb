@@ -2,11 +2,8 @@ require_relative '../helper'
 require 'timecop'
 require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_parser'
-require 'flexmock/test_unit'
 
 class ParserFilterTest < Test::Unit::TestCase
-  include FlexMock::TestCase
-
   def setup
     Fluent::Test.setup
     @tag = 'test'
@@ -538,52 +535,6 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal t, filtered[2][0]
   end
 
-  # emit_error_event test
-  INVALID_MESSAGE = 'foo bar'
-  VALID_MESSAGE   = 'col1=foo col2=bar'
-
-  CONFIG_UNMATCHED_PATTERN_LOG = %[
-    key_name message
-    <parse>
-      @type regexp
-      expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
-    </parse>
-  ]
-
-  class UnmatchedPatternLogTest < self
-    setup do
-      @d = create_driver(CONFIG_UNMATCHED_PATTERN_LOG)
-    end
-
-    def test_call_emit_error_event_when_pattern_is_mismached
-      flexmock(@d.instance.router).should_receive(:emit_error_event).
-        with(String, Integer, Hash, ParserError.new("pattern not matched with data '#{INVALID_MESSAGE}'")).once
-      @d.run do
-        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
-      end
-    end
-
-    def test_not_call_emit_error_event_when_pattern_is_mached
-      flexmock(@d.instance.router).should_receive(:emit_error_event).never
-      @d.run do
-        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
-      end
-    end
-  end
-
-  class EmitInvalidRecordToErrorTest < self
-    def test_pattern_is_mismached_with_emit_invalid_record_to_error
-      d = create_driver(CONFIG_UNMATCHED_PATTERN_LOG + "emit_invalid_record_to_error false")
-      flexmock(d.instance.router).should_receive(:emit_error_event).never
-      assert_nothing_raised {
-        d.run do
-          d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
-        end
-      }
-      assert_equal 0, d.filtered.length
-    end
-  end
-
   sub_test_case "abnormal cases" do
     module HashExcept
       refine Hash do
@@ -662,6 +613,56 @@ class ParserFilterTest < Test::Unit::TestCase
         #{data[:additional_config]}
         <parse>
           @type json
+        </parse>
+      EOC
+
+      run_and_assert(driver, **data.except(:additional_config))
+    end
+
+    data(
+      "with default" => {
+        records: [{"data" => "foo bar"}],
+        additional_config: "",
+        expected_records: [],
+        expected_error_records: [{"data" => "foo bar"}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("pattern not matched with data 'foo bar'")],
+      },
+      "with reserve_data" => {
+        records: [{"data" => "foo bar"}],
+        additional_config: "reserve_data",
+        expected_records: [{"data" => "foo bar"}],
+        expected_error_records: [{"data" => "foo bar"}],
+        expected_errors: [Fluent::Plugin::Parser::ParserError.new("pattern not matched with data 'foo bar'")],
+      },
+      "with disabled emit_invalid_record_to_error" => {
+        records: [{"data" => "foo bar"}],
+        additional_config: "emit_invalid_record_to_error false",
+        expected_records: [],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "with reserve_data and disabled emit_invalid_record_to_error" => {
+        records: [{"data" => "foo bar"}],
+        additional_config: ["reserve_data", "emit_invalid_record_to_error false"].join("\n"),
+        expected_records: [{"data" => "foo bar"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+      "with matched pattern" => {
+        records: [{"data" => "col1=foo col2=bar"}],
+        additional_config: "",
+        expected_records: [{"col1" => "foo", "col2" => "bar"}],
+        expected_error_records: [],
+        expected_errors: [],
+      },
+    )
+    def test_pattern_not_matched(data)
+      driver = create_driver(<<~EOC)
+        key_name data
+        #{data[:additional_config]}
+        <parse>
+          @type regexp
+          expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
         </parse>
       EOC
 
