@@ -19,7 +19,7 @@ end
 class SupervisorTest < ::Test::Unit::TestCase
   class DummyServer
     include Fluent::ServerModule
-    attr_accessor :rpc_endpoint, :enable_get_dump
+    attr_accessor :rpc_endpoint, :enable_get_dump, :socket_manager_server
     def config
       {}
     end
@@ -888,6 +888,127 @@ class SupervisorTest < ::Test::Unit::TestCase
     ensure
       server.after_run
       ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
+    end
+  end
+
+  sub_test_case "zero_downtime_restart" do
+    setup do
+      omit "Not supported on Windows" if Fluent.windows?
+    end
+
+    data(
+      # When daemonize, exit-status is important. The new spawned process does double-fork and exits soon.
+      "daemonize and succeeded double-fork of new process" => [true, true, 0, false],
+      "daemonize and failed double-fork of new process" => [true, false, 0, true],
+      # When no daemon, whether the new spawned process is alive is important, not exit-status.
+      "no daemon and new process alive" => [false, false, 3, false],
+      "no daemon and new process dead" => [false, false, 0, true],
+    )
+    def test_zero_downtime_restart((daemonize, wait_success, wait_sleep, restart_canceled))
+      # == Arrange ==
+      env_spawn = {}
+      pid_wait = nil
+
+      server = DummyServer.new
+
+      stub(server).config do
+        {
+          daemonize: daemonize,
+          pid_path: "test-pid-file",
+        }
+      end
+      process_stub = stub(Process)
+      process_stub.spawn do |env, commands|
+        env_spawn = env
+        -1
+      end
+      process_stub.wait2 do |pid|
+        pid_wait = pid
+        sleep wait_sleep
+        if wait_success
+          status = Class.new{def success?; true; end}.new
+        else
+          status = Class.new{def success?; false; end}.new
+        end
+        [pid, status]
+      end
+      stub(File).read("test-pid-file") { -1 }
+
+      # mock to check notify_new_supervisor_that_old_one_has_stopped sends SIGWINCH
+      if restart_canceled
+        mock(Process).kill(:WINCH, -1).never
+      else
+        mock(Process).kill(:WINCH, -1)
+      end
+
+      # == Act and Assert ==
+      server.before_run
+      server.zero_downtime_restart.join
+      sleep 1 # To wait a sub thread for waitpid in zero_downtime_restart
+      server.after_run
+
+      assert_equal(
+        [
+          !restart_canceled,
+          true,
+          Process.pid,
+          -1,
+        ],
+        [
+          server.instance_variable_get(:@starting_new_supervisor_with_zero_downtime),
+          env_spawn.key?("SERVERENGINE_SOCKETMANAGER_INTERNAL_TOKEN"),
+          env_spawn["FLUENT_RUNNING_IN_PARALLEL_WITH_OLD"].to_i,
+          pid_wait,
+        ]
+      )
+    ensure
+      Fluent::Supervisor.cleanup_socketmanager_path
+      ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
+    end
+
+    def test_share_sockets
+      server = DummyServer.new
+      server.before_run
+      path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+
+      client = ServerEngine::SocketManager::Client.new(path)
+      udp_port = unused_port(protocol: :udp)
+      tcp_port = unused_port(protocol: :tcp)
+      client.listen_udp("localhost", udp_port)
+      client.listen_tcp("localhost", tcp_port)
+
+      ENV['FLUENT_RUNNING_IN_PARALLEL_WITH_OLD'] = ""
+      new_server = DummyServer.new
+      stub(new_server).stop_parallel_old_supervisor_after_delay
+      new_server.before_run
+
+      assert_equal(
+        [[udp_port], [tcp_port]],
+        [
+          new_server.socket_manager_server.udp_sockets.values.map { |v| v.addr[1] },
+          new_server.socket_manager_server.tcp_sockets.values.map { |v| v.addr[1] },
+        ]
+      )
+    ensure
+      server&.after_run
+      new_server&.after_run
+      ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
+      ENV.delete("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+    end
+
+    def test_stop_parallel_old_supervisor_after_delay
+      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = ""
+      ENV['FLUENT_RUNNING_IN_PARALLEL_WITH_OLD'] = "-1"
+      stub(ServerEngine::SocketManager::Server).share_sockets_with_another_server
+      mock(Process).kill(:TERM, -1)
+
+      server = DummyServer.new
+      server.before_run
+      sleep 12 # Can't we skip the delay for this test?
+    ensure
+      server&.after_run
+      ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
+      ENV.delete("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
     end
   end
 

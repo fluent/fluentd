@@ -106,6 +106,14 @@ module FluentTest
       @emit_size_metrics = FluentTest::FluentTestCounterMetrics.new
     end
 
+    def multi_workers_ready?
+      true
+    end
+
+    def zero_downtime_restart_ready?
+      true
+    end
+
     def start
       super
       @started = true
