@@ -37,6 +37,12 @@ module Fluent
           ctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
         end
 
+        if conf.ensure_fips
+          unless OpenSSL.fips_mode
+            raise Fluent::ConfigError, "Cannot enable FIPS compliant mode. OpenSSL FIPS configuration is disabled"
+          end
+        end
+
         ctx.ca_file = conf.ca_path
         ctx.cert = cert
         ctx.key = key
