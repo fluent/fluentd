@@ -48,7 +48,35 @@ module Fluent
   class RootAgent < Agent
     ERROR_LABEL = "@ERROR".freeze # @ERROR is built-in error label
 
-    def initialize(log:, system_config: SystemConfig.new)
+    class SourceOnlyMode
+      DISABLED = 0
+      NORMAL = 1
+      ONLY_ZERO_DOWNTIME_RESTART_READY = 2
+
+      def initialize(with_source_only, start_in_parallel)
+        if start_in_parallel
+          @mode = ONLY_ZERO_DOWNTIME_RESTART_READY
+        elsif with_source_only
+          @mode = NORMAL
+        else
+          @mode = DISABLED
+        end
+      end
+
+      def enabled?
+        @mode != DISABLED
+      end
+
+      def only_zero_downtime_restart_ready?
+        @mode == ONLY_ZERO_DOWNTIME_RESTART_READY
+      end
+
+      def disable!
+        @mode = DISABLED
+      end
+    end
+
+    def initialize(log:, system_config: SystemConfig.new, start_in_parallel: false)
       super(log: log)
 
       @labels = {}
@@ -56,7 +84,7 @@ module Fluent
       @suppress_emit_error_log_interval = 0
       @next_emit_error_log_time = nil
       @without_source = system_config.without_source || false
-      @with_source_only = system_config.with_source_only || false
+      @source_only_mode = SourceOnlyMode.new(system_config.with_source_only, start_in_parallel)
       @source_only_buffer_agent = nil
       @enable_input_metrics = system_config.enable_input_metrics || false
 
@@ -67,7 +95,7 @@ module Fluent
     attr_reader :labels
 
     def source_only_router
-      raise "[BUG] 'RootAgent#source_only_router' should not be called when 'with_source_only' is false" unless @with_source_only
+      raise "[BUG] 'RootAgent#source_only_router' should not be called when 'with_source_only' is false" unless @source_only_mode.enabled?
       @source_only_buffer_agent.event_router
     end
 
@@ -154,7 +182,7 @@ module Fluent
 
       super
 
-      setup_source_only_buffer_agent if @with_source_only
+      setup_source_only_buffer_agent if @source_only_mode.enabled?
 
       # initialize <source> elements
       if @without_source
@@ -187,9 +215,12 @@ module Fluent
     end
 
     def lifecycle(desc: false, kind_callback: nil, kind_or_agent_list: nil)
+      only_zero_downtime_restart_ready = false
+
       unless kind_or_agent_list
-        if @with_source_only
+        if @source_only_mode.enabled?
           kind_or_agent_list = [:input, @source_only_buffer_agent]
+          only_zero_downtime_restart_ready = @source_only_mode.only_zero_downtime_restart_ready?
         elsif @source_only_buffer_agent
           # source_only_buffer_agent can re-reroute events, so the priority is equal to output_with_router.
           kind_or_agent_list = [:input, :output_with_router, @source_only_buffer_agent, @labels.values, :filter, :output].flatten
@@ -214,6 +245,9 @@ module Fluent
                  end
           display_kind = (kind == :output_with_router ? :output : kind)
           list.each do |instance|
+            if only_zero_downtime_restart_ready
+              next unless instance.respond_to?(:zero_downtime_restart_ready?) and instance.zero_downtime_restart_ready?
+            end
             yield instance, display_kind
           end
         end
@@ -257,7 +291,7 @@ module Fluent
     end
 
     def cancel_source_only!
-      unless @with_source_only
+      unless @source_only_mode.enabled?
         log.info "do nothing for canceling with-source-only because the current mode is not with-source-only."
         return
       end
@@ -285,7 +319,7 @@ module Fluent
       setup_source_only_buffer_agent(flush: true)
       start(kind_or_agent_list: [@source_only_buffer_agent])
 
-      @with_source_only = false
+      @source_only_mode.disable!
     end
 
     def shutdown(kind_or_agent_list: nil)
@@ -378,7 +412,7 @@ module Fluent
       # See also 'fluentd/plugin/input.rb'
       input.context_router = @event_router
       input.configure(conf)
-      input.event_emitter_apply_source_only if @with_source_only
+      input.event_emitter_apply_source_only if @source_only_mode.enabled?
       if @enable_input_metrics
         @event_router.add_metric_callbacks(input.plugin_id, Proc.new {|es| input.metric_callback(es) })
       end

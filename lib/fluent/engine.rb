@@ -51,7 +51,7 @@ module Fluent
 
     attr_reader :root_agent, :system_config, :supervisor_mode
 
-    def init(system_config, supervisor_mode: false)
+    def init(system_config, supervisor_mode: false, start_in_parallel: false)
       @system_config = system_config
       @supervisor_mode = supervisor_mode
 
@@ -60,7 +60,7 @@ module Fluent
 
       @log_event_verbose = system_config.log_event_verbose unless system_config.log_event_verbose.nil?
 
-      @root_agent = RootAgent.new(log: log, system_config: @system_config)
+      @root_agent = RootAgent.new(log: log, system_config: @system_config, start_in_parallel: start_in_parallel)
 
       self
     end

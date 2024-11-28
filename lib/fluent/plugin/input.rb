@@ -70,6 +70,10 @@ module Fluent
       def multi_workers_ready?
         false
       end
+
+      def zero_downtime_restart_ready?
+        false
+      end
     end
   end
 end

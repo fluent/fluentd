@@ -1045,6 +1045,122 @@ EOC
         sleep 1 until @root_agent.outputs[0].events["test.event"].any? { |record| record["num"] == 0 }
       end
 
+      waiting(3) do
+        # Wait the last data output
+        sleep 1 until @root_agent.outputs[0].events["test.event"].any? { |record| record["num"] == 19 }
+      end
+
+      # all data should be outputted
+      assert { @root_agent.outputs[0].events["test.event"].size == 20 }
+    ensure
+      @root_agent.shutdown
+    end
+  end
+
+  sub_test_case 'start_in_parallel' do
+    def conf
+      <<~EOC
+        <source>
+          @type test_in_gen
+          @id test_in_gen
+          num 20
+          interval_sec 0.1
+          async
+        </source>
+
+        <source>
+          @type test_in
+          @id test_in
+        </source>
+
+        <filter test.**>
+          @type record_transformer
+          @id record_transformer
+          <record>
+            foo foo
+          </record>
+        </filter>
+
+        <match test.**>
+          @type test_out
+          @id test_out
+        </match>
+      EOC
+    end
+
+    def setup
+      omit "Not supported on Windows" if Fluent.windows?
+      system_config = SystemConfig.new(
+        Config::Element.new('system', '', {}, [
+          Config::Element.new('source_only_buffer', '', {
+            'flush_interval' => 1,
+          }, []),
+        ])
+      )
+      @root_agent = RootAgent.new(log: $log, system_config: system_config, start_in_parallel: true)
+      stub(Engine).root_agent { @root_agent }
+      stub(Engine).system_config { system_config }
+      @root_agent.configure(Config.parse(conf, "(test)", "(test_dir)"))
+    end
+
+    test 'only input plugins should start' do
+      @root_agent.start
+
+      assert_equal(
+        {
+          "input started?" => [true, false],
+          "filter started?" => [false],
+          "output started?" => [false],
+        },
+        {
+          "input started?" => @root_agent.inputs.map { |plugin| plugin.started? },
+          "filter started?" => @root_agent.filters.map { |plugin| plugin.started? },
+          "output started?" => @root_agent.outputs.map { |plugin| plugin.started? },
+        }
+      )
+    ensure
+      @root_agent.shutdown
+      # Buffer files remain because not cancelling source-only.
+      # As a test, they should be clean-up-ed.
+      buf_dir = @root_agent.instance_variable_get(:@source_only_buffer_agent).instance_variable_get(:@base_buffer_dir)
+      FileUtils.remove_dir(buf_dir)
+    end
+
+    test '#cancel_source_only! should start all plugins' do
+      @root_agent.start
+      @root_agent.cancel_source_only!
+
+      assert_equal(
+        {
+          "input started?" => [true, true],
+          "filter started?" => [true],
+          "output started?" => [true],
+        },
+        {
+          "input started?" => @root_agent.inputs.map { |plugin| plugin.started? },
+          "filter started?" => @root_agent.filters.map { |plugin| plugin.started? },
+          "output started?" => @root_agent.outputs.map { |plugin| plugin.started? },
+        }
+      )
+    ensure
+      @root_agent.shutdown
+    end
+
+    test 'buffer should be loaded after #cancel_source_only!' do
+      @root_agent.start
+      sleep 1
+      @root_agent.cancel_source_only!
+
+      waiting(3) do
+        # Wait buffer loaded after source-only cancelled
+        sleep 1 until @root_agent.outputs[0].events["test.event"].any? { |record| record["num"] == 0 }
+      end
+
+      waiting(3) do
+        # Wait the last data output
+        sleep 1 until @root_agent.outputs[0].events["test.event"].any? { |record| record["num"] == 19 }
+      end
+
       # all data should be outputted
       assert { @root_agent.outputs[0].events["test.event"].size == 20 }
     ensure
