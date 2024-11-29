@@ -29,11 +29,12 @@ module Fluent::Plugin
 
     helpers :formatter, :inject, :compat_parameters
 
-    SUPPORTED_COMPRESS = [:text, :gz, :gzip]
+    SUPPORTED_COMPRESS = [:text, :gz, :gzip, :zstd]
     SUPPORTED_COMPRESS_MAP = {
       text: nil,
       gz: :gzip,
       gzip: :gzip,
+      zstd: :zstd,
     }
 
     DEFAULT_TIMEKEY = 60 * 60 * 24
@@ -212,17 +213,27 @@ module Fluent::Plugin
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       writer = case
-               when @compress_method.nil?
-                 method(:write_without_compression)
-               when @compress_method == :gzip
-                 if @buffer.compress != :gzip || @recompress
-                   method(:write_gzip_with_compression)
-                 else
-                   method(:write_gzip_from_gzipped_chunk)
-                 end
-               else
-                 raise "BUG: unknown compression method #{@compress_method}"
-               end
+                when @compress_method.nil?
+                  method(:write_without_compression)
+                when @compress_method == :gzip
+                  if @buffer.compress == :text || @recompress
+                    method(:write_with_compression).curry.call(@compress_method)
+                  elsif @buffer.compress == :gzip
+                    method(:write_from_compressed_chunk_same_format).curry.call(@compress_method)
+                  else
+                    method(:write_from_compressed_chunk_diff_format).curry.call(@compress_method)
+                  end
+                when @compress_method == :zstd
+                  if @buffer.compress == :text || @recompress
+                    method(:write_with_compression).curry.call(@compress_method)
+                  elsif @buffer.compress == :zstd
+                    method(:write_from_compressed_chunk_same_format).curry.call(@compress_method)
+                  else
+                    method(:write_from_compressed_chunk_diff_format).curry.call(@compress_method)
+                  end
+                else
+                  raise "BUG: unknown compression method #{@compress_method}"
+                end
 
       if @append
         if @need_lock
@@ -253,17 +264,35 @@ module Fluent::Plugin
       end
     end
 
-    def write_gzip_with_compression(path, chunk)
+    def write_with_compression(type, path, chunk)
       File.open(path, "ab", @file_perm) do |f|
-        gz = Zlib::GzipWriter.new(f)
+        gz = nil
+        if type == :gzip
+          gz = Zlib::GzipWriter.new(f)
+        elsif type == :zstd
+          gz = Zstd::StreamWriter.new(f)
+        end
         chunk.write_to(gz, compressed: :text)
         gz.close
       end
     end
 
-    def write_gzip_from_gzipped_chunk(path, chunk)
+    def write_from_compressed_chunk_same_format(type, path, chunk)
       File.open(path, "ab", @file_perm) do |f|
-        chunk.write_to(f, compressed: :gzip)
+        chunk.write_to(f, compressed: type)
+      end
+    end
+
+    def write_from_compressed_chunk_diff_format(type, path, chunk)
+      File.open(path, "ab", @file_perm) do |f|
+        gz = nil
+        if type == :gzip
+          gz = Zlib::GzipWriter.new(f)
+        elsif type == :zstd
+          gz = Zstd::StreamWriter.new(f)
+        end
+        chunk.write_to(gz, compressed: :text)
+        gz.close
       end
     end
 
@@ -280,6 +309,7 @@ module Fluent::Plugin
     def compression_suffix(compress)
       case compress
       when :gzip then '.gz'
+      when :zstd then '.zstd'
       when nil then ''
       else
         raise ArgumentError, "unknown compression type #{compress}"
