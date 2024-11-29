@@ -17,7 +17,7 @@ class SocketCacheTest < Test::Unit::TestCase
       assert_equal(socket, c.checkout_or('key') { socket })
       c.checkin(socket)
 
-      sock = dont_allow(mock!).open
+      sock = mock!.open.never.subject
       assert_equal(socket, c.checkout_or('key') { sock.open })
     end
 
@@ -130,7 +130,7 @@ class SocketCacheTest < Test::Unit::TestCase
 
       c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
       sock = mock!.close { 'closed' }.subject
-      sock2 = dont_allow(mock!).close
+      sock2 = mock!.close.never.subject
       stub(sock).inspect
       stub(sock2).inspect
 
@@ -154,7 +154,7 @@ class SocketCacheTest < Test::Unit::TestCase
       Timecop.freeze(Time.parse('2016-04-13 14:00:00 +0900'))
 
       c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
-      sock = dont_allow(mock!).close
+      sock = mock!.close.never.subject
       stub(sock).inspect
       c.checkout_or('key') { sock }
 
