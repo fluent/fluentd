@@ -334,7 +334,7 @@ class FileOutputTest < Test::Unit::TestCase
       assert_equal r5, d.formatted[4]
 
       read_gunzip = ->(path){
-        File.open(path){ |fio|
+        File.open(path, 'rb'){ |fio|
           Zlib::GzipReader.new(StringIO.new(fio.read)).read
         }
       }
