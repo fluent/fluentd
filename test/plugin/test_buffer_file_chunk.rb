@@ -802,6 +802,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
     setup do
       @src = 'text data for compressing' * 5
       @gzipped_src = compress(@src)
+      @zstded_src = compress(@src, type: :zstd)
     end
 
     test '#append with compress option writes  compressed data to chunk when compress is gzip' do
@@ -866,6 +867,70 @@ class BufferFileChunkTest < Test::Unit::TestCase
       io.set_encoding(Encoding::ASCII_8BIT)
       c.write_to(io, compressed: :gzip)
       assert_equal @gzipped_src, io.string
+    end
+
+    test '#append with compress option writes  compressed data to chunk when compress is zstd' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :zstd)
+      c.append([@src, @src], compress: :zstd)
+      c.commit
+
+      # check chunk is compressed
+      assert c.read(compressed: :zstd).size < [@src, @src].join("").size
+
+      assert_equal @src + @src, c.read
+    end
+
+    test '#open passes io object having decompressed data to a block when compress is zstd' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :zstd)
+      c.concat(@zstded_src, @src.size)
+      c.commit
+
+      decomressed_data = c.open do |io|
+        v = io.read
+        assert_equal @src, v
+        v
+      end
+      assert_equal @src, decomressed_data
+    end
+
+    test '#open with compressed option passes io object having decompressed data to a block when compress is zstd' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :zstd)
+      c.concat(@zstded_src, @src.size)
+      c.commit
+
+      comressed_data = c.open(compressed: :zstd) do |io|
+        v = io.read
+        assert_equal @zstded_src, v
+        v
+      end
+      assert_equal @zstded_src, comressed_data
+    end
+
+    test '#write_to writes decompressed data when compress is zstd' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :zstd)
+      c.concat(@zstded_src, @src.size)
+      c.commit
+
+      assert_equal @src, c.read
+      assert_equal @zstded_src, c.read(compressed: :zstd)
+
+      io = StringIO.new
+      c.write_to(io)
+      assert_equal @src, io.string
+    end
+
+    test '#write_to with compressed option writes compressed data when compress is zstd' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :zstd)
+      c.concat(@zstded_src, @src.size)
+      c.commit
+
+      assert_equal @src, c.read
+      assert_equal @zstded_src, c.read(compressed: :zstd)
+
+      io = StringIO.new
+      io.set_encoding(Encoding::ASCII_8BIT)
+      c.write_to(io, compressed: :zstd)
+      assert_equal @zstded_src, io.string
     end
   end
 end
