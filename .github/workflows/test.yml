@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
-        ruby-version: ['3.4', '3.3', '3.2', '3.1']
+        ruby-version: ['3.4', '3.3', '3.2']
 
     name: Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
