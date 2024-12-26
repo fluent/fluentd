@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
-        ruby-version: ['3.3', '3.2', '3.1', '3.0', '2.7']
+        ruby-version: ['3.4', '3.3', '3.2', '3.1']
 
     name: Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
@@ -35,7 +35,6 @@ jobs:
         uses: ruby/setup-ruby@401c19e14f474b54450cd3905bb8b86e2c8509cf # v1.204.0
         with:
           ruby-version: ${{ matrix.ruby-version }}
-          rubygems: latest
       - name: Install addons
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: sudo apt-get install libgmp3-dev libcap-ng-dev
