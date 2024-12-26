@@ -40,7 +40,9 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("drb", ["~> 2.2"])
 
   # gems that aren't default gems as of Ruby 3.5
-  gem.add_runtime_dependency("logger", ["~> 1.6"])
+  # logger 1.6.3 or later cause bug on windows,
+  # hold on 1.6.2 for a while. see https://github.com/ruby/logger/issues/107
+  gem.add_runtime_dependency("logger", ["1.6.2"])
 
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
