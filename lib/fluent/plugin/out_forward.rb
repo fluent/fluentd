@@ -87,7 +87,7 @@ module Fluent::Plugin
     config_param :verify_connection_at_startup, :bool, default: false
 
     desc 'Compress buffered data.'
-    config_param :compress, :enum, list: [:text, :gzip], default: :text
+    config_param :compress, :enum, list: [:text, :gzip, :zstd], default: :text
 
     desc 'The default version of TLS transport.'
     config_param :tls_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: Fluent::TLS::DEFAULT_VERSION
@@ -251,10 +251,14 @@ module Fluent::Plugin
       end
 
       unless @as_secondary
-        if @compress == :gzip && @buffer.compress == :text
-          @buffer.compress = :gzip
-        elsif @compress == :text && @buffer.compress == :gzip
-          log.info "buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>"
+        if @buffer.compress == :text
+          @buffer.compress = @compress
+        else
+          if @compress == :text
+            log.info "buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>"
+          elsif @compress != @buffer.compress
+            raise Fluent::ConfigError, "You cannot specify different compression formats for Buffer (Buffer: #{@buffer.compress}, Self: #{@compress})"
+          end
         end
       end
 
