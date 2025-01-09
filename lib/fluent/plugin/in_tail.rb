@@ -1119,7 +1119,6 @@ module Fluent::Plugin
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
           @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT, log, max_line_size)
-          @iobuf = ''.force_encoding('ASCII-8BIT')
           @lines = []
           @io = nil
           @notify_mutex = Mutex.new
@@ -1201,6 +1200,7 @@ module Fluent::Plugin
           end
 
           with_io do |io|
+            iobuf = ''.force_encoding('ASCII-8BIT')
             begin
               read_more = false
               has_skipped_line = false
@@ -1211,7 +1211,7 @@ module Fluent::Plugin
                     @start_reading_time ||= Fluent::Clock.now
                     group_watcher&.update_reading_time(@path)
 
-                    data = io.readpartial(BYTES_TO_READ, @iobuf)
+                    data = io.readpartial(BYTES_TO_READ, iobuf)
                     @eof = false
                     @number_bytes_read += data.bytesize
                     @fifo << data
