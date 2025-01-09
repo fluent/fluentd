@@ -19,7 +19,7 @@ require 'fluent/plugin'
 require 'fluent/plugin/storage'
 
 require 'fileutils'
-require 'yajl'
+require 'json'
 
 module Fluent
   module Plugin
@@ -90,7 +90,7 @@ module Fluent
                 log.warn "detect empty plugin storage file during startup. Ignored: #{@path}"
                 return
               end
-              data = Yajl::Parser.parse(data)
+              data = JSON.parse(data)
               raise Fluent::ConfigError, "Invalid contents (not object) in plugin storage file: '#{@path}'" unless data.is_a?(Hash)
             rescue => e
               log.error "failed to read data from plugin storage file", path: @path, error: e
@@ -114,7 +114,7 @@ module Fluent
         return unless File.exist?(@path)
         begin
           json_string = File.open(@path, 'r:utf-8'){ |io| io.read }
-          json = Yajl::Parser.parse(json_string)
+          json = JSON.parse(json_string)
           unless json.is_a?(Hash)
             log.error "broken content for plugin storage (Hash required: ignored)", type: json.class
             log.debug "broken content", content: json_string
@@ -130,7 +130,11 @@ module Fluent
         return if @on_memory
         tmp_path = @path + '.tmp.' + Fluent::UniqueId.hex(Fluent::UniqueId.generate)
         begin
-          json_string = Yajl::Encoder.encode(@store, pretty: @pretty_print)
+          if @pretty_print
+            json_string = JSON.pretty_generate(@store)
+          else
+            json_string = JSON.generate(@store)
+          end
           File.open(tmp_path, 'w:utf-8', @mode) { |io| io.write json_string; io.fsync }
           File.rename(tmp_path, @path)
         rescue => e

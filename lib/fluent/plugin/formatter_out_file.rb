@@ -16,7 +16,7 @@
 
 require 'fluent/plugin/formatter'
 require 'fluent/time'
-require 'yajl'
+require 'json'
 
 module Fluent
   module Plugin
@@ -46,7 +46,7 @@ module Fluent
         header = ''
         header << "#{@timef.format(time)}#{@delimiter}" if @output_time
         header << "#{tag}#{@delimiter}" if @output_tag
-        "#{header}#{Yajl.dump(record)}#{@newline}"
+        "#{header}#{JSON.generate(record)}#{@newline}"
       end
     end
   end
