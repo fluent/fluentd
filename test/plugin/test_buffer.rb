@@ -1443,7 +1443,7 @@ class BufferTest < Test::Unit::TestCase
 
     test 'create decompressable chunk' do
       chunk = @p.generate_chunk(create_metadata)
-      assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::Decompressable)
+      assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::GzipDecompressable)
     end
 
     test '#write compressed data which exceeds chunk_limit_size, it raises BufferChunkOverflowError' do

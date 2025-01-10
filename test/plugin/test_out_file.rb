@@ -5,6 +5,7 @@ require 'fileutils'
 require 'time'
 require 'timecop'
 require 'zlib'
+require 'zstd-ruby'
 require 'fluent/file_wrapper'
 
 class FileOutputTest < Test::Unit::TestCase
@@ -397,20 +398,32 @@ class FileOutputTest < Test::Unit::TestCase
     end
   end
 
-  def check_gzipped_result(path, expect)
+  def check_zipped_result(path, expect, type: :gzip)
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520
     result = ''
-    File.open(path, "rb") { |io|
-      loop do
-        gzr = Zlib::GzipReader.new(StringIO.new(io.read))
-        result << gzr.read
-        unused = gzr.unused
-        gzr.finish
-        break if unused.nil?
-        io.pos -= unused.length
-      end
-    }
+    if type == :gzip || type == :gz
+      File.open(path, "rb") { |io|
+        loop do
+          gzr = Zlib::GzipReader.new(StringIO.new(io.read))
+          result << gzr.read
+          unused = gzr.unused
+          gzr.finish
+          break if unused.nil?
+          io.pos -= unused.length
+        end
+      }
+    elsif type == :zstd
+      File.open(path, "rb") { |io|
+        loop do
+          reader = Zstd::StreamReader.new(StringIO.new(io.read))
+          result << reader.read(1024)
+          break if io.eof?
+        end
+      }
+    else
+      raise "Invalid compression type to check"
+    end
 
     assert_equal expect, result
   end
@@ -421,7 +434,7 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'write' do
-    test 'basic case' do
+    test 'basic case with gz' do
       d = create_driver
 
       assert_false File.exist?("#{TMP_DIR}/out_file_test.20110102_0.log.gz")
@@ -433,7 +446,29 @@ class FileOutputTest < Test::Unit::TestCase
       end
 
       assert File.exist?("#{TMP_DIR}/out_file_test.20110102_0.log.gz")
-      check_gzipped_result("#{TMP_DIR}/out_file_test.20110102_0.log.gz", %[2011-01-02T13:14:15Z\ttest\t{"a":1}#{@default_newline}] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}#{@default_newline}])
+      check_zipped_result("#{TMP_DIR}/out_file_test.20110102_0.log.gz", %[2011-01-02T13:14:15Z\ttest\t{"a":1}#{@default_newline}] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}#{@default_newline}])
+    end
+
+    test 'write with zstd compression' do
+      d = create_driver %[
+        path #{TMP_DIR}/out_file_test
+        compress zstd
+        utc
+        <buffer>
+          timekey_use_utc true
+        </buffer>
+      ]
+
+      assert_false File.exist?("#{TMP_DIR}/out_file_test.20110102_0.log.zstd")
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+      d.run(default_tag: 'test') do
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      end
+
+      assert File.exist?("#{TMP_DIR}/out_file_test.20110102_0.log.zstd")
+      check_zipped_result("#{TMP_DIR}/out_file_test.20110102_0.log.zstd", %[2011-01-02T13:14:15Z\ttest\t{"a":1}#{@default_newline}] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}#{@default_newline}], type: :zstd)
     end
   end
 
@@ -481,7 +516,7 @@ class FileOutputTest < Test::Unit::TestCase
 
       assert File.exist?("#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz")
 
-      check_gzipped_result("#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz", %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
+      check_zipped_result("#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz", %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
       dir_mode = "%o" % File::stat(TMP_DIR_WITH_SYSTEM).mode
       assert_equal(OVERRIDE_DIR_PERMISSION, dir_mode[-3, 3].to_i)
       file_mode = "%o" % File::stat("#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz").mode
@@ -500,7 +535,7 @@ class FileOutputTest < Test::Unit::TestCase
       end
 
       path = d.instance.last_written_path
-      check_gzipped_result(path, %[#{Yajl.dump({"a" => 1, 'time' => time.to_i})}#{@default_newline}] + %[#{Yajl.dump({"a" => 2, 'time' => time.to_i})}#{@default_newline}])
+      check_zipped_result(path, %[#{Yajl.dump({"a" => 1, 'time' => time.to_i})}#{@default_newline}] + %[#{Yajl.dump({"a" => 2, 'time' => time.to_i})}#{@default_newline}])
     end
 
     test 'ltsv' do
@@ -513,7 +548,7 @@ class FileOutputTest < Test::Unit::TestCase
       end
 
       path = d.instance.last_written_path
-      check_gzipped_result(path, %[a:1\ttime:2011-01-02T13:14:15Z#{@default_newline}] + %[a:2\ttime:2011-01-02T13:14:15Z#{@default_newline}])
+      check_zipped_result(path, %[a:1\ttime:2011-01-02T13:14:15Z#{@default_newline}] + %[a:2\ttime:2011-01-02T13:14:15Z#{@default_newline}])
     end
 
     test 'single_value' do
@@ -526,7 +561,7 @@ class FileOutputTest < Test::Unit::TestCase
       end
 
       path = d.instance.last_written_path
-      check_gzipped_result(path, %[1#{@default_newline}] + %[2#{@default_newline}])
+      check_zipped_result(path, %[1#{@default_newline}] + %[2#{@default_newline}])
     end
   end
 
@@ -547,23 +582,24 @@ class FileOutputTest < Test::Unit::TestCase
 
     path = write_once.call
     assert_equal "#{TMP_DIR}/out_file_test.20110102_0.log.gz", path
-    check_gzipped_result(path, formatted_lines)
+    check_zipped_result(path, formatted_lines)
     assert_equal 1, Dir.glob("#{TMP_DIR}/out_file_test.*").size
 
     path = write_once.call
     assert_equal "#{TMP_DIR}/out_file_test.20110102_1.log.gz", path
-    check_gzipped_result(path, formatted_lines)
+    check_zipped_result(path, formatted_lines)
     assert_equal 2, Dir.glob("#{TMP_DIR}/out_file_test.*").size
 
     path = write_once.call
     assert_equal "#{TMP_DIR}/out_file_test.20110102_2.log.gz", path
-    check_gzipped_result(path, formatted_lines)
+    check_zipped_result(path, formatted_lines)
     assert_equal 3, Dir.glob("#{TMP_DIR}/out_file_test.*").size
   end
 
   data(
-    "with compression" => true,
-    "without compression" => false,
+    "without compression" => "text",
+    "with gzip compression" => "gz",
+    "with zstd compression" => "zstd"
   )
   test 'append' do |compression|
     time = event_time("2011-01-02 13:14:15 UTC")
@@ -578,8 +614,8 @@ class FileOutputTest < Test::Unit::TestCase
           timekey_use_utc true
         </buffer>
       ]
-      if compression
-        config << "        compress gz"
+      if compression != :text
+        config << "        compress #{compression}"
       end
       d = create_driver(config)
       d.run(default_tag: 'test'){
@@ -590,16 +626,16 @@ class FileOutputTest < Test::Unit::TestCase
     }
 
     log_file_name = "out_file_test.20110102.log"
-    if compression
-      log_file_name << ".gz"
+    if compression != "text"
+      log_file_name << ".#{compression}"
     end
 
     1.upto(3) do |i|
       path = write_once.call
       assert_equal "#{TMP_DIR}/#{log_file_name}", path
       expect = formatted_lines * i
-      if compression
-        check_gzipped_result(path, expect)
+      if compression != "text"
+        check_zipped_result(path, expect, type: compression.to_sym)
       else
         check_result(path, expect)
       end
@@ -630,15 +666,15 @@ class FileOutputTest < Test::Unit::TestCase
 
       path = write_once.call
       assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-      check_gzipped_result(path, formatted_lines)
+      check_zipped_result(path, formatted_lines)
 
       path = write_once.call
       assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-      check_gzipped_result(path, formatted_lines * 2)
+      check_zipped_result(path, formatted_lines * 2)
 
       path = write_once.call
       assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-      check_gzipped_result(path, formatted_lines * 3)
+      check_zipped_result(path, formatted_lines * 3)
     end
   end
 
@@ -667,15 +703,15 @@ class FileOutputTest < Test::Unit::TestCase
       path = write_once.call
       # Rotated at 2011-01-02 17:00:00+02:00
       assert_equal "#{TMP_DIR}/out_file_test.20110103.log.gz", path
-      check_gzipped_result(path, formatted_lines)
+      check_zipped_result(path, formatted_lines)
 
       path = write_once.call
       assert_equal "#{TMP_DIR}/out_file_test.20110103.log.gz", path
-      check_gzipped_result(path, formatted_lines * 2)
+      check_zipped_result(path, formatted_lines * 2)
 
       path = write_once.call
       assert_equal "#{TMP_DIR}/out_file_test.20110103.log.gz", path
-      check_gzipped_result(path, formatted_lines * 3)
+      check_zipped_result(path, formatted_lines * 3)
     end
   end
 
@@ -870,6 +906,10 @@ class FileOutputTest < Test::Unit::TestCase
 
     test 'returns .gz for gzip' do
       assert_equal '.gz', @i.compression_suffix(:gzip)
+    end
+
+    test 'returns .zstd for zstd' do
+      assert_equal '.zstd', @i.compression_suffix(:zstd)
     end
   end
 

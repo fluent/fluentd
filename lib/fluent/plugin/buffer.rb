@@ -64,7 +64,7 @@ module Fluent
       config_param :queued_chunks_limit_size, :integer, default: nil
 
       desc 'Compress buffered data.'
-      config_param :compress, :enum, list: [:text, :gzip], default: :text
+      config_param :compress, :enum, list: [:text, :gzip, :zstd], default: :text
 
       desc 'If true, chunks are thrown away when unrecoverable error happens'
       config_param :disable_chunk_backup, :bool, default: false
