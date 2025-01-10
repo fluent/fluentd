@@ -86,9 +86,16 @@ module Fluent
         # data is array of formatted record string
         def append(data, **kwargs)
           raise ArgumentError, '`compress: gzip` can be used for Compressable module' if kwargs[:compress] == :gzip
-          adding = ''.b
-          data.each do |d|
-            adding << d.b
+          begin
+            adding = data.join.force_encoding(Encoding::ASCII_8BIT)
+          rescue
+            # Fallback
+            # Array#join throws an exception if data contains strings with a different encoding.
+            # Although such cases may be rare, it should be considered as a safety precaution.
+            adding = ''.force_encoding(Encoding::ASCII_8BIT)
+            data.each do |d|
+              adding << d.b
+            end
           end
           concat(adding, data.size)
         end
