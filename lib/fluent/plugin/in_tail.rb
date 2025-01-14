@@ -147,7 +147,7 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "cannot use glob_policy as always with the default path_delimitor: `,\""
       end
 
-      if @glob_policy == :extended && /\{.*,.*\}/.match(@path) && extended_glob_pattern(@path)
+      if @glob_policy == :extended && /\{.*,.*\}/.match?(@path) && extended_glob_pattern(@path)
         raise Fluent::ConfigError, "cannot include curly braces with glob patterns in `#{@path}\". Use glob_policy always instead."
       end
 
@@ -300,7 +300,7 @@ module Fluent::Plugin
     end
 
     def extended_glob_pattern(path)
-      path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
+      path.include?('*') || path.include?('?') || /\[.*\]/.match?(path)
     end
 
     # Curly braces is not supported with default path_delimiter
@@ -313,7 +313,7 @@ module Fluent::Plugin
         # regular expressions as much as possible.
         # This is because not using `true' as a returning value
         # when choosing :always here.
-        extended_glob_pattern(path) || /\{.*,.*\}/.match(path)
+        extended_glob_pattern(path) || /\{.*,.*\}/.match?(path)
       elsif @glob_policy == :extended
         extended_glob_pattern(path)
       elsif @glob_policy == :backward_compatible
