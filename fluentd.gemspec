@@ -65,7 +65,7 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency("test-unit", ["~> 3.3"])
   gem.add_development_dependency("test-unit-rr", ["~> 1.0"])
   gem.add_development_dependency("oj", [">= 2.14", "< 4"])
-  gem.add_development_dependency("async-http", ">= 0.50.0")
+  gem.add_development_dependency("async-http", "~> 0.86")
   gem.add_development_dependency("aws-sigv4", ["~> 1.8"])
   gem.add_development_dependency("aws-sdk-core", ["~> 3.191"])
   gem.add_development_dependency("rexml", ["~> 3.2"])
