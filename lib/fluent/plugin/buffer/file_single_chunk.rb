@@ -243,11 +243,11 @@ module Fluent
         def encode_key(metadata)
           k = @key ? metadata.variables[@key] : metadata.tag
           k ||= ''
-          URI::DEFAULT_PARSER.escape(k, ESCAPE_REGEXP)
+          URI::RFC2396_PARSER.escape(k, ESCAPE_REGEXP)
         end
 
         def decode_key(key)
-          URI::DEFAULT_PARSER.unescape(key)
+          URI::RFC2396_PARSER.unescape(key)
         end
 
         def create_new_chunk(path, metadata, perm)
