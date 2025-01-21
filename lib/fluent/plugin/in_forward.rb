@@ -307,10 +307,14 @@ module Fluent::Plugin
       case entries
       when String
         # PackedForward
-        option = msg[2]
-        size = (option && option['size']) || 0
-        es_class = (option && option['compressed'] == 'gzip') ? Fluent::CompressedMessagePackEventStream : Fluent::MessagePackEventStream
-        es = es_class.new(entries, nil, size.to_i)
+        option = msg[2] || {}
+        size = option['size'] || 0
+
+        if option['compressed'] && option['compressed'] != 'text'
+          es = Fluent::CompressedMessagePackEventStream.new(entries, nil, size.to_i, compress: option['compressed'].to_sym)
+        else
+          es = Fluent::MessagePackEventStream.new(entries, nil, size.to_i)
+        end
         es = check_and_skip_invalid_event(tag, es, conn.remote_host) if @skip_invalid_event
         if @enable_field_injection
           es = add_source_info(es, conn)

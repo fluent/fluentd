@@ -59,8 +59,11 @@ module Fluent
           @size = 0
           @created_at = Fluent::Clock.real_now
           @modified_at = Fluent::Clock.real_now
-
-          extend Decompressable if compress == :gzip
+          if compress == :gzip
+            extend GzipDecompressable
+          elsif compress == :zstd
+            extend ZstdDecompressable
+          end
         end
 
         attr_reader :unique_id, :metadata, :state
@@ -85,7 +88,7 @@ module Fluent
 
         # data is array of formatted record string
         def append(data, **kwargs)
-          raise ArgumentError, '`compress: gzip` can be used for Compressable module' if kwargs[:compress] == :gzip
+          raise ArgumentError, "`compress: #{kwargs[:compress]}` can be used for Compressable module" if kwargs[:compress] == :gzip || kwargs[:compress] == :zstd
           begin
             adding = data.join.force_encoding(Encoding::ASCII_8BIT)
           rescue
@@ -172,23 +175,23 @@ module Fluent
         end
 
         def read(**kwargs)
-          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
+          raise ArgumentError, "`compressed: #{kwargs[:compressed]}` can be used for Compressable module" if kwargs[:compressed] == :gzip || kwargs[:compressed] == :zstd
           raise NotImplementedError, "Implement this method in child class"
         end
 
         def open(**kwargs, &block)
-          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
+          raise ArgumentError, "`compressed: #{kwargs[:compressed]}` can be used for Compressable module" if kwargs[:compressed] == :gzip || kwargs[:compressed] == :zstd
           raise NotImplementedError, "Implement this method in child class"
         end
 
         def write_to(io, **kwargs)
-          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
+          raise ArgumentError, "`compressed: #{kwargs[:compressed]}` can be used for Compressable module" if kwargs[:compressed] == :gzip || kwargs[:compressed] == :zstd
           open do |i|
             IO.copy_stream(i, io)
           end
         end
 
-        module Decompressable
+        module GzipDecompressable
           include Fluent::Plugin::Compressable
 
           def append(data, **kwargs)
@@ -237,6 +240,60 @@ module Fluent
                 IO.copy_stream(chunk_io, io)
               else
                 decompress(input_io: chunk_io, output_io: io)
+              end
+            end
+          end
+        end
+
+        module ZstdDecompressable
+          include Fluent::Plugin::Compressable
+
+          def append(data, **kwargs)
+            if kwargs[:compress] == :zstd
+              io = StringIO.new
+              stream = Zstd::StreamWriter.new(io)
+              data.each do |d|
+                stream.write(d)
+              end
+              stream.finish
+              concat(io.string, data.size)
+            else
+              super
+            end
+          end
+
+          def open(**kwargs, &block)
+            if kwargs[:compressed] == :zstd
+              super
+            else
+              super(**kwargs) do |chunk_io|
+                output_io = if chunk_io.is_a?(StringIO)
+                              StringIO.new
+                            else
+                              Tempfile.new('decompressed-data')
+                            end
+                output_io.binmode if output_io.is_a?(Tempfile)
+                decompress(input_io: chunk_io, output_io: output_io, type: :zstd)
+                output_io.seek(0, IO::SEEK_SET)
+                yield output_io
+              end
+            end
+          end
+
+          def read(**kwargs)
+            if kwargs[:compressed] == :zstd
+              super
+            else
+              decompress(super,type: :zstd)
+            end
+          end
+
+          def write_to(io, **kwargs)
+            open(compressed: :zstd) do |chunk_io|
+              if kwargs[:compressed] == :zstd
+                IO.copy_stream(chunk_io, io)
+              else
+                decompress(input_io: chunk_io, output_io: io, type: :zstd)
               end
             end
           end
