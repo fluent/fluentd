@@ -18,7 +18,7 @@ class TestFluentCat < ::Test::Unit::TestCase
     @primary = create_primary
     metadata = @primary.buffer.new_metadata
     @chunk = create_chunk(@primary, metadata, @es)
-    @port = unused_port
+    @port = unused_port(protocol: :all)
   end
 
   def teardown
@@ -87,7 +87,7 @@ class TestFluentCat < ::Test::Unit::TestCase
       d = create_driver
       d.run(expect_records: 1) do
         Open3.pipeline_w("#{ServerEngine.ruby_bin_path} #{FLUENT_CAT_COMMAND} --port #{@port} --format msgpack secondary") do |stdin|
-          stdin.write(File.read(path))
+          stdin.write(File.read(path, File.size(path)))
           stdin.close
         end
       end

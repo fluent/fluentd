@@ -98,11 +98,11 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "out_secondary_file: basename or directory has an incompatible placeholder, remove time formats, like `%Y%m%d`, from basename or directory"
       end
 
-      if !@chunk_key_tag && (ph = placeholders.find { |placeholder| placeholder.match(/tag(\[\d+\])?/) })
+      if !@chunk_key_tag && (ph = placeholders.find { |placeholder| placeholder.match?(/tag(\[\d+\])?/) })
         raise Fluent::ConfigError, "out_secondary_file: basename or directory has an incompatible placeholder #{ph}, remove tag placeholder, like `${tag}`, from basename or directory"
       end
 
-      vars = placeholders.reject { |placeholder| placeholder.match(/tag(\[\d+\])?/) || (placeholder == 'chunk_id') }
+      vars = placeholders.reject { |placeholder| placeholder.match?(/tag(\[\d+\])?/) || (placeholder == 'chunk_id') }
 
       if ph = vars.find { |v| !@chunk_keys.include?(v) }
         raise Fluent::ConfigError, "out_secondary_file: basename or directory has an incompatible placeholder #{ph}, remove variable placeholder, like `${varname}`, from basename or directory"

@@ -175,7 +175,7 @@ class EventRouterTest < ::Test::Unit::TestCase
       test "don't call default collector when tag matched" do
         event_router.add_rule('test', output)
         assert_rr do
-          dont_allow(default_collector).emit_events('test', is_a(OneEventStream))
+          mock(default_collector).emit_events('test', is_a(OneEventStream)).never
           event_router.emit('test', Engine.now, 'k' => 'v')
         end
         # check emit handler doesn't catch rr error
@@ -201,7 +201,7 @@ class EventRouterTest < ::Test::Unit::TestCase
         event_router.add_rule('test', filter)
 
         assert_rr do
-          dont_allow(filter).filter_stream('test', is_a(OneEventStream)) { events }
+          mock(filter).filter_stream('test', is_a(OneEventStream)).never
           event_router.emit('foo', Engine.now, 'k' => 'v')
         end
       end

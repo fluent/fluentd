@@ -500,10 +500,18 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     d = create_driver(conf)
     time = event_time('2011-01-02 13:14:15')
 
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: true,  shutdown: false){ d.feed(time, {"k1" => 0}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1" => 1}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1" => 2}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1" => 3}) }
+    d.run(default_tag: 'test', expect_emits: 4) do
+      d.feed(time, {"k1" => 0})
+      d.flush
+      sleep 0.5
+      d.feed(time, {"k1" => 1})
+      d.flush
+      sleep 0.5
+      d.feed(time, {"k1" => 2})
+      d.flush
+      sleep 0.5
+      d.feed(time, {"k1" => 3})
+    end
 
     assert_equal "2011-01-02 13:14:15\ttest\t0\n", d.formatted[0]
     assert_equal "2011-01-02 13:14:15\ttest\t1\n", d.formatted[1]
@@ -524,9 +532,6 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal pid_list[1], events[1][2]['child_pid']
     assert_equal pid_list[0], events[2][2]['child_pid']
     assert_equal pid_list[1], events[3][2]['child_pid']
-
-  ensure
-    d.run(start: false, shutdown: true)
   end
 
   # child process exits per 3 lines

@@ -91,9 +91,13 @@ module FluentTest
   class FluentTestGenInput < ::Fluent::Plugin::Input
     ::Fluent::Plugin.register_input('test_in_gen', self)
 
+    helpers :thread
+
     attr_reader :started
 
     config_param :num, :integer, default: 10000
+    config_param :interval_sec, :float, default: nil
+    config_param :async, :bool, default: false
 
     def initialize
       super
@@ -102,12 +106,30 @@ module FluentTest
       @emit_size_metrics = FluentTest::FluentTestCounterMetrics.new
     end
 
+    def multi_workers_ready?
+      true
+    end
+
+    def zero_downtime_restart_ready?
+      true
+    end
+
     def start
       super
       @started = true
 
+      if @async
+        thread_create(:test_in_gen, &method(:emit))
+      else
+        emit
+      end
+    end
+
+    def emit
       @num.times { |i|
-        router.emit("test.evet", Fluent::EventTime.now, {'message' => 'Hello!', 'key' => "value#{i}", 'num' => i})
+        break if @async and not thread_current_running?
+        router.emit("test.event", Fluent::EventTime.now, {'message' => 'Hello!', 'key' => "value#{i}", 'num' => i})
+        sleep @interval_sec if @interval_sec
       }
     end
 

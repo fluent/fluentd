@@ -147,7 +147,7 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "cannot use glob_policy as always with the default path_delimitor: `,\""
       end
 
-      if @glob_policy == :extended && /\{.*,.*\}/.match(@path) && extended_glob_pattern(@path)
+      if @glob_policy == :extended && /\{.*,.*\}/.match?(@path) && extended_glob_pattern(@path)
         raise Fluent::ConfigError, "cannot include curly braces with glob patterns in `#{@path}\". Use glob_policy always instead."
       end
 
@@ -300,7 +300,7 @@ module Fluent::Plugin
     end
 
     def extended_glob_pattern(path)
-      path.include?('*') || path.include?('?') || /\[.*\]/.match(path)
+      path.include?('*') || path.include?('?') || /\[.*\]/.match?(path)
     end
 
     # Curly braces is not supported with default path_delimiter
@@ -313,7 +313,7 @@ module Fluent::Plugin
         # regular expressions as much as possible.
         # This is because not using `true' as a returning value
         # when choosing :always here.
-        extended_glob_pattern(path) || /\{.*,.*\}/.match(path)
+        extended_glob_pattern(path) || /\{.*,.*\}/.match?(path)
       elsif @glob_policy == :extended
         extended_glob_pattern(path)
       elsif @glob_policy == :backward_compatible
@@ -1056,8 +1056,9 @@ module Fluent::Plugin
             # Using freeze and slice is faster than slice!
             # See https://github.com/fluent/fluentd/pull/2527
             @buffer.freeze
-            rbuf = @buffer.slice(0, idx + 1)
-            @buffer = @buffer.slice(idx + 1, @buffer.size)
+            slice_position = idx + 1
+            rbuf = @buffer.slice(0, slice_position)
+            @buffer = @buffer.slice(slice_position, @buffer.size - slice_position)
             idx = @buffer.index(@eol)
 
             is_long_line = @max_line_size && (
@@ -1118,7 +1119,6 @@ module Fluent::Plugin
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
           @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT, log, max_line_size)
-          @iobuf = ''.force_encoding('ASCII-8BIT')
           @lines = []
           @io = nil
           @notify_mutex = Mutex.new
@@ -1200,6 +1200,7 @@ module Fluent::Plugin
           end
 
           with_io do |io|
+            iobuf = ''.force_encoding('ASCII-8BIT')
             begin
               read_more = false
               has_skipped_line = false
@@ -1210,7 +1211,7 @@ module Fluent::Plugin
                     @start_reading_time ||= Fluent::Clock.now
                     group_watcher&.update_reading_time(@path)
 
-                    data = io.readpartial(BYTES_TO_READ, @iobuf)
+                    data = io.readpartial(BYTES_TO_READ, iobuf)
                     @eof = false
                     @number_bytes_read += data.bytesize
                     @fifo << data

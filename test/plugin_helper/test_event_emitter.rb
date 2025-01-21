@@ -77,4 +77,33 @@ class EventEmitterTest < Test::Unit::TestCase
     router = d.event_emitter_router("@ROOT")
     assert_equal Fluent::Engine.root_agent.event_router, router
   end
+
+  test '#router should return the root router by default' do
+    stub(Fluent::Engine.root_agent).event_router { "root_event_router" }
+    stub(Fluent::Engine.root_agent).source_only_router { "source_only_router" }
+
+    d = Dummy.new
+    d.configure(Fluent::Config::Element.new('source', '', {}, []))
+    assert_equal "root_event_router", d.router
+  end
+
+  test '#router should return source_only_router during source-only' do
+    stub(Fluent::Engine.root_agent).event_router { "root_event_router" }
+    stub(Fluent::Engine.root_agent).source_only_router { "source_only_router" }
+
+    d = Dummy.new
+    d.configure(Fluent::Config::Element.new('source', '', {}, []))
+    d.event_emitter_apply_source_only
+
+    router_when_source_only = d.router
+
+    d.event_emitter_cancel_source_only
+
+    router_after_canceled = d.router
+
+    assert_equal(
+      ["source_only_router", "root_event_router"],
+      [router_when_source_only, router_after_canceled]
+    )
+  end
 end

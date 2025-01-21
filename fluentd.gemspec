@@ -20,7 +20,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.license = "Apache-2.0"
 
-  gem.required_ruby_version = '>= 2.7'
+  gem.required_ruby_version = '>= 3.2'
 
   gem.add_runtime_dependency("bundler")
   gem.add_runtime_dependency("msgpack", [">= 1.3.1", "< 2.0.0"])
@@ -41,7 +41,9 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("drb", ["~> 2.2"])
 
   # gems that aren't default gems as of Ruby 3.5
-  gem.add_runtime_dependency("logger", ["~> 1.6"])
+  # logger 1.6.3 or later cause bug on windows,
+  # hold on 1.6.2 for a while. see https://github.com/ruby/logger/issues/107
+  gem.add_runtime_dependency("logger", ["1.6.2"])
 
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
@@ -64,8 +66,7 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency("test-unit", ["~> 3.3"])
   gem.add_development_dependency("test-unit-rr", ["~> 1.0"])
   gem.add_development_dependency("oj", [">= 2.14", "< 4"])
-  gem.add_development_dependency("async", "~> 1.23")
-  gem.add_development_dependency("async-http", ">= 0.50.0")
+  gem.add_development_dependency("async-http", "~> 0.86")
   gem.add_development_dependency("aws-sigv4", ["~> 1.8"])
   gem.add_development_dependency("aws-sdk-core", ["~> 3.191"])
   gem.add_development_dependency("rexml", ["~> 3.2"])

@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'securerandom'
+
 require 'serverengine/utils'
 require 'fluent/oj_options'
 
@@ -25,6 +27,7 @@ module Fluent
   DEFAULT_OJ_OPTIONS = Fluent::OjOptions.load_env
   DEFAULT_DIR_PERMISSION = 0755
   DEFAULT_FILE_PERMISSION = 0644
+  INSTANCE_ID = ENV['FLUENT_INSTANCE_ID'] || SecureRandom.uuid
 
   def self.windows?
     ServerEngine.windows?

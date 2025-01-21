@@ -84,6 +84,8 @@ module Fluent
           socket_options[:linger_timeout] ||= @transport_config&.linger_timeout || 0
         end
 
+        socket_options[:receive_buffer_size] ||= @transport_config&.receive_buffer_size
+
         socket_option_validate!(proto, **socket_options)
         socket_option_setter = ->(sock){ socket_option_set(sock, **socket_options) }
 
@@ -135,6 +137,8 @@ module Fluent
         if proto == :tcp || proto == :tls
           socket_options[:linger_timeout] ||= @transport_config&.linger_timeout || 0
         end
+
+        socket_options[:receive_buffer_size] ||= @transport_config&.receive_buffer_size
 
         unless socket
           socket_option_validate!(proto, **socket_options)
@@ -247,6 +251,7 @@ module Fluent
         :generate_cert_country, :generate_cert_state, :generate_cert_state,
         :generate_cert_locality, :generate_cert_common_name,
         :generate_cert_expiration, :generate_cert_digest,
+        :ensure_fips,
       ]
 
       def server_create_transport_section_object(opts)
@@ -265,6 +270,9 @@ module Fluent
           config_argument :protocol, :enum, list: [:tcp, :tls], default: :tcp
 
           ### Socket Params ###
+
+          desc "The max size of socket receive buffer. SO_RCVBUF"
+          config_param :receive_buffer_size, :size, default: nil
 
           # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src.
           # Set positive value if needing to send FIN on closing on non-Windows.
@@ -287,6 +295,7 @@ module Fluent
           config_param :max_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: nil
           config_param :ciphers, :string, default: Fluent::TLS::CIPHERS_DEFAULT
           config_param :insecure, :bool, default: false
+          config_param :ensure_fips, :bool, default: false
 
           # Cert signed by public CA
           config_param :ca_path, :string, default: nil

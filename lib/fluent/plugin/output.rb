@@ -1040,17 +1040,17 @@ module Fluent
       #   iteration of event stream, and it should be done just once even if total event stream size
       #   is bigger than chunk_limit_size because of performance.
       def handle_stream_with_custom_format(tag, es, enqueue: false)
-        meta_and_data = {}
+        meta_and_data = Hash.new { |h, k| h[k] = [] }
         records = 0
         es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
           meta = metadata(tag, time, record)
-          meta_and_data[meta] ||= []
           res = format(tag, time, record)
           if res
             meta_and_data[meta] << res
             records += 1
           end
         end
+        meta_and_data.default_proc = nil
         write_guard do
           @buffer.write(meta_and_data, enqueue: enqueue)
         end
@@ -1061,14 +1061,14 @@ module Fluent
 
       def handle_stream_with_standard_format(tag, es, enqueue: false)
         format_proc = generate_format_proc
-        meta_and_data = {}
+        meta_and_data = Hash.new { |h, k| h[k] = MultiEventStream.new }
         records = 0
         es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
           meta = metadata(tag, time, record)
-          meta_and_data[meta] ||= MultiEventStream.new
           meta_and_data[meta].add(time, record)
           records += 1
         end
+        meta_and_data.default_proc = nil
         write_guard do
           @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
@@ -1388,6 +1388,7 @@ module Fluent
       end
 
       def submit_flush_once
+        return unless @buffer_config.flush_thread_count > 0
         # Without locks: it is rough but enough to select "next" writer selection
         @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]
@@ -1410,6 +1411,7 @@ module Fluent
       end
 
       def submit_flush_all
+        return unless @buffer_config.flush_thread_count > 0
         while !@retry && @buffer.queued?
           submit_flush_once
           sleep @buffer_config.flush_thread_burst_interval

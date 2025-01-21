@@ -43,11 +43,16 @@ module Fluent
       @rpc_endpoint = nil
       @rpc_server = nil
       @counter = nil
+      @socket_manager_server = nil
+      @starting_new_supervisor_with_zero_downtime = false
+      @new_supervisor_pid = nil
+      start_in_parallel = ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+      @zero_downtime_restart_mutex = Mutex.new
 
       @fluentd_lock_dir = Dir.mktmpdir("fluentd-lock-")
       ENV['FLUENTD_LOCK_DIR'] = @fluentd_lock_dir
 
-      if config[:rpc_endpoint]
+      if config[:rpc_endpoint] and not start_in_parallel
         @rpc_endpoint = config[:rpc_endpoint]
         @enable_get_dump = config[:enable_get_dump]
         run_rpc_server
@@ -59,16 +64,27 @@ module Fluent
         install_supervisor_signal_handlers
       end
 
-      if counter = config[:counter_server]
+      if counter = config[:counter_server] and not start_in_parallel
         run_counter_server(counter)
       end
 
       if config[:disable_shared_socket]
         $log.info "shared socket for multiple workers is disabled"
+      elsif start_in_parallel
+        begin
+          raise "[BUG] SERVERENGINE_SOCKETMANAGER_PATH env var must exist when starting in parallel" unless ENV.key?('SERVERENGINE_SOCKETMANAGER_PATH')
+          @socket_manager_server = ServerEngine::SocketManager::Server.share_sockets_with_another_server(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
+          $log.info "zero-downtime-restart: took over the shared sockets", path: ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+        rescue => e
+          $log.error "zero-downtime-restart: cancel sequence because failed to take over the shared sockets", error: e
+          raise
+        end
       else
-        server = ServerEngine::SocketManager::Server.open
-        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = server.path.to_s
+        @socket_manager_server = ServerEngine::SocketManager::Server.open
+        ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_server.path.to_s
       end
+
+      stop_parallel_old_supervisor_after_delay if start_in_parallel
     end
 
     def after_run
@@ -76,7 +92,9 @@ module Fluent
       stop_rpc_server if @rpc_endpoint
       stop_counter_server if @counter
       cleanup_lock_dir
-      Fluent::Supervisor.cleanup_resources
+      Fluent::Supervisor.cleanup_socketmanager_path unless @starting_new_supervisor_with_zero_downtime
+    ensure
+      notify_new_supervisor_that_old_one_has_stopped if @starting_new_supervisor_with_zero_downtime
     end
 
     def cleanup_lock_dir
@@ -109,6 +127,13 @@ module Fluent
         end
         nil
       }
+      unless Fluent.windows?
+        @rpc_server.mount_proc('/api/processes.zeroDowntimeRestart') { |req, res|
+          $log.debug "fluentd RPC got /api/processes.zeroDowntimeRestart request"
+          Process.kill :USR2, Process.pid
+          nil
+        }
+      end
       @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
         $log.debug "fluentd RPC got /api/plugins.flushBuffers request"
         if Fluent.windows?
@@ -137,27 +162,24 @@ module Fluent
 
       @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
         $log.debug "fluentd RPC got /api/config.gracefulReload request"
-        if Fluent.windows?
-          supervisor_sigusr2_handler
-        else
-          Process.kill :USR2, Process.pid
-        end
-
+        graceful_reload
         nil
       }
 
-      @rpc_server.mount_proc('/api/config.getDump') { |req, res|
-        $log.debug "fluentd RPC got /api/config.getDump request"
-        $log.info "get dump in-memory config via HTTP"
-        res.body = supervisor_get_dump_config_handler
-        [nil, nil, res]
-      } if @enable_get_dump
+      if @enable_get_dump
+        @rpc_server.mount_proc('/api/config.getDump') { |req, res|
+          $log.debug "fluentd RPC got /api/config.getDump request"
+          $log.info "get dump in-memory config via HTTP"
+          res.body = supervisor_get_dump_config_handler
+          [nil, nil, res]
+        }
+      end
 
       @rpc_server.start
     end
 
     def stop_rpc_server
-      @rpc_server.shutdown
+      @rpc_server&.shutdown
     end
 
     def run_counter_server(counter_conf)
@@ -170,6 +192,44 @@ module Fluent
 
     def stop_counter_server
       @counter.stop
+    end
+
+    def stop_parallel_old_supervisor_after_delay
+      Thread.new do
+        # Delay to wait the new workers to start up.
+        # Even if it takes a long time to start the new workers and stop the old Fluentd first,
+        # it is no problem because the socket buffer works, as long as the capacity is not exceeded.
+        sleep 10
+        old_pid = ENV["FLUENT_RUNNING_IN_PARALLEL_WITH_OLD"]&.to_i
+        if old_pid
+          $log.info "zero-downtime-restart: stop the old supervisor"
+          Process.kill :TERM, old_pid
+        end
+      rescue => e
+        $log.warn "zero-downtime-restart: failed to stop the old supervisor." +
+                  " If the old one does not exist, please send SIGWINCH to this new process to start to work fully." +
+                  " If it exists, something went wrong. Please kill the old one manually.",
+                  error: e
+      end
+    end
+
+    def notify_new_supervisor_that_old_one_has_stopped
+      if config[:pid_path]
+        new_pid = File.read(config[:pid_path]).to_i
+      else
+        raise "[BUG] new_supervisor_pid is not saved" unless @new_supervisor_pid
+        new_pid = @new_supervisor_pid
+      end
+
+      $log.info "zero-downtime-restart: notify the new supervisor (pid: #{new_pid}) that old one has stopped"
+      Process.kill :WINCH, new_pid
+    rescue => e
+      $log.error(
+        "zero-downtime-restart: failed to notify the new supervisor." +
+        " Please send SIGWINCH to the new supervisor process manually" +
+        " if it does not start to work fully.",
+        error: e
+      )
     end
 
     def install_supervisor_signal_handlers
@@ -187,7 +247,16 @@ module Fluent
 
       trap :USR2 do
         $log.debug 'fluentd supervisor process got SIGUSR2'
-        supervisor_sigusr2_handler
+        if Fluent.windows?
+          graceful_reload
+        else
+          zero_downtime_restart
+        end
+      end
+
+      trap :WINCH do
+        $log.debug 'fluentd supervisor process got SIGWINCH'
+        cancel_source_only
       end
     end
 
@@ -254,7 +323,7 @@ module Fluent
             when :usr1
               supervisor_sigusr1_handler
             when :usr2
-              supervisor_sigusr2_handler
+              graceful_reload
             when :cont
               supervisor_dump_handler_for_windows
             when :stop_event_thread
@@ -284,7 +353,7 @@ module Fluent
       send_signal_to_workers(:USR1)
     end
 
-    def supervisor_sigusr2_handler
+    def graceful_reload
       conf = nil
       t = Thread.new do
         $log.info 'Reloading new config'
@@ -310,6 +379,79 @@ module Fluent
       @fluentd_conf = conf.to_s
     rescue => e
       $log.error "Failed to reload config file: #{e}"
+    end
+
+    def zero_downtime_restart
+      Thread.new do
+        @zero_downtime_restart_mutex.synchronize do
+          $log.info "start zero-downtime-restart sequence"
+
+          if @starting_new_supervisor_with_zero_downtime
+            $log.warn "zero-downtime-restart: canceled because it is already starting"
+            Thread.exit
+          end
+          if ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+            $log.warn "zero-downtime-restart: canceled because the previous sequence is still running"
+            Thread.exit
+          end
+
+          @starting_new_supervisor_with_zero_downtime = true
+          commands = [ServerEngine.ruby_bin_path, $0] + ARGV
+          env_to_add = {
+            "SERVERENGINE_SOCKETMANAGER_INTERNAL_TOKEN" => ServerEngine::SocketManager::INTERNAL_TOKEN,
+            "FLUENT_RUNNING_IN_PARALLEL_WITH_OLD" => "#{Process.pid}",
+          }
+          pid = Process.spawn(env_to_add, commands.join(" "))
+          @new_supervisor_pid = pid unless config[:daemonize]
+
+          if config[:daemonize]
+            Thread.new(pid) do |pid|
+              _, status = Process.wait2(pid)
+              # check if `ServerEngine::Daemon#daemonize_with_double_fork` succeeded or not
+              unless status.success?
+                @starting_new_supervisor_with_zero_downtime = false
+                $log.error "zero-downtime-restart: failed because new supervisor exits unexpectedly"
+              end
+            end
+          else
+            Thread.new(pid) do |pid|
+              _, status = Process.wait2(pid)
+              @starting_new_supervisor_with_zero_downtime = false
+              $log.error "zero-downtime-restart: failed because new supervisor exits unexpectedly", status: status
+            end
+          end
+        end
+      rescue => e
+        $log.error "zero-downtime-restart: failed", error: e
+        @starting_new_supervisor_with_zero_downtime = false
+      end
+    end
+
+    def cancel_source_only
+      if ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+        if config[:rpc_endpoint]
+          begin
+            @rpc_endpoint = config[:rpc_endpoint]
+            @enable_get_dump = config[:enable_get_dump]
+            run_rpc_server
+          rescue => e
+            $log.error "failed to start RPC server", error: e
+          end
+        end
+
+        if counter = config[:counter_server]
+          begin
+            run_counter_server(counter)
+          rescue => e
+            $log.error "failed to start counter server", error: e
+          end
+        end
+
+        $log.info "zero-downtime-restart: done all sequences, now new processes start to work fully"
+        ENV.delete("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+      end
+
+      send_signal_to_workers(:WINCH)
     end
 
     def supervisor_dump_handler_for_windows
@@ -409,6 +551,7 @@ module Fluent
       main_cmd = config[:main_cmd]
       env = {
         'SERVERENGINE_WORKER_ID' => @worker_id.to_i.to_s,
+        'FLUENT_INSTANCE_ID' => Fluent::INSTANCE_ID,
       }
       @pm = process_manager.spawn(env, *main_cmd)
     end
@@ -440,7 +583,7 @@ module Fluent
         stop_immediately_at_unrecoverable_exit: true,
         root_dir: params['root_dir'],
         logger: $log,
-        log: $log.out,
+        log: $log&.out,
         log_level: params['log_level'],
         chuser: params['chuser'],
         chgroup: params['chgroup'],
@@ -486,6 +629,7 @@ module Fluent
         suppress_repeated_stacktrace: true,
         ignore_repeated_log_interval: nil,
         without_source: nil,
+        with_source_only: nil,
         enable_input_metrics: nil,
         enable_size_metrics: nil,
         use_v1_config: true,
@@ -499,12 +643,11 @@ module Fluent
       }
     end
 
-    def self.cleanup_resources
-      unless Fluent.windows?
-        if ENV.has_key?('SERVERENGINE_SOCKETMANAGER_PATH')
-          FileUtils.rm_f(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
-        end
-      end
+    def self.cleanup_socketmanager_path
+      return if Fluent.windows?
+      return unless ENV.key?('SERVERENGINE_SOCKETMANAGER_PATH')
+
+      FileUtils.rm_f(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
     end
 
     def initialize(cl_opt)
@@ -518,7 +661,6 @@ module Fluent
       @inline_config = opt[:inline_config]
       @use_v1_config = opt[:use_v1_config]
       @conf_encoding = opt[:conf_encoding]
-      @log_path = opt[:log_path]
       @show_plugin_config = opt[:show_plugin_config]
       @libs = opt[:libs]
       @plugin_dirs = opt[:plugin_dirs]
@@ -527,13 +669,15 @@ module Fluent
       @chumask = opt[:chumask]
       @signame = opt[:signame]
 
-      # TODO: `@log_rotate_age` and `@log_rotate_size` should be removed
+      # TODO: `@log_path`, `@log_rotate_age` and `@log_rotate_size` should be removed
       # since it should be merged with SystemConfig in `build_system_config()`.
-      # We should always use `system_config.log.rotate_age` and `system_config.log.rotate_size`.
+      # We should always use `system_config.log.path`, `system_config.log.rotate_age`
+      # and `system_config.log.rotate_size`.
       # However, currently, there is a bug that `system_config.log` parameters
       # are not in `Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS`, and these
       # parameters are not merged in `build_system_config()`.
       # Until we fix the bug of `Fluent::SystemConfig`, we need to use these instance variables.
+      @log_path = opt[:log_path]
       @log_rotate_age = opt[:log_rotate_age]
       @log_rotate_size = opt[:log_rotate_size]
 
@@ -547,6 +691,10 @@ module Fluent
 
       if @system_config.workers < 1
         raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@system_config.workers}"
+      end
+
+      if Fluent.windows? && @system_config.with_source_only
+        raise Fluent::ConfigError, "with-source-only is not supported on Windows"
       end
 
       root_dir = @system_config.root_dir
@@ -567,7 +715,7 @@ module Fluent
       begin
         ServerEngine::Privilege.change(@chuser, @chgroup)
         MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
-        Fluent::Engine.init(@system_config, supervisor_mode: true)
+        Fluent::Engine.init(@system_config, supervisor_mode: true, start_in_parallel: ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD"))
         Fluent::Engine.run_configure(@conf, dry_run: dry_run)
       rescue Fluent::ConfigError => e
         $log.error 'config error', file: @config_path, error: e
@@ -600,6 +748,10 @@ module Fluent
         raise Fluent::ConfigError, "invalid number of workers (must be 1 or unspecified) with --no-supervisor: #{@system_config.workers}"
       end
 
+      if Fluent.windows? && @system_config.with_source_only
+        raise Fluent::ConfigError, "with-source-only is not supported on Windows"
+      end
+
       install_main_process_signal_handlers
 
       # This is the only log messsage for @standalone_worker
@@ -612,10 +764,10 @@ module Fluent
           File.umask(@chumask.to_i(8))
         end
         MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
-        Fluent::Engine.init(@system_config)
+        Fluent::Engine.init(@system_config, start_in_parallel: ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD"))
         Fluent::Engine.run_configure(@conf)
         Fluent::Engine.run
-        self.class.cleanup_resources if @standalone_worker
+        self.class.cleanup_socketmanager_path if @standalone_worker
         exit 0
       end
     end
@@ -690,6 +842,7 @@ module Fluent
 
       # TODO: we should remove this logic. This merging process should be done
       # in `build_system_config()`.
+      @log_path ||= system_config.log.path
       @log_rotate_age ||= system_config.log.rotate_age
       @log_rotate_size ||= system_config.log.rotate_size
 
@@ -832,11 +985,19 @@ module Fluent
         end
 
         trap :USR2 do
+          # Leave the old GracefulReload feature, just in case.
+          # We can send SIGUSR2 to the worker process to use this old GracefulReload feature.
+          # (Note: Normally, we can send SIGUSR2 to the supervisor process to use
+          #  zero-downtime-restart feature as GracefulReload on non-Windows.)
           reload_config
         end
 
         trap :CONT do
           dump_non_windows
+        end
+
+        trap :WINCH do
+          cancel_source_only
         end
       end
     end
@@ -887,6 +1048,18 @@ module Fluent
           $log.debug "flushing thread: flushed"
         rescue Exception => e
           $log.warn "flushing thread error: #{e}"
+        end
+      end
+    end
+
+    def cancel_source_only
+      Thread.new do
+        begin
+          $log.debug "fluentd main process get SIGWINCH"
+          $log.info "try to cancel with-source-only mode"
+          Fluent::Engine.cancel_source_only!
+        rescue Exception => e
+          $log.warn "failed to cancel source only", error: e
         end
       end
     end

@@ -12,7 +12,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     FileUtils.rm_rf(TMP_DIR)
     FileUtils.mkdir_p(TMP_DIR)
     @d = nil
-    @target_port = unused_port
+    # forward plugin uses TCP and UDP sockets on the same port number
+    @target_port = unused_port(protocol: :all)
   end
 
   def teardown
@@ -666,7 +667,6 @@ EOL
 
     @d = d = create_driver(config + %[
       require_ack_response true
-      ack_response_timeout 1s
       <buffer tag>
         flush_mode immediate
         retry_type periodic
@@ -714,7 +714,6 @@ EOL
 
     @d = d = create_driver(config + %[
       require_ack_response true
-      ack_response_timeout 10s
       <buffer tag>
         flush_mode immediate
         retry_type periodic

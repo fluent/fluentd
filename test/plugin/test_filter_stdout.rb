@@ -86,12 +86,12 @@ class StdoutFilterTest < Test::Unit::TestCase
       d = create_driver(CONFIG + config_element("", "", { "output_type" => "hash" }))
       etime = event_time("2016-10-07 21:09:31.012345678 UTC")
       out = capture_log(d) { filter(d, etime, {'test' => 'test'}) }
-      assert_equal "2016-10-07 21:09:31.012345678 +0000 filter.test: {\"test\"=>\"test\"}\n", out
+      assert_equal "2016-10-07 21:09:31.012345678 +0000 filter.test: {\"test\"=>\"test\"}\n", out.gsub(' => ', '=>')
 
       # NOTE: Float::NAN is not jsonable, but hash string can output it.
       d = create_driver(CONFIG + config_element("", "", { "output_type" => "hash" }))
       out = capture_log(d) { filter(d, etime, {'test' => Float::NAN}) }
-      assert_equal "2016-10-07 21:09:31.012345678 +0000 filter.test: {\"test\"=>NaN}\n", out
+      assert_equal "2016-10-07 21:09:31.012345678 +0000 filter.test: {\"test\"=>NaN}\n", out.gsub(' => ', '=>')
     end
 
     # Use include_time_key to output the message's time
@@ -172,7 +172,7 @@ class StdoutFilterTest < Test::Unit::TestCase
         d = create_driver(conf)
         etime = event_time("2016-10-07 21:09:31.012345678 UTC")
         out = capture_log(d) { filter(d, etime, {'test' => 'test'}) }
-        assert_equal "2016-10-07 21:09:31.012345678 +0000 filter.test: {\"test\"=>\"test\"}\n", out
+        assert_equal "2016-10-07 21:09:31.012345678 +0000 filter.test: {\"test\"=>\"test\"}\n", out.gsub(' => ', '=>')
       end
 
       def test_hash_nan
@@ -182,7 +182,7 @@ class StdoutFilterTest < Test::Unit::TestCase
         d = create_driver(conf)
         etime = event_time("2016-10-07 21:09:31.012345678 UTC")
         out = capture_log(d) { filter(d, etime, {'test' => Float::NAN}) }
-        assert_equal "2016-10-07 21:09:31.012345678 +0000 filter.test: {\"test\"=>NaN}\n", out
+        assert_equal "2016-10-07 21:09:31.012345678 +0000 filter.test: {\"test\"=>NaN}\n", out.gsub(' => ', '=>')
       end
 
       # Use include_time_key to output the message's time

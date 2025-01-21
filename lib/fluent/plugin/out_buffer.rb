@@ -14,8 +14,27 @@
 #    limitations under the License.
 #
 
-module Fluent
+require 'fluent/plugin/output'
 
-  VERSION = '1.18.0'
+module Fluent::Plugin
+  class BufferOutput < Output
+    Fluent::Plugin.register_output("buffer", self)
+    helpers :event_emitter
 
+    config_section :buffer do
+      config_set_default :@type, "file"
+      config_set_default :chunk_keys, ["tag"]
+      config_set_default :flush_mode, :interval
+      config_set_default :flush_interval, 10
+    end
+
+    def multi_workers_ready?
+      true
+    end
+
+    def write(chunk)
+      return if chunk.empty?
+      router.emit_stream(chunk.metadata.tag, Fluent::MessagePackEventStream.new(chunk.read))
+    end
+  end
 end

@@ -1,3 +1,57 @@
+# v1.18
+
+## Release v1.18.0 - 2024/11/29
+
+### Enhancement
+
+* Add zero-downtime-restart feature for non-Windows
+  https://github.com/fluent/fluentd/pull/4624
+* Add with-source-only feature
+  https://github.com/fluent/fluentd/pull/4661
+  * `fluentd` command: Add `--with-source-only` option
+  * System configuration: Add `with_source_only` option
+* Embedded plugin: Add `out_buffer` plugin, which can be used for buffering and relabeling events
+  https://github.com/fluent/fluentd/pull/4661
+* Config File Syntax: Extend Embedded Ruby Code support for Hashes and Arrays
+  https://github.com/fluent/fluentd/pull/4580
+  * Example: `key {"foo":"#{1 + 1}"} => key {"foo":"2"}`
+  * Please note that this is not backward compatible, although we assume that this will never affect to actual existing configs.
+  * In case the behavior changes unintentionally, you can disable this feature by surrounding the entire value with single quotes.
+    * `key '{"foo":"#{1 + 1}"}' => key {"foo":"#{1 + 1}"}`
+* transport tls: Use SSL_VERIFY_NONE by default
+  https://github.com/fluent/fluentd/pull/4718
+* transport tls: Add ensure_fips option to ensure FIPS compliant mode
+  https://github.com/fluent/fluentd/pull/4720
+* plugin_helper/server: Add receive_buffer_size parameter in transport section
+  https://github.com/fluent/fluentd/pull/4649
+* filter_parser: Now able to handle multiple parsed results
+  https://github.com/fluent/fluentd/pull/4620
+* in_http: add `add_tag_prefix` option
+  https://github.com/fluent/fluentd/pull/4655
+* System configuration: add `path` option in `log` section
+  https://github.com/fluent/fluentd/pull/4604
+
+### Bug Fix
+
+* command: fix NoMethodError of --daemon under Windows
+  https://github.com/fluent/fluentd/pull/4716
+* `fluentd` command: fix `--plugin` (`-p`) option not to overwrite default value
+  https://github.com/fluent/fluentd/pull/4605
+
+### Misc
+
+* http_server: Ready to support Async 2.0 gem
+  https://github.com/fluent/fluentd/pull/4619
+* Minor code refactoring
+  * https://github.com/fluent/fluentd/pull/4641
+* CI fixes
+  * https://github.com/fluent/fluentd/pull/4638
+  * https://github.com/fluent/fluentd/pull/4644
+  * https://github.com/fluent/fluentd/pull/4675
+  * https://github.com/fluent/fluentd/pull/4676
+  * https://github.com/fluent/fluentd/pull/4677
+  * https://github.com/fluent/fluentd/pull/4686
+
 # v1.17
 
 ## Release v1.17.1 - 2024/08/19

@@ -14,7 +14,7 @@ class HttpHelperTest < Test::Unit::TestCase
   CERT_CA_DIR = File.expand_path(File.dirname(__FILE__) + '/data/cert/with_ca')
 
   def setup
-    @port = unused_port
+    @port = unused_port(protocol: :tcp)
   end
 
   def teardown
@@ -127,12 +127,13 @@ class HttpHelperTest < Test::Unit::TestCase
     end
 
     client = Async::HTTP::Client.new(Async::HTTP::Endpoint.parse("https://#{addr}:#{port}", ssl_context: context))
-    reactor = Async::Reactor.new(nil, logger: Fluent::Log::ConsoleAdapter.wrap(NULL_LOGGER))
+    Console.logger = Fluent::Log::ConsoleAdapter.wrap(NULL_LOGGER)
 
     resp = nil
     error = nil
 
-    reactor.run do
+    Sync do
+      Console.logger = Fluent::Log::ConsoleAdapter.wrap(NULL_LOGGER)
       begin
         response = yield(client)
       rescue => e               # Async::Reactor rescue all error. handle it by myself
@@ -140,7 +141,7 @@ class HttpHelperTest < Test::Unit::TestCase
       end
 
       if response
-        resp = Response.new(response.status.to_s, response.body.read, response.headers)
+        resp = Response.new(response.status.to_s, response.read, response.headers)
       end
     end
 

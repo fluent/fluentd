@@ -220,7 +220,7 @@ module Fluent
       end
 
       def string_like_null(value, null_empty_string = @null_empty_string, null_value_regexp = @null_value_pattern)
-        null_empty_string && value.empty? || null_value_regexp && string_safe_encoding(value){|s| null_value_regexp.match(s) }
+        null_empty_string && value.empty? || null_value_regexp && string_safe_encoding(value){|s| null_value_regexp.match?(s) }
       end
 
       TRUTHY_VALUES = ['true', 'yes', '1']

@@ -127,6 +127,12 @@ op.on('--without-source', "invoke a fluentd without input plugins", TrueClass) {
   cmd_opts[:without_source] = b
 }
 
+unless Fluent.windows?
+  op.on('--with-source-only', "Invoke a fluentd only with input plugins. The data is stored in a temporary buffer. Send SIGWINCH to cancel this mode and process the data (Not supported on Windows).", TrueClass) {|b|
+    cmd_opts[:with_source_only] = b
+  }
+end
+
 op.on('--config-file-type VALU', 'guessing file type of fluentd configuration. yaml/yml or guess') { |s|
   if (s == 'yaml') || (s == 'yml')
     cmd_opts[:config_file_type] = s.to_sym

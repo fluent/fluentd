@@ -22,6 +22,7 @@ require 'fluent/label'
 require 'fluent/plugin'
 require 'fluent/system_config'
 require 'fluent/time'
+require 'fluent/source_only_buffer_agent'
 
 module Fluent
   #
@@ -47,23 +48,56 @@ module Fluent
   class RootAgent < Agent
     ERROR_LABEL = "@ERROR".freeze # @ERROR is built-in error label
 
-    def initialize(log:, system_config: SystemConfig.new)
+    class SourceOnlyMode
+      DISABLED = 0
+      NORMAL = 1
+      ONLY_ZERO_DOWNTIME_RESTART_READY = 2
+
+      def initialize(with_source_only, start_in_parallel)
+        if start_in_parallel
+          @mode = ONLY_ZERO_DOWNTIME_RESTART_READY
+        elsif with_source_only
+          @mode = NORMAL
+        else
+          @mode = DISABLED
+        end
+      end
+
+      def enabled?
+        @mode != DISABLED
+      end
+
+      def only_zero_downtime_restart_ready?
+        @mode == ONLY_ZERO_DOWNTIME_RESTART_READY
+      end
+
+      def disable!
+        @mode = DISABLED
+      end
+    end
+
+    def initialize(log:, system_config: SystemConfig.new, start_in_parallel: false)
       super(log: log)
 
       @labels = {}
       @inputs = []
       @suppress_emit_error_log_interval = 0
       @next_emit_error_log_time = nil
-      @without_source = false
-      @enable_input_metrics = false
+      @without_source = system_config.without_source || false
+      @source_only_mode = SourceOnlyMode.new(system_config.with_source_only, start_in_parallel)
+      @source_only_buffer_agent = nil
+      @enable_input_metrics = system_config.enable_input_metrics || false
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
-      @without_source = system_config.without_source unless system_config.without_source.nil?
-      @enable_input_metrics = !!system_config.enable_input_metrics
     end
 
     attr_reader :inputs
     attr_reader :labels
+
+    def source_only_router
+      raise "[BUG] 'RootAgent#source_only_router' should not be called when 'with_source_only' is false" unless @source_only_mode.enabled?
+      @source_only_buffer_agent.event_router
+    end
 
     def configure(conf)
       used_worker_ids = []
@@ -148,6 +182,8 @@ module Fluent
 
       super
 
+      setup_source_only_buffer_agent if @source_only_mode.enabled?
+
       # initialize <source> elements
       if @without_source
         log.info :worker0, "'--without-source' is applied. Ignore <source> sections"
@@ -169,16 +205,36 @@ module Fluent
       @error_collector = error_label.event_router
     end
 
-    def lifecycle(desc: false, kind_callback: nil)
-      kind_or_label_list = if desc
-                    [:output, :filter, @labels.values.reverse, :output_with_router, :input].flatten
-                  else
-                    [:input, :output_with_router, @labels.values, :filter, :output].flatten
-                  end
-      kind_or_label_list.each do |kind|
+    def setup_source_only_buffer_agent(flush: false)
+      @source_only_buffer_agent = SourceOnlyBufferAgent.new(log: log, system_config: Fluent::Engine.system_config)
+      @source_only_buffer_agent.configure(flush: flush)
+    end
+
+    def cleanup_source_only_buffer_agent
+      @source_only_buffer_agent&.cleanup
+    end
+
+    def lifecycle(desc: false, kind_callback: nil, kind_or_agent_list: nil)
+      only_zero_downtime_restart_ready = false
+
+      unless kind_or_agent_list
+        if @source_only_mode.enabled?
+          kind_or_agent_list = [:input, @source_only_buffer_agent]
+          only_zero_downtime_restart_ready = @source_only_mode.only_zero_downtime_restart_ready?
+        elsif @source_only_buffer_agent
+          # source_only_buffer_agent can re-reroute events, so the priority is equal to output_with_router.
+          kind_or_agent_list = [:input, :output_with_router, @source_only_buffer_agent, @labels.values, :filter, :output].flatten
+        else
+          kind_or_agent_list = [:input, :output_with_router, @labels.values, :filter, :output].flatten
+        end
+
+        kind_or_agent_list.reverse! if desc
+      end
+
+      kind_or_agent_list.each do |kind|
         if kind.respond_to?(:lifecycle)
-          label = kind
-          label.lifecycle(desc: desc) do |plugin, display_kind|
+          agent = kind
+          agent.lifecycle(desc: desc) do |plugin, display_kind|
             yield plugin, display_kind
           end
         else
@@ -189,6 +245,9 @@ module Fluent
                  end
           display_kind = (kind == :output_with_router ? :output : kind)
           list.each do |instance|
+            if only_zero_downtime_restart_ready
+              next unless instance.respond_to?(:zero_downtime_restart_ready?) and instance.zero_downtime_restart_ready?
+            end
             yield instance, display_kind
           end
         end
@@ -198,8 +257,8 @@ module Fluent
       end
     end
 
-    def start
-      lifecycle(desc: true) do |i| # instance
+    def start(kind_or_agent_list: nil)
+      lifecycle(desc: true, kind_or_agent_list: kind_or_agent_list) do |i| # instance
         i.start unless i.started?
         # Input#start sometimes emits lots of events with in_tail/`read_from_head true` case
         # and it causes deadlock for small buffer/queue output. To avoid such problem,
@@ -231,13 +290,46 @@ module Fluent
       flushing_threads.each{|t| t.join }
     end
 
-    def shutdown # Fluentd's shutdown sequence is stop, before_shutdown, shutdown, after_shutdown, close, terminate for plugins
+    def cancel_source_only!
+      unless @source_only_mode.enabled?
+        log.info "do nothing for canceling with-source-only because the current mode is not with-source-only."
+        return
+      end
+
+      log.info "cancel with-source-only mode and start the other plugins"
+      all_plugins = [:input, :output_with_router, @labels.values, :filter, :output].flatten.reverse
+      start(kind_or_agent_list: all_plugins)
+
+      lifecycle_control_list[:input].each(&:event_emitter_cancel_source_only)
+
+      # Want to make sure that the source_only_router finishes all process before
+      # shutting down the agent.
+      # Strictly speaking, it would be necessary to have exclusive lock between
+      # EventRouter and the shutting down process of this agent.
+      # However, adding lock to EventRouter would worsen its performance, and
+      # the entire shutting down process does not care about it either.
+      # So, sleep here just in case.
+      sleep 1
+
+      shutdown(kind_or_agent_list: [@source_only_buffer_agent])
+      @source_only_buffer_agent = nil
+
+      # This agent can stop after flushing its all buffer, but it is not implemented for now.
+      log.info "starts the loading agent for with-source-only"
+      setup_source_only_buffer_agent(flush: true)
+      start(kind_or_agent_list: [@source_only_buffer_agent])
+
+      @source_only_mode.disable!
+    end
+
+    def shutdown(kind_or_agent_list: nil)
+      # Fluentd's shutdown sequence is stop, before_shutdown, shutdown, after_shutdown, close, terminate for plugins
       # These method callers does `rescue Exception` to call methods of shutdown sequence as far as possible
       # if plugin methods does something like infinite recursive call, `exit`, unregistering signal handlers or others.
       # Plugins should be separated and be in sandbox to protect data in each plugins/buffers.
 
       lifecycle_safe_sequence = ->(method, checker) {
-        lifecycle do |instance, kind|
+        lifecycle(kind_or_agent_list: kind_or_agent_list) do |instance, kind|
           begin
             log.debug "calling #{method} on #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
             instance.__send__(method) unless instance.__send__(checker)
@@ -260,7 +352,7 @@ module Fluent
           operation_threads.each{|t| t.join }
           operation_threads.clear
         }
-        lifecycle(kind_callback: callback) do |instance, kind|
+        lifecycle(kind_callback: callback, kind_or_agent_list: kind_or_agent_list) do |instance, kind|
           t = Thread.new do
             Thread.current.abort_on_exception = true
             begin
@@ -301,6 +393,8 @@ module Fluent
       lifecycle_unsafe_sequence.call(:close, :closed?)
 
       lifecycle_safe_sequence.call(:terminate, :terminated?)
+
+      cleanup_source_only_buffer_agent unless kind_or_agent_list
     end
 
     def suppress_interval(interval_time)
@@ -318,6 +412,7 @@ module Fluent
       # See also 'fluentd/plugin/input.rb'
       input.context_router = @event_router
       input.configure(conf)
+      input.event_emitter_apply_source_only if @source_only_mode.enabled?
       if @enable_input_metrics
         @event_router.add_metric_callbacks(input.plugin_id, Proc.new {|es| input.metric_callback(es) })
       end

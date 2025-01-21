@@ -95,11 +95,11 @@ class StdoutOutputTest < Test::Unit::TestCase
           d.feed(time, {'test' => 'test2'})
         end
       end
-      assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>\"test2\"}\n", out
+      assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>\"test2\"}\n", out.gsub(' => ', '=>')
 
       # NOTE: Float::NAN is not jsonable, but hash string can output it.
       out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
-      assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>NaN}\n", out
+      assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>NaN}\n", out.gsub(' => ', '=>')
     end
   end
 
@@ -171,7 +171,7 @@ class StdoutOutputTest < Test::Unit::TestCase
           end
         end
 
-        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>\"test\"}\n", out
+        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>\"test\"}\n", out.gsub(' => ', '=>')
       end
     end
   end

@@ -101,6 +101,10 @@ module Fluent::Plugin
       true
     end
 
+    def zero_downtime_restart_ready?
+      true
+    end
+
     def start
       super
 
