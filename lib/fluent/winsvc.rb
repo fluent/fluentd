@@ -63,10 +63,13 @@ begin
     end
 
     def service_stop
-      set_event(@service_name)
-      if @pid > 0
-        Process.waitpid(@pid)
+      if @pid <= 0
+        set_event(@service_name)
+        return
       end
+
+      repeat_set_event_several_times_until_success(@service_name)
+      Process.waitpid(@pid)
     end
 
     def service_paramchange
@@ -90,6 +93,24 @@ begin
       ev = Win32::Event.open(event_name)
       ev.set
       ev.close
+    end
+
+    def repeat_set_event_several_times_until_success(event_name)
+      retries = 0
+      max_retries = 10
+      delay_sec = 3
+
+      begin
+        set_event(event_name)
+      rescue Errno::ENOENT
+        # This error occurs when the supervisor process has not yet created the event.
+        # If STOP is immediately executed, this state will occur.
+        # Retry `set_event' to wait for the initilization of the supervisor.
+        retries += 1
+        raise if max_retries < retries
+        sleep(delay_sec)
+        retry
+      end
     end
   end
 
