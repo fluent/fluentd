@@ -105,7 +105,7 @@ begin
       rescue Errno::ENOENT
         # This error occurs when the supervisor process has not yet created the event.
         # If STOP is immediately executed, this state will occur.
-        # Retry `set_event' to wait for the initilization of the supervisor.
+        # Retry `set_event' to wait for the initialization of the supervisor.
         retries += 1
         raise if max_retries < retries
         sleep(delay_sec)
