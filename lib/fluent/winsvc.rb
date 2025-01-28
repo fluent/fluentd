@@ -68,8 +68,7 @@ begin
         return
       end
 
-      repeat_set_event_several_times_until_success(@service_name)
-      Process.waitpid(@pid)
+      wait_supervisor_finished
     end
 
     def service_paramchange
@@ -111,6 +110,11 @@ begin
         sleep(delay_sec)
         retry
       end
+    end
+
+    def wait_supervisor_finished
+      repeat_set_event_several_times_until_success(@service_name)
+      Process.waitpid(@pid)
     end
   end
 
