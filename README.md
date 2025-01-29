@@ -71,5 +71,3 @@ See [SECURITY](SECURITY.md) to contact us about vulnerability.
 ## Contributors:
 
 Patches contributed by [great developers](https://github.com/fluent/fluentd/contributors).
-
-[<img src="https://ga-beacon.appspot.com/UA-24890265-6/fluent/fluentd" />](https://github.com/fluent/fluentd)
