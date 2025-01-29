@@ -35,7 +35,6 @@ jobs:
         uses: ruby/setup-ruby@1287d2b408066abada82d5ad1c63652e758428d9 # v1.214.0
         with:
           ruby-version: ${{ matrix.ruby-version }}
-          rubygems: latest
       - name: Install addons
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: sudo apt-get install libgmp3-dev libcap-ng-dev
