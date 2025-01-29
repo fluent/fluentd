@@ -34,6 +34,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("strptime", [">= 0.2.4", "< 1.0.0"])
   gem.add_runtime_dependency("webrick", ["~> 1.4"])
   gem.add_runtime_dependency("zstd-ruby", ["~> 1.5"])
+  gem.add_runtime_dependency("uri", '~> 1.0')
 
   # gems that aren't default gems as of Ruby 3.4
   gem.add_runtime_dependency("base64", ["~> 0.2"])
