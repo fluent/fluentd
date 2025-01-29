@@ -238,17 +238,16 @@ module Fluent
           callback.call(file) if callback
         end
 
-        URI_PARSER = URI::Parser.new
         ESCAPE_REGEXP = /[^-_.a-zA-Z0-9]/n
 
         def encode_key(metadata)
           k = @key ? metadata.variables[@key] : metadata.tag
           k ||= ''
-          URI_PARSER.escape(k, ESCAPE_REGEXP)
+          URI::RFC2396_PARSER.escape(k, ESCAPE_REGEXP)
         end
 
         def decode_key(key)
-          URI_PARSER.unescape(key)
+          URI::RFC2396_PARSER.unescape(key)
         end
 
         def create_new_chunk(path, metadata, perm)
