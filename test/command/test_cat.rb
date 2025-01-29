@@ -18,7 +18,7 @@ class TestFluentCat < ::Test::Unit::TestCase
     @primary = create_primary
     metadata = @primary.buffer.new_metadata
     @chunk = create_chunk(@primary, metadata, @es)
-    @port = unused_port(protocol: :tcp)
+    @port = unused_port(protocol: :all)
   end
 
   def teardown
