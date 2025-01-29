@@ -1,5 +1,37 @@
 # v1.16
 
+## Release v1.16.7 - 2025/01/29
+
+### Bug Fix
+
+* Windows: Fix `NoMethodError` of `--daemon` option
+  https://github.com/fluent/fluentd/pull/4796
+* Windows: Fixed an issue where stopping the service immediately after startup could leave the processes
+  https://github.com/fluent/fluentd/pull/4782
+* Windows: Fixed an issue where stopping service sometimes can not be completed forever
+  https://github.com/fluent/fluentd/pull/4782
+
+### Misc
+
+* Windows: Add workaround for unexpected exception
+  https://github.com/fluent/fluentd/pull/4747
+* README: remove deprecated google analytics beacon
+  https://github.com/fluent/fluentd/pull/4797
+* CI improvemnts
+  https://github.com/fluent/fluentd/pull/4723
+  https://github.com/fluent/fluentd/pull/4788
+  https://github.com/fluent/fluentd/pull/4789
+  https://github.com/fluent/fluentd/pull/4790
+  https://github.com/fluent/fluentd/pull/4791
+  https://github.com/fluent/fluentd/pull/4793
+  https://github.com/fluent/fluentd/pull/4794
+  https://github.com/fluent/fluentd/pull/4795
+  https://github.com/fluent/fluentd/pull/4798
+  https://github.com/fluent/fluentd/pull/4799
+  https://github.com/fluent/fluentd/pull/4800
+  https://github.com/fluent/fluentd/pull/4801
+  https://github.com/fluent/fluentd/pull/4803
+
 ## Release v1.16.6 - 2024/08/16
 
 ### Bug Fix
