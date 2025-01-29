@@ -15,7 +15,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/plugin_helper_server")
 
   setup do
-    @port = unused_port
+    @port = unused_port(protocol: :tcp)
     if Fluent.windows?
       @socket_manager_server = ServerEngine::SocketManager::Server.open
       @socket_manager_path = @socket_manager_server.path
@@ -233,11 +233,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       # 'server_create_connection tcp' => [:server_create_connection, :unix],
     )
     test 'raise error if udp options specified for tcp/tls/unix' do |(m, proto)|
+      port = unused_port(protocol: proto)
       assert_raise ArgumentError do
-        @d.__send__(m, :myserver, @port, proto: proto, max_bytes: 128){|x| x }
+        @d.__send__(m, :myserver, port, proto: proto, max_bytes: 128){|x| x }
       end
       assert_raise ArgumentError do
-        @d.__send__(m, :myserver, @port, proto: proto, flags: 1){|x| x }
+        @d.__send__(m, :myserver, port, proto: proto, flags: 1){|x| x }
       end
     end
 
@@ -245,8 +246,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       'server_create udp' => [:server_create, :udp],
     )
     test 'raise error if tcp/tls options specified for udp' do |(m, proto)|
+      port = unused_port(protocol: proto)
       assert_raise(ArgumentError.new("BUG: linger_timeout is available for tcp/tls")) do
-        @d.__send__(m, :myserver, @port, proto: proto, linger_timeout: 1, max_bytes: 128){|x| x }
+        @d.__send__(m, :myserver, port, proto: proto, linger_timeout: 1, max_bytes: 128){|x| x }
       end
     end
 
@@ -254,8 +256,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       'server_create udp' => [:server_create, :udp],
     )
     test 'raise error if tcp/tls/unix backlog options specified for udp' do |(m, proto)|
+      port = unused_port(protocol: proto)
       assert_raise(ArgumentError.new("BUG: backlog is available for tcp/tls")) do
-        @d.__send__(m, :myserver, @port, proto: proto, backlog: 500){|x| x }
+        @d.__send__(m, :myserver, port, proto: proto, backlog: 500){|x| x }
       end
     end
 
@@ -263,8 +266,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       'server_create udp' => [:server_create, :udp],
     )
     test 'raise error if tcp/tls send_keepalive_packet option is specified for udp' do |(m, proto)|
+      port = unused_port(protocol: proto)
       assert_raise(ArgumentError.new("BUG: send_keepalive_packet is available for tcp/tls")) do
-        @d.__send__(m, :myserver, @port, proto: proto, send_keepalive_packet: true){|x| x }
+        @d.__send__(m, :myserver, port, proto: proto, send_keepalive_packet: true){|x| x }
       end
     end
 
@@ -276,8 +280,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       # 'server_create_connection unix' => [:server_create_connection, :unix, {}],
     )
     test 'raise error if tls options specified for tcp/udp/unix' do |(m, proto, kwargs)|
+      port = unused_port(protocol: proto)
       assert_raise(ArgumentError.new("BUG: tls_options is available only for tls")) do
-        @d.__send__(m, :myserver, @port, proto: proto, tls_options: {}, **kwargs){|x| x }
+        @d.__send__(m, :myserver, port, proto: proto, tls_options: {}, **kwargs){|x| x }
       end
     end
 
@@ -289,7 +294,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       'server_create_connection tls' => [:server_create_connection, :tls, {tls_options: {insecure: true}}],
     )
     test 'can bind specified IPv4 address' do |(m, proto, kwargs)|
-      @d.__send__(m, :myserver, @port, proto: proto, bind: "127.0.0.1", **kwargs){|x| x }
+      port = unused_port(protocol: proto)
+      @d.__send__(m, :myserver, port, proto: proto, bind: "127.0.0.1", **kwargs){|x| x }
       assert_equal "127.0.0.1", @d._servers.first.bind
       assert_equal "127.0.0.1", @d._servers.first.server.instance_eval{ instance_variable_defined?(:@listen_socket) ? @listen_socket : @_io }.addr[3]
     end
@@ -303,7 +309,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     )
     test 'can bind specified IPv6 address' do |(m, proto, kwargs)| # if available
       omit "IPv6 unavailable here" unless ipv6_enabled?
-      @d.__send__(m, :myserver, @port, proto: proto, bind: "::1", **kwargs){|x| x }
+      port = unused_port(protocol: proto)
+      @d.__send__(m, :myserver, port, proto: proto, bind: "::1", **kwargs){|x| x }
       assert_equal "::1", @d._servers.first.bind
       assert_equal "::1", @d._servers.first.server.instance_eval{ instance_variable_defined?(:@listen_socket) ? @listen_socket : @_io }.addr[3]
     end
@@ -320,10 +327,11 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'can create 2 or more servers which share same bind address and port if shared option is true' do |(m, proto, kwargs)|
       begin
         d2 = Dummy.new; d2.start; d2.after_start
+        port = unused_port(protocol: proto)
 
         assert_nothing_raised do
-          @d.__send__(m, :myserver, @port, proto: proto, **kwargs){|x| x }
-          d2.__send__(m, :myserver, @port, proto: proto, **kwargs){|x| x }
+          @d.__send__(m, :myserver, port, proto: proto, **kwargs){|x| x }
+          d2.__send__(m, :myserver, port, proto: proto, **kwargs){|x| x }
         end
       ensure
         d2.stop; d2.before_shutdown; d2.shutdown; d2.after_shutdown; d2.close; d2.terminate
@@ -344,12 +352,13 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'cannot create 2 or more servers using same bind address and port if shared option is false' do |(m, proto, kwargs)|
       begin
         d2 = Dummy.new; d2.start; d2.after_start
+        port = unused_port(protocol: proto)
 
         assert_nothing_raised do
-          @d.__send__(m, :myserver, @port, proto: proto, shared: false, **kwargs){|x| x }
+          @d.__send__(m, :myserver, port, proto: proto, shared: false, **kwargs){|x| x }
         end
         assert_raise(Errno::EADDRINUSE, Errno::EACCES) do
-          d2.__send__(m, :myserver, @port, proto: proto, **kwargs){|x| x }
+          d2.__send__(m, :myserver, port, proto: proto, **kwargs){|x| x }
         end
       ensure
         d2.stop; d2.before_shutdown; d2.shutdown; d2.after_shutdown; d2.close; d2.terminate
@@ -365,16 +374,18 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       # 'unix' => [:unix, {}],
     )
     test 'raise error if block argument is not specified or too many' do |(proto, kwargs)|
+      port = unused_port(protocol: proto)
       assert_raise(ArgumentError.new("BUG: block must have 1 or 2 arguments")) do
-        @d.server_create(:myserver, @port, proto: proto, **kwargs){ 1 }
+        @d.server_create(:myserver, port, proto: proto, **kwargs){ 1 }
       end
       assert_raise(ArgumentError.new("BUG: block must have 1 or 2 arguments")) do
-        @d.server_create(:myserver, @port, proto: proto, **kwargs){|sock, conn, what_is_this| 1 }
+        @d.server_create(:myserver, port, proto: proto, **kwargs){|sock, conn, what_is_this| 1 }
       end
     end
 
     test 'creates udp server if specified in proto' do
-      @d.server_create(:myserver, @port, proto: :udp, max_bytes: 512){|x| x }
+      port = unused_port(protocol: :udp)
+      @d.server_create(:myserver, port, proto: :udp, max_bytes: 512){|x| x }
 
       created_server_info = @d._servers.first
       assert_equal :udp, created_server_info.proto
@@ -587,7 +598,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
   sub_test_case '#server_create_udp' do
     test 'can accept all keyword arguments valid for udp server' do
       assert_nothing_raised do
-        @d.server_create_udp(:s, @port, bind: '127.0.0.1', shared: false, resolve_name: true, max_bytes: 100, flags: 1) do |data, conn|
+        port = unused_port(protocol: :udp)
+        @d.server_create_udp(:s, port, bind: '127.0.0.1', shared: false, resolve_name: true, max_bytes: 100, flags: 1) do |data, conn|
           # ...
         end
       end
@@ -595,14 +607,15 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     test 'creates a udp server just to read data' do
       received = ""
-      @d.server_create_udp(:s, @port, max_bytes: 128) do |data|
+      port = unused_port(protocol: :udp)
+      @d.server_create_udp(:s, port, max_bytes: 128) do |data|
         received << data
       end
       bind_port = unused_port(protocol: :udp, bind: "127.0.0.1")
       3.times do
         sock = UDPSocket.new(Socket::AF_INET)
         sock.bind("127.0.0.1", bind_port)
-        sock.connect("127.0.0.1", @port)
+        sock.connect("127.0.0.1", port)
         sock.puts "yay"
         sock.puts "foo"
         sock.close
@@ -614,16 +627,17 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'creates a udp server to read and write data' do
       received = ""
       responses = []
-      @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
+      port = unused_port(protocol: :udp)
+      @d.server_create_udp(:s, port, max_bytes: 128) do |data, sock|
         received << data
         sock.write "ack\n"
       end
-      bind_port = unused_port
+      bind_port = unused_port(protocol: :udp)
       3.times do
         begin
           sock = UDPSocket.new(Socket::AF_INET)
           sock.bind("127.0.0.1", bind_port)
-          sock.connect("127.0.0.1", @port)
+          sock.connect("127.0.0.1", port)
           th = Thread.new do
             while true
               begin
@@ -654,11 +668,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
       received = ""
       responses = []
-      @d.server_create_udp(:s, @port, bind: "::1", max_bytes: 128) do |data, sock|
+      port = unused_port(protocol: :udp)
+      @d.server_create_udp(:s, port, bind: "::1", max_bytes: 128) do |data, sock|
         received << data
         sock.write "ack\n"
       end
-      bind_port = unused_port
+      bind_port = unused_port(protocol: :udp)
       3.times do
         begin
           sock = UDPSocket.new(Socket::AF_INET6)
@@ -667,7 +682,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
             responses << sock.recv(16)
             true
           end
-          sock.connect("::1", @port)
+          sock.connect("::1", port)
           sock.write "yay\nfoo\n"
           th.join(5)
         ensure
@@ -682,13 +697,14 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'does not resolve name of client address in default' do
       received = ""
       sources = []
-      @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
+      port = unused_port(protocol: :udp)
+      @d.server_create_udp(:s, port, max_bytes: 128) do |data, sock|
         received << data
         sources << sock.remote_host
       end
       3.times do
         sock = UDPSocket.new(Socket::AF_INET)
-        sock.connect("127.0.0.1", @port)
+        sock.connect("127.0.0.1", port)
         sock.puts "yay"
         sock.close
       end
@@ -702,13 +718,14 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
       received = ""
       sources = []
-      @d.server_create_udp(:s, @port, resolve_name: true, max_bytes: 128) do |data, sock|
+      port = unused_port(protocol: :udp)
+      @d.server_create_udp(:s, port, resolve_name: true, max_bytes: 128) do |data, sock|
         received << data
         sources << sock.remote_host
       end
       3.times do
         sock = UDPSocket.new(Socket::AF_INET)
-        sock.connect("127.0.0.1", @port)
+        sock.connect("127.0.0.1", port)
         sock.puts "yay"
         sock.close
       end
@@ -720,7 +737,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'raises error if plugin registers data callback for connection object from #server_create' do
       received = ""
       errors = []
-      @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
+      port = unused_port(protocol: :udp)
+      @d.server_create_udp(:s, port, max_bytes: 128) do |data, sock|
         received << data
         begin
           sock.data{|d| received << d.upcase }
@@ -729,7 +747,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       sock = UDPSocket.new(Socket::AF_INET)
-      sock.connect("127.0.0.1", @port)
+      sock.connect("127.0.0.1", port)
       sock.write "foo\n"
       sock.close
 
@@ -742,7 +760,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'raise error if plugin registers write_complete callback for udp' do
       received = ""
       errors = []
-      @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
+      port = unused_port(protocol: :udp)
+      @d.server_create_udp(:s, port, max_bytes: 128) do |data, sock|
         received << data
         begin
           sock.on(:write_complete){|conn| "" }
@@ -751,7 +770,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       sock = UDPSocket.new(Socket::AF_INET)
-      sock.connect("127.0.0.1", @port)
+      sock.connect("127.0.0.1", port)
       sock.write "foo\n"
       sock.close
 
@@ -764,7 +783,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'raises error if plugin registers close callback for udp' do
       received = ""
       errors = []
-      @d.server_create_udp(:s, @port, max_bytes: 128) do |data, sock|
+      port = unused_port(protocol: :udp)
+      @d.server_create_udp(:s, port, max_bytes: 128) do |data, sock|
         received << data
         begin
           sock.on(:close){|d| "" }
@@ -773,7 +793,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       sock = UDPSocket.new(Socket::AF_INET)
-      sock.connect("127.0.0.1", @port)
+      sock.connect("127.0.0.1", port)
       sock.write "foo\n"
       sock.close
 
@@ -786,11 +806,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'can bind IPv4 / IPv6 together' do
       omit "IPv6 unavailable here" unless ipv6_enabled?
 
+      port = unused_port(protocol: :udp)
       assert_nothing_raised do
-        @d.server_create_udp(:s_ipv4_udp, @port, bind: '0.0.0.0', shared: false, max_bytes: 128) do |data, sock|
+        @d.server_create_udp(:s_ipv4_udp, port, bind: '0.0.0.0', shared: false, max_bytes: 128) do |data, sock|
           # ...
         end
-        @d.server_create_udp(:s_ipv6_udp, @port, bind: '::', shared: false, max_bytes: 128) do |data, sock|
+        @d.server_create_udp(:s_ipv6_udp, port, bind: '::', shared: false, max_bytes: 128) do |data, sock|
           # ...
         end
       end
@@ -803,11 +824,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         max_bytes, records, expected = data.values
 
         actual_records = []
-        @d.server_create_udp(:myserver, @port, max_bytes: max_bytes) do |data, sock|
+        port = unused_port(protocol: :udp)
+        @d.server_create_udp(:myserver, port, max_bytes: max_bytes) do |data, sock|
           actual_records << data
         end
 
-        open_client(:udp, "127.0.0.1", @port) do |sock|
+        open_client(:udp, "127.0.0.1", port) do |sock|
           records.each do |record|
             sock.send(record, 0)
           end
@@ -823,11 +845,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         max_bytes, records, expected = data.values
 
         actual_records = []
-        @d.server_create_udp(:myserver, @port, max_bytes: max_bytes) do |data|
+        port = unused_port(protocol: :udp)
+        @d.server_create_udp(:myserver, port, max_bytes: max_bytes) do |data|
           actual_records << data
         end
 
-        open_client(:udp, "127.0.0.1", @port) do |sock|
+        open_client(:udp, "127.0.0.1", port) do |sock|
           records.each do |record|
             sock.send(record, 0)
           end

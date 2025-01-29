@@ -1175,7 +1175,7 @@ CONF
     end
   end
 
-  sub_test_case 'sahred socket options' do
+  sub_test_case 'shared socket options' do
     test 'enable shared socket by default' do
       conf = ""
       conf_path = create_conf_file('empty.conf', conf)

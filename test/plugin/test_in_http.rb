@@ -18,7 +18,7 @@ class HttpInputTest < Test::Unit::TestCase
 
   def setup
     Fluent::Test.setup
-    @port = unused_port
+    @port = unused_port(protocol: :tcp)
   end
 
   def teardown

@@ -54,7 +54,7 @@ class TcpOutputTest < Test::Unit::TestCase
 
   def setup
     super
-    @port = unused_port
+    @port = unused_port(protocol: :tcp)
   end
 
   def teardown

@@ -18,7 +18,8 @@ class ForwardInputTest < Test::Unit::TestCase
     Fluent::Test.setup
     @responses = []  # for testing responses after sending data
     @d = nil
-    @port = unused_port
+    # forward plugin uses TCP and UDP sockets on the same port number
+    @port = unused_port(protocol: :all)
   end
 
   def teardown

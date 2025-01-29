@@ -5,24 +5,24 @@ require 'fluent/plugin/in_syslog'
 class SyslogInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @port = unused_port
+    @port = unused_port(protocol: :udp)
   end
 
   def teardown
     @port = nil
   end
 
-  def ipv4_config
+  def ipv4_config(port = @port)
     %[
-      port #{@port}
+      port #{port}
       bind 127.0.0.1
       tag syslog
     ]
   end
 
-  def ipv6_config
+  def ipv6_config(port = @port)
     %[
-      port #{@port}
+      port #{port}
       bind ::1
       tag syslog
     ]
@@ -69,7 +69,8 @@ EOS
        'Use transport and protocol' => ["protocol_type udp\n<transport tcp>\n </transport>", :udp, :tcp])
   def test_configure_protocol(param)
     conf, proto_type, transport_proto_type = *param
-    d = create_driver([ipv4_config, conf].join("\n"))
+    port = unused_port(protocol: proto_type ? proto_type : transport_proto_type)
+    d = create_driver([ipv4_config(port), conf].join("\n"))
 
     assert_equal(d.instance.protocol_type, proto_type)
     assert_equal(d.instance.transport_config.protocol, transport_proto_type)
@@ -158,12 +159,13 @@ EOS
   end
 
   def test_msg_size_with_tcp
-    d = create_driver([ipv4_config, "<transport tcp> \n</transport>"].join("\n"))
+    port = unused_port(protocol: :tcp)
+    d = create_driver([ipv4_config(port), "<transport tcp> \n</transport>"].join("\n"))
     tests = create_test_case
 
     d.run(expect_emits: 2) do
       tests.each {|test|
-        TCPSocket.open('127.0.0.1', @port) do |s|
+        TCPSocket.open('127.0.0.1', port) do |s|
           s.send(test['msg'], 0)
         end
       }
@@ -189,11 +191,12 @@ EOS
   end
 
   def test_msg_size_with_same_tcp_connection
-    d = create_driver([ipv4_config, "<transport tcp> \n</transport>"].join("\n"))
+    port = unused_port(protocol: :tcp)
+    d = create_driver([ipv4_config(port), "<transport tcp> \n</transport>"].join("\n"))
     tests = create_test_case
 
     d.run(expect_emits: 2) do
-      TCPSocket.open('127.0.0.1', @port) do |s|
+      TCPSocket.open('127.0.0.1', port) do |s|
         tests.each {|test|
           s.send(test['msg'], 0)
         }
@@ -347,12 +350,13 @@ EOS
 
   sub_test_case 'octet counting frame' do
     def test_msg_size_with_tcp
-      d = create_driver([ipv4_config, "<transport tcp> \n</transport>", 'frame_type octet_count'].join("\n"))
+      port = unused_port(protocol: :tcp)
+      d = create_driver([ipv4_config(port), "<transport tcp> \n</transport>", 'frame_type octet_count'].join("\n"))
       tests = create_test_case
 
       d.run(expect_emits: 2) do
         tests.each {|test|
-          TCPSocket.open('127.0.0.1', @port) do |s|
+          TCPSocket.open('127.0.0.1', port) do |s|
             s.send(test['msg'], 0)
           end
         }
@@ -363,11 +367,12 @@ EOS
     end
 
     def test_msg_size_with_same_tcp_connection
-      d = create_driver([ipv4_config, "<transport tcp> \n</transport>", 'frame_type octet_count'].join("\n"))
+      port = unused_port(protocol: :tcp)
+      d = create_driver([ipv4_config(port), "<transport tcp> \n</transport>", 'frame_type octet_count'].join("\n"))
       tests = create_test_case
 
       d.run(expect_emits: 2) do
-        TCPSocket.open('127.0.0.1', @port) do |s|
+        TCPSocket.open('127.0.0.1', port) do |s|
           tests.each {|test|
             s.send(test['msg'], 0)
           }
@@ -469,7 +474,8 @@ EOS
   end
 
   def test_send_keepalive_packet_is_disabled_by_default
-    d = create_driver(ipv4_config + %[
+    port = unused_port(protocol: :tcp)
+    d = create_driver(ipv4_config(port) + %[
       <transport tcp>
       </transport>
       protocol tcp
@@ -479,19 +485,20 @@ EOS
 
   def test_send_keepalive_packet_can_be_enabled
     addr = "127.0.0.1"
-    d = create_driver(ipv4_config + %[
+    port = unused_port(protocol: :tcp)
+    d = create_driver(ipv4_config(port) + %[
       <transport tcp>
       </transport>
       send_keepalive_packet true
     ])
     assert_true d.instance.send_keepalive_packet
     mock.proxy(d.instance).server_create_connection(
-      :in_syslog_tcp_server, @port,
+      :in_syslog_tcp_server, port,
       bind: addr,
       resolve_name: nil,
       send_keepalive_packet: true)
     d.run do
-      TCPSocket.open(addr, @port)
+      TCPSocket.open(addr, port)
     end
   end
 
