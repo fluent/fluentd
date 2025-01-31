@@ -52,8 +52,8 @@ module Fluent
         when :oj
           return [Oj.method(:load), Oj::ParseError] if Fluent::OjOptions.available?
 
-          log&.info "Oj is not installed, and failing back to Yajl for json parser"
-          configure_json_parser(:yajl)
+          log&.info "Oj is not installed, and failing back to JSON for json parser"
+          configure_json_parser(:json)
         when :json then [JSON.method(:load), JSON::ParserError]
         when :yajl then [Yajl.method(:load), Yajl::ParseError]
         else
