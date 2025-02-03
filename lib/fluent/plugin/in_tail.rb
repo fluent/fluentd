@@ -1022,6 +1022,7 @@ module Fluent::Plugin
 
         def <<(chunk)
           @buffer << chunk
+          @buffer.force_encoding(from_encoding)
         end
 
         def convert(s)
