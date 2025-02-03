@@ -28,12 +28,12 @@ class JsonParserTest < ::Test::Unit::TestCase
 
       result = @parser.instance.configure_json_parser(:oj)
 
-      assert_equal [Yajl.method(:load), Yajl::ParseError], result
+      assert_equal [JSON.method(:load), JSON::ParserError], result
       logs = @parser.logs.collect do |log|
         log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
       end
       assert_equal(
-        ["[info]: Oj is not installed, and failing back to Yajl for json parser\n"],
+        ["[info]: Oj is not installed, and failing back to JSON for json parser\n"],
         logs
       )
     end
