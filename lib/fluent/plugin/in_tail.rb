@@ -1021,21 +1021,7 @@ module Fluent::Plugin
         attr_reader :from_encoding, :encoding, :buffer, :max_line_size
 
         def <<(chunk)
-          # Although "chunk" is most likely transient besides String#force_encoding itself
-          # won't affect the actual content of it, it is also probable that "chunk" is
-          # a reused buffer and changing its encoding causes some problems on the caller side.
-          #
-          # Actually, the caller here is specific and "chunk" comes from IO#partial with
-          # the second argument, which the function always returns as a return value.
-          #
-          # Feeding a string that has its encoding attribute set to any double-byte or
-          # quad-byte encoding to IO#readpartial as the second arguments results in an
-          # assertion failure on Ruby < 2.4.0 for unknown reasons.
-          orig_encoding = chunk.encoding
-          chunk.force_encoding(from_encoding)
           @buffer << chunk
-          # Thus the encoding needs to be reverted back here
-          chunk.force_encoding(orig_encoding)
         end
 
         def convert(s)
