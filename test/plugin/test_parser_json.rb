@@ -10,7 +10,7 @@ class JsonParserTest < ::Test::Unit::TestCase
 
   sub_test_case "configure_json_parser" do
     data("oj", [:oj, [Oj.method(:load), Oj::ParseError]])
-    data("json", [:json, [JSON.method(:load), JSON::ParserError]])
+    data("json", [:json, [JSON.method(:parse), JSON::ParserError]])
     data("yajl", [:yajl, [Yajl.method(:load), Yajl::ParseError]])
     def test_return_each_loader((input, expected_return))
       result = @parser.instance.configure_json_parser(input)
@@ -28,7 +28,7 @@ class JsonParserTest < ::Test::Unit::TestCase
 
       result = @parser.instance.configure_json_parser(:oj)
 
-      assert_equal [JSON.method(:load), JSON::ParserError], result
+      assert_equal [JSON.method(:parse), JSON::ParserError], result
       logs = @parser.logs.collect do |log|
         log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
       end
