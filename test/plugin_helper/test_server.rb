@@ -668,12 +668,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
       received = ""
       responses = []
-      port = unused_port(protocol: :udp)
+      port = unused_port(protocol: :udp, bind: "::1")
       @d.server_create_udp(:s, port, bind: "::1", max_bytes: 128) do |data, sock|
         received << data
         sock.write "ack\n"
       end
-      bind_port = unused_port(protocol: :udp)
+      bind_port = unused_port(protocol: :udp, bind: "::1")
       3.times do
         begin
           sock = UDPSocket.new(Socket::AF_INET6)
