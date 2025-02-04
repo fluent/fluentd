@@ -54,7 +54,7 @@ module Fluent
 
           log&.info "Oj is not installed, and failing back to JSON for json parser"
           configure_json_parser(:json)
-        when :json then [JSON.method(:load), JSON::ParserError]
+        when :json then [JSON.method(:parse), JSON::ParserError]
         when :yajl then [Yajl.method(:load), Yajl::ParseError]
         else
           raise "BUG: unknown json parser specified: #{name}"
