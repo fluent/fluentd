@@ -161,6 +161,8 @@ class ConfigTest < Test::Unit::TestCase
   sub_test_case "yaml config" do
     def test_included
       write_config "#{TMP_DIR}/config_test_not_fetched.yaml", <<-EOS
+      system:
+        umask: "0022" 
       config:
         - source:
             $type: dummy
@@ -195,12 +197,13 @@ class ConfigTest < Test::Unit::TestCase
                   flush_mode: interval
                   flush_interval: 1s
       EOS
-      root_conf  = read_config("#{TMP_DIR}/config_test_not_fetched.yaml", use_yaml: true)
-      dummy_source_conf = root_conf.elements.first
-      tcp_source_conf = root_conf.elements[1]
+      root_conf = read_config("#{TMP_DIR}/config_test_not_fetched.yaml", use_yaml: true)
+      system_conf = root_conf.elements.find { |e| e.name == "system" }
+      dummy_source_conf = root_conf.elements.find { |e| e.name == "source" && e['@type'] == "dummy" }
+      tcp_source_conf = root_conf.elements.find { |e| e.name == "source" && e['@type'] == "tcp" }
       parse_tcp_conf = tcp_source_conf.elements.first
-      match_conf = root_conf.elements[2]
-      label_conf = root_conf.elements[3]
+      match_conf = root_conf.elements.find { |e| e.name == "match" && e.arg == "tag.*" }
+      label_conf = root_conf.elements.find { |e| e.name == "label" }
       fluent_log_conf = label_conf.elements.first
       fluent_log_buffer_conf = fluent_log_conf.elements.first
 
@@ -222,6 +225,7 @@ class ConfigTest < Test::Unit::TestCase
           'memory',
           'interval',
           '1s',
+          '0022',
         ],
         [
           dummy_source_conf['@type'],
@@ -240,11 +244,14 @@ class ConfigTest < Test::Unit::TestCase
           fluent_log_buffer_conf['@type'],
           fluent_log_buffer_conf['flush_mode'],
           fluent_log_buffer_conf['flush_interval'],
+          system_conf['umask'],
         ])
     end
 
     def test_included_glob
       write_config "#{TMP_DIR}/config.yaml", <<-EOS
+      system:
+        umask: "0022"
       config:
         - !include "include/*.yaml"
       EOS
@@ -272,10 +279,11 @@ class ConfigTest < Test::Unit::TestCase
             flush_interval: 1s
       EOS
       root_conf = read_config("#{TMP_DIR}/config.yaml", use_yaml: true)
-      tcp_source_conf = root_conf.elements.first
-      dummy_source_conf = root_conf.elements[1]
+      system_conf = root_conf.elements.find { |e| e.name == "system" }
+      tcp_source_conf = root_conf.elements.find { |e| e.name == "source" && e['@type'] == "tcp" }
+      dummy_source_conf = root_conf.elements.find { |e| e.name == "source" && e['@type'] == "dummy" }
       parse_tcp_conf = tcp_source_conf.elements.first
-      match_conf = root_conf.elements[2]
+      match_conf = root_conf.elements.find { |e| e.name == "match" && e.arg == "tag.*" }
 
       assert_equal(
         [
@@ -287,6 +295,7 @@ class ConfigTest < Test::Unit::TestCase
           'tag.dummy',
           'stdout',
           'tag.*',
+          '0022',
         ],
         [
           tcp_source_conf['@type'],
@@ -297,6 +306,7 @@ class ConfigTest < Test::Unit::TestCase
           dummy_source_conf['tag'],
           match_conf['@type'],
           match_conf.arg,
+          system_conf['umask'],
         ])
     end
 
@@ -343,6 +353,42 @@ class ConfigTest < Test::Unit::TestCase
       10.times { match_conf['type'] }
       assert_equal before_size, match_conf.unused.size
     end
+
+    test 'yaml system config with umask' do
+      write_config "#{TMP_DIR}/config_test_umask.yaml", <<-EOS
+      system:
+        umask: "0022"
+      config:
+        - source:
+            $type: dummy
+            tag: tag.dummy
+        - match:
+            $tag: tag.*
+            $type: stdout
+      EOS
+      conf = read_config("#{TMP_DIR}/config_test_umask.yaml", use_yaml: true)
+      assert_equal "0022", conf.elements.find { |e| e.name == "system" }["umask"]
+    end
+
+    test 'system config with invalid umask' do
+      conf = <<-EOC
+      <system>
+        umask 0999  # invalid octal
+      </system>
+      EOC
+      conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+      assert_equal "0999", conf.elements.find { |e| e.name == "system" }["umask"]
+    end
+
+    test 'system config without umask' do
+      conf = <<-EOC
+      <system>
+        # no umask setting
+      </system>
+      EOC
+      conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+      assert_nil conf.elements.find { |e| e.name == "system" }["umask"]
+    end
   end
 
   def write_config(path, data, encoding: 'utf-8')
@@ -370,6 +416,53 @@ class ConfigTest < Test::Unit::TestCase
       c = Fluent::Config.build(config_path: "#{TMP_DIR}/build/config_build2.conf", additional_config: 'key2 value2')
       assert_equal('value', c['key'])
       assert_equal('value2', c['key2'])
+    end
+
+    test 'system config with umask' do
+      conf = <<-EOC
+      <system>
+        umask 0022
+      </system>
+      EOC
+      conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+      ra = Fluent::RootAgent.new(log: $log)
+      old_umask = File.umask
+      begin
+        ra.configure(conf)
+        assert_equal 0022, File.umask
+      ensure
+        File.umask(old_umask)
+      end
+    end
+
+    test 'system config with invalid umask' do
+      conf = <<-EOC
+      <system>
+        umask 0999  # invalid octal
+      </system>
+      EOC
+      conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+      ra = Fluent::RootAgent.new(log: $log)
+      assert_raise(Fluent::ConfigError) do
+        ra.configure(conf)
+      end
+    end
+
+    test 'system config without umask' do
+      conf = <<-EOC
+      <system>
+        # no umask setting
+      </system>
+      EOC
+      conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+      ra = Fluent::RootAgent.new(log: $log)
+      old_umask = File.umask
+      begin
+        ra.configure(conf)
+        assert_equal 0022, File.umask
+      ensure
+        File.umask(old_umask)
+      end
     end
   end
 end

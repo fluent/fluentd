@@ -1167,4 +1167,50 @@ EOC
       @root_agent.shutdown
     end
   end
+
+  def test_configure_with_umask
+    conf = <<-EOC
+<system>
+  umask 0022
+</system>
+EOC
+    conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+    ra = Fluent::RootAgent.new(log: $log)
+    old_umask = File.umask
+    begin
+      ra.configure(conf)
+      assert_equal 0022, File.umask
+    ensure
+      File.umask(old_umask)
+    end
+  end
+
+  def test_configure_with_invalid_umask
+    conf = <<-EOC
+<system>
+  umask 0999  # invalid octal
+</system>
+EOC
+    conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+    ra = Fluent::RootAgent.new(log: $log)
+    assert_raise(Fluent::ConfigError) do
+      ra.configure(conf)
+    end
+  end
+
+  def test_configure_without_umask
+    conf = <<-EOC
+<system>
+</system>
+EOC
+    conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+    ra = Fluent::RootAgent.new(log: $log)
+    old_umask = File.umask
+    begin
+      ra.configure(conf)
+      assert_equal 0022, File.umask
+    ensure
+      File.umask(old_umask)
+    end
+  end
 end
