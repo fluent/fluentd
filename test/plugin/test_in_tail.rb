@@ -3402,4 +3402,104 @@ class TailInputTest < Test::Unit::TestCase
                     d.logs[-2..]
                   ])
   end
+
+  sub_test_case "directory permissions and ownership" do
+    setup do
+      @dir = File.expand_path("#{@tmp_dir}/tail#{rand(0..10000)}")
+      @pos_dir = File.expand_path("#{@tmp_dir}/pos#{rand(0..10000)}")
+      FileUtils.mkdir_p(@dir)
+    end
+
+    teardown do
+      FileUtils.rm_rf(@dir) if File.exist?(@dir)
+      FileUtils.rm_rf(@pos_dir) if File.exist?(@pos_dir)
+    end
+
+    test 'creates pos_file directory with default permissions when not specified' do
+      pos_file = "#{@pos_dir}/tail.pos"
+      config = config_element("ROOT", "", {
+                                "path" => "#{@dir}/tail.txt",
+                                "pos_file" => pos_file,
+                                "tag" => "t1",
+                                "format" => "none",
+                                "read_from_head" => "true"
+                              })
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        File.open("#{@dir}/tail.txt", "wb") {|f| f.puts "test default permissions" }
+      end
+      
+      assert_equal(true, File.directory?(@pos_dir))
+      assert_equal(0755, File.stat(@pos_dir).mode & 0777)
+    end
+
+    test 'creates pos_file directory with custom permissions' do
+      pos_file = "#{@pos_dir}/tail.pos"
+      config = config_element("ROOT", "", {
+                                "path" => "#{@dir}/tail.txt",
+                                "pos_file" => pos_file,
+                                "tag" => "t1",
+                                "format" => "none",
+                                "read_from_head" => "true",
+                                "pos_dir_perm" => "0770"
+                              })
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        File.open("#{@dir}/tail.txt", "wb") {|f| f.puts "test custom permissions" }
+      end
+      
+      assert_equal(true, File.directory?(@pos_dir))
+      assert_equal(0770, File.stat(@pos_dir).mode & 0777)
+    end
+
+    test 'creates pos_file directory with custom ownership' do
+      omit "Test requires root privileges" unless Process.uid == 0
+      
+      pos_file = "#{@pos_dir}/tail.pos"
+      config = config_element("ROOT", "", {
+                                "path" => "#{@dir}/tail.txt",
+                                "pos_file" => pos_file,
+                                "tag" => "t1",
+                                "format" => "none",
+                                "read_from_head" => "true",
+                                "pos_dir_owner" => Process.uid.to_s,
+                                "pos_dir_group" => Process.gid.to_s
+                              })
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        File.open("#{@dir}/tail.txt", "wb") {|f| f.puts "test custom ownership" }
+      end
+      
+      assert_equal(true, File.directory?(@pos_dir))
+      stat = File.stat(@pos_dir)
+      assert_equal(Process.uid, stat.uid)
+      assert_equal(Process.gid, stat.gid)
+    end
+
+    test 'creates pos_file directory with both custom permissions and ownership' do
+      omit "Test requires root privileges" unless Process.uid == 0
+      
+      pos_file = "#{@pos_dir}/tail.pos"
+      config = config_element("ROOT", "", {
+                                "path" => "#{@dir}/tail.txt",
+                                "pos_file" => pos_file,
+                                "tag" => "t1",
+                                "format" => "none",
+                                "read_from_head" => "true",
+                                "pos_dir_perm" => "0770",
+                                "pos_dir_owner" => Process.uid.to_s,
+                                "pos_dir_group" => Process.gid.to_s
+                              })
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        File.open("#{@dir}/tail.txt", "wb") {|f| f.puts "test custom permissions and ownership" }
+      end
+      
+      assert_equal(true, File.directory?(@pos_dir))
+      stat = File.stat(@pos_dir)
+      assert_equal(0770, stat.mode & 0777)
+      assert_equal(Process.uid, stat.uid)
+      assert_equal(Process.gid, stat.gid)
+    end
+  end
 end

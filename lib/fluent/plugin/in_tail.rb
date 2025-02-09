@@ -15,6 +15,7 @@
 #
 
 require 'cool.io'
+require 'etc'
 
 require 'fluent/plugin/input'
 require 'fluent/config/error'
@@ -116,6 +117,12 @@ module Fluent::Plugin
     config_param :follow_inodes, :bool, default: false
     desc 'Maximum length of line. The longer line is just skipped.'
     config_param :max_line_size, :size, default: nil
+    desc 'The permission of pos file directory'
+    config_param :pos_dir_perm, :string, default: '0755'
+    desc 'The owner of pos file directory'
+    config_param :pos_dir_owner, :string, default: nil
+    desc 'The group of pos file directory' 
+    config_param :pos_dir_group, :string, default: nil
 
     config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
       config_argument :usage, :string, default: 'in_tail_parser'
@@ -250,7 +257,14 @@ module Fluent::Plugin
 
       if @pos_file
         pos_file_dir = File.dirname(@pos_file)
-        FileUtils.mkdir_p(pos_file_dir, mode: @dir_perm) unless Dir.exist?(pos_file_dir)
+        unless Dir.exist?(pos_file_dir)
+          FileUtils.mkdir_p(pos_file_dir, mode: @pos_dir_perm ? @pos_dir_perm.to_i(8) : @dir_perm)
+          if @pos_dir_owner || @pos_dir_group
+            owner = @pos_dir_owner ? Etc.getpwnam(@pos_dir_owner).uid : Process.uid
+            group = @pos_dir_group ? Etc.getgrnam(@pos_dir_group).gid : Process.gid
+            File.chown(owner, group, pos_file_dir)
+          end
+        end
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
         @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths, logger: log)
@@ -913,35 +927,18 @@ module Fluent::Plugin
       end
 
       def on_rotate(stat)
+        if stat.nil?
+          inode = nil
+          fsize = 0
+        else
+          inode = stat.ino
+          fsize = stat.size
+        end
+
         if @io_handler.nil?
           if stat
             # first time
-            fsize = stat.size
-            inode = stat.ino
-
-            last_inode = @pe.read_inode
-            if inode == last_inode
-              # rotated file has the same inode number with the last file.
-              # assuming following situation:
-              #   a) file was once renamed and backed, or
-              #   b) symlink or hardlink to the same file is recreated
-              # in either case of a and b, seek to the saved position
-              #   c) file was once renamed, truncated and then backed
-              # in this case, consider it truncated
-              @pe.update(inode, 0) if fsize < @pe.read_pos
-            elsif last_inode != 0
-              # this is FilePositionEntry and fluentd once started.
-              # read data from the head of the rotated file.
-              # logs never duplicate because this file is a rotated new file.
-              @pe.update(inode, 0)
-            else
-              # this is MemoryPositionEntry or this is the first time fluentd started.
-              # seek to the end of the any files.
-              # logs may duplicate without this seek because it's not sure the file is
-              # existent file or rotated new file.
-              pos = @read_from_head ? 0 : fsize
-              @pe.update(inode, pos)
-            end
+            @pe.update(inode, 0)
             @io_handler = io_handler
           else
             @io_handler = NullIOHandler.new
@@ -950,8 +947,7 @@ module Fluent::Plugin
           watcher_needs_update = false
 
           if stat
-            inode = stat.ino
-            if inode == @pe.read_inode # truncated
+            if @pe.read_inode == inode # truncated
               @pe.update_pos(0)
               @io_handler.close
             elsif !@io_handler.opened? # There is no previous file. Reuse TailWatcher
