@@ -1168,49 +1168,85 @@ EOC
     end
   end
 
-  def test_configure_with_umask
+  test 'configure with umask should set proper value' do
     conf = <<-EOC
-<system>
-  umask 0022
-</system>
-EOC
-    conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+  <system>
+    umask 0027
+  </system>
+  EOC
+  
+    config = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
     ra = Fluent::RootAgent.new(log: $log)
-    old_umask = File.umask
+    
+    original_umask = File.umask
+
+    filename = "test_umask_file"
+
     begin
-      ra.configure(conf)
-      assert_equal 0022, File.umask
+      ra.configure(config)
+
+      File.open(filename, "w") do |f|
+        f.write("Test data")
+      end
+
+      file_mode = File.stat(filename).mode & 0777
+
+      # 0666 & ~0027  =>  0640 (octal)
+      expected_mode = 0640
+  
+      assert_equal(expected_mode, file_mode,
+        "Expected file mode to be #{sprintf('%o', expected_mode)}, but got #{sprintf('%o', file_mode)}")
     ensure
-      File.umask(old_umask)
+      File.umask(original_umask)
+      File.delete(filename) if File.exist?(filename)
+    end
+  end
+  
+
+  test 'configure with invalid umask should raise error' do
+    conf = <<-EOC
+  <system>
+    umask 0999  # invalid octal
+  </system>
+  EOC
+  
+    config = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+    ra = Fluent::RootAgent.new(log: $log)
+    original_umask = File.umask
+    begin
+      assert_raise(Fluent::ConfigError, "Expected configuration with invalid umask to raise Fluent::ConfigError") do
+        ra.configure(config)
+      end
+    ensure
+      File.umask(original_umask)
     end
   end
 
-  def test_configure_with_invalid_umask
+  test 'configure without umask should use default umask and affect file permissions' do
     conf = <<-EOC
-<system>
-  umask 0999  # invalid octal
-</system>
-EOC
-    conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
+  <system>
+  </system>
+  EOC
+  
+    config = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
     ra = Fluent::RootAgent.new(log: $log)
-    assert_raise(Fluent::ConfigError) do
-      ra.configure(conf)
-    end
-  end
-
-  def test_configure_without_umask
-    conf = <<-EOC
-<system>
-</system>
-EOC
-    conf = Fluent::Config.parse(conf, "(test)", "(test_dir)", true)
-    ra = Fluent::RootAgent.new(log: $log)
-    old_umask = File.umask
+    original_umask = File.umask
+    filename = "test_umask_default_file"
+  
     begin
-      ra.configure(conf)
-      assert_equal 0022, File.umask
+      ra.configure(config)
+      assert_equal 0022, File.umask, "Expected umask to be 0022 after configuration"
+      #   0666 & ~0022  => 0644 (rw-r--r--)
+      expected_mode = 0644
+
+      File.open(filename, "w") { |f| f.write("Test content") }
+      file_mode = File.stat(filename).mode & 0777
+  
+      assert_equal expected_mode, file_mode,
+        "Expected file mode to be #{sprintf('%o', expected_mode)}, but got #{sprintf('%o', file_mode)}"
     ensure
-      File.umask(old_umask)
+      File.umask(original_umask)
+      File.delete(filename) if File.exist?(filename)
     end
   end
 end
