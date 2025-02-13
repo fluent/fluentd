@@ -142,6 +142,56 @@
 
 # v1.16
 
+## Release v1.16.7 - 2025/01/29
+
+### Bug Fix
+
+* Windows: Fix `NoMethodError` of `--daemon` option
+  https://github.com/fluent/fluentd/pull/4796
+* Windows: Fixed an issue where stopping the service immediately after startup could leave the processes
+  https://github.com/fluent/fluentd/pull/4782
+* Windows: Fixed an issue where stopping service sometimes can not be completed forever
+  https://github.com/fluent/fluentd/pull/4782
+
+### Misc
+
+* Windows: Add workaround for unexpected exception
+  https://github.com/fluent/fluentd/pull/4747
+* README: remove deprecated google analytics beacon
+  https://github.com/fluent/fluentd/pull/4797
+* CI improvemnts
+  https://github.com/fluent/fluentd/pull/4723
+  https://github.com/fluent/fluentd/pull/4788
+  https://github.com/fluent/fluentd/pull/4789
+  https://github.com/fluent/fluentd/pull/4790
+  https://github.com/fluent/fluentd/pull/4791
+  https://github.com/fluent/fluentd/pull/4793
+  https://github.com/fluent/fluentd/pull/4794
+  https://github.com/fluent/fluentd/pull/4795
+  https://github.com/fluent/fluentd/pull/4798
+  https://github.com/fluent/fluentd/pull/4799
+  https://github.com/fluent/fluentd/pull/4800
+  https://github.com/fluent/fluentd/pull/4801
+  https://github.com/fluent/fluentd/pull/4803
+
+## Release v1.16.6 - 2024/08/16
+
+### Bug Fix
+
+* YAML config syntax: Fix issue where `$log_level` element was not supported correctly
+  https://github.com/fluent/fluentd/pull/4486
+* parser_json: Fix wrong LoadError warning
+  https://github.com/fluent/fluentd/pull/4592
+* `fluentd` command: Fix `--plugin` (`-p`) option not to overwrite default value
+  https://github.com/fluent/fluentd/pull/4605
+
+### Misc
+
+* out_file: Add warn message for symlink_path setting
+  https://github.com/fluent/fluentd/pull/4512
+* Keep console gem v1.23 to avoid LoadError
+  https://github.com/fluent/fluentd/pull/4510
+
 ## Release v1.16.5 - 2024/03/27
 
 ### Bug Fix
