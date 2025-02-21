@@ -34,11 +34,11 @@ module Fluent
           if Fluent::OjOptions.available?
             @dump_proc = Oj.method(:dump)
           else
-            log.info "Oj isn't installed, fallback to Yajl as json parser"
-            @dump_proc = Yajl.method(:dump)
+            log.info "Oj isn't installed, fallback to JSON as json parser"
+            @dump_proc = JSON.method(:generate)
           end
         else
-          @dump_proc = Yajl.method(:dump)
+          @dump_proc = JSON.method(:generate)
         end
 
         # format json is used on various highload environment, so re-define method to skip if check

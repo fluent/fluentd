@@ -80,7 +80,7 @@ class StdoutOutputTest < Test::Unit::TestCase
 
       if data == 'yajl'
         # NOTE: Float::NAN is not jsonable
-        assert_raise(Yajl::EncodeError) { d.feed('test', time, {'test' => Float::NAN}) }
+        assert_raise(JSON::GeneratorError) { d.feed('test', time, {'test' => Float::NAN}) }
       else
         out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
         assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":NaN}\n", out
