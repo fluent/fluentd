@@ -1336,6 +1336,14 @@ CONF
     end
   end
 
+  test "--umask should be recognized as command line" do
+    conf_path = create_conf_file("empty.conf", "")
+    assert File.exist?(conf_path)
+    assert_log_matches(create_cmdline(conf_path, "--umask", "222"),
+                       "spawn command to main:", '"--umask", "222"',
+                       patterns_not_match: ["[error]"])
+  end
+
   sub_test_case "--with-source-only" do
     setup do
       omit "Not supported on Windows" if Fluent.windows?
