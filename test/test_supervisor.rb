@@ -610,51 +610,84 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal('{"ok":true}', response)
   end
 
-  def test_serverengine_config
-    params = {}
-    params['workers'] = 1
-    params['fluentd_conf_path'] = "fluentd.conf"
-    params['use_v1_config'] = true
-    params['conf_encoding'] = 'utf-8'
-    params['log_level'] = Fluent::Log::LEVEL_INFO
-    load_config_proc =  Proc.new { Fluent::Supervisor.serverengine_config(params) }
+  sub_test_case "serverengine_config" do
+    def test_normal
+      params = {}
+      params['workers'] = 1
+      params['fluentd_conf_path'] = "fluentd.conf"
+      params['use_v1_config'] = true
+      params['conf_encoding'] = 'utf-8'
+      params['log_level'] = Fluent::Log::LEVEL_INFO
+      load_config_proc =  Proc.new { Fluent::Supervisor.serverengine_config(params) }
 
-    se_config = load_config_proc.call
-    assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
-    assert_equal 'spawn', se_config[:worker_type]
-    assert_equal 1, se_config[:workers]
-    assert_equal false, se_config[:log_stdin]
-    assert_equal false, se_config[:log_stdout]
-    assert_equal false, se_config[:log_stderr]
-    assert_equal true, se_config[:enable_heartbeat]
-    assert_equal false, se_config[:auto_heartbeat]
-    assert_equal "fluentd.conf", se_config[:config_path]
-    assert_equal false, se_config[:daemonize]
-    assert_nil se_config[:pid_path]
+      se_config = load_config_proc.call
+      assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
+      assert_equal 'spawn', se_config[:worker_type]
+      assert_equal 1, se_config[:workers]
+      assert_equal false, se_config[:log_stdin]
+      assert_equal false, se_config[:log_stdout]
+      assert_equal false, se_config[:log_stderr]
+      assert_equal true, se_config[:enable_heartbeat]
+      assert_equal false, se_config[:auto_heartbeat]
+      assert_equal "fluentd.conf", se_config[:config_path]
+      assert_equal false, se_config[:daemonize]
+      assert_nil se_config[:pid_path]
+    end
+
+    def test_daemonize
+      params = {}
+      params['workers'] = 1
+      params['fluentd_conf_path'] = "fluentd.conf"
+      params['use_v1_config'] = true
+      params['conf_encoding'] = 'utf-8'
+      params['log_level'] = Fluent::Log::LEVEL_INFO
+      params['daemonize'] = './fluentd.pid'
+      load_config_proc = Proc.new { Fluent::Supervisor.serverengine_config(params) }
+
+      se_config = load_config_proc.call
+      assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
+      assert_equal 'spawn', se_config[:worker_type]
+      assert_equal 1, se_config[:workers]
+      assert_equal false, se_config[:log_stdin]
+      assert_equal false, se_config[:log_stdout]
+      assert_equal false, se_config[:log_stderr]
+      assert_equal true, se_config[:enable_heartbeat]
+      assert_equal false, se_config[:auto_heartbeat]
+      assert_equal "fluentd.conf", se_config[:config_path]
+      assert_equal true, se_config[:daemonize]
+      assert_equal './fluentd.pid', se_config[:pid_path]
+    end
+
+    data("nil", [nil, nil])
+    data("default", ["0", 0])
+    data("000", ["000", 0])
+    data("0000", ["0000", 0])
+    data("2", ["2", 2])
+    data("222", ["222", 146])
+    data("0222", ["0222", 146])
+    data("0 as integer", [0, 0])
+    def test_chumask((chumask, expected))
+      params = { "chumask" => chumask }
+      load_config_proc = Proc.new { Fluent::Supervisor.serverengine_config(params) }
+
+      se_config = load_config_proc.call
+
+      assert_equal expected, se_config[:chumask]
+    end
   end
 
-  def test_serverengine_config_for_daemonize
-    params = {}
-    params['workers'] = 1
-    params['fluentd_conf_path'] = "fluentd.conf"
-    params['use_v1_config'] = true
-    params['conf_encoding'] = 'utf-8'
-    params['log_level'] = Fluent::Log::LEVEL_INFO
-    params['daemonize'] = './fluentd.pid'
-    load_config_proc = Proc.new { Fluent::Supervisor.serverengine_config(params) }
+  data("default", [{}, "0"])
+  data("222", [{chumask: "222"}, "222"])
+  def test_chumask_should_be_passed_to_ServerEngine((cl_opt, expected_chumask_value))
+    proxy.mock(Fluent::Supervisor).serverengine_config(hash_including("chumask" => expected_chumask_value))
+    any_instance_of(ServerEngine::Daemon) { |daemon| mock(daemon).run.once }
 
-    se_config = load_config_proc.call
-    assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
-    assert_equal 'spawn', se_config[:worker_type]
-    assert_equal 1, se_config[:workers]
-    assert_equal false, se_config[:log_stdin]
-    assert_equal false, se_config[:log_stdout]
-    assert_equal false, se_config[:log_stderr]
-    assert_equal true, se_config[:enable_heartbeat]
-    assert_equal false, se_config[:auto_heartbeat]
-    assert_equal "fluentd.conf", se_config[:config_path]
-    assert_equal true, se_config[:daemonize]
-    assert_equal './fluentd.pid', se_config[:pid_path]
+    supervisor = Fluent::Supervisor.new(cl_opt)
+    stub(Fluent::Config).build { config_element('ROOT') }
+    stub(supervisor).build_spawn_command { "dummy command line" }
+    supervisor.configure(supervisor: true)
+
+    supervisor.run_supervisor
   end
 
   sub_test_case "init logger" do
