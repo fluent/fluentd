@@ -68,7 +68,7 @@ module Fluent
 
         def purge
           super
-          @chunk = ''.force_encoding("ASCII-8BIT")
+          @chunk.clear
           @chunk_bytes = @size = @adding_bytes = @adding_size = 0
           true
         end
