@@ -74,7 +74,7 @@ module Fluent
         end
 
         def read(**kwargs)
-          @chunk
+          @chunk.dup
         end
 
         def open(**kwargs, &block)
