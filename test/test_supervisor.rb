@@ -264,6 +264,9 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_cont_in_main_process_signal_handlers
     omit "Windows cannot handle signals" if Fluent.windows?
 
+    # https://github.com/fluent/fluentd/issues/4063
+    GC.start
+
     sv = Fluent::Supervisor.new({})
     sv.send(:install_main_process_signal_handlers)
 
@@ -278,6 +281,9 @@ class SupervisorTest < ::Test::Unit::TestCase
 
   def test_term_cont_in_main_process_signal_handlers
     omit "Windows cannot handle signals" if Fluent.windows?
+
+    # https://github.com/fluent/fluentd/issues/4063
+    GC.start
 
     create_debug_dummy_logger
 
@@ -365,6 +371,9 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_cont_in_supervisor_signal_handler
     omit "Windows cannot handle signals" if Fluent.windows?
 
+    # https://github.com/fluent/fluentd/issues/4063
+    GC.start
+
     server = DummyServer.new
     server.install_supervisor_signal_handlers
 
@@ -379,6 +388,9 @@ class SupervisorTest < ::Test::Unit::TestCase
 
   def test_term_cont_in_supervisor_signal_handler
     omit "Windows cannot handle signals" if Fluent.windows?
+
+    # https://github.com/fluent/fluentd/issues/4063
+    GC.start
 
     server = DummyServer.new
     server.install_supervisor_signal_handlers
