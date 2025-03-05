@@ -92,10 +92,17 @@ module Fluent
         else
           basepath = '/'
           fname = path
-          require 'open-uri'
-          URI.open(uri) {|f|
+          parser_proc = ->(f) {
             Parser.new(basepath, f.each_line, fname).parse!(allow_include, nil, attrs, elems)
           }
+
+          case u.scheme
+          when 'http', 'https', 'ftp'
+            require 'open-uri'
+            u.open { |f| parser_proc.call(f) }
+          else
+            File.open(u.path) { |f| parser_proc.call(f) }
+          end
         end
 
       rescue SystemCallError => e
@@ -104,4 +111,3 @@ module Fluent
     end
   end
 end
-
