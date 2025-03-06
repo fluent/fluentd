@@ -1343,6 +1343,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       hash = {
         'flush_interval' => 10,
         'flush_thread_count' => 1,
+        'flush_thread_interval' => 0.1,
         'flush_thread_burst_interval' => 0.1,
         'chunk_limit_size' => 1024,
       }
@@ -1445,7 +1446,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       assert{ @i.buffer.stage.size == 3 }
 
-      # to trigger try_flush with flush_thread_burst_interval
+      # to trigger try_flush with flush_thread_interval
       Timecop.freeze( Time.parse('2016-04-13 14:04:11 +0900') )
       @i.enqueue_thread_wait
       Timecop.freeze( Time.parse('2016-04-13 14:04:12 +0900') )
@@ -1454,7 +1455,6 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.enqueue_thread_wait
       Timecop.freeze( Time.parse('2016-04-13 14:04:14 +0900') )
       @i.enqueue_thread_wait
-      @i.flush_thread_wakeup
 
       assert{ @i.buffer.stage.size == 0 }
 
