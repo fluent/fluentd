@@ -172,7 +172,14 @@ module Fluent
           require 'open-uri'
           basepath = '/'
           fname = path
-          data = URI.open(uri) { |f| f.read }
+
+          case u.scheme
+          when 'http', 'https', 'ftp'
+            require 'open-uri'
+            data = u.open { |f| f.read }
+          else
+            data = File.open(u.path) { |f| f.read }
+          end
           data.force_encoding('UTF-8')
           ss = StringScanner.new(data)
           V1Parser.new(ss, basepath, fname, @eval_context).parse_element(true, nil, attrs, elems)
