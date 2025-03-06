@@ -92,10 +92,23 @@ module Fluent
         else
           basepath = '/'
           fname = path
-          require 'open-uri'
-          URI.open(uri) {|f|
+          parser_proc = ->(f) {
             Parser.new(basepath, f.each_line, fname).parse!(allow_include, nil, attrs, elems)
           }
+
+          case u.scheme
+          when 'http', 'https', 'ftp'
+            # URI#open can be able to handle URIs for http, https and ftp.
+            require 'open-uri'
+            u.open(&parser_proc)
+          else
+            # TODO: This case should be handled in the previous if condition. Glob is not applied to some Windows path formats.
+            # 'c:/path/to/file' will be passed as URI, 'uri' and 'u.path' will be:
+            #   - uri is 'c:/path/to/file'
+            #   - u.path is '/path/to/file' and u.scheme is 'c'
+            # Therefore, the condition of the if statement above is not met and it is handled here.
+            File.open(u.path, &parser_proc)
+          end
         end
 
       rescue SystemCallError => e
@@ -104,4 +117,3 @@ module Fluent
     end
   end
 end
-
