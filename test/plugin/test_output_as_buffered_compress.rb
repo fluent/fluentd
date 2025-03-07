@@ -122,7 +122,7 @@ class BufferedOutputCompressTest < Test::Unit::TestCase
     assert_equal :gzip, @i.buffer.compress
 
     @i.register(:write) do |c|
-      compressed_data = c.instance_variable_get(:@chunk)
+      compressed_data = c.instance_variable_get(:@chunk).dup
       if compressed_data.is_a?(File)
         compressed_data.seek(0, IO::SEEK_SET)
         compressed_data = compressed_data.read
@@ -160,7 +160,7 @@ class BufferedOutputCompressTest < Test::Unit::TestCase
 
     @i.register(:format) { |tag, time, record| "#{record}\n" }
     @i.register(:write) { |c|
-      compressed_data = c.instance_variable_get(:@chunk)
+      compressed_data = c.instance_variable_get(:@chunk).dup
       if compressed_data.is_a?(File)
         compressed_data.seek(0, IO::SEEK_SET)
         compressed_data = compressed_data.read
