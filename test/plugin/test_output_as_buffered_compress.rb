@@ -127,6 +127,7 @@ class BufferedOutputCompressTest < Test::Unit::TestCase
         compressed_data.seek(0, IO::SEEK_SET)
         compressed_data = compressed_data.read
       end
+      compressed_data = compressed_data.dup
       c.write_to(io)
     end
 
@@ -165,6 +166,7 @@ class BufferedOutputCompressTest < Test::Unit::TestCase
         compressed_data.seek(0, IO::SEEK_SET)
         compressed_data = compressed_data.read
       end
+      compressed_data = compressed_data.dup
       c.write_to(io)
     }
 
