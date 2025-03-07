@@ -21,9 +21,7 @@ module Fluent
     # Async gem which is used by http_server helper switched logger mechanism to
     # Console gem which isn't complatible with Ruby's standard Logger (since
     # v1.17). This class adapts it to Fluentd's logger mechanism.
-    class ConsoleAdapter < Gem::Version.new(Console::VERSION) >= Gem::Version.new("1.25") ?
-      Console::Output::Terminal : Console::Terminal::Logger
-
+    class ConsoleAdapter < Console::Output::Terminal
       def self.wrap(logger)
         _, level = Console::Logger::LEVELS.find { |key, value|
           if logger.level <= 0
@@ -58,10 +56,10 @@ module Fluent
           level = 'warn'
         end
 
-        @io.seek(0)
-        @io.truncate(0)
+        @stream.seek(0)
+        @stream.truncate(0)
         super
-        @logger.send(level, @io.string.chomp)
+        @logger.send(level, @stream.string.chomp)
       end
     end
   end
