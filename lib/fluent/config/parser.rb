@@ -107,7 +107,7 @@ module Fluent
             #   - uri is 'c:/path/to/file'
             #   - u.path is '/path/to/file' and u.scheme is 'c'
             # Therefore, the condition of the if statement above is not met and it is handled here.
-            File.open(u.path, &parser_proc)
+            File.open(uri, &parser_proc)
           end
         end
 
