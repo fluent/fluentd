@@ -270,8 +270,7 @@ module Fluent::Plugin
                               OpenSSL::SSL::VERIFY_PEER
                             end
         opt[:ciphers] = @tls_ciphers
-        opt[:min_version] = Fluent::TLS::DEFAULT_VERSION
-        opt[:max_version] = @tls_version
+        opt = Fluent::TLS.set_version_to_options(opt, @tls_version, nil, nil)
       end
 
       opt
