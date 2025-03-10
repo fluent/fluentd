@@ -570,7 +570,7 @@ CONF
 
       assert_fluentd_fails_to_start(
         create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
-        /in_buggy.rb:\d+:.+\(SyntaxError\)/
+        /\[error\]: .+in_buggy.rb:\d+: syntax error/
       )
     end
   end
