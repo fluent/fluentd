@@ -721,6 +721,18 @@ module Fluent
         $log.error 'config error', file: @config_path, error: e
         $log.debug_backtrace
         exit!(1)
+      rescue ScriptError => e # LoadError, NotImplementedError, SyntaxError
+        if e.respond_to?(:path)
+          $log.error e.message, path: e.path, error: e
+        else
+          $log.error e.message, error: e
+        end
+        $log.debug_backtrace
+        exit!(1)
+      rescue => e
+        $log.error "unexpected error", error: e
+        $log.debug_backtrace
+        exit!(1)
       end
 
       if dry_run
