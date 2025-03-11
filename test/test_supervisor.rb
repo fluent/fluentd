@@ -402,34 +402,31 @@ class SupervisorTest < ::Test::Unit::TestCase
   def test_supervisor_event_dump_windows
     omit "Only for Windows, alternative to UNIX signals" unless Fluent.windows?
 
+    # https://github.com/fluent/fluentd/issues/4063
+    GC.start
+
+    ENV['SIGDUMP_PATH'] = TMP_DIR + "/sigdump.log"
+
     server = DummyServer.new
     def server.config
       {:signame => "TestFluentdEvent"}
     end
     server.install_windows_event_handler
 
-    assert_rr do
-      # Have to use mock because `Sigdump.dump` seems to be somehow incompatible with RR.
-      # The `mock(server).restart(true) { nil }` line in `test_rpc_server_windows` cause the next error.
-      # Failure: test_supervisor_event_dump_windows(SupervisorTest):
-      #   class()
-      #   Called 0 times.
-      #   Expected 1 times.
-      # .../Ruby26-x64/lib/ruby/gems/2.6.0/gems/sigdump-0.2.4/lib/sigdump.rb:74:in `block in dump_object_count'
-      #     73: ObjectSpace.each_object {|o|
-      #     74:   c = o.class <-- HERE!
-      mock(Sigdump).dump(anything)
-
-      begin
-        sleep 0.1 # Wait for starting windows event thread
-        event = Win32::Event.open("TestFluentdEvent_CONT")
-        event.set
-        event.close
-        sleep 1.0 # Wait for dumping
-      ensure
-        server.stop_windows_event_thread
-      end
+    begin
+      sleep 0.1 # Wait for starting windows event thread
+      event = Win32::Event.open("TestFluentdEvent_CONT")
+      event.set
+      event.close
+      sleep 1.0 # Wait for dumping
+    ensure
+      server.stop_windows_event_thread
     end
+
+    result_filepaths = Dir.glob("#{TMP_DIR}/*")
+    assert {result_filepaths.length > 0}
+  ensure
+    ENV.delete('SIGDUMP_PATH')
   end
 
   data(:ipv4 => ["0.0.0.0", "127.0.0.1", false],
