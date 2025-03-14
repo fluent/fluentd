@@ -21,6 +21,7 @@ require 'csv'
 module Fluent
   module Plugin
     class CsvFormatter < Formatter
+      include PluginId
       Plugin.register_formatter('csv', self)
 
       include PluginHelper::Mixin
@@ -34,6 +35,10 @@ module Fluent
       # TODO: Is it needed to support tailing comma?
       config_param :fields, :array, value_type: :string
       config_param :add_newline, :bool, default: true
+
+      def thread_key
+        "#{plugin_id}_csv"
+      end
 
       def configure(conf)
         super
@@ -52,11 +57,11 @@ module Fluent
         @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes, headers: @fields,
                           row_sep: @add_newline ? :auto : "".force_encoding(Encoding::ASCII_8BIT)}
         # Cache CSV object per thread to avoid internal state sharing
-        Thread.current[:csv_formatter] = nil
+        Thread.current[thread_key] = nil
       end
 
       def format(tag, time, record)
-        csv = (Thread.current[:csv_formatter] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
+        csv = (Thread.current[thread_key] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
         line = (csv << record).string.dup
         # Need manual cleanup because CSV writer doesn't provide such method.
         csv.rewind
@@ -65,7 +70,7 @@ module Fluent
       end
 
       def format_with_nested_fields(tag, time, record)
-        csv = (Thread.current[:csv_formatter] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
+        csv = (Thread.current[thread_key] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
         values = @accessors.map { |a| a.call(record) }
         line = (csv << values).string.dup
         # Need manual cleanup because CSV writer doesn't provide such method.
