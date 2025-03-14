@@ -253,7 +253,7 @@ module Fluent::Plugin
         FileUtils.mkdir_p(pos_file_dir, mode: @dir_perm) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
-        @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths, logger: log)
+        @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths(true), logger: log)
 
         if @pos_file_compaction_interval
           timer_execute(:in_tail_refresh_compact_pos_file, @pos_file_compaction_interval) do
@@ -321,7 +321,7 @@ module Fluent::Plugin
       end
     end
 
-    def expand_paths
+    def expand_paths(check_permission = false)
       date = Fluent::EventTime.now
       paths = []
       @paths.each { |path|
@@ -385,6 +385,13 @@ module Fluent::Plugin
           $log.warn "expand_paths: stat() for #{path} failed with #{e.class.name}. Skip file."
         end
       }
+      if check_permission
+        (paths - excluded).map { |path| File.dirname(path) }.uniq.each { |dir|
+          if !FileTest.readable?(dir)
+            $log.warn "Permission denied for directory: #{dir}"
+          end
+        }
+      end
       hash
     end
 

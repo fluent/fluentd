@@ -2591,6 +2591,34 @@ class TailInputTest < Test::Unit::TestCase
     d.instance_shutdown if d && d.instance
   end
 
+  def test_warn_when_directory_permission_denied
+    omit "Cannot test with root user" if Process::UID.eid == 0
+    path = "#{@tmp_dir}/noaccess/tail.txt"
+    begin
+      FileUtils.mkdir_p("#{@tmp_dir}/noaccess")
+      FileUtils.chmod(0755, "#{@tmp_dir}/noaccess")
+      FileUtils.touch(path)
+      FileUtils.chmod(0000, "#{@tmp_dir}/noaccess")
+      config = config_element('', '', {
+                                'tag' => "tail",
+                                'path' => path,
+                                'format' => 'none',
+                                "pos_file" => "#{@tmp_dir}/tail.pos",
+                              })
+      d = create_driver(config, false)
+      assert_nothing_raised do
+        d.run(shutdown: false) {}
+      end
+      assert($log.out.logs.any?{|log| log.include?("Permission denied for directory: #{File.dirname(path)}\n") })
+    end
+  ensure
+    d.instance_shutdown if d && d.instance
+    FileUtils.chmod(0755, "#{@tmp_dir}/noaccess")
+    if File.exist?("#{@tmp_dir}/noaccess")
+      FileUtils.rm_rf("#{@tmp_dir}/noaccess")
+    end
+  end unless Fluent.windows?
+
   def test_shutdown_timeout
     Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|
       # Should be large enough to take too long time to consume
