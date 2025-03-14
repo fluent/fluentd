@@ -165,6 +165,7 @@ module Fluent::Plugin
         @path_formatters = @paths.map{|path| [path, Fluent::Timezone.formatter(@path_timezone, path)]}.to_h
         @exclude_path_formatters = @exclude_path.map{|path| [path, Fluent::Timezone.formatter(@path_timezone, path)]}.to_h
       end
+      check_dir_permission unless Fluent.windows?
 
       # TODO: Use plugin_root_dir and storage plugin to store positions if available
       if @pos_file
@@ -210,6 +211,20 @@ module Fluent::Plugin
       rotated_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_rotated_total", help_text: "Total number of rotated files")
       throttling_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_throttled_total", help_text: "Total number of times throttling occurs per file when throttling enabled")
       @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics)
+    end
+
+    def check_dir_permission
+      expand_paths_raw.select { |path|
+        not File.exist?(path)
+      }.each { |path|
+        inaccessible_dir = Pathname.new(File.expand_path(path))
+          .ascend
+          .reverse_each
+          .find { |p| p.directory? && !p.executable? }
+        if inaccessible_dir
+          log.warn "Skip #{path} because '#{inaccessible_dir}' lacks execute permission."
+        end
+      }
     end
 
     def configure_tag
@@ -321,7 +336,7 @@ module Fluent::Plugin
       end
     end
 
-    def expand_paths
+    def expand_paths_raw
       date = Fluent::EventTime.now
       paths = []
       @paths.each { |path|
@@ -367,10 +382,14 @@ module Fluent::Plugin
                end
         use_glob?(path) ? Dir.glob(path) : path
       }.flatten.uniq
+      paths - excluded
+    end
+
+    def expand_paths
       # filter out non existing files, so in case pattern is without '*' we don't do unnecessary work
       hash = {}
-      (paths - excluded).select { |path|
-        FileTest.exist?(path)
+      expand_paths_raw.select { |path|
+        File.exist?(path)
       }.each { |path|
         # Even we just checked for existence, there is a race condition here as
         # of which stat() might fail with ENOENT. See #3224.

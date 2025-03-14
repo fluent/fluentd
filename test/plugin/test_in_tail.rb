@@ -2591,6 +2591,46 @@ class TailInputTest < Test::Unit::TestCase
     d.instance_shutdown if d && d.instance
   end
 
+  def test_warn_without_directory_permission
+    omit "Cannot test with root user" if Process::UID.eid == 0
+    omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+    path = "#{@tmp_dir}/noaccess/tail.txt"
+    begin
+      FileUtils.mkdir_p("#{@tmp_dir}/noaccess")
+      FileUtils.touch(path)
+      FileUtils.chmod(0400, path)
+      FileUtils.chmod(0600, "#{@tmp_dir}/noaccess")
+      config = config_element('', '', {
+                                'tag' => "tail",
+                                'path' => path,
+                                'format' => 'none',
+                                "pos_file" => "#{@tmp_dir}/tail.pos",
+                              })
+      d = create_driver(config, false)
+      fname = File.expand_path("#{@tmp_dir}/noaccess")
+      assert(d.logs.any?{|log| log.include?("Skip #{path} because '#{fname}' lacks execute permission.\n") })
+    end
+  end
+
+  def test_no_warn_with_directory_permission
+    omit "Cannot test with root user" if Process::UID.eid == 0
+    omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+    path = "#{@tmp_dir}/noaccess/tail.txt"
+    begin
+      FileUtils.mkdir_p("#{@tmp_dir}/noaccess")
+      FileUtils.chmod(0100, "#{@tmp_dir}/noaccess")
+      config = config_element('', '', {
+                                'tag' => "tail",
+                                'path' => path,
+                                'format' => 'none',
+                                "pos_file" => "#{@tmp_dir}/tail.pos",
+                              })
+      d = create_driver(config, false)
+      fname = File.expand_path("#{@tmp_dir}/noaccess")
+      assert(d.logs.all?{|log| !log.include?("Skip #{path} because '#{fname}' lacks execute permission.\n") })
+    end
+  end
+
   def test_shutdown_timeout
     Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|
       # Should be large enough to take too long time to consume
