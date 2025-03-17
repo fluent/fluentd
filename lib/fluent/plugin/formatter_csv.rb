@@ -36,7 +36,12 @@ module Fluent
       config_param :add_newline, :bool, default: true
 
       def thread_key
-        "#{owner.plugin_id}_csv_formatter_#{@usage}_csv"
+        if owner
+          "#{owner.plugin_id}_csv_formatter_#{@usage}_csv"
+        else
+          # For Fluent::Compat::TextFormatter
+          "csv_formatter_#{@usage}_csv"
+        end
       end
 
       def configure(conf)
@@ -55,6 +60,8 @@ module Fluent
 
         @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes, headers: @fields,
                           row_sep: @add_newline ? :auto : "".force_encoding(Encoding::ASCII_8BIT)}
+        # Cache CSV object per thread to avoid internal state sharing
+        Thread.current[thread_key] = nil
       end
 
       def format(tag, time, record)
