@@ -77,7 +77,7 @@ module Fluent
           @chunk.dup
         end
 
-        def open(**kwargs, &block)
+        def open_io(**kwargs, &block)
           StringIO.open(@chunk, &block)
         end
 

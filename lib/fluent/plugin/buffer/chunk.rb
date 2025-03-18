@@ -179,14 +179,14 @@ module Fluent
           raise NotImplementedError, "Implement this method in child class"
         end
 
-        def open(**kwargs, &block)
+        def open_io(**kwargs, &block)
           raise ArgumentError, "`compressed: #{kwargs[:compressed]}` can be used for Compressable module" if kwargs[:compressed] == :gzip || kwargs[:compressed] == :zstd
           raise NotImplementedError, "Implement this method in child class"
         end
 
         def write_to(io, **kwargs)
           raise ArgumentError, "`compressed: #{kwargs[:compressed]}` can be used for Compressable module" if kwargs[:compressed] == :gzip || kwargs[:compressed] == :zstd
-          open do |i|
+          open_io do |i|
             IO.copy_stream(i, io)
           end
         end
@@ -208,7 +208,7 @@ module Fluent
             end
           end
 
-          def open(**kwargs, &block)
+          def open_io(**kwargs, &block)
             if kwargs[:compressed] == :gzip
               super
             else
@@ -235,7 +235,7 @@ module Fluent
           end
 
           def write_to(io, **kwargs)
-            open(compressed: :gzip) do |chunk_io|
+            open_io(compressed: :gzip) do |chunk_io|
               if kwargs[:compressed] == :gzip
                 IO.copy_stream(chunk_io, io)
               else
@@ -262,7 +262,7 @@ module Fluent
             end
           end
 
-          def open(**kwargs, &block)
+          def open_io(**kwargs, &block)
             if kwargs[:compressed] == :zstd
               super
             else
@@ -289,7 +289,7 @@ module Fluent
           end
 
           def write_to(io, **kwargs)
-            open(compressed: :zstd) do |chunk_io|
+            open_io(compressed: :zstd) do |chunk_io|
               if kwargs[:compressed] == :zstd
                 IO.copy_stream(chunk_io, io)
               else

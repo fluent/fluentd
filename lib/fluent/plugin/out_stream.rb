@@ -66,7 +66,7 @@ module Fluent
 
       def write(chunk)
         chain = NullOutputChain.instance
-        chunk.open {|io|
+        chunk.open_io {|io|
           # TODO use MessagePackIoEventStream
           u = Fluent::MessagePackFactory.msgpack_unpacker(io)
           begin

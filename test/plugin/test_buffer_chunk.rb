@@ -29,7 +29,7 @@ class BufferChunkTest < Test::Unit::TestCase
       assert chunk.respond_to?(:length)
       assert chunk.respond_to?(:empty?)
       assert chunk.respond_to?(:read)
-      assert chunk.respond_to?(:open)
+      assert chunk.respond_to?(:open_io)
       assert chunk.respond_to?(:write_to)
       assert_raise(NotImplementedError){ chunk.append([]) }
       assert_raise(NotImplementedError){ chunk.concat(nil, 0) }
@@ -40,7 +40,7 @@ class BufferChunkTest < Test::Unit::TestCase
       assert_raise(NotImplementedError){ chunk.length }
       assert_raise(NotImplementedError){ chunk.empty? }
       assert_raise(NotImplementedError){ chunk.read }
-      assert_raise(NotImplementedError){ chunk.open(){} }
+      assert_raise(NotImplementedError){ chunk.open_io(){} }
       assert_raise(NotImplementedError){ chunk.write_to(nil) }
       assert !chunk.respond_to?(:msgpack_each)
     end
@@ -73,7 +73,7 @@ class BufferChunkTest < Test::Unit::TestCase
       chunk = Fluent::Plugin::Buffer::Chunk.new(meta)
 
       assert_raise(ArgumentError){ chunk.read(compressed: :gzip) }
-      assert_raise(ArgumentError){ chunk.open(compressed: :gzip){} }
+      assert_raise(ArgumentError){ chunk.open_io(compressed: :gzip){} }
       assert_raise(ArgumentError){ chunk.write_to(nil, compressed: :gzip) }
       assert_raise(ArgumentError){ chunk.append(nil, compress: :gzip) }
     end
@@ -83,7 +83,7 @@ class BufferChunkTest < Test::Unit::TestCase
       chunk = Fluent::Plugin::Buffer::Chunk.new(meta)
 
       assert_raise(ArgumentError){ chunk.read(compressed: :zstd) }
-      assert_raise(ArgumentError){ chunk.open(compressed: :zstd){} }
+      assert_raise(ArgumentError){ chunk.open_io(compressed: :zstd){} }
       assert_raise(ArgumentError){ chunk.write_to(nil, compressed: :zstd) }
       assert_raise(ArgumentError){ chunk.append(nil, compress: :zstd) }
     end
@@ -98,14 +98,14 @@ class BufferChunkTest < Test::Unit::TestCase
     def size
       @data.size
     end
-    def open(**kwargs)
+    def open_io(**kwargs)
       require 'stringio'
       io = StringIO.new(@data)
       yield io
     end
   end
 
-  sub_test_case 'minimum chunk implements #size and #open' do
+  sub_test_case 'minimum chunk implements #size and #open_io' do
     test 'chunk lifecycle' do
       c = TestChunk.new(Object.new)
       assert c.unstaged?

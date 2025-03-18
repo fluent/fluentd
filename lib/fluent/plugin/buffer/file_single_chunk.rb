@@ -139,7 +139,7 @@ module Fluent
           @chunk.read
         end
 
-        def open(**kwargs, &block)
+        def open_io(**kwargs, &block)
           @chunk.seek(0, IO::SEEK_SET)
           val = yield @chunk
           @chunk.seek(0, IO::SEEK_END) if self.staged?

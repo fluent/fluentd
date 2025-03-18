@@ -329,7 +329,7 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert !File.exist?(@c.path)
     end
 
-    test 'can #open its contents as io' do
+    test 'can #open_io its contents as io' do
       d1 = {"f1" => 'v1', "f2" => 'v2', "f3" => 'v3'}
       d2 = {"f1" => 'vv1', "f2" => 'vv2', "f3" => 'vv3'}
       data = [d1.to_json + "\n", d2.to_json + "\n"]
@@ -341,7 +341,7 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       @c.commit
 
       lines = []
-      @c.open do |io|
+      @c.open_io do |io|
         assert io
         io.readlines.each do |l|
           lines << l
@@ -556,12 +556,12 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert_equal @src + @src, c.read
     end
 
-    test '#open passes io object having decompressed data to a block when compress is gzip' do
+    test '#open_io passes io object having decompressed data to a block when compress is gzip' do
       c = @klass.new(gen_metadata, File.join(@chunkdir,'fsb.*.buf'), :create, nil, compress: :gzip)
       c.concat(@gzipped_src, @src.size)
       c.commit
 
-      decomressed_data = c.open do |io|
+      decomressed_data = c.open_io do |io|
         v = io.read
         assert_equal @src, v
         v
@@ -569,12 +569,12 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert_equal @src, decomressed_data
     end
 
-    test '#open with compressed option passes io object having decompressed data to a block when compress is gzip' do
+    test '#open_io with compressed option passes io object having decompressed data to a block when compress is gzip' do
       c = @klass.new(gen_metadata, File.join(@chunkdir,'fsb.*.buf'), :create, nil, compress: :gzip)
       c.concat(@gzipped_src, @src.size)
       c.commit
 
-      comressed_data = c.open(compressed: :gzip) do |io|
+      comressed_data = c.open_io(compressed: :gzip) do |io|
         v = io.read
         assert_equal @gzipped_src, v
         v
@@ -620,12 +620,12 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert_equal @src + @src, c.read
     end
 
-    test '#open passes io object having decompressed data to a block when compress is zstd' do
+    test '#open_io passes io object having decompressed data to a block when compress is zstd' do
       c = @klass.new(gen_metadata, File.join(@chunkdir,'fsb.*.buf'), :create, nil, compress: :zstd)
       c.concat(@zstded_src, @src.size)
       c.commit
 
-      decomressed_data = c.open do |io|
+      decomressed_data = c.open_io do |io|
         v = io.read
         assert_equal @src, v
         v
@@ -633,12 +633,12 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert_equal @src, decomressed_data
     end
 
-    test '#open with compressed option passes io object having decompressed data to a block when compress is zstd' do
+    test '#open_io with compressed option passes io object having decompressed data to a block when compress is zstd' do
       c = @klass.new(gen_metadata, File.join(@chunkdir,'fsb.*.buf'), :create, nil, compress: :zstd)
       c.concat(@zstded_src, @src.size)
       c.commit
 
-      comressed_data = c.open(compressed: :zstd) do |io|
+      comressed_data = c.open_io(compressed: :zstd) do |io|
         v = io.read
         assert_equal @zstded_src, v
         v

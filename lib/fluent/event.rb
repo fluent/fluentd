@@ -316,7 +316,7 @@ module Fluent
       # e.g., `unpacker.feed_each(io.read, &block)` (Not tested)
       raise NotImplementedError, "'unpacker' argument is not implemented." if unpacker
 
-      open do |io|
+      open_io do |io|
         Fluent::MessagePackFactory.msgpack_unpacker(io).each(&block)
       end
       nil
