@@ -35,13 +35,12 @@ module Fluent
       config_param :fields, :array, value_type: :string
       config_param :add_newline, :bool, default: true
 
-      def thread_key
-        if owner
-          "#{owner.plugin_id}_csv_formatter_#{@usage}_csv"
-        else
-          # For Fluent::Compat::TextFormatter
-          "csv_formatter_#{@usage}_csv"
-        end
+      def csv_thread_key
+        "#{owner.plugin_id}_csv_formatter_#{@usage}_csv"
+      end
+
+      def csv_for_thread
+        Thread.current[csv_thread_key] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts)
       end
 
       def configure(conf)
@@ -60,12 +59,10 @@ module Fluent
 
         @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes, headers: @fields,
                           row_sep: @add_newline ? :auto : "".force_encoding(Encoding::ASCII_8BIT)}
-        # Cache CSV object per thread to avoid internal state sharing
-        Thread.current[thread_key] = nil
       end
 
       def format(tag, time, record)
-        csv = (Thread.current[thread_key] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
+        csv = csv_for_thread
         line = (csv << record).string.dup
         # Need manual cleanup because CSV writer doesn't provide such method.
         csv.rewind
@@ -74,7 +71,7 @@ module Fluent
       end
 
       def format_with_nested_fields(tag, time, record)
-        csv = (Thread.current[thread_key] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts))
+        csv = csv_for_thread
         values = @accessors.map { |a| a.call(record) }
         line = (csv << values).string.dup
         # Need manual cleanup because CSV writer doesn't provide such method.

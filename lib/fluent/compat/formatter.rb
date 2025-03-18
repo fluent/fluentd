@@ -101,6 +101,17 @@ module Fluent
 
       class CsvFormatter < Fluent::Plugin::CsvFormatter
         # TODO: warn when deprecated
+
+        # Do not cache because it is hard to consider the thread key correctly.
+        # (We can try, but it would be low priority.)
+        def csv_for_thread
+          CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts)
+        end
+
+        # It is hard to consider the thread key correctly for the compat layer.
+        def csv_thread_key
+          raise NotImplementedError, "Compat CsvFormatter does not support CSV cache. Do not use this method."
+        end
       end
 
       class SingleValueFormatter < Fluent::Plugin::SingleValueFormatter
