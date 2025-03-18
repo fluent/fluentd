@@ -35,12 +35,20 @@ module Fluent
       config_param :fields, :array, value_type: :string
       config_param :add_newline, :bool, default: true
 
+      def csv_cacheable?
+        owner ? true : false
+      end
+
       def csv_thread_key
-        "#{owner.plugin_id}_csv_formatter_#{@usage}_csv"
+        csv_cacheable? ? "#{owner.plugin_id}_csv_formatter_#{@usage}_csv" : nil
       end
 
       def csv_for_thread
-        Thread.current[csv_thread_key] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts)
+        if csv_cacheable?
+          Thread.current[csv_thread_key] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts)
+        else
+          CSV.new("".force_encoding(Encoding::ASCII_8BIT), **@generate_opts)
+        end
       end
 
       def configure(conf)

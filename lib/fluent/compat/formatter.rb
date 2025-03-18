@@ -112,6 +112,10 @@ module Fluent
         def csv_thread_key
           raise NotImplementedError, "Compat CsvFormatter does not support CSV cache. Do not use this method."
         end
+
+        def csv_cacheable?
+          false
+        end
       end
 
       class SingleValueFormatter < Fluent::Plugin::SingleValueFormatter
