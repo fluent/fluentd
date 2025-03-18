@@ -44,6 +44,9 @@ Gem::Specification.new do |gem|
     gem.add_runtime_dependency("win32-ipc", ["~> 0.7.0"])
     gem.add_runtime_dependency("win32-event", ["~> 0.6.3"])
     gem.add_runtime_dependency("certstore_c", ["~> 0.1.7"])
+
+    # gems that aren't default gems as of Ruby 3.5
+    gem.add_runtime_dependency("fiddle", ["~> 1.1"])
   end
 
   gem.add_development_dependency("rake", ["~> 13.0"])
