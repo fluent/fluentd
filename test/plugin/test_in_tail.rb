@@ -1752,6 +1752,7 @@ class TailInputTest < Test::Unit::TestCase
 
       cleanup_file("#{@tmp_dir}/tail.txt")
       waiting(20) { sleep 0.1 until Dir.glob("#{@tmp_dir}/*.txt").size == 0 } # Ensure file is deleted on Windows
+      waiting(5) { sleep 0.1 until d.logs.last.include?("detected rotation") }
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size <= 0 }
 
       assert_equal(
