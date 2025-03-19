@@ -103,7 +103,6 @@ class BufferChunkTest < Test::Unit::TestCase
       io = StringIO.new(@data)
       yield io
     end
-    alias :open :open_io
   end
 
   sub_test_case 'minimum chunk implements #size and #open' do

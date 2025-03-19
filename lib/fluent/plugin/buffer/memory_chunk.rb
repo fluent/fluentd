@@ -80,7 +80,6 @@ module Fluent
         def open_io(**kwargs, &block)
           StringIO.open(@chunk, &block)
         end
-        alias :open :open_io
 
         def write_to(io, **kwargs)
           # re-implementation to optimize not to create StringIO
