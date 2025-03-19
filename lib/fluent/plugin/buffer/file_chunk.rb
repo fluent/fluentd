@@ -172,6 +172,7 @@ module Fluent
           @chunk.seek(0, IO::SEEK_END) if self.staged?
           val
         end
+        alias :open :open_io
 
         def self.assume_chunk_state(path)
           if /\.(b|q)([0-9a-f]+)\.[^\/]*\Z/n =~ path # //n switch means explicit 'ASCII-8BIT' pattern

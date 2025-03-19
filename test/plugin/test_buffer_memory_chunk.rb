@@ -253,7 +253,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     @c.commit
 
     lines = []
-    @c.open_io do |io|
+    @c.open do |io|
       assert io
       io.readlines.each do |l|
         lines << l
@@ -289,7 +289,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
       c.concat(@gzipped_src, @src.size)
       c.commit
 
-      decomressed_data = c.open_io do |io|
+      decomressed_data = c.open do |io|
         v = io.read
         assert_equal @src, v
         v
@@ -302,7 +302,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
       c.concat(@gzipped_src, @src.size)
       c.commit
 
-      comressed_data = c.open_io(compressed: :gzip) do |io|
+      comressed_data = c.open(compressed: :gzip) do |io|
         v = io.read
         assert_equal @gzipped_src, v
         v
@@ -353,7 +353,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
       c.concat(@zstded_src, @src.size)
       c.commit
 
-      decomressed_data = c.open_io do |io|
+      decomressed_data = c.open do |io|
         v = io.read
         assert_equal @src, v
         v
@@ -366,7 +366,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
       c.concat(@zstded_src, @src.size)
       c.commit
 
-      comressed_data = c.open_io(compressed: :zstd) do |io|
+      comressed_data = c.open(compressed: :zstd) do |io|
         v = io.read
         assert_equal @zstded_src, v
         v

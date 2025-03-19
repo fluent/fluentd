@@ -183,6 +183,7 @@ module Fluent
           raise ArgumentError, "`compressed: #{kwargs[:compressed]}` can be used for Compressable module" if kwargs[:compressed] == :gzip || kwargs[:compressed] == :zstd
           raise NotImplementedError, "Implement this method in child class"
         end
+        alias :open :open_io
 
         def write_to(io, **kwargs)
           raise ArgumentError, "`compressed: #{kwargs[:compressed]}` can be used for Compressable module" if kwargs[:compressed] == :gzip || kwargs[:compressed] == :zstd
@@ -225,6 +226,7 @@ module Fluent
               end
             end
           end
+          alias :open :open_io
 
           def read(**kwargs)
             if kwargs[:compressed] == :gzip
@@ -279,6 +281,7 @@ module Fluent
               end
             end
           end
+          alias :open :open_io
 
           def read(**kwargs)
             if kwargs[:compressed] == :zstd

@@ -145,6 +145,7 @@ module Fluent
           @chunk.seek(0, IO::SEEK_END) if self.staged?
           val
         end
+        alias :open :open_io
 
         def self.assume_chunk_state(path)
           return :unknown unless path.end_with?(PATH_SUFFIX)
