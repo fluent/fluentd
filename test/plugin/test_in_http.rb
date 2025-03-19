@@ -940,6 +940,26 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_cors_with_nil_origin
+    d = create_driver(config + %[
+      cors_allow_origins ["http://foo.com"]
+    ])
+    assert_equal ["http://foo.com"], d.instance.cors_allow_origins
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    event = ["tag1", time, {"a"=>1}]
+    res_code = nil
+
+    d.run do
+      res = post("/#{event[0]}", {"json"=>event[2].to_json, "time"=>time.to_i.to_s})
+      res_code = res.code
+    end
+
+    assert_equal "200", res_code
+    assert_equal [event], d.events
+    assert_equal_event_time time, d.events[0][1]
+  end
+
   def test_content_encoding_gzip
     d = create_driver
 
