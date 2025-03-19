@@ -36,7 +36,7 @@ module Fluent
       config_param :add_newline, :bool, default: true
 
       def csv_cacheable?
-        owner ? true : false
+        !!owner
       end
 
       def csv_thread_key
