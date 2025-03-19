@@ -209,6 +209,11 @@ module Fluent
           end
 
           def open(**kwargs, &block)
+            # Ensure that Kernel.open is not called as super to avoid vulnerability: CWE-73, CWE-78, and CWE-88
+            unless self.class.ancestors.include? Chunk
+              raise "BUG: #{GzipDecompressable.name} must have Chunk as an ancestor"
+            end
+
             if kwargs[:compressed] == :gzip
               super
             else
@@ -263,6 +268,11 @@ module Fluent
           end
 
           def open(**kwargs, &block)
+            # Ensure that Kernel.open is not called as super to avoid vulnerability: CWE-73, CWE-78, and CWE-88
+            unless self.class.ancestors.include? Chunk
+              raise "BUG: #{GzipDecompressable.name} must have Chunk as an ancestor"
+            end
+
             if kwargs[:compressed] == :zstd
               super
             else
