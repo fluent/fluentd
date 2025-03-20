@@ -48,7 +48,7 @@ module Fluent
                     MIN_MAX_AVAILABLE = false
                     map
                   end
-    private_constant :METHODS_MAP
+    # private_constant :METHODS_MAP
 
     # Helper for old syntax/method support:
     # ruby 2.4 uses ssl_version= but this method is now deprecated.
