@@ -253,7 +253,7 @@ module Fluent::Plugin
         FileUtils.mkdir_p(pos_file_dir, mode: @dir_perm) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
-        @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths, logger: log)
+        @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths(true), logger: log)
 
         if @pos_file_compaction_interval
           timer_execute(:in_tail_refresh_compact_pos_file, @pos_file_compaction_interval) do
@@ -321,7 +321,7 @@ module Fluent::Plugin
       end
     end
 
-    def expand_paths
+    def expand_paths(check_permission = false)
       date = Fluent::EventTime.now
       paths = []
       @paths.each { |path|
@@ -370,6 +370,19 @@ module Fluent::Plugin
       # filter out non existing files, so in case pattern is without '*' we don't do unnecessary work
       hash = {}
       (paths - excluded).select { |path|
+        if check_permission && !FileTest.readable?(path)
+          is_bad_permission = begin
+            current_path = File.expand_path(path)
+            loop do
+              current_path = File.dirname(current_path)
+              break true unless FileTest.executable?(current_path)
+              break false if current_path == "/"
+            end
+          end
+          if is_bad_permission
+            $log.warn "Skip #{path} because a directory in the path lacks execute permission."
+          end
+        end
         FileTest.exist?(path)
       }.each { |path|
         # Even we just checked for existence, there is a race condition here as
