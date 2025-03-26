@@ -1238,6 +1238,8 @@ module Fluent::Plugin
                   end
                 rescue EOFError
                   @eof = true
+                ensure
+                  iobuf.clear
                 end
               end
 
