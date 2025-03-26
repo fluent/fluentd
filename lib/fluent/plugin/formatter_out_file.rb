@@ -43,10 +43,13 @@ module Fluent
       end
 
       def format(tag, time, record)
+        json_str = JSON.generate(record)
         header = ''
         header << "#{@timef.format(time)}#{@delimiter}" if @output_time
         header << "#{tag}#{@delimiter}" if @output_tag
-        "#{header}#{JSON.generate(record)}#{@newline}"
+        "#{header}#{json_str}#{@newline}"
+      ensure
+        json_str&.clear
       end
     end
   end
