@@ -504,8 +504,9 @@ module Fluent::Plugin
         # ==========
         # For every incoming request, we check if we have some CORS
         # restrictions and allow listed origins through @cors_allow_origins.
+        # If origin is empty, it's likely a server-to-server request and considered safe.
         unless @cors_allow_origins.nil?
-          unless @cors_allow_origins.include?('*') || include_cors_allow_origin
+          unless @cors_allow_origins.include?('*') || include_cors_allow_origin || @origin.nil?
             send_response_and_close(RES_403_STATUS, {'Connection' => 'close'}, "")
             return
           end
