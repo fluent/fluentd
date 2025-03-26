@@ -67,6 +67,7 @@ module Fluent
         if parsed_json.is_a?(Hash)
           time, record = parse_one_record(parsed_json)
           yield time, record
+          parsed_json.clear
         elsif parsed_json.is_a?(Array)
           parsed_json.each do |record|
             unless record.is_a?(Hash)
@@ -75,7 +76,9 @@ module Fluent
             end
             time, parsed_record = parse_one_record(record)
             yield time, parsed_record
+            record.clear
           end
+          parsed_json.clear
         else
           yield nil, nil
         end
