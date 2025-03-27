@@ -180,6 +180,33 @@ module Fluent
       label_configs.each { |name, e| @labels[name].configure(e) }
       setup_error_label(error_label_config) if error_label_config
 
+      # Get umask value from system config
+      system_conf = conf.elements.find { |e| e.name == "system" }
+      if system_conf
+        if system_conf.has_key?("umask")
+          umask_str = system_conf.to_h["umask"]
+          begin
+            umask_value = Integer(umask_str, 8)  # ArgumentError for invalid octal
+            if umask_value > 0
+              File.umask(umask_value)
+              log.info "Applied umask: #{sprintf("%04o", File.umask)}"
+            end
+          rescue ArgumentError
+            raise Fluent::ConfigError, "Invalid umask value: #{umask_str} (must be valid octal)"
+          end
+        else
+          # No umask found in system config, set default
+          default_umask = 0022
+          File.umask(default_umask)
+          log.info "No umask specified in config, using default: #{sprintf("%04o", File.umask)}"
+        end
+      else
+        # No system section found, set default
+        default_umask = 0022
+        File.umask(default_umask)
+        log.info "No system section found in config, using default umask: #{sprintf("%04o", File.umask)}"
+      end
+      
       super
 
       setup_source_only_buffer_agent if @source_only_mode.enabled?
