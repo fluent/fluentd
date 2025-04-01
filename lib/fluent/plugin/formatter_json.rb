@@ -48,7 +48,10 @@ module Fluent
       end
 
       def format(tag, time, record)
-        "#{@dump_proc.call(record)}#{@newline}"
+        json_str = @dump_proc.call(record)
+        "#{json_str}#{@newline}"
+      ensure
+        json_str&.clear
       end
 
       def format_without_nl(tag, time, record)
