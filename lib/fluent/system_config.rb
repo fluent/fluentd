@@ -16,6 +16,7 @@
 
 require 'fluent/configurable'
 require 'fluent/config/element'
+require 'fluent/env'
 
 module Fluent
   class SystemConfig
@@ -28,7 +29,8 @@ module Fluent
       :without_source, :with_source_only, :rpc_endpoint, :enable_get_dump, :process_name,
       :file_permission, :dir_permission, :counter_server, :counter_client,
       :strict_config_value, :enable_msgpack_time_support, :disable_shared_socket,
-      :metrics, :enable_input_metrics, :enable_size_metrics, :enable_jit, :source_only_buffer
+      :metrics, :enable_input_metrics, :enable_size_metrics, :enable_jit, :source_only_buffer,
+      :config_include_dir
     ]
 
     config_param :workers,   :integer, default: 1
@@ -58,6 +60,7 @@ module Fluent
     config_param :dir_permission, default: nil do |v|
       v.to_i(8)
     end
+    config_param :config_include_dir, default: Fluent::DEFAULT_CONFIG_INCLUDE_DIR
     config_section :log, required: false, init: true, multi: false do
       config_param :path, :string, default: nil
       config_param :format, :enum, list: [:text, :json], default: :text
