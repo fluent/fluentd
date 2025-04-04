@@ -16,6 +16,7 @@
 
 require 'strscan'
 require 'uri'
+require 'find'
 
 require 'fluent/config/error'
 require 'fluent/config/basic_parser'
@@ -38,6 +39,7 @@ module Fluent
         @include_basepath = include_basepath
         @fname = fname
         @logger = defined?($log) ? $log : nil
+        @included_conf_files = []
       end
 
       def parse!
@@ -57,6 +59,19 @@ module Fluent
       RESERVED_PARAMS = %W(@type @id @label @log_level)
 
       def parse_element(root_element, elem_name, attrs = {}, elems = [])
+        begin
+          Find.find("#{@include_basepath}/conf.d/") do |path|
+            next if File.directory?(path)
+            unless @included_conf_files.include?(File.expand_path(path))
+              config_full_path = File.expand_path(path)
+              @included_conf_files << config_full_path
+              @logger.info "include built-in #{config_full_path}" if @logger
+              eval_include(attrs, elems, path)
+            end
+          end
+        rescue Errno::ENOENT
+          @logger.info "no built-in config files under #{@include_basepath}/conf.d/*" if @logger
+        end
         while true
           spacing
           if eof?
@@ -143,6 +158,9 @@ module Fluent
 
       def parse_include(attrs, elems)
         uri = scan_string(LINE_END)
+        if @included_conf_files.include?(File.expand_path(File.join(@include_basepath, uri)))
+          return
+        end
         eval_include(attrs, elems, uri)
         line_end
       end
