@@ -17,6 +17,7 @@
 require 'fileutils'
 require 'open3'
 require 'pathname'
+require 'find'
 
 require 'fluent/config'
 require 'fluent/counter'
@@ -805,6 +806,53 @@ module Fluent
       @system_config = build_system_config(@conf)
 
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
+
+      # merge additional configuration
+      config_type = if File.extname(@config_path) == '.yaml' || File.extname(@config_path) == '.yml'
+                      :yaml
+                    else
+                      nil
+                    end
+      if @system_config.config_include_dir&.empty?
+        $log.warn :supervisor, 'default configuration include directory was disabled'
+      else
+        begin
+          Find.find(@system_config.config_include_dir) do |path|
+            next if File.directory?(path)
+            if config_type == :yaml
+              if File.extname(path) != '.yaml' && File.extname(path) != '.yml'
+                $log.warn :supervisor, 'skip loading configuration file', path: path
+                next
+              end
+              $log.info :supervisor, 'loading additional configuration file', path: path
+              # wrap additional YAML configuration to make it parsed correctly
+              buffer = "config:\n"
+              buffer << File.readlines(path).collect do |line|
+                "  " + line.chomp
+              end.join("\n")
+              Tempfile.open do |file|
+                file.puts(buffer)
+                file.rewind
+                elements = Fluent::Config::YamlParser.parse(file.path).elements
+                @conf.merge_elements(elements)
+              end
+            else
+              if File.extname(path) == '.yaml' || File.extname(path) == '.yml'
+                $log.warn :supervisor, 'skip loading configuration file', path: path
+                next
+              end
+              $log.info :supervisor, 'loading additional configuration file', path: path
+              elements = Fluent::Config.build(config_path: path,
+                                              encoding: @conf_encoding,
+                                              use_v1_config: @use_v1_config,
+                                              type: config_type).elements
+              @conf.merge_elements(elements)
+            end
+          end
+        rescue Errno::ENOENT
+          $log.warn :supervisor, 'no default configuration include directory was disabled', path: @system_config.config_include_dir
+        end
+      end
 
       @libs.each do |lib|
         require lib

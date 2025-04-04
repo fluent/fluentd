@@ -71,6 +71,10 @@ module Fluent
         e
       end
 
+      def merge_elements(elements)
+        @elements.concat(elements)
+      end
+
       def inspect
         attrs = super
         "name:#{@name}, arg:#{@arg}, " + attrs + ", " + @elements.inspect
