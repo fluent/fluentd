@@ -1054,6 +1054,129 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
   end
 
+  sub_test_case "include additional configuration" do
+    setup do
+      @config_include_dir = File.join(@tmp_dir, "conf.d")
+      FileUtils.mkdir_p(@config_include_dir)
+    end
+
+    test "no additional configuration" do
+      c = Fluent::Config::Element.new('system', '', { 'config_include_dir' => '' }, [])
+      stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }
+      supervisor = Fluent::Supervisor.new({})
+      stub(supervisor).build_spawn_command { "dummy command line" }
+      supervisor.configure(supervisor: true)
+      assert_equal([c], supervisor.instance_variable_get(:@conf).elements)
+    end
+
+    data(
+      "single source" => ["forward"],
+      "multiple sources" => ["forward", "tcp"])
+    test "additional configuration" do |sources|
+      c = Fluent::Config::Element.new('system', '',
+                                      { 'config_include_dir' => @config_include_dir }, [])
+      config_path = "#{@config_include_dir}/dummy.conf"
+      stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
+                                 additional_config: anything, use_v1_config: anything,
+                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+      sources.each do |type|
+        config = <<~EOF
+        <source>
+          @type #{type}
+        </source>
+        EOF
+        additional_config_path = "#{@config_include_dir}/#{type}.yml"
+        write_config(additional_config_path, config)
+        stub(Fluent::Config).build(config_path: additional_config_path, encoding: "utf-8",
+                                   use_v1_config: true, type: :guess) {
+          Fluent::Config.parse(File.read(additional_config_path), File.dirname(config_path), true)
+        }
+      end
+      supervisor = Fluent::Supervisor.new({})
+      stub(supervisor).build_spawn_command { "dummy command line" }
+      supervisor.configure(supervisor: true)
+      expected = [c].concat(sources.collect { |type| {"@type" => type} })
+      assert_equal(expected, supervisor.instance_variable_get(:@conf).elements)
+    end
+
+    data(
+      "single YAML source" => ["forward"],
+      "multiple YAML sources" => ["forward", "tcp"])
+    test "additional YAML configuration" do |sources|
+      c = Fluent::Config::Element.new('system', '',
+                                      { 'config_include_dir' => @config_include_dir }, [])
+      config_path = "#{@config_include_dir}/dummy.yml"
+      stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
+                                 additional_config: anything, use_v1_config: anything,
+                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+      sources.each do |type|
+        config = <<~EOF
+        config:
+          - source:
+              $type: #{type}
+        EOF
+        additional_config_path = "#{@config_include_dir}/#{type}.yml"
+        write_config(additional_config_path, config)
+        stub(Fluent::Config).build(config_path: additional_config_path, encoding: "utf-8",
+                                   use_v1_config: true, type: :guess) {
+          Fluent::Config::YamlParser.parse(additional_config_path)
+      }
+      end
+      supervisor = Fluent::Supervisor.new({})
+      stub(supervisor).build_spawn_command { "dummy command line" }
+      supervisor.configure(supervisor: true)
+      expected = [c].concat(sources.collect { |type| {"@type" => type} })
+      assert_equal(expected, supervisor.instance_variable_get(:@conf).elements)
+    end
+
+    data(
+      "single source" => [false, ["forward"]],
+      "multiple sources" => [false, ["forward", "tcp"]],
+      "single YAML source" => [true, ["forward"]],
+      "multiple YAML sources" => [true, ["forward", "tcp"]])
+    test "reload with additional configuration" do |(yaml, sources)|
+      c = Fluent::Config::Element.new('system', '',
+                                      { 'config_include_dir' => @config_include_dir }, [])
+      config_path = "#{@config_include_dir}/dummy.yml"
+      stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
+                                 additional_config: anything, use_v1_config: anything,
+                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+      sources.each do |type|
+        if yaml
+          config = <<~EOF
+          config:
+            - source:
+                $type: #{type}
+          EOF
+          additional_config_path = "#{@config_include_dir}/#{type}.yml"
+          write_config(additional_config_path, config)
+          stub(Fluent::Config).build(config_path: additional_config_path, encoding: "utf-8",
+                                     use_v1_config: true, type: :guess) {
+            Fluent::Config::YamlParser.parse(additional_config_path)
+          }
+        else
+          config = <<~EOF
+          <source>
+            @type #{type}
+          </source>
+          EOF
+          additional_config_path = "#{@config_include_dir}/#{type}.conf"
+          write_config(additional_config_path, config)
+          stub(Fluent::Config).build(config_path: additional_config_path, encoding: "utf-8",
+                                   use_v1_config: true, type: :guess) {
+            Fluent::Config.parse(File.read(additional_config_path), File.dirname(config_path), true)
+          }
+        end
+      end
+      supervisor = Fluent::Supervisor.new({})
+      stub(supervisor).build_spawn_command { "dummy command line" }
+      supervisor.configure(supervisor: true)
+      supervisor.__send__(:reload_config)
+      expected = [c].concat(sources.collect { |type| {"@type" => type} })
+      assert_equal(expected, supervisor.instance_variable_get(:@conf).elements)
+    end
+  end
+
   def create_debug_dummy_logger
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::DEBUG
