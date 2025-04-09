@@ -271,9 +271,15 @@ module Fluent::Plugin
       end
 
       raise Fluent::ConfigError, "ack_response_timeout must be a positive integer" if @ack_response_timeout < 1
+
+      if @compress == :zstd
+        log.warn "zstd compression feature is an experimental new feature supported since v1.19.0." +
+                 " Please make sure that the destination server also supports this feature before using it." +
+                 " in_forward plugin for Fluentd supports it since v1.19.0."
+      end
+
       @healthy_nodes_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "healthy_nodes_count", help_text: "Number of count healthy nodes", prefer_gauge: true)
       @registered_nodes_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "registered_nodes_count", help_text: "Number of count registered nodes", prefer_gauge: true)
-
     end
 
     def multi_workers_ready?

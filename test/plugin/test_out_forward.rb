@@ -178,6 +178,60 @@ EOL
     assert{ logs.any?{|log| log.include?(expected_log) && log.include?(expected_detail) } }
   end
 
+  sub_test_case 'configure compress' do
+    data('default', ['', :text])
+    data('gzip', ['compress gzip', :gzip])
+    data('zstd', ['compress zstd', :zstd])
+    test 'should be applied' do |(option, expected)|
+      @d = d = create_driver(config + option)
+      node = d.instance.nodes.first
+
+      assert_equal(
+        [expected, expected],
+        [d.instance.compress, node.instance_variable_get(:@compress)]
+      )
+    end
+
+    data('default' => '')
+    data('gzip' => 'compress gzip')
+    data('zstd' => 'compress zstd')
+    test 'should log as experimental only for zstd' do |option|
+      @d = d = create_driver(config + option)
+
+      log_message = "zstd compression feature is an experimental new feature"
+      assert do
+        if d.instance.compress == :zstd
+          d.logs.any? { |log| log.include?(log_message) }
+        else
+          d.logs.none? { |log| log.include?(log_message) }
+        end
+      end
+    end
+
+    # TODO add tests that we cannot configure the different compress type between owner and buffer except for :text
+    data('gzip', ['compress gzip', :text, :gzip])
+    data('zstd', ['compress zstd', :text, :zstd])
+    test 'can configure buffer compress separately when owner uses :text' do |(buffer_option, expected_owner_compress, expected_buffer_compress)|
+      @d = d = create_driver(config + %[
+         <buffer>
+           type memory
+           #{buffer_option}
+         </buffer>
+       ])
+      node = d.instance.nodes.first
+
+      assert_equal(
+        [expected_owner_compress, expected_owner_compress, expected_buffer_compress],
+        [d.instance.compress, node.instance_variable_get(:@compress), d.instance.buffer.compress],
+      )
+
+      log_message = "buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>"
+      assert do
+        d.logs.any? { |log| log.include?(log_message) }
+      end
+    end
+  end
+
   data('CA cert'     => 'tls_ca_cert_path',
        'non CA cert' => 'tls_cert_path')
   test 'configure tls_cert_path/tls_ca_cert_path' do |param|
@@ -324,66 +378,6 @@ EOL
     assert_equal 1, d.instance.discovery_manager.services.size
     assert_equal '127.0.0.1', d.instance.discovery_manager.services[0].host
     assert_equal 1234, d.instance.discovery_manager.services[0].port
-  end
-
-  test 'compress_default_value' do
-    @d = d = create_driver
-    assert_equal :text, d.instance.compress
-
-    node = d.instance.nodes.first
-    assert_equal :text, node.instance_variable_get(:@compress)
-  end
-
-  test 'set_compress_is_gzip' do
-    @d = d = create_driver(config + %[compress gzip])
-    assert_equal :gzip, d.instance.compress
-    assert_equal :gzip, d.instance.buffer.compress
-
-    node = d.instance.nodes.first
-    assert_equal :gzip, node.instance_variable_get(:@compress)
-  end
-
-  test 'set_compress_is_zstd' do
-    @d = d = create_driver(config + %[compress zstd])
-    assert_equal :zstd, d.instance.compress
-    assert_equal :zstd, d.instance.buffer.compress
-
-    node = d.instance.nodes.first
-    assert_equal :zstd, node.instance_variable_get(:@compress)
-  end
-
-  test 'set_compress_is_gzip_in_buffer_section' do
-    mock = flexmock($log)
-    mock.should_receive(:log).with("buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>")
-
-    @d = d = create_driver(config + %[
-       <buffer>
-         type memory
-         compress gzip
-       </buffer>
-     ])
-    assert_equal :text, d.instance.compress
-    assert_equal :gzip, d.instance.buffer.compress
-
-    node = d.instance.nodes.first
-    assert_equal :text, node.instance_variable_get(:@compress)
-  end
-
-  test 'set_compress_is_zstd_in_buffer_section' do
-    mock = flexmock($log)
-    mock.should_receive(:log).with("buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>")
-
-    @d = d = create_driver(config + %[
-       <buffer>
-         type memory
-         compress zstd
-       </buffer>
-     ])
-    assert_equal :text, d.instance.compress
-    assert_equal :zstd, d.instance.buffer.compress
-
-    node = d.instance.nodes.first
-    assert_equal :text, node.instance_variable_get(:@compress)
   end
 
   test 'phi_failure_detector disabled' do
