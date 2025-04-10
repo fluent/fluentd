@@ -531,12 +531,12 @@ module Fluent::Plugin
         @env['REMOTE_ADDR'] = @remote_addr if @remote_addr
 
         uri = URI.parse(@parser.request_url)
-        params = WEBrick::HTTPUtils.parse_query(uri.query)
+        params = parse_query(uri.query)
 
         if @format_name != 'default'
           params[EVENT_RECORD_PARAMETER] = @body
         elsif /^application\/x-www-form-urlencoded/.match?(@content_type)
-          params.update WEBrick::HTTPUtils.parse_query(@body)
+          params.update parse_query(@body)
         elsif @content_type =~ /^multipart\/form-data; boundary=(.+)/
           boundary = WEBrick::HTTPUtils.dequote($1)
           params.update WEBrick::HTTPUtils.parse_form_data(@body, boundary)
@@ -553,7 +553,7 @@ module Fluent::Plugin
 
         if (@add_query_params)
 
-          query_params = WEBrick::HTTPUtils.parse_query(uri.query)
+          query_params = parse_query(uri.query)
 
           query_params.each_pair {|k,v|
             params["QUERY_#{k.tr('-','_').upcase}"] = v
@@ -642,6 +642,10 @@ module Fluent::Plugin
         end
 
         !r.nil?
+      end
+
+      def parse_query(query)
+        query.nil? ? {} : Hash[URI.decode_www_form(query, Encoding::ASCII_8BIT)]
       end
     end
   end
