@@ -14,16 +14,9 @@
 #    limitations under the License.
 #
 
-begin
-  require 'async'
-  require 'fluent/plugin_helper/http_server/server'
-rescue LoadError => _
-  require 'fluent/plugin_helper/http_server/compat/server'
-  Fluent::PluginHelper::HttpServer::Server = Fluent::PluginHelper::HttpServer::Compat::Server
-end
-
 require 'fluent/plugin_helper/thread'
 require 'fluent/plugin_helper/server' # For Server::ServerTransportParams
+require 'fluent/plugin_helper/http_server/server'
 require 'fluent/plugin_helper/http_server/ssl_context_builder'
 
 module Fluent

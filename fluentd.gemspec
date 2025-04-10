@@ -35,6 +35,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("webrick", ["~> 1.4"])
   gem.add_runtime_dependency("zstd-ruby", ["~> 1.5"])
   gem.add_runtime_dependency("uri", '~> 1.0')
+  gem.add_runtime_dependency("async-http", "~> 0.86")
 
   # gems that aren't default gems as of Ruby 3.4
   gem.add_runtime_dependency("base64", ["~> 0.2"])
@@ -68,7 +69,6 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency("test-unit", ["~> 3.3"])
   gem.add_development_dependency("test-unit-rr", ["~> 1.0"])
   gem.add_development_dependency("oj", [">= 2.14", "< 4"])
-  gem.add_development_dependency("async-http", "~> 0.86")
   gem.add_development_dependency("console", "~> 1.30")
   gem.add_development_dependency("aws-sigv4", ["~> 1.8"])
   gem.add_development_dependency("aws-sdk-core", ["~> 3.191"])
