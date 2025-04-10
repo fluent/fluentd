@@ -11,6 +11,7 @@ on:
     paths-ignore:
       - '*.md'
       - 'lib/fluent/version.rb'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.head_ref || github.sha }}-${{ github.workflow }}
