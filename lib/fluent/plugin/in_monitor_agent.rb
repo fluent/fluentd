@@ -15,7 +15,6 @@
 #
 
 require 'json'
-require 'webrick'
 require 'cgi'
 
 require 'fluent/config/types'
