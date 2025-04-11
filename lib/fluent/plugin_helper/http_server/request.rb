@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'cgi'
 require 'async/http/protocol'
 require 'fluent/plugin_helper/http_server/methods'
 
@@ -27,6 +28,10 @@ module Fluent
           @request = request
           path = request.path
           @path, @query_string = path.split('?', 2)
+        end
+
+        def headers
+          @request.headers
         end
 
         def query
