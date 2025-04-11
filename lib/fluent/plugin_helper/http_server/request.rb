@@ -29,6 +29,10 @@ module Fluent
           @path, @query_string = path.split('?', 2)
         end
 
+        def headers
+          @request.headers
+        end
+
         def query
           @query_string && CGI.parse(@query_string)
         end
