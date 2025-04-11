@@ -50,6 +50,10 @@ EOT
         end
       end
 
+      def event_time_without_nsec(str=nil, format: nil)
+        Fluent::EventTime.new(event_time(str, format: format))
+      end
+
       def with_timezone(tz)
         oldtz, ENV['TZ'] = ENV['TZ'], tz
         yield
