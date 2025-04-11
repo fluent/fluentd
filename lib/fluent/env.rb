@@ -24,6 +24,7 @@ module Fluent
   DEFAULT_PLUGIN_DIR = ENV['FLUENT_PLUGIN'] || '/etc/fluent/plugin'
   DEFAULT_SOCKET_PATH = ENV['FLUENT_SOCKET'] || '/var/run/fluent/fluent.sock'
   DEFAULT_BACKUP_DIR = ENV['FLUENT_BACKUP_DIR'] || '/tmp/fluent'
+  DEFAULT_CONFIG_DIR = ENV['FLUENT_CONF_DIR'] || '/etc/fluent/conf.d'
   DEFAULT_OJ_OPTIONS = Fluent::OjOptions.load_env
   DEFAULT_DIR_PERMISSION = 0755
   DEFAULT_FILE_PERMISSION = 0644
