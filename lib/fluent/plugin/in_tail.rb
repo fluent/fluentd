@@ -253,7 +253,7 @@ module Fluent::Plugin
         FileUtils.mkdir_p(pos_file_dir, mode: @dir_perm) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
-        @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths, logger: log)
+        @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths(true), logger: log)
 
         if @pos_file_compaction_interval
           timer_execute(:in_tail_refresh_compact_pos_file, @pos_file_compaction_interval) do
@@ -321,7 +321,7 @@ module Fluent::Plugin
       end
     end
 
-    def expand_paths
+    def expand_paths(check_permission = false)
       date = Fluent::EventTime.now
       paths = []
       @paths.each { |path|
@@ -370,7 +370,17 @@ module Fluent::Plugin
       # filter out non existing files, so in case pattern is without '*' we don't do unnecessary work
       hash = {}
       (paths - excluded).select { |path|
-        FileTest.exist?(path)
+        if check_permission && !File.readable?(path)
+          inaccessible_dir = Pathname.new(File.expand_path(path))
+            .ascend
+            .to_a
+            .reverse
+            .find { |p| p.directory? && !p.executable? }
+          if inaccessible_dir
+            $log.warn "Skip #{path} because '#{inaccessible_dir}' lacks execute permission."
+          end
+        end
+        File.exist?(path)
       }.each { |path|
         # Even we just checked for existence, there is a race condition here as
         # of which stat() might fail with ENOENT. See #3224.
