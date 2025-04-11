@@ -2609,7 +2609,8 @@ class TailInputTest < Test::Unit::TestCase
       assert_nothing_raised do
         d.run(shutdown: false) {}
       end
-      assert($log.out.logs.any?{|log| log.include?("Skip #{path} because a directory in the path lacks execute permission.\n") })
+      fname = File.expand_path("#{@tmp_dir}/noaccess")
+      assert($log.out.logs.any?{|log| log.include?("Skip #{path} because '#{fname}' lacks execute permission.\n") })
     end
   ensure
     d.instance_shutdown if d && d.instance
@@ -2635,7 +2636,8 @@ class TailInputTest < Test::Unit::TestCase
       assert_nothing_raised do
         d.run(shutdown: false) {}
       end
-      assert($log.out.logs.all?{|log| !log.include?("Skip #{path} because a directory in the path lacks execute permission.\n") })
+      fname = File.expand_path("#{@tmp_dir}/noaccess")
+      assert($log.out.logs.all?{|log| !log.include?("Skip #{path} because '#{fname}' lacks execute permission.\n") })
     end
   ensure
     d.instance_shutdown if d && d.instance

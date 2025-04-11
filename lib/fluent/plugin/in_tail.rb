@@ -370,20 +370,17 @@ module Fluent::Plugin
       # filter out non existing files, so in case pattern is without '*' we don't do unnecessary work
       hash = {}
       (paths - excluded).select { |path|
-        if check_permission && !FileTest.readable?(path)
-          is_bad_permission = begin
-            current_path = File.expand_path(path)
-            loop do
-              current_path = File.dirname(current_path)
-              break true unless FileTest.executable?(current_path)
-              break false if current_path == "/"
-            end
-          end
-          if is_bad_permission
-            $log.warn "Skip #{path} because a directory in the path lacks execute permission."
+        if check_permission && !File.readable?(path)
+          inaccessible_dir = Pathname.new(File.expand_path(path))
+            .ascend
+            .to_a
+            .reverse
+            .find { |p| p.directory? && !p.executable? }
+          if inaccessible_dir
+            $log.warn "Skip #{path} because '#{inaccessible_dir}' lacks execute permission."
           end
         end
-        FileTest.exist?(path)
+        File.exist?(path)
       }.each { |path|
         # Even we just checked for existence, there is a race condition here as
         # of which stat() might fail with ENOENT. See #3224.
