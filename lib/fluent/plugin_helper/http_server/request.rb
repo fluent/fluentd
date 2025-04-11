@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'cgi'
 require 'async/http/protocol'
 require 'fluent/plugin_helper/http_server/methods'
 
