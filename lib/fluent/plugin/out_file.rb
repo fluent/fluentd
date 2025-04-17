@@ -17,6 +17,7 @@
 require 'fileutils'
 require 'zlib'
 require 'time'
+require 'pathname'
 
 require 'fluent/plugin/output'
 require 'fluent/config/error'
@@ -97,7 +98,8 @@ module Fluent::Plugin
         if chunk.metadata == @latest_metadata
           sym_path = @_output_plugin_for_symlink.extract_placeholders(@_symlink_path, chunk)
           FileUtils.mkdir_p(File.dirname(sym_path), mode: @_output_plugin_for_symlink.dir_perm)
-          FileUtils.ln_sf(chunk.path, sym_path)
+          relative_path = Pathname.new(chunk.path).relative_path_from(Pathname.new(File.dirname(sym_path)))
+          FileUtils.ln_sf(relative_path, sym_path)
         end
         chunk
       end
