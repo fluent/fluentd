@@ -20,6 +20,11 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.license = "Apache-2.0"
 
+  gem.metadata["homepage_uri"] = gem.homepage
+  gem.metadata["source_code_uri"] = "https://github.com/fluent/fluentd"
+  gem.metadata["changelog_uri"] = "https://github.com/fluent/fluentd/blob/master/CHANGELOG.md"
+  gem.metadata["bug_tracker_uri"] = "https://github.com/fluent/fluentd/issues"
+
   gem.required_ruby_version = '>= 3.2'
 
   gem.add_runtime_dependency("bundler")
