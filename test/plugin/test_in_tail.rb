@@ -2593,6 +2593,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_warn_without_directory_permission
     omit "Cannot test with root user" if Process::UID.eid == 0
+    omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
     path = "#{@tmp_dir}/noaccess/tail.txt"
     begin
       FileUtils.mkdir_p("#{@tmp_dir}/noaccess")
@@ -2606,22 +2607,16 @@ class TailInputTest < Test::Unit::TestCase
                                 "pos_file" => "#{@tmp_dir}/tail.pos",
                               })
       d = create_driver(config, false)
-      assert_nothing_raised do
-        d.run(shutdown: false) {}
-      end
       fname = File.expand_path("#{@tmp_dir}/noaccess")
       assert($log.out.logs.any?{|log| log.include?("Skip #{path} because '#{fname}' lacks execute permission.\n") })
     end
   ensure
     d.instance_shutdown if d && d.instance
-    FileUtils.chmod(0755, "#{@tmp_dir}/noaccess")
-    if File.exist?("#{@tmp_dir}/noaccess")
-      FileUtils.rm_rf("#{@tmp_dir}/noaccess")
-    end
-  end unless Fluent.windows?
+  end
 
   def test_no_warn_with_directory_permission
     omit "Cannot test with root user" if Process::UID.eid == 0
+    omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
     path = "#{@tmp_dir}/noaccess/tail.txt"
     begin
       FileUtils.mkdir_p("#{@tmp_dir}/noaccess")
@@ -2633,19 +2628,12 @@ class TailInputTest < Test::Unit::TestCase
                                 "pos_file" => "#{@tmp_dir}/tail.pos",
                               })
       d = create_driver(config, false)
-      assert_nothing_raised do
-        d.run(shutdown: false) {}
-      end
       fname = File.expand_path("#{@tmp_dir}/noaccess")
       assert($log.out.logs.all?{|log| !log.include?("Skip #{path} because '#{fname}' lacks execute permission.\n") })
     end
   ensure
     d.instance_shutdown if d && d.instance
-    FileUtils.chmod(0755, "#{@tmp_dir}/noaccess")
-    if File.exist?("#{@tmp_dir}/noaccess")
-      FileUtils.rm_rf("#{@tmp_dir}/noaccess")
-    end
-  end unless Fluent.windows?
+  end
 
   def test_shutdown_timeout
     Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|

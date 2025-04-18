@@ -165,6 +165,7 @@ module Fluent::Plugin
         @path_formatters = @paths.map{|path| [path, Fluent::Timezone.formatter(@path_timezone, path)]}.to_h
         @exclude_path_formatters = @exclude_path.map{|path| [path, Fluent::Timezone.formatter(@path_timezone, path)]}.to_h
       end
+      check_dir_permission
 
       # TODO: Use plugin_root_dir and storage plugin to store positions if available
       if @pos_file
@@ -212,6 +213,20 @@ module Fluent::Plugin
       @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics)
     end
 
+    def check_dir_permission
+      expand_paths_raw.select { |path|
+        if !File.readable?(path)
+          inaccessible_dir = Pathname.new(File.expand_path(path))
+            .ascend
+            .reverse_each
+            .find { |p| p.directory? && !p.executable? }
+          if inaccessible_dir
+            $log.warn "Skip #{path} because '#{inaccessible_dir}' lacks execute permission."
+          end
+        end
+      }
+    end
+
     def configure_tag
       if @tag.index('*')
         @tag_prefix, @tag_suffix = @tag.split('*')
@@ -253,7 +268,7 @@ module Fluent::Plugin
         FileUtils.mkdir_p(pos_file_dir, mode: @dir_perm) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
-        @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths(true), logger: log)
+        @pf = PositionFile.load(@pf_file, @follow_inodes, expand_paths, logger: log)
 
         if @pos_file_compaction_interval
           timer_execute(:in_tail_refresh_compact_pos_file, @pos_file_compaction_interval) do
@@ -321,7 +336,7 @@ module Fluent::Plugin
       end
     end
 
-    def expand_paths(check_permission = false)
+    def expand_paths_raw
       date = Fluent::EventTime.now
       paths = []
       @paths.each { |path|
@@ -367,19 +382,13 @@ module Fluent::Plugin
                end
         use_glob?(path) ? Dir.glob(path) : path
       }.flatten.uniq
+      paths - excluded
+    end
+
+    def expand_paths
       # filter out non existing files, so in case pattern is without '*' we don't do unnecessary work
       hash = {}
-      (paths - excluded).select { |path|
-        if check_permission && !File.readable?(path)
-          inaccessible_dir = Pathname.new(File.expand_path(path))
-            .ascend
-            .to_a
-            .reverse
-            .find { |p| p.directory? && !p.executable? }
-          if inaccessible_dir
-            $log.warn "Skip #{path} because '#{inaccessible_dir}' lacks execute permission."
-          end
-        end
+      expand_paths_raw.select { |path|
         File.exist?(path)
       }.each { |path|
         # Even we just checked for existence, there is a race condition here as
