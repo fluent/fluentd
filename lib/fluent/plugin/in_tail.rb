@@ -215,7 +215,7 @@ module Fluent::Plugin
 
     def check_dir_permission
       expand_paths_raw.select { |path|
-        if !File.readable?(path)
+        if !File.exist?(path)
           inaccessible_dir = Pathname.new(File.expand_path(path))
             .ascend
             .reverse_each
