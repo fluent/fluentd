@@ -48,6 +48,8 @@ begin
   end
 
   class FluentdService < Daemon
+    ERROR_WAIT_NO_CHILDREN = 128
+
     @pid = 0
     @service_name = ''
 
@@ -57,18 +59,21 @@ begin
     
     def service_main
       @pid = service_main_start(@service_name)
-      while running?
-        sleep 10
+      begin
+        loop do
+          sleep 5
+          break unless running?
+          raise Errno::ECHILD unless Process.waitpid2(@pid, Process::WNOHANG)
+        end
+      rescue Errno::ECHILD
+        @pid = 0
+        SetEvent(@@hStopEvent)
+        SetTheServiceStatus.call(SERVICE_STOPPED, ERROR_WAIT_NO_CHILDREN, 0, 0)
       end
     end
 
     def service_stop
-      if @pid <= 0
-        set_event(@service_name)
-        return
-      end
-
-      wait_supervisor_finished
+      wait_supervisor_finished if @pid > 0
     end
 
     def service_paramchange
