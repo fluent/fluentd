@@ -1561,7 +1561,7 @@ CONF
     test "disable additional configuration directory" do
       conf_path = create_config_include_dir_configuration("disabled_config_include_dir.conf", "")
       assert_log_matches(create_cmdline(conf_path),
-                         "[info]: default configuration include directory was disabled")
+                         "[info]: configuration include directory is disabled")
     end
 
     test "inaccessible include directory error" do
@@ -1589,7 +1589,7 @@ CONF
     test "disable additional configuration directory" do
       conf_path = create_config_include_dir_configuration("disabled_config_include_dir.yml", "", true)
       assert_log_matches(create_cmdline(conf_path),
-                         "[info]: default configuration include directory was disabled")
+                         "[info]: configuration include directory is disabled")
     end
 
     test "inaccessible include directory error" do
