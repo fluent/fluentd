@@ -1207,7 +1207,7 @@ module Fluent
 
     def build_additional_configurations
       if @system_config.config_include_dir&.empty?
-        $log.info :supervisor, 'default configuration include directory was disabled'
+        $log.info :supervisor, 'configuration include directory is disabled'
         return
       end
       begin
@@ -1218,9 +1218,9 @@ module Fluent
           # Thus, it does not care whether @config_path is .conf or .yml.
           $log.info :supervisor, 'loading additional configuration file', path: path
           yield Fluent::Config.build(config_path: path,
-                                         encoding: @conf_encoding,
-                                         use_v1_config: @use_v1_config,
-                                         type: :guess)
+                                     encoding: @conf_encoding,
+                                     use_v1_config: @use_v1_config,
+                                     type: :guess)
         end
       rescue Errno::ENOENT
         $log.info :supervisor, 'inaccessible include directory was specified', path: @system_config.config_include_dir
