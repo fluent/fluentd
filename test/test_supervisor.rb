@@ -1064,7 +1064,6 @@ class SupervisorTest < ::Test::Unit::TestCase
       c = Fluent::Config::Element.new('system', '', { 'config_include_dir' => '' }, [])
       stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }
       supervisor = Fluent::Supervisor.new({})
-      stub(supervisor).build_spawn_command { "dummy command line" }
       supervisor.configure(supervisor: true)
       assert_equal([c], supervisor.instance_variable_get(:@conf).elements)
     end
@@ -1093,7 +1092,6 @@ class SupervisorTest < ::Test::Unit::TestCase
         }
       end
       supervisor = Fluent::Supervisor.new({})
-      stub(supervisor).build_spawn_command { "dummy command line" }
       supervisor.configure(supervisor: true)
       expected = [c].concat(sources.collect { |type| {"@type" => type} })
       assert_equal(expected, supervisor.instance_variable_get(:@conf).elements)
@@ -1123,7 +1121,6 @@ class SupervisorTest < ::Test::Unit::TestCase
       }
       end
       supervisor = Fluent::Supervisor.new({})
-      stub(supervisor).build_spawn_command { "dummy command line" }
       supervisor.configure(supervisor: true)
       expected = [c].concat(sources.collect { |type| {"@type" => type} })
       assert_equal(expected, supervisor.instance_variable_get(:@conf).elements)
@@ -1169,7 +1166,6 @@ class SupervisorTest < ::Test::Unit::TestCase
         end
       end
       supervisor = Fluent::Supervisor.new({})
-      stub(supervisor).build_spawn_command { "dummy command line" }
       supervisor.configure(supervisor: true)
       supervisor.__send__(:reload_config)
       expected = [c].concat(sources.collect { |type| {"@type" => type} })
