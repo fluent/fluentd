@@ -73,7 +73,7 @@ module Fluent
 
       def inspect
         attrs = super
-        "name:#{@name}, arg:#{@arg}, " + attrs + ", " + @elements.inspect
+        "<name:#{@name}, arg:#{@arg}, attrs:" + attrs + ", elements:" + @elements.inspect + ">"
       end
 
       # Used by PP and Pry

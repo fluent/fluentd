@@ -280,7 +280,7 @@ CONF
                    element('test', 'ext', {'k2' => 'v2'}, [])
                   ])
       dump = <<-CONF
-name:ROOT, arg:, {\"k1\"=>\"v1\"}, [name:test, arg:ext, {\"k2\"=>\"v2\"}, []]
+<name:ROOT, arg:, attrs:{\"k1\"=>\"v1\"}, elements:[<name:test, arg:ext, attrs:{\"k2\"=>\"v2\"}, elements:[]>]>
 CONF
       assert_not_equal(e.to_s, e.inspect.gsub(' => ', '=>'))
       assert_equal(dump.chomp, e.inspect.gsub(' => ', '=>'))
