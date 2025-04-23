@@ -1075,6 +1075,7 @@ class SupervisorTest < ::Test::Unit::TestCase
       c = Fluent::Config::Element.new('system', '',
                                       { 'config_include_dir' => @config_include_dir }, [])
       config_path = "#{@config_include_dir}/dummy.conf"
+      stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
                                  type: anything) { config_element('ROOT', '', {}, [c]) }
@@ -1084,12 +1085,8 @@ class SupervisorTest < ::Test::Unit::TestCase
           @type #{type}
         </source>
         EOF
-        additional_config_path = "#{@config_include_dir}/#{type}.yml"
+        additional_config_path = "#{@config_include_dir}/#{type}.conf"
         write_config(additional_config_path, config)
-        stub(Fluent::Config).build(config_path: additional_config_path, encoding: "utf-8",
-                                   use_v1_config: true, type: :guess) {
-          Fluent::Config.parse(File.read(additional_config_path), File.dirname(config_path), true)
-        }
       end
       supervisor = Fluent::Supervisor.new({})
       supervisor.configure(supervisor: true)
@@ -1104,6 +1101,7 @@ class SupervisorTest < ::Test::Unit::TestCase
       c = Fluent::Config::Element.new('system', '',
                                       { 'config_include_dir' => @config_include_dir }, [])
       config_path = "#{@config_include_dir}/dummy.yml"
+      stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
                                  type: anything) { config_element('ROOT', '', {}, [c]) }
@@ -1115,10 +1113,6 @@ class SupervisorTest < ::Test::Unit::TestCase
         EOF
         additional_config_path = "#{@config_include_dir}/#{type}.yml"
         write_config(additional_config_path, config)
-        stub(Fluent::Config).build(config_path: additional_config_path, encoding: "utf-8",
-                                   use_v1_config: true, type: :guess) {
-          Fluent::Config::YamlParser.parse(additional_config_path)
-      }
       end
       supervisor = Fluent::Supervisor.new({})
       supervisor.configure(supervisor: true)
@@ -1135,6 +1129,7 @@ class SupervisorTest < ::Test::Unit::TestCase
       c = Fluent::Config::Element.new('system', '',
                                       { 'config_include_dir' => @config_include_dir }, [])
       config_path = "#{@config_include_dir}/dummy.yml"
+      stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
                                  type: anything) { config_element('ROOT', '', {}, [c]) }
@@ -1147,10 +1142,6 @@ class SupervisorTest < ::Test::Unit::TestCase
           EOF
           additional_config_path = "#{@config_include_dir}/#{type}.yml"
           write_config(additional_config_path, config)
-          stub(Fluent::Config).build(config_path: additional_config_path, encoding: "utf-8",
-                                     use_v1_config: true, type: :guess) {
-            Fluent::Config::YamlParser.parse(additional_config_path)
-          }
         else
           config = <<~EOF
           <source>
@@ -1159,10 +1150,6 @@ class SupervisorTest < ::Test::Unit::TestCase
           EOF
           additional_config_path = "#{@config_include_dir}/#{type}.conf"
           write_config(additional_config_path, config)
-          stub(Fluent::Config).build(config_path: additional_config_path, encoding: "utf-8",
-                                   use_v1_config: true, type: :guess) {
-            Fluent::Config.parse(File.read(additional_config_path), File.dirname(config_path), true)
-          }
         end
       end
       supervisor = Fluent::Supervisor.new({})
