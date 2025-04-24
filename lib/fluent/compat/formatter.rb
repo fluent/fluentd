@@ -101,6 +101,12 @@ module Fluent
 
       class CsvFormatter < Fluent::Plugin::CsvFormatter
         # TODO: warn when deprecated
+
+        # Do not cache because it is hard to consider the thread key correctly.
+        # (We can try, but it would be low priority.)
+        def csv_cacheable?
+          false
+        end
       end
 
       class SingleValueFormatter < Fluent::Plugin::SingleValueFormatter
