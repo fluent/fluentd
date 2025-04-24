@@ -1536,4 +1536,76 @@ CONF
       end_thread&.kill
     end
   end
+
+  def create_config_include_dir_configuration(config_path, config_dir, yaml_format = false)
+    if yaml_format
+      conf = <<CONF
+      system:
+        config_include_dir: "#{config_dir}"
+CONF
+    else
+      conf = <<CONF
+      <system>
+        config_include_dir #{config_dir}
+      </system>
+CONF
+    end
+    create_conf_file(config_path, conf)
+  end
+
+  sub_test_case "test additional configuration directory" do
+    setup do
+      FileUtils.mkdir_p(File.join(@tmp_dir, "conf.d"))
+    end
+
+    test "disable additional configuration directory" do
+      conf_path = create_config_include_dir_configuration("disabled_config_include_dir.conf", "")
+      assert_log_matches(create_cmdline(conf_path),
+                         "[info]: configuration include directory is disabled")
+    end
+
+    test "inaccessible include directory error" do
+      conf_path = create_config_include_dir_configuration("inaccessible_include.conf", "/nonexistent")
+      assert_log_matches(create_cmdline(conf_path),
+                         "[info]: inaccessible include directory was specified")
+    end
+
+    data("include additional configuration with relative conf.d" => {"relative_path" => true},
+         "include additional configuration with full-path conf.d" => {"relative_path" => false})
+    test "additional configuration file (conf.d/child.conf) was loaded" do |option|
+      conf_dir = option["relative_path"] ? "conf.d" : "#{@tmp_dir}/conf.d"
+      conf_path = create_config_include_dir_configuration("parent.conf", conf_dir)
+      create_conf_file('conf.d/child.conf', "")
+      assert_log_matches(create_cmdline(conf_path),
+                         "[info]: loading additional configuration file path=\"#{conf_dir}/child.conf\"")
+    end
+  end
+
+  sub_test_case "test additional configuration directory (YAML)" do
+    setup do
+      FileUtils.mkdir_p(File.join(@tmp_dir, "conf.d"))
+    end
+
+    test "disable additional configuration directory" do
+      conf_path = create_config_include_dir_configuration("disabled_config_include_dir.yml", "", true)
+      assert_log_matches(create_cmdline(conf_path),
+                         "[info]: configuration include directory is disabled")
+    end
+
+    test "inaccessible include directory error" do
+      conf_path = create_config_include_dir_configuration("inaccessible_include.yml", "/nonexistent", true)
+      assert_log_matches(create_cmdline(conf_path),
+                         "[info]: inaccessible include directory was specified")
+    end
+
+    data("include additional YAML configuration with relative conf.d" => {"relative_path" => true},
+         "include additional YAML configuration with full path conf.d" => {"relative_path" => false})
+    test "additional relative configuration file (conf.d/child.yml) was loaded" do |option|
+      conf_dir = option["relative_path"] ? "conf.d" : "#{@tmp_dir}/conf.d"
+      conf_path = create_config_include_dir_configuration("parent.yml", conf_dir, true)
+      create_conf_file('conf.d/child.yml', "")
+      assert_log_matches(create_cmdline(conf_path),
+                         "[info]: loading additional configuration file path=\"#{conf_dir}/child.yml\"")
+    end
+  end
 end

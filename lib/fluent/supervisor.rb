@@ -17,6 +17,7 @@
 require 'fileutils'
 require 'open3'
 require 'pathname'
+require 'find'
 
 require 'fluent/config'
 require 'fluent/counter'
@@ -806,6 +807,10 @@ module Fluent
 
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
 
+      build_additional_configurations do |additional_conf|
+        @conf += additional_conf
+      end
+
       @libs.each do |lib|
         require lib
       end
@@ -1090,6 +1095,10 @@ module Fluent
             type: @config_file_type,
           )
 
+          build_additional_configurations do |additional_conf|
+            conf += additional_conf
+          end
+
           Fluent::VariableStore.try_to_reset do
             Fluent::Engine.reload_config(conf)
           end
@@ -1194,6 +1203,28 @@ module Fluent
       end
       system_config.overwrite_variables(**opt)
       system_config
+    end
+
+    def build_additional_configurations
+      if @system_config.config_include_dir&.empty?
+        $log.info :supervisor, 'configuration include directory is disabled'
+        return
+      end
+      begin
+        Find.find(@system_config.config_include_dir) do |path|
+          next if File.directory?(path)
+          next unless [".conf", ".yaml", ".yml"].include?(File.extname(path))
+          # NOTE: both types of normal config (.conf) and YAML will be loaded.
+          # Thus, it does not care whether @config_path is .conf or .yml.
+          $log.info :supervisor, 'loading additional configuration file', path: path
+          yield Fluent::Config.build(config_path: path,
+                                     encoding: @conf_encoding,
+                                     use_v1_config: @use_v1_config,
+                                     type: :guess)
+        end
+      rescue Errno::ENOENT
+        $log.info :supervisor, 'inaccessible include directory was specified', path: @system_config.config_include_dir
+      end
     end
 
     RUBY_ENCODING_OPTIONS_REGEX = %r{\A(-E|--encoding=|--internal-encoding=|--external-encoding=)}.freeze
