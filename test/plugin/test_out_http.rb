@@ -81,7 +81,7 @@ class HTTPOutputTest < Test::Unit::TestCase
       case req['content-encoding']
       when 'gzip'
         body = Zlib::GzipReader.new(StringIO.new(req.body)).read
-      else 
+      else
         body = req.body
       end
 

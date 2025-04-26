@@ -796,7 +796,7 @@ class ParserFilterTest < Test::Unit::TestCase
 
       # replace_invalid_sequence should not applied
       run_and_assert(
-        driver, 
+        driver,
         records: [{'data' => '{"foo":"bar"}'}],
         expected_records: [],
         expected_error_records: [{'data' => '{"foo":"bar"}'}],
