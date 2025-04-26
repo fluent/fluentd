@@ -580,7 +580,7 @@ class LogTest < Test::Unit::TestCase
     logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
     log = Fluent::Log.new(logger)
     log.enable_event(true)
-    engine = log.instance_variable_get("@engine")
+    engine = log.instance_variable_get(:@engine)
     mock(engine).push_log_event(anything, anything, anything).once
     log.trace "trace log"
     log.disable_events(Thread.current)
@@ -728,7 +728,7 @@ class PluginLoggerTest < Test::Unit::TestCase
 
   def test_initialize
     log = Fluent::PluginLogger.new(@logger)
-    logger = log.instance_variable_get("@logger")
+    logger = log.instance_variable_get(:@logger)
     assert_equal(logger, @logger)
   end
 

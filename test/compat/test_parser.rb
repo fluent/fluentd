@@ -86,7 +86,7 @@ class TextParserTest < ::Test::Unit::TestCase
   def test_regexp_parser_config(options)
     source = "(?<test>.*)"
     parser = Fluent::TextParser::RegexpParser.new(Regexp.new(source, options), { "dummy" => "dummy" })
-    regexp = parser.instance_variable_get("@regexp")
+    regexp = parser.instance_variable_get(:@regexp)
     assert_equal(options, regexp.options)
   end
 end
