@@ -1211,9 +1211,10 @@ module Fluent
         return
       end
       begin
+        supported_suffixes = [".conf", ".yaml", ".yml"]
         Find.find(@system_config.config_include_dir) do |path|
           next if File.directory?(path)
-          next unless [".conf", ".yaml", ".yml"].include?(File.extname(path))
+          next unless supported_suffixes.include?(File.extname(path))
           # NOTE: both types of normal config (.conf) and YAML will be loaded.
           # Thus, it does not care whether @config_path is .conf or .yml.
           $log.info :supervisor, 'loading additional configuration file', path: path

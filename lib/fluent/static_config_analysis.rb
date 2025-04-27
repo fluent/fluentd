@@ -72,6 +72,7 @@ module Fluent
       available_worker_ids = [*0...@workers]
 
       ret = []
+      supported_directives = %w[source match filter label]
       conf.elements(name: 'worker').each do |config|
         ids = parse_worker_id(config)
         ids.each do |id|
@@ -83,7 +84,7 @@ module Fluent
         end
 
         config.elements.each do |elem|
-          unless %w[source match filter label].include?(elem.name)
+          unless supported_directives.include?(elem.name)
             raise Fluent::ConfigError, "<worker> section cannot have <#{elem.name}> directive"
           end
         end

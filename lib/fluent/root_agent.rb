@@ -103,6 +103,7 @@ module Fluent
       used_worker_ids = []
       available_worker_ids = (0..Fluent::Engine.system_config.workers - 1).to_a
       # initialize <worker> elements
+      supported_directives = ['source', 'match', 'filter', 'label']
       conf.elements(name: 'worker').each do |e|
         target_worker_id_str = e.arg
         if target_worker_id_str.empty?
@@ -131,7 +132,7 @@ module Fluent
             used_worker_ids << target_worker_id
 
             e.elements.each do |elem|
-              unless ['source', 'match', 'filter', 'label'].include?(elem.name)
+              unless supported_directives.include?(elem.name)
                 raise Fluent::ConfigError, "<worker> section cannot have <#{elem.name}> directive"
               end
             end
@@ -147,7 +148,7 @@ module Fluent
           end
 
           e.elements.each do |elem|
-            unless ['source', 'match', 'filter', 'label'].include?(elem.name)
+            unless supported_directives.include?(elem.name)
               raise Fluent::ConfigError, "<worker> section cannot have <#{elem.name}> directive"
             end
             elem.set_target_worker_id(target_worker_id)
