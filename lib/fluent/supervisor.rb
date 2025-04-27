@@ -742,7 +742,7 @@ module Fluent
       $log.enable_debug if system_config.log_level <= Fluent::Log::LEVEL_DEBUG
 
       $log.info "init #{process_type} logger",
-                path: actual_log_path, 
+                path: actual_log_path,
                 rotate_age: @log_rotate_age,
                 rotate_size: @log_rotate_size
     end
@@ -995,7 +995,7 @@ module Fluent
     def build_system_config(conf)
       system_config = SystemConfig.create(conf, @cl_opt[:strict_config_value])
       # Prefer the options explicitly specified in the command line
-      # 
+      #
       # TODO: There is a bug that `system_config.log.rotate_age/rotate_size` are
       # not merged with the command line options since they are not in
       # `SYSTEM_CONFIG_PARAMETERS`.

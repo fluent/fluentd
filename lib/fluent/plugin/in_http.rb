@@ -580,7 +580,7 @@ module Fluent::Plugin
         end
         path_info = uri.path
 
-        if (@add_query_params) 
+        if (@add_query_params)
 
           query_params = WEBrick::HTTPUtils.parse_query(uri.query)
 
