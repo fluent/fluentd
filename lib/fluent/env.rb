@@ -35,10 +35,10 @@ module Fluent
   end
 
   def self.linux?
-    /linux/ === RUBY_PLATFORM
+    RUBY_PLATFORM.include?("linux")
   end
 
   def self.macos?
-    /darwin/ =~ RUBY_PLATFORM
+    RUBY_PLATFORM.include?("darwin")
   end
 end

@@ -184,7 +184,7 @@ module Fluent::Plugin
       configure_tag
       configure_encoding
 
-      @multiline_mode = parser_config["@type"] =~ /multiline/
+      @multiline_mode = parser_config["@type"].include?("multiline")
       @receive_handler = if @multiline_mode
                            method(:parse_multilines)
                          else
