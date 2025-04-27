@@ -28,7 +28,7 @@ module Fluent
             #   klass.dup is worse because its ancestors does NOT include original class name
             klass_name = klass_or_str.name
             klass_or_str = Class.new(klass_or_str)
-            klass_or_str.define_singleton_method("name") { klass_name }
+            klass_or_str.define_singleton_method(:name) { klass_name }
             klass_or_str.module_eval(&block)
           end
           @instance = klass_or_str.new
