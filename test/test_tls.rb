@@ -9,7 +9,7 @@ class UniqueIdTest < Test::Unit::TestCase
   TEST_TLS1_2_CASES = {
     'New TLS v1.2' => :'TLS1_2',
     'Old TLS v1.2' => :'TLSv1_2'
-  } 
+  }
   TEST_TLS_CASES = TEST_TLS1_1_CASES.merge(TEST_TLS1_2_CASES)
 
   sub_test_case 'constants' do

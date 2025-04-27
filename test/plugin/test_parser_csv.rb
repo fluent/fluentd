@@ -164,7 +164,7 @@ class CSVParserTest < ::Test::Unit::TestCase
       text = 'a"b,"a"""c"'
       assert_raise(CSV::MalformedCSVError) {
         normal.instance.parse(text) { |t, r| }
-      } 
+      }
       assert_nothing_raised {
         # generate broken record
         fast.instance.parse(text) { |t, r| }

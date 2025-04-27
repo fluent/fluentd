@@ -32,7 +32,7 @@ begin
   op.parse(ARGV)
   if opts[:service_name] == nil
     raise "Error: No Windows Service name set. Use '--service-name'"
-  end 
+  end
 
   def read_fluentdopt(service_name)
     Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\#{service_name}") do |reg|
@@ -54,7 +54,7 @@ begin
     def initialize(service_name)
       @service_name = service_name
     end
-    
+
     def service_main
       @pid = service_main_start(@service_name)
       while running?
