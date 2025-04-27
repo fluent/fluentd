@@ -26,13 +26,13 @@ module Fluent
       end
 
       def owner
-        if instance_variable_defined?("@_owner")
+        if instance_variable_defined?(:@_owner)
           @_owner
         end
       end
 
       def log
-        if instance_variable_defined?("@log")
+        if instance_variable_defined?(:@log)
           @log
         end
       end
