@@ -650,7 +650,7 @@ module Fluent
       # 3. enqueue existing chunk & retry whole method if chunk was not empty
       # 4. go to step_by_step writing
 
-      def write_once(metadata, data, format: nil, size: nil, &block)
+      def write_once(metadata, data, format: nil, size: nil)
         return if data.empty?
 
         stored = false
@@ -701,7 +701,7 @@ module Fluent
           end
 
           if stored
-            block.call(chunk, adding_bytesize)
+            yield(chunk, adding_bytesize)
           end
         end
 
@@ -726,7 +726,7 @@ module Fluent
       # 2. append splits into the staged chunks as much as possible
       # 3. create unstaged chunk and append rest splits -> repeat it for all splits
 
-      def write_step_by_step(metadata, data, format, splits_count, &block)
+      def write_step_by_step(metadata, data, format, splits_count)
         splits = []
         if splits_count > data.size
           splits_count = data.size
@@ -855,7 +855,7 @@ module Fluent
           modified_chunks.last[:adding_bytesize] = chunk.bytesize - original_bytesize
         end
         modified_chunks.each do |data|
-          block.call(data[:chunk], data[:adding_bytesize], data[:errors])
+          yield(data[:chunk], data[:adding_bytesize], data[:errors])
         end
       rescue ShouldRetry
         modified_chunks.each do |data|

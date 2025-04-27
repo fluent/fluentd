@@ -158,8 +158,8 @@ module Fluent
         @store.delete(key.to_s)
       end
 
-      def update(key, &block)
-        @store[key.to_s] = block.call(@store[key.to_s])
+      def update(key)
+        @store[key.to_s] = yield(@store[key.to_s])
       end
     end
   end

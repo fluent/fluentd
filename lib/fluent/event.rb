@@ -106,8 +106,8 @@ module Fluent
       end
     end
 
-    def each(unpacker: nil, &block)
-      block.call(@time, @record)
+    def each(unpacker: nil)
+      yield(@time, @record)
       nil
     end
   end
@@ -189,11 +189,11 @@ module Fluent
       MultiEventStream.new(@time_array.slice(index, num), @record_array.slice(index, num))
     end
 
-    def each(unpacker: nil, &block)
+    def each(unpacker: nil)
       time_array = @time_array
       record_array = @record_array
       for i in 0..time_array.length-1
-        block.call(time_array[i], record_array[i])
+        yield(time_array[i], record_array[i])
       end
       nil
     end
@@ -253,10 +253,10 @@ module Fluent
       MultiEventStream.new(@unpacked_times.slice(index, num), @unpacked_records.slice(index, num))
     end
 
-    def each(unpacker: nil, &block)
+    def each(unpacker: nil)
       ensure_unpacked!(unpacker: unpacker)
       @unpacked_times.each_with_index do |time, i|
-        block.call(time, @unpacked_records[i])
+        yield(time, @unpacked_records[i])
       end
       nil
     end

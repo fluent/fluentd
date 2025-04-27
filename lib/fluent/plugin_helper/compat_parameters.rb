@@ -324,13 +324,13 @@ module Fluent
         conf
       end
 
-      def compat_parameters_copy_to_subsection_attributes(conf, params, &block)
+      def compat_parameters_copy_to_subsection_attributes(conf, params)
         hash = {}
         params.each do |compat, current|
           next unless current
           if conf.has_key?(compat)
             if block_given?
-              hash[current] = block.call(compat, conf[compat])
+              hash[current] = yield(compat, conf[compat])
             else
               hash[current] = conf[compat]
             end

@@ -93,10 +93,10 @@ module Fluent
         :text
       end
 
-      def parse_io(io, &block)
+      def parse_io(io)
         y = Yajl::Parser.new
         y.on_parse_complete = ->(record){
-          block.call(parse_time(record), record)
+          yield(parse_time(record), record)
         }
         y.parse(io, @stream_buffer_size)
       end

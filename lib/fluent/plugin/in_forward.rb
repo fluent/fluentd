@@ -239,7 +239,7 @@ module Fluent::Plugin
       end
     end
 
-    def read_messages(conn, &block)
+    def read_messages(conn)
       feeder = nil
       serializer = nil
       bytes = 0
@@ -250,7 +250,7 @@ module Fluent::Plugin
           if first == '{' || first == '[' # json
             parser = Yajl::Parser.new
             parser.on_parse_complete = ->(obj){
-              block.call(obj, bytes, serializer)
+              yield(obj, bytes, serializer)
               bytes = 0
             }
             serializer = :to_json.to_proc
@@ -260,7 +260,7 @@ module Fluent::Plugin
             serializer = :to_msgpack.to_proc
             feeder = ->(d){
               parser.feed_each(d){|obj|
-                block.call(obj, bytes, serializer)
+                yield(obj, bytes, serializer)
                 bytes = 0
               }
             }

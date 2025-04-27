@@ -1142,7 +1142,7 @@ module Fluent
       end
     end
 
-    def main_process(&block)
+    def main_process
       if @system_config.process_name
         if @system_config.workers > 1
           Process.setproctitle("worker:#{@system_config.process_name}#{ENV['SERVERENGINE_WORKER_ID']}")
@@ -1154,7 +1154,7 @@ module Fluent
       unrecoverable_error = false
 
       begin
-        block.call
+        yield
       rescue Fluent::ConfigError => e
         logging_with_console_output do |log|
           log.error "config error", file: @config_path, error: e

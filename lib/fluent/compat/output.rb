@@ -404,14 +404,14 @@ module Fluent
         end
       end
 
-      def detach_process(&block)
+      def detach_process
         log.warn "detach_process is not supported in this version. ignored."
-        block.call
+        yield
       end
 
-      def detach_multi_process(&block)
+      def detach_multi_process
         log.warn "detach_process is not supported in this version. ignored."
-        block.call
+        yield
       end
     end
 
@@ -541,14 +541,14 @@ module Fluent
         end
       end
 
-      def detach_process(&block)
+      def detach_process
         log.warn "detach_process is not supported in this version. ignored."
-        block.call
+        yield
       end
 
-      def detach_multi_process(&block)
+      def detach_multi_process
         log.warn "detach_process is not supported in this version. ignored."
-        block.call
+        yield
       end
     end
 
@@ -698,14 +698,14 @@ module Fluent
         end
       end
 
-      def detach_process(&block)
+      def detach_process
         log.warn "detach_process is not supported in this version. ignored."
-        block.call
+        yield
       end
 
-      def detach_multi_process(&block)
+      def detach_multi_process
         log.warn "detach_process is not supported in this version. ignored."
-        block.call
+        yield
       end
 
       # Original TimeSlicedOutput#emit doesn't call #format_stream

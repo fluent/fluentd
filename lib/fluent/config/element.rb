@@ -127,10 +127,10 @@ module Fluent
         super
       end
 
-      def check_not_fetched(&block)
+      def check_not_fetched
         each_key { |key|
           if @unused.include?(key)
-            block.call(key, self)
+            yield(key, self) if block_given?
           end
         }
         @elements.each { |e|

@@ -972,9 +972,9 @@ module Fluent
         end
       end
 
-      def write_guard(&block)
+      def write_guard
         begin
-          block.call
+          yield
         rescue Fluent::Plugin::Buffer::BufferOverflowError
           log.warn "failed to write data into buffer by buffer overflow", action: @buffer_config.overflow_action
           case @buffer_config.overflow_action

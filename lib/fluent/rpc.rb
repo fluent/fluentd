@@ -39,10 +39,10 @@ module Fluent
         @log.debug "register #{path} RPC servlet"
       end
 
-      def mount_proc(path, &block)
+      def mount_proc(path)
         @server.mount_proc(path) { |req, res|
           begin
-            code, header, response = block.call(req, res)
+            code, header, response = yield(req, res)
           rescue => e
             @log.warn "failed to handle RPC request", path: path, error: e.to_s
             @log.warn_backtrace e.backtrace

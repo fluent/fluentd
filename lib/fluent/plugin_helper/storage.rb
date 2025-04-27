@@ -134,10 +134,10 @@ module Fluent
         end
       end
 
-      def storage_operate(method_name, &block)
+      def storage_operate(method_name)
         @_storages.each_pair do |usage, s|
           begin
-            block.call(s) if block_given?
+            yield(s) if block_given?
             s.storage.__send__(method_name)
           rescue => e
             log.error "unexpected error while #{method_name}", usage: usage, storage: s.storage, error: e
@@ -275,7 +275,7 @@ module Fluent
         def update(key, &block)
           @monitor.synchronize do
             @storage.load
-            v = block.call(@storage.get(key))
+            v = yield(@storage.get(key))
             @storage.put(key, v)
             @storage.save
             v
@@ -338,7 +338,7 @@ module Fluent
 
         def update(key, &block)
           @monitor.synchronize do
-            v = block.call(@storage.get(key))
+            v = yield(@storage.get(key))
             @storage.put(key, v)
             v
           end

@@ -309,11 +309,11 @@ module Fluent
       yield
     end
 
-    def trace(*args, &block)
+    def trace(*args)
       return if @level > LEVEL_TRACE
       type = log_type(args)
       return if skipped_type?(type)
-      args << block.call if block
+      args << yield if block_given?
       time, msg = event(:trace, args)
       return if time.nil?
       puts [@color_trace, @formatter.call(type, time, LEVEL_TRACE, msg), @color_reset].join
@@ -331,11 +331,11 @@ module Fluent
       yield
     end
 
-    def debug(*args, &block)
+    def debug(*args)
       return if @level > LEVEL_DEBUG
       type = log_type(args)
       return if skipped_type?(type)
-      args << block.call if block
+      args << yield if block_given?
       time, msg = event(:debug, args)
       return if time.nil?
       puts [@color_debug, @formatter.call(type, time, LEVEL_DEBUG, msg), @color_reset].join
@@ -352,11 +352,11 @@ module Fluent
       yield
     end
 
-    def info(*args, &block)
+    def info(*args)
       return if @level > LEVEL_INFO
       type = log_type(args)
       return if skipped_type?(type)
-      args << block.call if block
+      args << yield if block_given?
       time, msg = event(:info, args)
       return if time.nil?
       puts [@color_info, @formatter.call(type, time, LEVEL_INFO, msg), @color_reset].join
@@ -373,11 +373,11 @@ module Fluent
       yield
     end
 
-    def warn(*args, &block)
+    def warn(*args)
       return if @level > LEVEL_WARN
       type = log_type(args)
       return if skipped_type?(type)
-      args << block.call if block
+      args << yield if block_given?
       time, msg = event(:warn, args)
       return if time.nil?
       puts [@color_warn, @formatter.call(type, time, LEVEL_WARN, msg), @color_reset].join
@@ -394,11 +394,11 @@ module Fluent
       yield
     end
 
-    def error(*args, &block)
+    def error(*args)
       return if @level > LEVEL_ERROR
       type = log_type(args)
       return if skipped_type?(type)
-      args << block.call if block
+      args << yield if block_given?
       time, msg = event(:error, args)
       return if time.nil?
       puts [@color_error, @formatter.call(type, time, LEVEL_ERROR, msg), @color_reset].join
@@ -415,11 +415,11 @@ module Fluent
       yield
     end
 
-    def fatal(*args, &block)
+    def fatal(*args)
       return if @level > LEVEL_FATAL
       type = log_type(args)
       return if skipped_type?(type)
-      args << block.call if block
+      args << yield if block_given?
       time, msg = event(:fatal, args)
       return if time.nil?
       puts [@color_fatal, @formatter.call(type, time, LEVEL_FATAL, msg), @color_reset].join
