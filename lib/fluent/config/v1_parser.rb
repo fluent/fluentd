@@ -83,7 +83,7 @@ module Fluent
           elsif skip(/\</)
             e_name = scan(ELEMENT_NAME)
             spacing
-            e_arg = scan_string(/(?:#{ZERO_OR_MORE_SPACING}\>)/)
+            e_arg = scan_string(/(?:#{ZERO_OR_MORE_SPACING}\>)/o)
             spacing
             unless skip(/\>/)
               parse_error! "expected '>'"
@@ -98,7 +98,7 @@ module Fluent
             new_e.v1_config = true
             elems << new_e
 
-          elsif root_element && skip(/(\@include|include)#{SPACING}/)
+          elsif root_element && skip(/(\@include|include)#{SPACING}/o)
             if !prev_match.start_with?('@')
               @logger.warn "'include' is deprecated. Use '@include' instead" if @logger
             end
