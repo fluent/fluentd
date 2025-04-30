@@ -1111,7 +1111,7 @@ class OutputTest < Test::Unit::TestCase
         config: config_element(
           "ROOT", "", {},
           [
-            config_element("buffer", "", {}), 
+            config_element("buffer", "", {}),
             config_element("secondary", "", {"@type" => "test", "name" => "test"}),
           ]
         ),

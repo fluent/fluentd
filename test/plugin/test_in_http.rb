@@ -982,7 +982,7 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal ["403", "403"], res_codes
   end
 
-  def test_add_query_params 
+  def test_add_query_params
     d = create_driver(config + "add_query_params true")
     assert_equal true, d.instance.add_query_params
 

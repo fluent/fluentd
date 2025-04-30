@@ -946,9 +946,9 @@ class BufferTest < Test::Unit::TestCase
       # 1. `write_once`: 42 [events] * 1 [stream]
       # 2. `write_step_by_step`: 4 [events]* 10 [streams] + 2 [events] * 1 [stream]
       # 3. `write_step_by_step` (by `ShouldRetry`): 1 [event] * 42 [streams]
-      # 
+      #
       # Example of staged chunk lock behavior:
-      # 
+      #
       # 1. mon_enter in write_step_by_step
       # 2. ShouldRetry occurs
       # 3. mon_exit in write_step_by_step

@@ -534,7 +534,7 @@ module Fluent::Plugin
       if @follow_inodes && new_inode.nil?
         # nil inode means the file disappeared, so we only need to stop it.
         @tails.delete(tail_watcher.path)
-        # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632 
+        # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632
         # Because of this problem, log duplication can occur during `rotate_wait`.
         # Need to set `rotate_wait 0` for a workaround.
         # Duplication will occur if `refresh_watcher` is called during the `rotate_wait`.

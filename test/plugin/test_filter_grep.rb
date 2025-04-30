@@ -328,7 +328,7 @@ class GrepFilterTest < Test::Unit::TestCase
       end
 
       test "don't raise an exception" do
-        assert_nothing_raised { 
+        assert_nothing_raised {
           filter(%[regexp1 message WARN], ["\xff".force_encoding('UTF-8')])
         }
       end

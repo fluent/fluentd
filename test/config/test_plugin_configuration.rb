@@ -19,9 +19,9 @@ module ConfigurationForPlugins
 
   class BooleanParamsWithoutValue < ::Test::Unit::TestCase
     CONFIG = <<CONFIG
-    flag1 
+    flag1
     flag2 # yaaaaaaaaaay
-    flag3 
+    flag3
     flag4 # yaaaaaaaaaay
     <child>
       flag1
@@ -37,10 +37,10 @@ module ConfigurationForPlugins
     </child>
     # with following whitespace
     <child>
-      flag1 
-      flag2 
-      flag3 
-      flag4 
+      flag1
+      flag2
+      flag3
+      flag4
     </child>
 CONFIG
 
