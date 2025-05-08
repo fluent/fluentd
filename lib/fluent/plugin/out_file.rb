@@ -17,6 +17,7 @@
 require 'fileutils'
 require 'zlib'
 require 'time'
+require 'pathname'
 
 require 'fluent/plugin/output'
 require 'fluent/config/error'
@@ -54,6 +55,8 @@ module Fluent::Plugin
     config_param :recompress, :bool, default: false
     desc "Create symlink to temporary buffered file when buffer_type is file (disabled on Windows)."
     config_param :symlink_path, :string, default: nil
+    desc "Use relative path for symlink target (default: false)"
+    config_param :symlink_path_use_relative, :bool, default: false
 
     config_section :format do
       config_set_default :@type, 'out_file'
@@ -97,7 +100,12 @@ module Fluent::Plugin
         if chunk.metadata == @latest_metadata
           sym_path = @_output_plugin_for_symlink.extract_placeholders(@_symlink_path, chunk)
           FileUtils.mkdir_p(File.dirname(sym_path), mode: @_output_plugin_for_symlink.dir_perm)
-          FileUtils.ln_sf(chunk.path, sym_path)
+          if @_output_plugin_for_symlink.symlink_path_use_relative
+            relative_path = Pathname.new(chunk.path).relative_path_from(Pathname.new(File.dirname(sym_path)))
+            FileUtils.ln_sf(relative_path, sym_path)
+          else
+            FileUtils.ln_sf(chunk.path, sym_path)
+          end
         end
         chunk
       end
