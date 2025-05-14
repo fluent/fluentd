@@ -63,7 +63,7 @@ begin
         loop do
           sleep 5
           break unless running?
-          raise Errno::ECHILD unless Process.waitpid2(@pid, Process::WNOHANG)
+          raise Errno::ECHILD if Process.waitpid(@pid, Process::WNOHANG)
         end
       rescue Errno::ECHILD
         @pid = 0
