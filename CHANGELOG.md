@@ -1,6 +1,22 @@
 # v1.16
 
+## Release v1.16.9 - 2025/05/14
+
+### Bug Fix
+
+* winsvc: Fix bug where service accidentally stops after starting.
+  The previous version (v1.16.8) should not be used for Windows Service.
+  https://github.com/fluent/fluentd/pull/4955
+
+### Misc
+
+* CI improvemnts
+  https://github.com/fluent/fluentd/pull/4956
+
 ## Release v1.16.8 - 2025/05/01
+
+**This version has a critical bug about Windows Service. Do not use this version.**
+(https://github.com/fluent/fluentd/pull/4955)
 
 ### Bug Fix
 
