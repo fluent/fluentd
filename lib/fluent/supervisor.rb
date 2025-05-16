@@ -641,6 +641,7 @@ module Fluent
         conf_encoding: 'utf-8',
         disable_shared_socket: nil,
         config_file_type: :guess,
+        maxstdio: nil,
       }
     end
 
@@ -681,6 +682,7 @@ module Fluent
       @log_path = opt[:log_path]
       @log_rotate_age = opt[:log_rotate_age]
       @log_rotate_size = opt[:log_rotate_size]
+      @maxstdio = opt[:maxstdio]
 
       @finished = false
     end
@@ -754,6 +756,14 @@ module Fluent
       }
     end
 
+    def setup_maxstdio
+      if Fluent.windows?
+        require "fluent/win32api"
+        Win32API._setmaxstdio(@maxstdio)
+        $log.debug "Current maxstdio is #{Win32API._getmaxstdio}"
+      end
+    end
+
     def run_worker
       Process.setproctitle("worker:#{@system_config.process_name}") if @process_name
 
@@ -766,6 +776,7 @@ module Fluent
       end
 
       install_main_process_signal_handlers
+      setup_maxstdio
 
       # This is the only log messsage for @standalone_worker
       $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid, ruby: RUBY_VERSION if @standalone_worker

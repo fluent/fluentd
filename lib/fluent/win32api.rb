@@ -34,5 +34,7 @@ module Fluent
     extern "intptr_t _get_osfhandle(int)"
     extern "BOOL GetFileInformationByHandle(HANDLE, void *)"
     extern "BOOL GetFileInformationByHandleEx(HANDLE, int, void *, DWORD)"
+    extern 'int _setmaxstdio(int)'
+    extern 'int _getmaxstdio(void)'
   end if Fluent.windows?
 end

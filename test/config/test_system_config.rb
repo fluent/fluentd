@@ -80,6 +80,7 @@ module Fluent::Config
       assert_nil(sc.enable_msgpack_time_support)
       assert(!sc.enable_jit)
       assert_nil(sc.log.path)
+      assert_nil(sc.maxstdio)
       assert_equal(:text, sc.log.format)
       assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
     end
@@ -100,6 +101,7 @@ module Fluent::Config
       'enable_input_metrics' => ['enable_input_metrics', true],
       'enable_size_metrics' => ['enable_size_metrics', true],
       'enable_jit' => ['enable_jit', true],
+      'maxstdio' => ['maxstdio', 768],
     )
     test "accepts parameters" do |(k, v)|
       conf = parse_text(<<-EOS)
