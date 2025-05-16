@@ -87,6 +87,7 @@ module Fluent
       @source_only_mode = SourceOnlyMode.new(system_config.with_source_only, start_in_parallel)
       @source_only_buffer_agent = nil
       @enable_input_metrics = system_config.enable_input_metrics || false
+      @maxstdio = system_config.maxstdio
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
     end

@@ -163,6 +163,10 @@ op.on('--enable-size-metrics', "Enable plugin record size metrics on fluentd", T
   cmd_opts[:enable_size_metrics] = b
 }
 
+op.on('--maxstdio NUMBER', "specify maxstdio number for increasing the number of opening files at once") {|s|
+  cmd_opts[:maxstdio] = s.to_i
+}
+
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   return unless b
   cur_level = cmd_opts.fetch(:log_level, default_opts[:log_level])
