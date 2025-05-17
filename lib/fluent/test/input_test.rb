@@ -109,7 +109,7 @@ module Fluent
         end
       end
 
-      def run(num_waits = 10, &block)
+      def run(num_waits = 10)
         m = method(:emit_stream)
         unless Engine.singleton_class.ancestors.include?(EmitStreamWrapper)
           Engine.singleton_class.prepend EmitStreamWrapper
@@ -121,7 +121,7 @@ module Fluent
         instance.router.emit_stream_callee = m
 
         super(num_waits) {
-          block.call if block
+          yield if block_given?
 
           if @expected_emits_length || @expects || @run_post_conditions
             # counters for emits and emit_streams
