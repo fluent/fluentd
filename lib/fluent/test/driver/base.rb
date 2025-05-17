@@ -185,7 +185,7 @@ module Fluent
           end
         end
 
-        def run_actual(timeout: DEFAULT_TIMEOUT, &block)
+        def run_actual(timeout: DEFAULT_TIMEOUT)
           if @instance.respond_to?(:_threads)
             sleep 0.1 until @instance._threads.values.all?(&:alive?)
           end
@@ -201,7 +201,7 @@ module Fluent
           return_value = nil
           begin
             Timeout.timeout(timeout * 2) do |sec|
-              return_value = block.call if block_given?
+              return_value = yield if block_given?
             end
           rescue Timeout::Error
             raise TestTimedOut, "Test case timed out with hard limit."

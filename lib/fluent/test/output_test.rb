@@ -71,10 +71,10 @@ module Fluent
         (@expected_buffer ||= '') << str
       end
 
-      def run(num_waits = 10, &block)
+      def run(num_waits = 10)
         result = nil
         super(num_waits) {
-          block.call if block
+          yield if block_given?
 
           es = ArrayEventStream.new(@entries)
           buffer = @instance.format_stream(@tag, es)
@@ -119,10 +119,10 @@ module Fluent
         (@expected_buffer ||= '') << str
       end
 
-      def run(&block)
+      def run
         result = []
         super {
-          block.call if block
+          yield if block_given?
 
           buffer = ''
           lines = {}
