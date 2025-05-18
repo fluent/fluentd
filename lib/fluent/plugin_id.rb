@@ -30,7 +30,7 @@ module Fluent
     end
 
     def configure(conf)
-      @_plugin_id_variable_store = Fluent::VariableStore.fetch_or_build(:pluing_id, default_value: Set.new)
+      @_plugin_id_variable_store = Fluent::VariableStore.fetch_or_build(:plugin_id, default_value: Set.new)
       @id = conf['@id']
       @_id_configured = !!@id # plugin id is explicitly configured by users (or not)
       if @id
