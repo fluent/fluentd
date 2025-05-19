@@ -59,9 +59,9 @@ module Fluent
       alias_method :emits, :filtered_as_array # emits is for consistent with other drivers
 
       # Almost filters don't use threads so default is 0. It reduces test time.
-      def run(num_waits = 0, &block)
+      def run(num_waits = 0)
         super(num_waits) {
-          block.call if block
+          yield if block_given?
 
           @events.each { |tag, es|
             processed = @instance.filter_stream(tag, es)
