@@ -27,7 +27,7 @@ module Fluent
       Plugin.register_sd('file', self)
 
       DEFAULT_FILE_TYPE = :yaml
-      DEFAUT_WEIGHT = 60
+      DEFAULT_WEIGHT = 60
       DEFAULT_SD_FILE_PATH = ENV['DEFAULT_SD_FILE_PATH'] || '/etc/fluent/sd.yaml'
 
       helpers :event_loop
@@ -126,7 +126,7 @@ module Fluent
             s.fetch('host'),
             s.fetch('port'),
             s['name'],
-            s.fetch('weight', DEFAUT_WEIGHT),
+            s.fetch('weight', DEFAULT_WEIGHT),
             s['standby'],
             s['username'],
             s['password'],
