@@ -37,6 +37,7 @@ module Fluent
         def query
           if @query_string
             hash = Hash.new { |h, k| h[k] = [] }
+            # For compatibility with CGI.parse
             URI.decode_www_form(@query_string).each_with_object(hash) do |(key, value), h|
               h[key] << value
             end
