@@ -584,6 +584,28 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal(expected, d.events)
   end
 
+  def test_multipart_formdata
+    tag = "tag"
+    time = event_time_without_nsec
+    event = [tag, time, {"key" => 0}]
+    body = "--TESTBOUNDARY\r\n" +
+           "Content-Disposition: form-data; name=\"json\"\r\n" +
+           "\r\n" +
+           %[{"key":0}\r\n] +
+           "--TESTBOUNDARY\r\n"
+
+    d = create_driver
+    res = nil
+    d.run(expect_records: 1) do
+      res = post("/#{tag}?time=#{time.to_s}", body, {"Content-Type"=>"multipart/form-data; boundary=TESTBOUNDARY"})
+    end
+
+    assert_equal(
+      ["200", [event]],
+      [res.code, d.events],
+    )
+  end
+
   def test_msgpack
     d = create_driver
     time = event_time("2011-01-02 13:14:15 UTC")
@@ -1136,10 +1158,10 @@ class HttpInputTest < Test::Unit::TestCase
     http.request(req)
   end
 
-  def post(path, params, header = {}, &block)
+  def post(path, params, header = {})
     http = Net::HTTP.new("127.0.0.1", @port)
     req = Net::HTTP::Post.new(path, header)
-    block.call(http, req) if block
+    yield http, req if block_given?
     if params.is_a?(String)
       unless header.has_key?('Content-Type')
         header['Content-Type'] = 'application/octet-stream'
