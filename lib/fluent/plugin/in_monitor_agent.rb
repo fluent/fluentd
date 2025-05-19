@@ -16,7 +16,6 @@
 
 require 'json'
 require 'webrick'
-require 'cgi'
 
 require 'fluent/config/types'
 require 'fluent/plugin/input'
@@ -151,9 +150,7 @@ module Fluent::Plugin
       def build_option(req)
         qs = Hash.new { |_, _| [] }
         # parse ?=query string
-        if req.query_string
-          qs.merge!(CGI.parse(req.query_string))
-        end
+        qs.merge!(req.query || {})
 
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
         # and :pretty_json for render_json_error

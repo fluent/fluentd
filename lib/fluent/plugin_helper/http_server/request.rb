@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'uri'
 require 'async/http/protocol'
 require 'fluent/plugin_helper/http_server/methods'
 
@@ -30,7 +31,13 @@ module Fluent
         end
 
         def query
-          @query_string && CGI.parse(@query_string)
+          if @query_string
+            hash = Hash.new { |h, k| h[k] = [] }
+            # For compatibility with CGI.parse
+            URI.decode_www_form(@query_string).each_with_object(hash) do |(key, value), h|
+              h[key] << value
+            end
+          end
         end
 
         def body
