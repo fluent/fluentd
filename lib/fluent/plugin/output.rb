@@ -189,6 +189,7 @@ module Fluent
         @rollback_count_metrics = nil
         @flush_time_count_metrics = nil
         @slow_flush_count_metrics = nil
+        @secondary_chunk_count_metrics = nil
         @enable_size_metrics = false
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
@@ -257,6 +258,7 @@ module Fluent
         @rollback_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "rollback_count", help_text: "Number of rollbacking operations")
         @flush_time_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "flush_time_count", help_text: "Count of flush time")
         @slow_flush_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "slow_flush_count", help_text: "Count of slow flush occurred time(s)")
+        @secondary_chunk_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "secondary_chunk_count", help_text: "Number of stored chunks in secondary")
 
         if has_buffer_section
           unless implement?(:buffered) || implement?(:delayed_commit)
@@ -1093,6 +1095,7 @@ module Fluent
           if @retry # success to flush chunks in retries
             if secondary
               log.warn "retry succeeded by secondary.", chunk_id: dump_unique_id_hex(chunk_id)
+              @secondary_chunk_count_metrics.inc
             else
               log.warn "retry succeeded.", chunk_id: dump_unique_id_hex(chunk_id)
             end
@@ -1570,6 +1573,7 @@ module Fluent
           'rollback_count' => @rollback_count_metrics.get,
           'slow_flush_count' => @slow_flush_count_metrics.get,
           'flush_time_count' => @flush_time_count_metrics.get,
+          'secondary_chunk_count' => @secondary_chunk_count_metrics.get,
         }
 
         if @buffer && @buffer.respond_to?(:statistics)
