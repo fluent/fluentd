@@ -51,7 +51,7 @@ module Fluent
     config_param :strict_config_value, :bool, default: nil
     config_param :enable_msgpack_time_support, :bool, default: nil
     config_param :disable_shared_socket, :bool, default: nil
-    config_param :enable_input_metrics, :bool, default: nil
+    config_param :enable_input_metrics, :bool, default: true
     config_param :enable_size_metrics, :bool, default: nil
     config_param :enable_jit, :bool, default: false
     config_param :file_permission, default: nil do |v|

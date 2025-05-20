@@ -631,7 +631,7 @@ module Fluent
         ignore_repeated_log_interval: nil,
         without_source: nil,
         with_source_only: nil,
-        enable_input_metrics: nil,
+        enable_input_metrics: true,
         enable_size_metrics: nil,
         use_v1_config: true,
         strict_config_value: nil,

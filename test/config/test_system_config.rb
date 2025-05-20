@@ -75,7 +75,7 @@ module Fluent::Config
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
       assert_nil(sc.with_source_only)
-      assert_nil(sc.enable_input_metrics)
+      assert_true(sc.enable_input_metrics)
       assert_nil(sc.enable_size_metrics)
       assert_nil(sc.enable_msgpack_time_support)
       assert(!sc.enable_jit)
