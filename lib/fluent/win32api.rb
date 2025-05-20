@@ -22,13 +22,7 @@ module Fluent
     require 'fiddle/types'
     extend Fiddle::Importer
 
-    if RUBY_PLATFORM.split('-')[-1] == "ucrt"
-      MSVCRT_DLL = 'ucrtbase.dll'
-    else
-      MSVCRT_DLL = 'msvcrt.dll'
-    end
-
-    dlload MSVCRT_DLL, "kernel32.dll"
+    dlload "ucrtbase.dll", "kernel32.dll"
     include Fiddle::Win32Types
 
     extern "intptr_t _get_osfhandle(int)"
