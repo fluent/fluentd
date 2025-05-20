@@ -155,7 +155,11 @@ op.on('--strict-config-value', "Parse config values strictly", TrueClass) {|b|
   cmd_opts[:strict_config_value] = b
 }
 
-op.on('--enable-input-metrics', "Enable input plugin metrics on fluentd", TrueClass) {|b|
+op.on('--enable-input-metrics', "[DEPRECATED] Enable input plugin metrics on fluentd", TrueClass) {|b|
+  cmd_opts[:enable_input_metrics] = b
+}
+
+op.on('--disable-input-metrics', "Disable input plugin metrics on fluentd", FalseClass) {|b|
   cmd_opts[:enable_input_metrics] = b
 }
 
