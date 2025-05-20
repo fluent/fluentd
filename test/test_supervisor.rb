@@ -1160,6 +1160,32 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
   end
 
+  data("Default", {})
+  data("Small", {maxstdio: 100})
+  data("Large", {maxstdio: 3000})
+  data("Very large", {maxstdio: 10000})
+  def test_maxstdio(cl_opt)
+    # TODO assert
+
+    omit "maxstdio is only for Windows" unless Fluent.windows?
+
+    supervisor = Fluent::Supervisor.new(cl_opt)
+    supervisor.setup_maxstdio
+
+    files = []
+    begin
+      10000.times do |i|
+        file = File.open(File.join(@tmp_dir, "#{i}.txt"), "w")
+        files.append(file)
+      end
+    ensure
+      puts files.length
+      files.each do |file|
+        file.close
+      end
+    end
+  end
+
   def create_debug_dummy_logger
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::DEBUG
