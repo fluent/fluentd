@@ -75,7 +75,7 @@ module Fluent::Config
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
       assert_nil(sc.with_source_only)
-      assert_nil(sc.enable_input_metrics)
+      assert_true(sc.enable_input_metrics)
       assert_nil(sc.enable_size_metrics)
       assert_nil(sc.enable_msgpack_time_support)
       assert(!sc.enable_jit)
@@ -97,7 +97,7 @@ module Fluent::Config
       'with_source_only' => ['with_source_only', true],
       'strict_config_value' => ['strict_config_value', true],
       'enable_msgpack_time_support' => ['enable_msgpack_time_support', true],
-      'enable_input_metrics' => ['enable_input_metrics', true],
+      'enable_input_metrics' => ['enable_input_metrics', false],
       'enable_size_metrics' => ['enable_size_metrics', true],
       'enable_jit' => ['enable_jit', true],
     )

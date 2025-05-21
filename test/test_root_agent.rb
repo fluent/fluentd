@@ -18,6 +18,7 @@ class RootAgentTest < ::Test::Unit::TestCase
     'suppress interval' => [{'emit_error_log_interval' => 30}, {:@suppress_emit_error_log_interval => 30}],
     'without source' => [{'without_source' => true}, {:@without_source => true}],
     'enable input metrics' => [{'enable_input_metrics' => true}, {:@enable_input_metrics => true}],
+    'disable input metrics' => [{'enable_input_metrics' => false}, {:@enable_input_metrics => false}],
     )
   def test_initialize_with_opt(data)
     opt, expected = data

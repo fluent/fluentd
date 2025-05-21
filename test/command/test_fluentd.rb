@@ -1608,4 +1608,12 @@ CONF
                          "[info]: loading additional configuration file path=\"#{conf_dir}/child.yml\"")
     end
   end
+
+  test "allow --disable-input-metrics option" do
+    conf_path = create_conf_file('empty.conf', '')
+    assert_log_matches(
+      create_cmdline(conf_path, '--disable-input-metrics'),
+      "#0 fluentd worker is now running worker=0"
+    )
+  end
 end

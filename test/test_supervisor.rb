@@ -64,6 +64,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   without_source true
   with_source_only true
   enable_get_dump true
+  enable_input_metrics false
   process_name "process_name"
   log_level info
   root_dir #{@tmp_root_dir}
@@ -103,6 +104,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal true, sys_conf.without_source
     assert_equal true, sys_conf.with_source_only
     assert_equal true, sys_conf.enable_get_dump
+    assert_equal false, sys_conf.enable_input_metrics
     assert_equal "process_name", sys_conf.process_name
     assert_equal 2, sys_conf.log_level
     assert_equal @tmp_root_dir, sys_conf.root_dir
