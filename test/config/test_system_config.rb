@@ -97,7 +97,7 @@ module Fluent::Config
       'with_source_only' => ['with_source_only', true],
       'strict_config_value' => ['strict_config_value', true],
       'enable_msgpack_time_support' => ['enable_msgpack_time_support', true],
-      'enable_input_metrics' => ['enable_input_metrics', true],
+      'enable_input_metrics' => ['enable_input_metrics', false],
       'enable_size_metrics' => ['enable_size_metrics', true],
       'enable_jit' => ['enable_jit', true],
     )
