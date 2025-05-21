@@ -1610,11 +1610,7 @@ CONF
   end
 
   test "allow --disable-input-metrics option" do
-    conf = <<CONF
-<system>
-</system>
-CONF
-    conf_path = create_conf_file('input-metrics.conf', conf)
+    conf_path = create_conf_file('empty.conf', '')
     assert_log_matches(
       create_cmdline(conf_path, '--disable-input-metrics'),
       "#0 fluentd worker is now running worker=0"
