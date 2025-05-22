@@ -36,7 +36,7 @@ module Fluent::Plugin
     helpers :timer, :event_loop, :parser, :compat_parameters
 
     RESERVED_CHARS = ['/', '*', '%'].freeze
-    MetricsInfo = Struct.new(:opened, :closed, :rotated, :throttled)
+    MetricsInfo = Struct.new(:opened, :closed, :rotated, :throttled, :tracked)
 
     class WatcherSetupError < StandardError
       def initialize(msg)
@@ -206,11 +206,15 @@ module Fluent::Plugin
           @read_bytes_limit_per_second = min_bytes
         end
       end
+
       opened_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_opened_total", help_text: "Total number of opened files")
       closed_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_closed_total", help_text: "Total number of closed files")
       rotated_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_rotated_total", help_text: "Total number of rotated files")
       throttling_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_throttled_total", help_text: "Total number of times throttling occurs per file when throttling enabled")
-      @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics)
+      # The metrics for currently tracking files. Since the value may decrease, it cannot be represented using the counter type, so 'prefer_gauge: true' is used instead.
+      tracked_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_tracked_count", help_text: "Number of tracked files", prefer_gauge: true)
+
+      @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics, tracked_file_metrics)
     end
 
     def check_dir_permission
@@ -474,6 +478,7 @@ module Fluent::Plugin
 
       stop_watchers(removed_hash, unwatched: need_unwatch_in_stop_watchers) unless removed_hash.empty?
       start_watchers(added_hash) unless added_hash.empty?
+      @metrics.tracked.set(@tails.size)
       @startup = false if @startup
     end
 
@@ -814,6 +819,7 @@ module Fluent::Plugin
           'closed_file_count' => @metrics.closed.get,
           'rotated_file_count' => @metrics.rotated.get,
           'throttled_log_count' => @metrics.throttled.get,
+          'tracked_file_count' => @metrics.tracked.get,
         })
       }
       stats
