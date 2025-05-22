@@ -814,6 +814,7 @@ module Fluent::Plugin
           'closed_file_count' => @metrics.closed.get,
           'rotated_file_count' => @metrics.rotated.get,
           'throttled_log_count' => @metrics.throttled.get,
+          'tracking_file_count' => @tails.size,
         })
       }
       stats
