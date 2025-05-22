@@ -76,6 +76,30 @@ module Fluent
       ctx
     end
     module_function :set_version_to_context
+
+    def set_version_to_options(opt, version, min_version, max_version)
+      if MIN_MAX_AVAILABLE
+        case
+        when min_version.nil? && max_version.nil?
+          min_version = METHODS_MAP[version] || version
+          max_version = METHODS_MAP[version] || version
+        when min_version.nil? && max_version
+          raise Fluent::ConfigError, "When you set max_version, must set min_version together"
+        when min_version && max_version.nil?
+          raise Fluent::ConfigError, "When you set min_version, must set max_version together"
+        else
+          min_version = METHODS_MAP[min_version] || min_version
+          max_version = METHODS_MAP[max_version] || max_version
+        end
+        opt[:min_version] = min_version
+        opt[:max_version] = max_version
+      else
+        opt[:ssl_version] = METHODS_MAP[version] || version
+      end
+
+      opt
+    end
+    module_function :set_version_to_options
   end
 end
 
