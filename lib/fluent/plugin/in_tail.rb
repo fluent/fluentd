@@ -36,7 +36,7 @@ module Fluent::Plugin
     helpers :timer, :event_loop, :parser, :compat_parameters
 
     RESERVED_CHARS = ['/', '*', '%'].freeze
-    MetricsInfo = Struct.new(:opened, :closed, :rotated, :throttled)
+    MetricsInfo = Struct.new(:opened, :closed, :rotated, :throttled, :tracked)
 
     class WatcherSetupError < StandardError
       def initialize(msg)
@@ -210,7 +210,8 @@ module Fluent::Plugin
       closed_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_closed_total", help_text: "Total number of closed files")
       rotated_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_rotated_total", help_text: "Total number of rotated files")
       throttling_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_throttled_total", help_text: "Total number of times throttling occurs per file when throttling enabled")
-      @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics)
+      tracked_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_tracked_count", help_text: "Number of tracked files")
+      @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics, tracked_file_metrics)
     end
 
     def check_dir_permission
@@ -628,6 +629,8 @@ module Fluent::Plugin
       end
 
       detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
+    ensure
+      @metrics.tracked.set(@tails.size)
     end
 
     def detach_watcher(tw, ino, close_io = true)
@@ -814,6 +817,7 @@ module Fluent::Plugin
           'closed_file_count' => @metrics.closed.get,
           'rotated_file_count' => @metrics.rotated.get,
           'throttled_log_count' => @metrics.throttled.get,
+          'tracked_file_count' => @tails.size,
         })
       }
       stats
