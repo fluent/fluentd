@@ -184,6 +184,7 @@ CONF
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
+        "secondary_chunk_count" => Integer,
       }
       output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
       error_label_info = {
@@ -206,6 +207,7 @@ CONF
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
+        "secondary_chunk_count" => Integer,
       }
       error_label_info.merge!("config" => {"@id"=>"null", "@type" => "null"}) if with_config
       opts = {with_config: with_config}
@@ -323,6 +325,7 @@ EOC
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
+        "secondary_chunk_count" => Integer,
       }
       output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
       error_label_info = {
@@ -345,6 +348,7 @@ EOC
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
+        "secondary_chunk_count" => Integer,
       }
       error_label_info.merge!("config" => {"@id"=>"null", "@type" => "null"}) if with_config
       opts = {with_config: with_config}
@@ -419,6 +423,7 @@ EOC
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
+        "secondary_chunk_count" => Integer,
       }
       expect_test_out_record = {
         "plugin_id"       => "test_out",
@@ -433,6 +438,7 @@ EOC
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
+        "secondary_chunk_count" => Integer,
       }
       assert_fuzzy_equal(expect_relabel_record, d.events[1][2])
       assert_fuzzy_equal(expect_test_out_record, d.events[3][2])
@@ -571,6 +577,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
+        "secondary_chunk_count" => Integer,
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
       expected_null_response.merge!("retry" => {}) if with_retry
@@ -685,6 +692,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "rollback_count"  => Integer,
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
+        "secondary_chunk_count" => Integer,
       }
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_config=no&with_retry=no&with_ivars=id,num_errors").body)
       test_in_response = response["plugins"][0]
@@ -816,6 +824,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
           "rollback_count" => Integer,
           'slow_flush_count' => Integer,
           'flush_time_count' => Integer,
+          "secondary_chunk_count" => Integer,
       }
       output.emit_events('test.tag', Fluent::ArrayEventStream.new([[event_time, {"message" => "test failed flush 1"}]]))
       # flush few times to check steps
