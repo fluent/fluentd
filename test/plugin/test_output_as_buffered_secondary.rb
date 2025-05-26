@@ -308,7 +308,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
-      assert_equal 0, @i.instance_variable_get(:@secondary_chunk_count_metrics).get
+      assert_equal 0, @i.instance_variable_get(:@write_secondary_count_metrics).get
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
@@ -349,7 +349,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert{ @i.write_count > prev_write_count }
       assert{ @i.num_errors == prev_num_errors }
 
-      assert{ @i.instance_variable_get(:@secondary_chunk_count_metrics).get > 0 }
+      assert{ @i.instance_variable_get(:@write_secondary_count_metrics).get > 0 }
 
       assert_nil @i.retry
 
@@ -391,7 +391,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
-      assert_equal 0, @i.instance_variable_get(:@secondary_chunk_count_metrics).get
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
@@ -446,8 +445,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       assert{ @i.buffer.dequeued[chunks[0].unique_id].nil? }
       assert{ chunks.first.empty? }
-
-      assert{ @i.instance_variable_get(:@secondary_chunk_count_metrics).get > 0 }
 
       assert_nil @i.retry
 
@@ -743,7 +740,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
-      assert_equal 0, @i.instance_variable_get(:@secondary_chunk_count_metrics).get
+      assert_equal 0, @i.instance_variable_get(:@write_secondary_count_metrics).get
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
@@ -772,7 +769,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
         prev_write_count = @i.write_count
       end
 
-      assert{ @i.instance_variable_get(:@secondary_chunk_count_metrics).get > 0 }
+      assert{ @i.instance_variable_get(:@write_secondary_count_metrics).get > 0 }
 
       # retry_timeout == 60(sec), retry_secondary_threshold == 0.8
 

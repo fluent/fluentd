@@ -186,10 +186,10 @@ module Fluent
         @emit_records_metrics = nil
         @emit_size_metrics = nil
         @write_count_metrics = nil
+        @write_secondary_count_metrics = nil
         @rollback_count_metrics = nil
         @flush_time_count_metrics = nil
         @slow_flush_count_metrics = nil
-        @secondary_chunk_count_metrics = nil
         @enable_size_metrics = false
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
@@ -255,10 +255,10 @@ module Fluent
         @emit_records_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "emit_records", help_text: "Number of emit records")
         @emit_size_metrics =  metrics_create(namespace: "fluentd", subsystem: "output", name: "emit_size", help_text: "Total size of emit events")
         @write_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "write_count", help_text: "Number of writing events")
+        @write_secondary_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "secondary_chunk_count", help_text: "Number of writing events in secondary")
         @rollback_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "rollback_count", help_text: "Number of rollbacking operations")
         @flush_time_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "flush_time_count", help_text: "Count of flush time")
         @slow_flush_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "slow_flush_count", help_text: "Count of slow flush occurred time(s)")
-        @secondary_chunk_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "secondary_chunk_count", help_text: "Number of stored chunks in secondary")
 
         if has_buffer_section
           unless implement?(:buffered) || implement?(:delayed_commit)
@@ -1095,7 +1095,6 @@ module Fluent
           if @retry # success to flush chunks in retries
             if secondary
               log.warn "retry succeeded by secondary.", chunk_id: dump_unique_id_hex(chunk_id)
-              @secondary_chunk_count_metrics.inc
             else
               log.warn "retry succeeded.", chunk_id: dump_unique_id_hex(chunk_id)
             end
@@ -1203,6 +1202,7 @@ module Fluent
             dump_chunk_id = dump_unique_id_hex(chunk_id)
             log.trace "adding write count", instance: self.object_id
             @write_count_metrics.inc
+            @write_secondary_count_metrics.inc if using_secondary
             log.trace "executing sync write", chunk: dump_chunk_id
 
             output.write(chunk)
@@ -1570,10 +1570,10 @@ module Fluent
           'retry_count' => @num_errors_metrics.get,
           'emit_count' => @emit_count_metrics.get,
           'write_count' => @write_count_metrics.get,
+          'write_secondary_count' => @write_secondary_count_metrics.get,
           'rollback_count' => @rollback_count_metrics.get,
           'slow_flush_count' => @slow_flush_count_metrics.get,
           'flush_time_count' => @flush_time_count_metrics.get,
-          'secondary_chunk_count' => @secondary_chunk_count_metrics.get,
         }
 
         if @buffer && @buffer.respond_to?(:statistics)

@@ -151,10 +151,10 @@ module FluentTest
       @emit_records_metrics = FluentTest::FluentTestCounterMetrics.new
       @emit_size_metrics = FluentTest::FluentTestCounterMetrics.new
       @write_count_metrics = FluentTest::FluentTestCounterMetrics.new
+      @write_secondary_count_metrics = FluentTest::FluentTestCounterMetrics.new
       @rollback_count_metrics = FluentTest::FluentTestCounterMetrics.new
       @flush_time_count_metrics = FluentTest::FluentTestCounterMetrics.new
       @slow_flush_count_metrics = FluentTest::FluentTestCounterMetrics.new
-      @secondary_chunk_count_metrics = FluentTest::FluentTestCounterMetrics.new
     end
 
     attr_reader :events
@@ -282,10 +282,10 @@ module FluentTest
       @emit_records_metrics = FluentTest::FluentTestCounterMetrics.new
       @emit_size_metrics = FluentTest::FluentTestCounterMetrics.new
       @write_count_metrics = FluentTest::FluentTestCounterMetrics.new
+      @write_secondary_count_metrics = FluentTest::FluentTestCounterMetrics.new
       @rollback_count_metrics = FluentTest::FluentTestCounterMetrics.new
       @flush_time_count_metrics = FluentTest::FluentTestCounterMetrics.new
       @slow_flush_count_metrics = FluentTest::FluentTestCounterMetrics.new
-      @secondary_chunk_count_metrics = FluentTest::FluentTestCounterMetrics.new
     end
 
     def format(tag, time, record)
