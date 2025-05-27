@@ -255,7 +255,7 @@ module Fluent
         @emit_records_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "emit_records", help_text: "Number of emit records")
         @emit_size_metrics =  metrics_create(namespace: "fluentd", subsystem: "output", name: "emit_size", help_text: "Total size of emit events")
         @write_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "write_count", help_text: "Number of writing events")
-        @write_secondary_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "secondary_chunk_count", help_text: "Number of writing events in secondary")
+        @write_secondary_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "write_secondary_count", help_text: "Number of writing events in secondary")
         @rollback_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "rollback_count", help_text: "Number of rollbacking operations")
         @flush_time_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "flush_time_count", help_text: "Count of flush time")
         @slow_flush_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "slow_flush_count", help_text: "Count of slow flush occurred time(s)")
