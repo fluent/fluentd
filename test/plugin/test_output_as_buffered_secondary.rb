@@ -446,6 +446,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert{ @i.buffer.dequeued[chunks[0].unique_id].nil? }
       assert{ chunks.first.empty? }
 
+      assert{ @i.instance_variable_get(:@write_secondary_count_metrics).get > 0 }
+
       assert_nil @i.retry
 
       logs = @i.log.out.logs

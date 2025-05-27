@@ -1190,6 +1190,7 @@ module Fluent
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
             @write_count_metrics.inc
+            @write_secondary_count_metrics.inc if using_secondary
             @dequeued_chunks_mutex.synchronize do
               # delayed_commit_timeout for secondary is configured in <buffer> of primary (<secondary> don't get <buffer>)
               @dequeued_chunks << DequeuedChunkInfo.new(chunk.unique_id, Time.now, self.delayed_commit_timeout)
