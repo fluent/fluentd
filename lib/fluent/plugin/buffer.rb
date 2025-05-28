@@ -196,6 +196,8 @@ module Fluent
         @mutex = Mutex.new
       end
 
+      # The metrics_create method defines getter methods named stage_byte_size and queue_byte_size.
+      # For compatibility, stage_size, stage_size=, queue_size, and queue_size= are still available.
       def stage_size
         @stage_size_metrics.get
       end

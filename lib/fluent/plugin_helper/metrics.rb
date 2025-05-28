@@ -72,6 +72,13 @@ module Fluent
 
         @_metrics["#{@plugin_type_or_id}_#{namespace}_#{subsystem}_#{name}"] = metrics
 
+        # define the getter method for the calling instance.
+        singleton_class.module_eval do
+          unless method_defined?(name)
+            define_method(name) { metrics.get }
+          end
+        end
+
         metrics
       end
 

@@ -171,30 +171,6 @@ module Fluent
       # output_enqueue_thread_waiting: for test of output.rb itself
       attr_accessor :retry_for_error_chunk # if true, error flush will be retried even if under_plugin_development is true
 
-      def num_errors
-        @num_errors_metrics.get
-      end
-
-      def emit_count
-        @emit_count_metrics.get
-      end
-
-      def emit_size
-        @emit_size_metrics.get
-      end
-
-      def emit_records
-        @emit_records_metrics.get
-      end
-
-      def write_count
-        @write_count_metrics.get
-      end
-
-      def rollback_count
-        @rollback_count_metrics.get
-      end
-
       def initialize
         super
         @counter_mutex = Mutex.new

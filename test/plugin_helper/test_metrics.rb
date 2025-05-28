@@ -134,4 +134,18 @@ class MetricsTest < Test::Unit::TestCase
     assert i2.terminated?
     assert i3.terminated?
   end
+
+  test 'can create getter method by metrics name' do
+    @d = d = Dummy.new
+
+    assert_raise(NoMethodError) do
+      d.foobarbaz
+    end
+
+    metrics = d.metrics_create(namespace: "fluentd_test", subsystem: "unit-test", name: "foobarbaz", help_text: "metrics testing")
+    metrics.inc
+
+    assert_equal(1, d.foobarbaz)
+    assert_equal(1, metrics.get)
+  end
 end

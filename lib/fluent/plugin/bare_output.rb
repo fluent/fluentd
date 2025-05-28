@@ -40,22 +40,6 @@ module Fluent
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
 
-      def num_errors
-        @num_errors_metrics.get
-      end
-
-      def emit_count
-        @emit_count_metrics.get
-      end
-
-      def emit_size
-        @emit_size_metrics.get
-      end
-
-      def emit_records
-        @emit_records_metrics.get
-      end
-
       def initialize
         super
         @counter_mutex = Mutex.new

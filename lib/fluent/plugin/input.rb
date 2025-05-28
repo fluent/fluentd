@@ -37,14 +37,6 @@ module Fluent
         @enable_size_metrics = false
       end
 
-      def emit_records
-        @emit_records_metrics.get
-      end
-
-      def emit_size
-        @emit_size_metrics.get
-      end
-
       def configure(conf)
         super
 
