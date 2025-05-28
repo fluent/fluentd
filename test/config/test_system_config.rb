@@ -89,6 +89,7 @@ module Fluent::Config
       'restart_worker_interval' => ['restart_worker_interval', 60],
       'root_dir' => ['root_dir', File.join(TMP_DIR, 'root')],
       'log_level' => ['log_level', 'error'],
+      'umask' => ['umask', '0022'], 
       'suppress_repeated_stacktrace' => ['suppress_repeated_stacktrace', true],
       'ignore_repeated_log_interval' => ['ignore_repeated_log_interval', 10],
       'log_event_verbose' => ['log_event_verbose', true],
@@ -112,6 +113,8 @@ module Fluent::Config
       sc.overwrite_variables(**s.for_system_config)
       if k == 'log_level'
         assert_equal(Fluent::Log::LEVEL_ERROR, sc.__send__(k))
+      elsif k == 'umask'
+        assert_equal(0o022, sc.__send__(k))
       else
         assert_equal(v, sc.__send__(k))
       end
@@ -237,5 +240,37 @@ module Fluent::Config
         ]
       )
     end
+    sub_test_case 'umask parameter' do
+      test 'valid 3-digit octal' do
+        conf = parse_text(<<-EOS)
+          <system>
+            umask 022
+          </system>
+        EOS
+        sc = Fluent::SystemConfig.new(conf)
+        assert_equal 0o22, sc.umask
+      end
+
+      test 'valid 4-digit octal' do
+        conf = parse_text(<<-EOS)
+          <system>
+            umask 0022
+          </system>
+        EOS
+        sc = Fluent::SystemConfig.new(conf)
+        assert_equal 0o22, sc.umask
+      end
+
+      test 'invalid non-octal digits' do
+        assert_raise(Fluent::ConfigError) do
+          parse_text(<<-EOS)
+            <system>
+              umask 888
+            </system>
+          EOS
+        end
+      end
+    end
+    
   end
 end
