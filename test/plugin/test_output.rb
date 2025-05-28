@@ -226,17 +226,21 @@ class OutputTest < Test::Unit::TestCase
     test 'can use metrics plugins and fallback methods' do
       @i.configure(config_element())
 
-      %w[num_errors_metrics emit_count_metrics emit_size_metrics emit_records_metrics
-         write_count_metrics rollback_count_metrics flush_time_count_metrics slow_flush_count_metrics].each do |metric_name|
+      %w[num_errors_metrics emit_count_metrics emit_size_metrics emit_records_metrics write_count_metrics
+         write_secondary_count_metrics rollback_count_metrics flush_time_count_metrics slow_flush_count_metrics].each do |metric_name|
         assert_true @i.instance_variable_get(:"@#{metric_name}").is_a?(Fluent::Plugin::Metrics)
       end
 
       assert_equal 0, @i.num_errors
       assert_equal 0, @i.emit_count
+      assert_equal 0, @i.emit_records
       assert_equal 0, @i.emit_size
       assert_equal 0, @i.emit_records
       assert_equal 0, @i.write_count
+      assert_equal 0, @i.write_secondary_count
       assert_equal 0, @i.rollback_count
+      assert_equal 0, @i.flush_time_count
+      assert_equal 0, @i.slow_flush_count
     end
 
     data(:new_api => :chunk,
