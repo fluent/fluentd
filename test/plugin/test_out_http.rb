@@ -501,6 +501,7 @@ class HTTPOutputTest < Test::Unit::TestCase
       # WEBrick supports self-generated self-signed certificate
       config[:SSLEnable] = true
       config[:SSLCertName] = [["CN", WEBrick::Utils::getservername]]
+      config[:SSLMaxVersion] = OpenSSL::SSL::TLS1_3_VERSION
       config
     end
 
@@ -512,6 +513,7 @@ class HTTPOutputTest < Test::Unit::TestCase
       d = create_driver(%[
         endpoint https://127.0.0.1:#{server_port}/test
         tls_verify_mode none
+        tls_version TLSv1_3
         ssl_timeout 2s
       ])
       d.run(default_tag: 'test.http') do

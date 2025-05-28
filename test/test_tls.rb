@@ -10,6 +10,10 @@ class UniqueIdTest < Test::Unit::TestCase
     'New TLS v1.2' => :'TLS1_2',
     'Old TLS v1.2' => :'TLSv1_2'
   }
+  TEST_TLS1_3_CASES = {
+    'New TLS v1.3' => :'TLS1_3',
+    'Old TLS v1.3' => :'TLSv1_3'
+  } if defined?(OpenSSL::SSL::TLS1_3_VERSION)
   TEST_TLS_CASES = TEST_TLS1_1_CASES.merge(TEST_TLS1_2_CASES)
 
   sub_test_case 'constants' do
@@ -60,6 +64,28 @@ class UniqueIdTest < Test::Unit::TestCase
       assert_raise(Fluent::ConfigError) {
         Fluent::TLS.set_version_to_context(@ctx, ver, nil, ver)
       }
+    end
+  end
+
+  sub_test_case 'set_version_to_options' do
+    setup do
+      @opt = {}
+    end
+
+    test 'set min_version/max_version when supported' do
+      omit "min_version=/max_version= is not supported" unless Fluent::TLS::MIN_MAX_AVAILABLE
+
+      ver = Fluent::TLS::DEFAULT_VERSION
+      assert_raise(Fluent::ConfigError) {
+        Fluent::TLS.set_version_to_options(@opt, ver, ver, nil)
+      }
+      assert_raise(Fluent::ConfigError) {
+        Fluent::TLS.set_version_to_options(@opt, ver, nil, ver)
+      }
+
+      ver = :'TLSv1_3' if defined?(OpenSSL::SSL::TLS1_3_VERSION)
+      assert_equal Fluent::TLS.const_get(:METHODS_MAP)[ver], Fluent::TLS.set_version_to_options(@opt, ver, nil, nil)[:min_version]
+      assert_equal Fluent::TLS.const_get(:METHODS_MAP)[ver], Fluent::TLS.set_version_to_options(@opt, ver, nil, nil)[:max_version]
     end
   end
 end
