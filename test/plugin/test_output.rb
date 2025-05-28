@@ -227,7 +227,8 @@ class OutputTest < Test::Unit::TestCase
       @i.configure(config_element())
 
       %w[num_errors_metrics emit_count_metrics emit_size_metrics emit_records_metrics write_count_metrics
-         write_secondary_count_metrics rollback_count_metrics flush_time_count_metrics slow_flush_count_metrics].each do |metric_name|
+         write_secondary_count_metrics rollback_count_metrics flush_time_count_metrics slow_flush_count_metrics
+         drop_oldest_chunk_count_metrics].each do |metric_name|
         assert_true @i.instance_variable_get(:"@#{metric_name}").is_a?(Fluent::Plugin::Metrics)
       end
 
@@ -241,6 +242,7 @@ class OutputTest < Test::Unit::TestCase
       assert_equal 0, @i.rollback_count
       assert_equal 0, @i.flush_time_count
       assert_equal 0, @i.slow_flush_count
+      assert_equal 0, @i.drop_oldest_chunk_count
     end
 
     data(:new_api => :chunk,
