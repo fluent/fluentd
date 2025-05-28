@@ -1395,4 +1395,15 @@ EOL
       end
     end
   end
+
+  test 'can use metrics plugins and fallback methods' do
+    @d = create_driver
+
+    %w[healthy_nodes_count_metrics registered_nodes_count_metrics].each do |metric_name|
+      assert_true @d.instance.instance_variable_get(:"@#{metric_name}").is_a?(Fluent::Plugin::Metrics)
+    end
+
+    assert_equal 0, @d.instance.healthy_nodes_count
+    assert_equal 0, @d.instance.registered_nodes_count
+  end
 end
