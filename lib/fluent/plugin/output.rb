@@ -190,6 +190,7 @@ module Fluent
         @rollback_count_metrics = nil
         @flush_time_count_metrics = nil
         @slow_flush_count_metrics = nil
+        @drop_oldest_chunk_count_metrics = nil
         @enable_size_metrics = false
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
@@ -259,6 +260,7 @@ module Fluent
         @rollback_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "rollback_count", help_text: "Number of rollbacking operations")
         @flush_time_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "flush_time_count", help_text: "Count of flush time")
         @slow_flush_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "slow_flush_count", help_text: "Count of slow flush occurred time(s)")
+        @drop_oldest_chunk_count_metrics = metrics_create(namespace: "fluentd", subsystem: "output", name: "drop_oldest_chunk_count", help_text: "Number of count that old chunk were discarded with drop_oldest_chunk")
 
         if has_buffer_section
           unless implement?(:buffered) || implement?(:delayed_commit)
@@ -977,6 +979,7 @@ module Fluent
               if oldest
                 log.warn "dropping oldest chunk to make space after buffer overflow", chunk_id: dump_unique_id_hex(oldest.unique_id)
                 @buffer.purge_chunk(oldest.unique_id)
+                @drop_oldest_chunk_count_metrics.inc
               else
                 log.error "no queued chunks to be dropped for drop_oldest_chunk"
               end
@@ -1575,6 +1578,7 @@ module Fluent
           'rollback_count' => @rollback_count_metrics.get,
           'slow_flush_count' => @slow_flush_count_metrics.get,
           'flush_time_count' => @flush_time_count_metrics.get,
+          'drop_oldest_chunk_count' => @drop_oldest_chunk_count_metrics.get,
         }
 
         if @buffer && @buffer.respond_to?(:statistics)

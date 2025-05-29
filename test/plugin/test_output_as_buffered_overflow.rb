@@ -217,6 +217,7 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       logs = @i.log.out.logs
       assert{ logs.any?{|line| line.include?("failed to write data into buffer by buffer overflow") } }
       assert{ logs.any?{|line| line.include?("dropping oldest chunk to make space after buffer overflow") } }
+      assert{ @i.drop_oldest_chunk_count > 0 }
     end
 
     test '#emit_events raises OverflowError if all buffer spaces are used by staged chunks' do
