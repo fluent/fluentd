@@ -37,7 +37,7 @@ module Fluent
         # path_prefix: path prefix string, ended with '.'
         # path_suffix: path suffix string, like '.log' (or any other user specified)
 
-        attr_reader :path, :permission
+        attr_reader :path, :meta_path, :permission
 
         def initialize(metadata, path, mode, perm: nil, compress: :text)
           super(metadata, compress: compress)
