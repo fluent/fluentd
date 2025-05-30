@@ -160,7 +160,7 @@ CONF
         "emit_records"   => 0, # This field is not updated due to not to be assigned metric callback.
         "emit_size"      => 0, # Ditto.
       }
-      input_info.merge!("config" => {"@id" => "test_in_gen", "@type" => "test_in_gen", "num" => "10"}) if with_config
+      input_info["config"] = {"@id" => "test_in_gen", "@type" => "test_in_gen", "num" => "10"} if with_config
       filter_info = {
         "output_plugin"   => false,
         "plugin_category" => "filter",
@@ -170,7 +170,7 @@ CONF
         "emit_records"   => Integer,
         "emit_size"      => Integer,
       }
-      filter_info.merge!("config" => {"@id" => "test_filter", "@type" => "test_filter"}) if with_config
+      filter_info["config"] = {"@id" => "test_filter", "@type" => "test_filter"} if with_config
       output_info = {
         "output_plugin"   => true,
         "plugin_category" => "output",
@@ -186,7 +186,7 @@ CONF
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
       }
-      output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
+      output_info["config"] = {"@id" => "test_out", "@type" => "test_out"} if with_config
       error_label_info = {
         "buffer_queue_length" => 0,
         "buffer_timekeys" => [],
@@ -209,7 +209,7 @@ CONF
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
       }
-      error_label_info.merge!("config" => {"@id"=>"null", "@type" => "null"}) if with_config
+      error_label_info["config"] = {"@id"=>"null", "@type" => "null"} if with_config
       opts = {with_config: with_config}
       assert_equal(input_info, d.instance.get_monitor_info(@ra.inputs.first, opts))
       assert_fuzzy_equal(filter_info, d.instance.get_monitor_info(@ra.filters.first, opts))
@@ -301,7 +301,7 @@ EOC
         "emit_records"   => 0,
         "emit_size"      => 0,
       }
-      input_info.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
+      input_info["config"] = {"@id" => "test_in", "@type" => "test_in"} if with_config
       filter_info = {
         "output_plugin"   => false,
         "plugin_category" => "filter",
@@ -311,7 +311,7 @@ EOC
         "emit_records"   => 0,
         "emit_size"      => 0,
       }
-      filter_info.merge!("config" => {"@id" => "test_filter", "@type" => "test_filter"}) if with_config
+      filter_info["config"] = {"@id" => "test_filter", "@type" => "test_filter"} if with_config
       output_info = {
         "output_plugin"   => true,
         "plugin_category" => "output",
@@ -327,7 +327,7 @@ EOC
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
       }
-      output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
+      output_info["config"] = {"@id" => "test_out", "@type" => "test_out"} if with_config
       error_label_info = {
         "buffer_queue_length" => 0,
         "buffer_timekeys" => [],
@@ -350,7 +350,7 @@ EOC
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
       }
-      error_label_info.merge!("config" => {"@id"=>"null", "@type" => "null"}) if with_config
+      error_label_info["config"] = {"@id"=>"null", "@type" => "null"} if with_config
       opts = {with_config: with_config}
       assert_equal(input_info, d.instance.get_monitor_info(@ra.inputs.first, opts))
       assert_fuzzy_equal(filter_info, d.instance.get_monitor_info(@ra.filters.first, opts))
@@ -556,7 +556,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "emit_records"    => 0,
         "emit_size"       => 0,
       }
-      expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
+      expected_test_in_response["config"] = {"@id" => "test_in", "@type" => "test_in"} if with_config
       expected_null_response = {
         "buffer_queue_length" => 0,
         "buffer_timekeys" => [],
@@ -579,8 +579,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
       }
-      expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
-      expected_null_response.merge!("retry" => {}) if with_retry
+      expected_null_response["config"] = {"@id" => "null", "@type" => "null"} if with_config
+      expected_null_response["retry"] = {} if with_retry
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json").body)
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
@@ -622,7 +622,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "emit_records"   => 0,
         "emit_size"      => 0,
       }
-      expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
+      expected_test_in_response["config"] = {"@id" => "test_in", "@type" => "test_in"} if with_config
       expected_null_response = {
         "buffer_queue_length" => 0,
         "buffer_timekeys" => [],
@@ -644,8 +644,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "slow_flush_count" => Integer,
         "flush_time_count" => Integer,
       }
-      expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
-      expected_null_response.merge!("retry" => {}) if with_retry
+      expected_null_response["config"] = {"@id" => "null", "@type" => "null"} if with_config
+      expected_null_response["retry"] = {} if with_retry
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json#{query_param}").body)
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
