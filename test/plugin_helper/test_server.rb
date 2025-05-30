@@ -489,7 +489,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s == "127.0.0.1" } }
+      assert{ sources.all?("127.0.0.1") }
     end
 
     test 'does resolve name of client address if resolve_name is true' do
@@ -508,7 +508,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s == hostname } }
+      assert{ sources.all?(hostname) }
     end
 
     test 'can keep connections alive for tcp if keepalive specified' do
@@ -727,7 +727,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s == "127.0.0.1" } }
+      assert{ sources.all?("127.0.0.1") }
     end
 
     test 'does resolve name of client address if resolve_name is true' do
@@ -748,7 +748,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s == hostname } }
+      assert{ sources.all?(hostname) }
     end
 
     test 'raises error if plugin registers data callback for connection object from #server_create' do
@@ -1494,7 +1494,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal 3, received.scan("yay\n").size
-      assert{ sources.all?{|s| s == "127.0.0.1" } }
+      assert{ sources.all?("127.0.0.1") }
     end
 
     test 'does resolve name of client address if resolve_name is true' do
@@ -1514,7 +1514,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal 3, received.scan("yay\n").size
-      assert{ sources.all?{|s| s == hostname } }
+      assert{ sources.all?(hostname) }
     end
 
     test 'can keep connections alive for tls if keepalive specified' do
@@ -1721,7 +1721,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s == "127.0.0.1" } }
+      assert{ sources.all?("127.0.0.1") }
     end
 
     data(protocols)
@@ -1743,7 +1743,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s == hostname } }
+      assert{ sources.all?(hostname) }
     end
 
     data(protocols)
