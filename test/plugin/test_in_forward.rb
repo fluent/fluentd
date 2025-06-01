@@ -644,7 +644,7 @@ class ForwardInputTest < Test::Unit::TestCase
       # check emitted data
       emits = d.events
       assert_equal 16, emits.size
-      assert emits.map(&:first).all?{|t| t == "test.tag" }
+      assert emits.map(&:first).all?("test.tag")
       assert_equal (0...16).to_a, emits.map{|_tag, t, _record| t - time }
 
       # check log

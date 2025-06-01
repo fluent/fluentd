@@ -327,7 +327,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       assert{ now >= first_failure + 3600 }
 
       assert{ @i.buffer.stage.size == 0 }
-      assert{ written_tags.all?{|t| t == 'test.tag.1' } }
+      assert{ written_tags.all?('test.tag.1') }
 
       @i.emit_events("test.tag.3", dummy_event_stream())
 
@@ -404,7 +404,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
       end
       assert{ @i.buffer.stage.size == 0 }
-      assert{ written_tags.all?{|t| t == 'test.tag.1' } }
+      assert{ written_tags.all?('test.tag.1') }
 
       @i.emit_events("test.tag.3", dummy_event_stream())
 
@@ -593,7 +593,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
       assert{ @i.buffer.stage.size == 0 }
 
-      assert{ written_tags.all?{|t| t == 'test.tag.1' } }
+      assert{ written_tags.all?('test.tag.1') }
 
       chunks = @i.buffer.queue.dup
 
@@ -689,7 +689,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
       end
       assert{ @i.buffer.stage.size == 0 }
-      assert{ written_tags.all?{|t| t == 'test.tag.1' } }
+      assert{ written_tags.all?('test.tag.1') }
 
 
       @i.emit_events("test.tag.3", dummy_event_stream())
