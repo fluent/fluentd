@@ -1038,7 +1038,7 @@ class BufferTest < Test::Unit::TestCase
       @p.write({@dm0 => es}, format: @format)
       @p.enqueue_all(true)
 
-      dequeued_chunks = 6.times.map { |e| @p.dequeue_chunk } # splits: 45000 / 100 => 450 * ...
+      dequeued_chunks = Array.new(6) { |e| @p.dequeue_chunk } # splits: 45000 / 100 => 450 * ...
       assert_equal [5000, 9900, 9900, 9900, 9900, 5400], dequeued_chunks.map(&:size)
       assert_equal [@dm0, @dm0, @dm0, @dm0, @dm0, @dm0], dequeued_chunks.map(&:metadata)
     end

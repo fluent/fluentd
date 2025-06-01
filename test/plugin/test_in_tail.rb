@@ -553,7 +553,7 @@ class TailInputTest < Test::Unit::TestCase
           end
 
           assert_true(Fluent::Clock.now - start_time > 1)
-          assert_equal(num_events.times.map { {"message" => msg} },
+          assert_equal(Array.new(num_events) { {"message" => msg} },
                        d.events.collect { |event| event[2] })
         end
 
@@ -576,7 +576,7 @@ class TailInputTest < Test::Unit::TestCase
           end
 
           assert_true(Fluent::Clock.now - start_time > 1)
-          assert_equal(4096.times.map { {"message" => msg} },
+          assert_equal(Array.new(4096) { {"message" => msg} },
                        d.events.collect { |event| event[2] })
         end
       end
