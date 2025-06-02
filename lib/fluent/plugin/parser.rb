@@ -29,7 +29,7 @@ module Fluent
     class Parser < Base
       class TimeoutChecker
         # This implementation now uses mutex because parser is typically used in input.
-        # If this has a performance issue under high concurreny, use concurrent-ruby's map instead.
+        # If this has a performance issue under high concurrent, use concurrent-ruby's map instead.
         def initialize(timeout)
           @map = {}
           @flag = ServerEngine::BlockingFlag.new

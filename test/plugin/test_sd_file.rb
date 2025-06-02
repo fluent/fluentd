@@ -35,7 +35,7 @@ class FileServiceDiscoveryTest < ::Test::Unit::TestCase
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24225, nil, 1), sdf.services[1]
     end
 
-    test 'regard as yaml if ext is not givened' do
+    test 'regard as yaml if ext is not given' do
       sdf = Fluent::Plugin::FileServiceDiscovery.new
       sdf.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config') }))
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24224, 'test1', 1, false, 'user1', 'pass1', 'key1'), sdf.services[0]

@@ -12,7 +12,7 @@ unless skip
   class HttpHelperAppTest < Test::Unit::TestCase
     NULL_LOGGER = Logger.new(nil)
 
-    class DummyRounter
+    class DummyRouter
       def initialize(table = {})
         @table = table
       end
@@ -35,7 +35,7 @@ unless skip
         'TRACE request' => 'TRACE',
       )
       test 'dispatch correct path' do |method|
-        r = DummyRounter.new(method.downcase.to_sym => { '/path/' => 'hi' })
+        r = DummyRouter.new(method.downcase.to_sym => { '/path/' => 'hi' })
         app = Fluent::PluginHelper::HttpServer::App.new(r, NULL_LOGGER)
         m = flexmock('request', method: method, path: '/path/')
         r = app.call(m)
@@ -44,7 +44,7 @@ unless skip
       end
 
       test 'dispatch correct path for head' do |method|
-        r = DummyRounter.new(head: { '/path/' => 'hi' })
+        r = DummyRouter.new(head: { '/path/' => 'hi' })
         app = Fluent::PluginHelper::HttpServer::App.new(r, NULL_LOGGER)
         m = flexmock('request', method: method, path: '/path')
         r = app.call(m)
@@ -53,7 +53,7 @@ unless skip
       end
 
       test 'if path does not end with `/`' do |method|
-        r = DummyRounter.new(head: { '/path/' => 'hi' })
+        r = DummyRouter.new(head: { '/path/' => 'hi' })
         app = Fluent::PluginHelper::HttpServer::App.new(r, NULL_LOGGER)
         m = flexmock('request', method: method, path: '/path')
         r = app.call(m)

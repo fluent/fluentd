@@ -285,7 +285,7 @@ module Fluent
             @chunk.binmode
           rescue => e
             # Here assumes "Too many open files" like recoverable error so raising BufferOverflowError.
-            # If other cases are possible, we will change erorr handling with proper classes.
+            # If other cases are possible, we will change error handling with proper classes.
             raise BufferOverflowError, "can't create buffer file for #{path}. Stop creating buffer files: error = #{e}"
           end
           begin

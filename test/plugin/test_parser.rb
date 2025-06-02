@@ -185,7 +185,7 @@ class ParserTest < ::Test::Unit::TestCase
       end
     end
 
-    test 'to parse time string in floating poing value' do
+    test 'to parse time string in floating point value' do
       # "t5" => "time:float",
       with_timezone("UTC+02") do # -0200
         @i.configure(config_element('parse', '', @hash))

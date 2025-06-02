@@ -767,7 +767,7 @@ module Fluent
 
       install_main_process_signal_handlers
 
-      # This is the only log messsage for @standalone_worker
+      # This is the only log message for @standalone_worker
       $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid, ruby: RUBY_VERSION if @standalone_worker
 
       main_process do

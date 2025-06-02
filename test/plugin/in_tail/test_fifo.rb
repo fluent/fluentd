@@ -4,7 +4,7 @@ require 'fluent/plugin/in_tail'
 
 class IntailFIFO < Test::Unit::TestCase
   sub_test_case '#read_line' do
-    test 'returns lines spliting per `\n`' do
+    test 'returns lines splitting per `\n`' do
       fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
       text = ("test\n" * 3).force_encoding(Encoding::ASCII_8BIT)
       fifo << text
@@ -14,7 +14,7 @@ class IntailFIFO < Test::Unit::TestCase
       assert_equal ["test\n", "test\n", "test\n"], lines
     end
 
-    test 'concant line when line is separated' do
+    test 'concat line when line is separated' do
       fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
       text = ("test\n" * 3 + 'test').force_encoding(Encoding::ASCII_8BIT)
       fifo << text
@@ -71,7 +71,7 @@ class IntailFIFO < Test::Unit::TestCase
       end
     end
 
-    test 'reutrns nothing when buffer is empty' do
+    test 'returns nothing when buffer is empty' do
       fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
       lines = []
       fifo.read_lines(lines)

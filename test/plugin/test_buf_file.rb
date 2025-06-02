@@ -796,7 +796,7 @@ class FileBufferTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'there are some existing file chunks with old format metadta' do
+  sub_test_case 'there are some existing file chunks with old format metadata' do
     setup do
       @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
       FileUtils.mkdir_p @bufdir unless File.exist?(@bufdir)

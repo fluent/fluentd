@@ -150,7 +150,7 @@ module Fluent
             end
           end
           unless section_params.has_key?(proxy.argument.first)
-            logger.error "config error in:\n#{conf}" if logger # logger should exist, but somethimes it's nil (e.g, in tests)
+            logger.error "config error in:\n#{conf}" if logger # logger should exist, but sometimes it's nil (e.g, in tests)
             raise ConfigError, "'<#{proxy.name} ARG>' section requires argument" + section_stack
           end
           # argument should NOT be deprecated... (argument always has a value: '')

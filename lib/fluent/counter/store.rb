@@ -156,7 +156,7 @@ module Fluent
         }
       end
 
-      # value is Hash. value requires these fileds.
+      # value is Hash. value requires these fields.
       # :name, :total, :current, :type, :reset_interval, :last_reset_at, :last_modified_at
       def build_value(data)
         type = data['type'] || 'numeric'

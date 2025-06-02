@@ -31,7 +31,7 @@ module Fluent
         @unused = unused || attrs.keys
         @v1_config = false
         @corresponding_proxies = [] # some plugins use flat parameters, e.g. in_http doesn't provide <format> section for parser.
-        @unused_in = nil # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
+        @unused_in = nil # if this element is not used in plugins, corresponding plugin name and parent element name is set, e.g. [source, plugin class].
 
         # it's global logger, not plugin logger: deprecated message should be global warning, not plugin level.
         @logger = defined?($log) ? $log : nil

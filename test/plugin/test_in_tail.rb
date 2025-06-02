@@ -196,7 +196,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(["test2.txt","test1.txt"].sort, d.instance.paths.sort)
     end
 
-    test "multi paths with invaid path_delimiter" do
+    test "multi paths with invalid path_delimiter" do
       c = config_element("ROOT", "", { "path" => "tail.txt|test2|tmp,dev", "tag" => "t1", "path_delimiter" => "*" })
       assert_raise(Fluent::ConfigError) do
         create_driver(c + PARSE_SINGLE_LINE_CONFIG, false)
@@ -2810,7 +2810,7 @@ class TailInputTest < Test::Unit::TestCase
 
         # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` updates the TailWatcher:
         #     TailWatcher(path: "tail.txt", inode: inode_0) => TailWatcher(path: "tail.txt", inode: inode_1)
-        # The old TailWathcer is detached here since `rotate_wait` is just `1s`.
+        # The old TailWatcher is detached here since `rotate_wait` is just `1s`.
         sleep 3
 
         # This reproduces the following situation:
@@ -2900,7 +2900,7 @@ class TailInputTest < Test::Unit::TestCase
         # This adds a new TailWatcher: TailWatcher(path: "tail.txt1", inode: inode_0)
         d.instance.refresh_watchers
 
-        # The old TailWathcer is detached here since `rotate_wait` is `4s`.
+        # The old TailWatcher is detached here since `rotate_wait` is `4s`.
         sleep 3
 
         # Append to the new current log file.
@@ -2988,7 +2988,7 @@ class TailInputTest < Test::Unit::TestCase
         # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` trys to update the TailWatcher:
         #     TailWatcher(path: "tail.txt", inode: inode_0) => TailWatcher(path: "tail.txt", inode: inode_1)
         # However, it is already added in `refresh_watcher`, so `update_watcher` doesn't create the new TailWatcher.
-        # The old TailWathcer is detached here since `rotate_wait` is just `1s`.
+        # The old TailWatcher is detached here since `rotate_wait` is just `1s`.
         sleep 3
 
         # This adds a new TailWatcher: TailWatcher(path: "tail.txt1", inode: inode_0)

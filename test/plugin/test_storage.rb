@@ -82,7 +82,7 @@ class StorageTest < Test::Unit::TestCase
       assert_equal true, @s.save_at_shutdown
     end
 
-    test 'load/save doesn NOT anything: just as memory storage' do
+    test 'load/save does NOT anything: just as memory storage' do
       assert_nothing_raised{ @s.load }
       assert_nothing_raised{ @s.save }
     end

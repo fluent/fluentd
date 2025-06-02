@@ -183,7 +183,7 @@ module Fluent
 
             living_process_exist = true
 
-            process_info.killed_at ||= Fluent::Clock.now # for illegular case (e.g., created after shutdown)
+            process_info.killed_at ||= Fluent::Clock.now # for irregular case (e.g., created after shutdown)
             timeout_at = process_info.killed_at + @_child_process_kill_timeout
             now = Fluent::Clock.now
             next if now < timeout_at

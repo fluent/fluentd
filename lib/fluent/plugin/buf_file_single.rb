@@ -202,7 +202,7 @@ module Fluent
         queue.sort_by!(&:modified_at)
 
         # If one of the files is corrupted, other files may also be corrupted and be undetected.
-        # The time priods of each chunk are helpful to check the data.
+        # The time periods of each chunk are helpful to check the data.
         if exist_broken_file
           log.info "Since a broken chunk file was found, it is possible that other files remaining at the time of resuming were also broken. Here is the list of the files."
           (stage.values + queue).each { |chunk|

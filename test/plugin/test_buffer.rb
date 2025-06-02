@@ -876,12 +876,12 @@ class BufferTest < Test::Unit::TestCase
 
       m = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
       small_row = "x" * 1024 * 400
-      big_row = "x" * 1024 * 1024 * 8 # just `chunk_size_limit`, it does't cause BufferOverFlowError.
+      big_row = "x" * 1024 * 1024 * 8 # just `chunk_size_limit`, it doesn't cause BufferOverFlowError.
 
       # Write 42 events in 1 event stream, last one is for triggering `ShouldRetry`
       @p.write({m => [small_row] * 40 + [big_row] + ["x"]})
 
-      # Above event strem will be splitted twice by `Buffer#write_step_by_step`
+      # Above event stream will be splitted twice by `Buffer#write_step_by_step`
       #
       # 1. `write_once`: 42 [events] * 1 [stream]
       # 2. `write_step_by_step`: 4 [events]* 10 [streams] + 2 [events] * 1 [stream]
@@ -936,12 +936,12 @@ class BufferTest < Test::Unit::TestCase
 
       m = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
       small_row = "x" * 1024 * 400
-      big_row = "x" * 1024 * 1024 * 8 # just `chunk_size_limit`, it does't cause BufferOverFlowError.
+      big_row = "x" * 1024 * 1024 * 8 # just `chunk_size_limit`, it doesn't cause BufferOverFlowError.
 
       # Write 42 events in 1 event stream, last one is for triggering `ShouldRetry`
       @p.write({m => [small_row] * 40 + [big_row] + ["x"]})
 
-      # Above event strem will be splitted twice by `Buffer#write_step_by_step`
+      # Above event stream will be splitted twice by `Buffer#write_step_by_step`
       #
       # 1. `write_once`: 42 [events] * 1 [stream]
       # 2. `write_step_by_step`: 4 [events]* 10 [streams] + 2 [events] * 1 [stream]
@@ -1043,7 +1043,7 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0, @dm0, @dm0, @dm0, @dm0, @dm0], dequeued_chunks.map(&:metadata)
     end
 
-    test '#write raises BufferChunkOverflowError if a record is biggar than chunk limit size' do
+    test '#write raises BufferChunkOverflowError if a record is bigger than chunk limit size' do
       assert_equal [@dm0], @p.stage.keys
       assert_equal [], @p.queue.map(&:metadata)
 

@@ -15,7 +15,7 @@
 #
 
 module Fluent
-  # VariableStore provides all pluigns with the way to shared variable without using class variable
+  # VariableStore provides all plugins with the way to shared variable without using class variable
   # it's for safe reloading mechanism
   class VariableStore
     @data = {}

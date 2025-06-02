@@ -133,7 +133,7 @@ unless Fluent.windows?
   }
 end
 
-op.on('--config-file-type VALU', 'guessing file type of fluentd configuration. yaml/yml or guess') { |s|
+op.on('--config-file-type VALUE', 'guessing file type of fluentd configuration. yaml/yml or guess') { |s|
   if (s == 'yaml') || (s == 'yml')
     cmd_opts[:config_file_type] = s.to_sym
   elsif (s == 'guess')

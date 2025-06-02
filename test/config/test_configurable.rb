@@ -895,7 +895,7 @@ module Fluent::Config
           assert_equal(55, b3.branch[2].leaf[0].weight)
         end
 
-        test 'constructs confuguration object tree for Base4' do
+        test 'constructs configuration object tree for Base4' do
           conf = config_element(
             'ROOT',
             '',

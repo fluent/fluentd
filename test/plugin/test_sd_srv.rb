@@ -18,7 +18,7 @@ class SrvServiceDiscoveryTest < ::Test::Unit::TestCase
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, '', '', nil), sdf.services[1]
     end
 
-    test 'reuturn host name without revolving name when dns_lookup is flase' do
+    test 'return host name without resolving name when dns_lookup is false' do
       sdf = Fluent::Plugin::SrvServiceDiscovery.new
       mock(Resolv::DNS).new { flexmock('dns_resolver', getresources: [SRV_RECORD1, SRV_RECORD2], getaddress: '127.0.0.1') }
 

@@ -352,7 +352,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
     assert_equal (dummy_current_time + 1), s.next_time
     assert !s.secondary?
 
-    # primary: 3, 7, 15, 31, 63, 80 (timeout * threashold)
+    # primary: 3, 7, 15, 31, 63, 80 (timeout * threshold)
     # secondary: 81, 83, 87, 95, 100
     i = 1
     while i < 6
@@ -960,7 +960,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
         RetryRecord.new(28, 10000, true),
       ],
     })
-    test "exponential backoff with senario" do |data|
+    test "exponential backoff with scenario" do |data|
       print_for_debug = false # change this value true if need to see msg always.
       trying_count = 1000 # just for avoiding infinite loop
 

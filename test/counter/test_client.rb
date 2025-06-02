@@ -475,7 +475,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal (@now + travel_sec), Fluent::EventTime.new(*v1['last_modified_at'])
     end
 
-    test 'areturn a value object before `reset_interval` passed' do
+    test 'return a value object before `reset_interval` passed' do
       v1 = extract_value_from_server(@server, @scope, @name)
       assert_equal @inc_obj[:value], v1['total']
       assert_equal @inc_obj[:value], v1['current']
