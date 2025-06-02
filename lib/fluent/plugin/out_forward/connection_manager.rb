@@ -24,7 +24,7 @@ module Fluent::Plugin
       # @param log [Logger]
       # @param secure [Boolean]
       # @param connection_factory [Proc]
-      # @param SocketCache [Fluent::ForwardOutput::SocketCache]
+      # @param socket_cache [Fluent::ForwardOutput::SocketCache]
       def initialize(log:, secure:, connection_factory:, socket_cache:)
         @log = log
         @secure = secure
@@ -36,7 +36,7 @@ module Fluent::Plugin
         @socket_cache && @socket_cache.clear
       end
 
-      # @param ack [Fluent::Plugin::ForwardOutput::AckHander::Ack|nil]
+      # @param ack [Fluent::Plugin::ForwardOutput::AckHandler::Ack|nil]
       def connect(host:, port:, hostname:, ack: nil, &block)
         if @socket_cache
           return connect_keepalive(host: host, port: port, hostname: hostname, ack: ack, &block)

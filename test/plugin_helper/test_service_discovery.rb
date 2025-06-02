@@ -7,7 +7,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
   class Dummy < Fluent::Plugin::TestBase
     helpers :service_discovery
 
-    # Make these mehtod public
+    # Make these method public
     def service_discovery_create_manager(title, configurations:, load_balancer: nil, custom_build_method: nil, interval: 3)
       super
     end
@@ -29,7 +29,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
       service_discovery_select_service(&block)
     end
 
-    # Make these mehtod public
+    # Make these method public
     def discovery_manager
       super
     end
@@ -119,7 +119,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
     mock.proxy(d.discovery_manager).start.once
     mock(d).timer_execute(:service_discovery_helper_test, anything).once
 
-    # To avoid claring `@logs` during `terminate` step
+    # To avoid clearing `@logs` during `terminate` step
     # https://github.com/fluent/fluentd/blob/bc78d889f93dad8c2a4e0ad1ca802546185dacba/lib/fluent/test/log.rb#L33
     mock(d.log).reset.times(3)
 

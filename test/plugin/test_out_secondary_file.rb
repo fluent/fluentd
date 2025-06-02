@@ -29,8 +29,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     def write(chunk); end
   end
 
-  def create_primary(buffer_cofig = config_element('buffer'))
-    DummyOutput.new.configure(config_element('ROOT','',{}, [buffer_cofig]))
+  def create_primary(buffer_config = config_element('buffer'))
+    DummyOutput.new.configure(config_element('ROOT','',{}, [buffer_config]))
   end
 
   def create_driver(conf = CONFIG, primary = create_primary)

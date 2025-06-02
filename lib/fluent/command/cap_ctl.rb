@@ -28,11 +28,11 @@ module Fluent
         @opts[:clear_capabilities] = true
       }
 
-      @op.on('--add [CAPABILITITY1,CAPABILITY2, ...]', "Add capabilities into Fluentd Ruby") {|s|
+      @op.on('--add [CAPABILITY1,CAPABILITY2, ...]', "Add capabilities into Fluentd Ruby") {|s|
         @opts[:add_capabilities] = s
       }
 
-      @op.on('--drop [CAPABILITITY1,CAPABILITY2, ...]', "Drop capabilities from Fluentd Ruby") {|s|
+      @op.on('--drop [CAPABILITY1,CAPABILITY2, ...]', "Drop capabilities from Fluentd Ruby") {|s|
         @opts[:drop_capabilities] = s
       }
 

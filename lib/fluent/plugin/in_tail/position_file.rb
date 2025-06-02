@@ -91,7 +91,7 @@ module Fluent::Plugin
         @map = map
       end
 
-      # This method is similer to #compact but it tries to get less lock to avoid a lock contention
+      # This method is similar to #compact but it tries to get less lock to avoid a lock contention
       def try_compact
         last_modified = nil
         size = nil

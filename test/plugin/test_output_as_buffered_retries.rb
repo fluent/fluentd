@@ -477,7 +477,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'bufferd output for retries with periodical retry' do
+  sub_test_case 'buffered output for retries with periodical retry' do
     test 'periodical retries should retry to write in failing status per retry_wait' do
       chunk_key = 'tag'
       hash = {

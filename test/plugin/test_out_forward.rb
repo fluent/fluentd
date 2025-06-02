@@ -540,7 +540,7 @@ EOL
     assert_equal ['test', time, records[1]], events[1]
   end
 
-  test 'send_comprssed_message_pack_stream_if_compress_is_gzip' do
+  test 'send_compressed_message_pack_stream_if_compress_is_gzip' do
     target_input_driver = create_target_input_driver
 
     @d = d = create_driver(config + %[
@@ -570,7 +570,7 @@ EOL
     assert_equal ['test', time, records[1]], events[1]
   end
 
-  test 'send_comprssed_message_pack_stream_if_compress_is_zstd' do
+  test 'send_compressed_message_pack_stream_if_compress_is_zstd' do
     target_input_driver = create_target_input_driver
 
     @d = d = create_driver(config + %[

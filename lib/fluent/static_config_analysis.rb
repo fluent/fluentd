@@ -18,7 +18,7 @@ require 'fluent/config'
 require 'fluent/plugin'
 
 module Fluent
-  # Static Analysis means analysing all plugins and Fluent::Element without invokeing Plugin#configure
+  # Static Analysis means analysing all plugins and Fluent::Element without invoking Plugin#configure
   class StaticConfigAnalysis
     module Elem
       Input = Struct.new(:plugin, :config)

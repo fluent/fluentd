@@ -177,7 +177,7 @@ module Fluent
 
     # @param conf [Fluent::Config]
     # @param supervisor [Bool]
-    # @reutrn nil
+    # @return nil
     def reload_config(conf, supervisor: false)
       @root_agent_mutex.synchronize do
         # configure first to reduce down time while restarting

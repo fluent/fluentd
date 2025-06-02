@@ -247,7 +247,7 @@ module Fluent
     end
 
     # This method returns MultiEventStream, because there are no reason
-    # to surve binary serialized by msgpack.
+    # to survey binary serialized by msgpack.
     def slice(index, num)
       ensure_unpacked!
       MultiEventStream.new(@unpacked_times.slice(index, num), @unpacked_records.slice(index, num))

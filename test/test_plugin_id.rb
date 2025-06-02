@@ -82,7 +82,7 @@ class PluginIdTest < Test::Unit::TestCase
       assert_equal root_dir.object_id, twice.object_id
     end
 
-    test '#plugin_root_dir referres SERVERENGINE_WORKER_ID environment path to create it' do
+    test '#plugin_root_dir refers SERVERENGINE_WORKER_ID environment path to create it' do
       prev_env_val = ENV['SERVERENGINE_WORKER_ID']
       begin
         ENV['SERVERENGINE_WORKER_ID'] = '7'
@@ -98,7 +98,7 @@ class PluginIdTest < Test::Unit::TestCase
       end
     end
 
-    test '#plugin_root_dir create dirctory with specify mode if not exists ' do
+    test '#plugin_root_dir create directory with specify mode if not exists ' do
       omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
 
       root_dir = Fluent::SystemConfig.overwrite_system_config({ 'root_dir' => File.join(TMP_DIR, "myroot"), 'dir_permission' => '0777' }) do
@@ -108,7 +108,7 @@ class PluginIdTest < Test::Unit::TestCase
       assert_equal '777', File.stat(root_dir).mode.to_s(8)[-3, 3]
     end
 
-    test '#plugin_root_dir create dirctory with default permission if not exists ' do
+    test '#plugin_root_dir create directory with default permission if not exists ' do
       root_dir = Fluent::SystemConfig.overwrite_system_config({ 'root_dir' => File.join(TMP_DIR, "myroot") }) do
         @p.plugin_root_dir
       end

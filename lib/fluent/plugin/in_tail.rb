@@ -63,7 +63,7 @@ module Fluent::Plugin
 
     desc 'The paths to read. Multiple paths can be specified, separated by comma.'
     config_param :path, :string
-    desc 'path delimiter used for spliting path config'
+    desc 'path delimiter used for splitting path config'
     config_param :path_delimiter, :string, default: ','
     desc 'Choose using glob patterns. Adding capabilities to handle [] and ?, and {}.'
     config_param :glob_policy, :enum, list: [:backward_compatible, :extended, :always], default: :backward_compatible
@@ -144,7 +144,7 @@ module Fluent::Plugin
       end
 
       if @glob_policy == :always && @path_delimiter == ','
-        raise Fluent::ConfigError, "cannot use glob_policy as always with the default path_delimitor: `,\""
+        raise Fluent::ConfigError, "cannot use glob_policy as always with the default path_delimiter: `,\""
       end
 
       if @glob_policy == :extended && /\{.*,.*\}/.match?(@path) && extended_glob_pattern(@path)
@@ -305,7 +305,7 @@ module Fluent::Plugin
     def close
       super
       # close file handles after all threads stopped (in #close of thread plugin helper)
-      # It may be because we need to wait IOHanlder.ready_to_shutdown()
+      # It may be because we need to wait IOHandler.ready_to_shutdown()
       close_watcher_handles
     end
 
@@ -450,7 +450,7 @@ module Fluent::Plugin
       removed_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
 
-      # If an exisiting TailWatcher already follows a target path with the different inode,
+      # If an existing TailWatcher already follows a target path with the different inode,
       # it means that the TailWatcher following the rotated file still exists. In this case,
       # `refresh_watcher` can't start the new TailWatcher for the new current file. So, we
       # should output a warning log in order to prevent silent collection stops.
@@ -581,7 +581,7 @@ module Fluent::Plugin
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(tail_watcher, pe, new_inode)
       # TODO we should use another callback for this.
-      # To supress impact to existing logics, limit the case to `@follow_inodes`.
+      # To suppress impact to existing logics, limit the case to `@follow_inodes`.
       # We may not need `@follow_inodes` condition.
       if @follow_inodes && new_inode.nil?
         # nil inode means the file disappeared, so we only need to stop it.
@@ -593,7 +593,7 @@ module Fluent::Plugin
         # In that case, `refresh_watcher` will add the new TailWatcher to tail the same target,
         # and it causes the log duplication.
         # (Other `detach_watcher_after_rotate_wait` may have the same problem.
-        #  We need the mechanism not to add duplicated TailWathcer with detaching TailWatcher.)
+        #  We need the mechanism not to add duplicated TailWatcher with detaching TailWatcher.)
         detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
         return
       end

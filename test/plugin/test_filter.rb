@@ -322,7 +322,7 @@ class FilterPluginTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'filter plugin that is implmented `filter_with_time` and returns nil for some records' do
+  sub_test_case 'filter plugin that is implemented `filter_with_time` and returns nil for some records' do
     setup do
       Fluent::Test.setup
       @p = FluentPluginFilterTest::IgnoreForNumPluginWithTime.new
@@ -354,7 +354,7 @@ class FilterPluginTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'filter plugins that is implmented both `filter_with_time` and `filter`' do
+  sub_test_case 'filter plugins that is implemented both `filter_with_time` and `filter`' do
     setup do
       Fluent::Test.setup
     end

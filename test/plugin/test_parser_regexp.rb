@@ -97,7 +97,7 @@ class RegexpParserTest < ::Test::Unit::TestCase
       }
     end
 
-    def test_parse_without_time_estimate_curent_event_false
+    def test_parse_without_time_estimate_current_event_false
       text = "tagomori_satoshi tagomoris 34\n"
       regexp = Regexp.new(%q!^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$!)
       conf = {
@@ -237,7 +237,7 @@ class RegexpParserTest < ::Test::Unit::TestCase
       }
     end
 
-    def test_parse_without_time_estimate_curent_event_false
+    def test_parse_without_time_estimate_current_event_false
       text = "tagomori_satoshi tagomoris 34\n"
       conf = {
         'expression' => %q!/^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$/!,

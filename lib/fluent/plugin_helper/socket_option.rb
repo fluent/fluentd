@@ -54,8 +54,8 @@ module Fluent
         if Fluent.windows?
           # To prevent closing socket forcibly on Windows,
           # this options shouldn't be set up when linger_timeout equals to 0 (including nil).
-          # This unintended behavior always ocurrs on Windows when linger_timeout.to_i == 0.
-          # This unintented behavior causes "Errno::ECONNRESET: An existing connection was forcibly
+          # This unintended behavior always occurs on Windows when linger_timeout.to_i == 0.
+          # This unintended behavior causes "Errno::ECONNRESET: An existing connection was forcibly
           # closed by the remote host." on Windows.
           if linger_timeout.to_i > 0
             if linger_timeout >= 2**16

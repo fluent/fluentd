@@ -357,7 +357,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(
       'server_create tcp' => [:server_create, :tcp, {}],
-      # Disable udp test because the behaviour of SO_REUSEXXX option is different betweeen BSD, Linux and others...
+      # Disable udp test because the behaviour of SO_REUSEXXX option is different between BSD, Linux and others...
       # Need to find good way for testing on local, CI service and others.
       #'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
       'server_create tls' => [:server_create, :tls, {tls_options: {insecure: true}}],
@@ -874,7 +874,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
 
         waiting(10) { sleep 0.1 until actual_records.size >= expected.size }
-        sleep 1 if expected.size == 0 # To confirm no record recieved.
+        sleep 1 if expected.size == 0 # To confirm no record received.
 
         assert_equal expected, actual_records
       end

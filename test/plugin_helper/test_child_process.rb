@@ -52,7 +52,7 @@ class ChildProcessTest < Test::Unit::TestCase
     d1.start
   end
 
-  test 'can execute external command asyncronously' do
+  test 'can execute external command asynchronously' do
     m = Mutex.new
     m.lock
     ary = []

@@ -387,7 +387,7 @@ module Fluent
           end
 
           errors = []
-          # Buffer plugin estimates there's no serious error cause: will commit for all chunks eigher way
+          # Buffer plugin estimates there's no serious error cause: will commit for all chunks either way
           operated_chunks.each do |chunk|
             begin
               chunk.commit

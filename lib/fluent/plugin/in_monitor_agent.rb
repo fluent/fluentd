@@ -250,7 +250,7 @@ module Fluent::Plugin
       array.concat Fluent::Engine.root_agent.filters
 
       Fluent::Engine.root_agent.labels.each { |name, l|
-        # TODO: Add label name to outputs / filters for identifing plugins
+        # TODO: Add label name to outputs / filters for identifying plugins
         array.concat l.outputs
         array.concat l.filters
       }

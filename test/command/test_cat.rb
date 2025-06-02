@@ -48,8 +48,8 @@ class TestFluentCat < ::Test::Unit::TestCase
     Fluent::Test::Driver::Input.new(Fluent::Plugin::ForwardInput).configure(conf)
   end
 
-  def create_primary(buffer_cofig = config_element('buffer'))
-    DummyOutput.new.configure(config_element('ROOT','',{}, [buffer_cofig]))
+  def create_primary(buffer_config = config_element('buffer'))
+    DummyOutput.new.configure(config_element('ROOT','',{}, [buffer_config]))
   end
 
   def create_secondary_driver(conf=SECONDARY_CONFIG)

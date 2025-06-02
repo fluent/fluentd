@@ -207,7 +207,7 @@ module Fluent::Plugin
             value.each do |k, v|
               placeholders.store(%Q[${#{key}["#{k}"]}], v) # record["foo"]
             end
-          else # string, interger, float, and others?
+          else # string, integer, float, and others?
             placeholders.store("${#{key}}", value)
           end
         end

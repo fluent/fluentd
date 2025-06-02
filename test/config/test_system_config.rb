@@ -11,7 +11,7 @@ module Fluent::Config
     def initialize(**opt)
       @system_config = nil
       @cl_opt = {
-        wokers: nil,
+        workers: nil,
         restart_worker_interval: nil,
         root_dir: nil,
         log_level: Fluent::Log::LEVEL_INFO,

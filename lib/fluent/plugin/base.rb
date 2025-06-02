@@ -206,7 +206,7 @@ module Fluent
       end
 
       def reloadable_plugin?
-        # Engine can't capture all class variables. so it's forbbiden to use class variables in each plugins if enabling reload.
+        # Engine can't capture all class variables. so it's forbidden to use class variables in each plugins if enabling reload.
         self.class.class_variables.empty?
       end
     end
