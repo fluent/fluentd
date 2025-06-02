@@ -625,6 +625,7 @@ module Fluent
           until @queue.empty?
             begin
               q = @queue.shift
+              evacuate_chunk(q)
               log.trace("purging a chunk in queue"){ {id: dump_unique_id_hex(chunk.unique_id), bytesize: chunk.bytesize, size: chunk.size} }
               q.purge
             rescue => e
@@ -634,6 +635,25 @@ module Fluent
           end
           @queue_size_metrics.set(0)
         end
+      end
+
+      def evacuate_chunk(chunk)
+        # Overwrite this on demand.
+        #
+        # Note: Difference from the `backup` feature.
+        #       The `backup` feature is for unrecoverable errors, mainly for bad chunks.
+        #       On the other hand, this feature is for normal chunks.
+        #       The main motivation for this feature is to enable recovery by evacuating buffer files
+        #       when the retry limit is reached due to external factors such as network issues.
+        #
+        # Note: Difference from the `secondary` feature.
+        #       The `secondary` feature is not suitable for recovery.
+        #       It can be difficult to recover files made by `out_secondary_file` because the metadata
+        #       is lost.
+        #       For file buffers, the easiest way for recovery is to evacuate the chunk files as is.
+        #       Once the issue is recovered, we can put back the chunk files, and restart Fluentd to
+        #       load them.
+        #       This feature enables it.
       end
 
       def chunk_size_over?(chunk)
@@ -925,8 +945,6 @@ module Fluent
           return
         end
 
-        safe_owner_id = owner.plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
-        backup_base_dir = system_config.root_dir || DEFAULT_BACKUP_DIR
         backup_file = File.join(backup_base_dir, 'backup', "worker#{fluentd_worker_id}", safe_owner_id, "#{unique_id}.log")
         backup_dir = File.dirname(backup_file)
 
@@ -944,6 +962,14 @@ module Fluent
         else
           !@queue.empty?
         end
+      end
+
+      def safe_owner_id
+        owner.plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
+      end
+
+      def backup_base_dir
+        system_config.root_dir || DEFAULT_BACKUP_DIR
       end
     end
   end
