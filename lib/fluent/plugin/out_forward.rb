@@ -305,7 +305,7 @@ module Fluent::Plugin
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp
           @usock = socket_create_udp(service_discovery_services.first.host, service_discovery_services.first.port, nonblock: true)
-          server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length, &method(:on_udp_heatbeat_response_recv))
+          server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length, &method(:on_udp_heartbeat_response_recv))
         end
         timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_heartbeat_timer))
       end
@@ -491,7 +491,7 @@ module Fluent::Plugin
       end
     end
 
-    def on_udp_heatbeat_response_recv(data, sock)
+    def on_udp_heartbeat_response_recv(data, sock)
       sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
       if node = service_discovery_services.find { |n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
@@ -594,7 +594,7 @@ module Fluent::Plugin
       attr_accessor :usock
 
       attr_reader :state
-      attr_reader :sockaddr  # used by on_udp_heatbeat_response_recv
+      attr_reader :sockaddr  # used by on_udp_heartbeat_response_recv
       attr_reader :failure # for test
 
       def validate_host_resolution!
@@ -721,7 +721,7 @@ module Fluent::Plugin
           end
         when :udp
           @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, dest_addr)
-          # response is going to receive at on_udp_heatbeat_response_recv
+          # response is going to receive at on_udp_heartbeat_response_recv
           false
         when :none # :none doesn't use this class
           raise "BUG: heartbeat_type none must not use Node"
@@ -754,7 +754,7 @@ module Fluent::Plugin
       def resolve_dns!
         addrinfo_list = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM)
         addrinfo = @sender.dns_round_robin ? addrinfo_list.sample : addrinfo_list.first
-        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_udp_heatbeat_response_recv
+        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_udp_heartbeat_response_recv
         addrinfo[3]
       end
       private :resolve_dns!
