@@ -35,4 +35,4 @@ jobs:
       - name: Run Benchmark
         shell: bash # Ensure to use bash shell on all platforms
         run: |
-          bundle exec rake benchmark:run:in_tail | tee >(cat) >> $GITHUB_STEP_SUMMARY
+          bundle exec rake benchmark:run:in_tail | tee --append $GITHUB_STEP_SUMMARY
