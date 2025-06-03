@@ -3443,4 +3443,32 @@ class TailInputTest < Test::Unit::TestCase
                     d.logs[-2..]
                   ])
   end
+
+  test 'statistics' do
+    config = config_element("", "", {
+      "tag" => "statistics",
+      "path" => "#{@tmp_dir}/statistics*.txt",
+      "format" => "none",
+      "read_from_head" => true,
+    })
+    Fluent::FileWrapper.open("#{@tmp_dir}/statistics1.txt", "w+") do |f|
+      f.puts "foo"
+    end
+
+    d = create_driver(config, false)
+    d.run(expect_records: 1, shutdown: false)
+
+    assert_equal({
+                   "emit_records" => 0,
+                   "emit_size" => 0,
+                   "opened_file_count" => 1,
+                   "closed_file_count" => 0,
+                   "rotated_file_count" => 0,
+                   "throttled_log_count" =>0,
+                   "tracked_file_count" => 1,
+                 },
+                 d.instance.statistics["input"])
+
+    d.instance_shutdown
+  end
 end
