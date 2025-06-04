@@ -241,6 +241,20 @@ module Fluent
         File.unlink(path) rescue nil
       end
 
+      def evacuate_chunk(chunk)
+        unless chunk.is_a?(Fluent::Plugin::Buffer::FileSingleChunk)
+          raise ArgumentError, "The chunk must be FileSingleChunk, but it was #{chunk.class}."
+        end
+
+        backup_dir = File.join(backup_base_dir, 'buffer', safe_owner_id)
+        FileUtils.mkdir_p(backup_dir, mode: system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION) unless Dir.exist?(backup_dir)
+
+        FileUtils.copy(chunk.path, backup_dir)
+        log.warn "chunk files are evacuated to #{backup_dir}.", chunk_id: dump_unique_id_hex(chunk.unique_id)
+      rescue => e
+        log.error "unexpected error while evacuating chunk files.", error: e
+      end
+
       private
 
       def escaped_patterns(patterns)

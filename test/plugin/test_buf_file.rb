@@ -20,6 +20,34 @@ module FluentPluginFileBufferTest
       # drop
     end
   end
+
+  class DummyErrorOutputPlugin < DummyOutputPlugin
+    def register_write(&block)
+      instance_variable_set("@write", block)
+    end
+
+    def initialize
+      super
+      @should_fail_writing = true
+      @write = nil
+    end
+
+    def recover
+      @should_fail_writing = false
+    end
+
+    def write(chunk)
+      if @should_fail_writing
+        raise "failed writing chunk"
+      else
+        @write ? @write.call(chunk) : nil
+      end
+    end
+
+    def format(tag, time, record)
+      [tag, time.to_i, record].to_json + "\n"
+    end
+  end
 end
 
 class FileBufferTest < Test::Unit::TestCase
@@ -1309,6 +1337,145 @@ class FileBufferTest < Test::Unit::TestCase
       compare_log(@p, 'disable_chunk_backup is true')
       assert { not File.exist?(p2) }
       assert { not File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
+    end
+  end
+
+  sub_test_case 'evacuate_chunk' do
+    def setup
+      Fluent::Test.setup
+
+      @now = Time.local(2025, 5, 30, 17, 0, 0)
+      @base_dir = File.expand_path("../../tmp/evacuate_chunk", __FILE__)
+      @buf_dir = File.join(@base_dir, "buffer")
+      @root_dir = File.join(@base_dir, "root")
+      FileUtils.mkdir_p(@root_dir)
+
+      Fluent::SystemConfig.overwrite_system_config("root_dir" => @root_dir) do
+        Timecop.freeze(@now)
+        yield
+      end
+    ensure
+      Timecop.return
+      FileUtils.rm_rf(@base_dir)
+    end
+
+    def start_plugin(plugin)
+      plugin.start
+      plugin.after_start
+    end
+
+    def stop_plugin(plugin)
+      plugin.stop unless plugin.stopped?
+      plugin.before_shutdown unless plugin.before_shutdown?
+      plugin.shutdown unless plugin.shutdown?
+      plugin.after_shutdown unless plugin.after_shutdown?
+      plugin.close unless plugin.closed?
+      plugin.terminate unless plugin.terminated?
+    end
+
+    def configure_output(id, chunk_key, buffer_conf)
+      output = FluentPluginFileBufferTest::DummyErrorOutputPlugin.new
+      output.configure(
+        config_element('ROOT', '', {'@id' => id}, [config_element('buffer', chunk_key, buffer_conf)])
+      )
+      yield output
+    ensure
+      stop_plugin(output)
+    end
+
+    def wait(sec: 4)
+      waiting(sec) do
+        Thread.pass until yield
+      end
+    end
+
+    def emit_events(output, tag, es)
+      output.interrupt_flushes
+      output.emit_events("test.1", dummy_event_stream)
+      @now += 1
+      Timecop.freeze(@now)
+      output.enqueue_thread_wait
+      output.flush_thread_wakeup
+    end
+
+    def proceed_to_next_retry(output)
+      @now += 1
+      Timecop.freeze(@now)
+      output.flush_thread_wakeup
+    end
+
+    def dummy_event_stream
+      Fluent::ArrayEventStream.new([
+        [ event_time("2025-05-30 10:00:00"), {"message" => "data1"} ],
+        [ event_time("2025-05-30 10:10:00"), {"message" => "data2"} ],
+        [ event_time("2025-05-30 10:20:00"), {"message" => "data3"} ],
+      ])
+    end
+
+    def evacuate_dir(plugin_id)
+      File.join(@root_dir, "buffer", plugin_id)
+    end
+
+    test 'can recover by putting back evacuated chunk files' do
+      plugin_id = "test_output"
+      tag = "test.1"
+      buffer_conf = {
+        "path" => @buf_dir,
+        "flush_mode" => "interval",
+        "flush_interval" => "1s",
+        "retry_type" => "periodic",
+        "retry_max_times" => 1,
+        "retry_randomize" => false,
+      }
+
+      # Fail flushing and reach retry limit
+      configure_output(plugin_id, "tag", buffer_conf) do |output|
+        start_plugin(output)
+
+        emit_events(output, tag, dummy_event_stream)
+        wait { output.write_count == 1 and output.num_errors == 1 }
+
+        proceed_to_next_retry(output)
+        wait { output.write_count == 2 and output.num_errors == 2 }
+        wait { Dir.empty?(@buf_dir) }
+
+        # Assert evacuated files
+        evacuated_files = Dir.children(evacuate_dir(plugin_id)).map do |child_name|
+          File.join(evacuate_dir(plugin_id), child_name)
+        end
+        assert { evacuated_files.size == 2 } # .log and .log.meta
+
+        # Put back evacuated chunk files for recovery
+        FileUtils.move(evacuated_files, @buf_dir)
+      end
+
+      # Restart plugin to load the chunk files that were put back
+      written_data = []
+      configure_output(plugin_id, "tag", buffer_conf) do |output|
+        output.recover
+        output.register_write do |chunk|
+          written_data << chunk.read
+        end
+        start_plugin(output)
+
+        wait { not written_data.empty? }
+      end
+
+      # Assert the recovery success
+      assert { written_data.length == 1 }
+
+      expected_records = []
+      dummy_event_stream.each do |(time, record)|
+        expected_records << [tag, time.to_i, record]
+      end
+
+      actual_records = StringIO.open(written_data.first) do |io|
+        io.each_line.map do |line|
+          JSON.parse(line)
+        end
+      end
+
+      assert_equal(expected_records, actual_records)
     end
   end
 end
