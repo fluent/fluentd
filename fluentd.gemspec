@@ -13,7 +13,7 @@ Gem::Specification.new do |gem|
   gem.files         = Dir.chdir(__dir__) do
     `git ls-files -z`.split("\x0").reject do |f|
       (File.expand_path(f) == __FILE__) ||
-        f.start_with?(*%w[test/ .git Gemfile])
+        f.start_with?(*%w[tasks/ test/ .git Gemfile])
     end
   end
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }

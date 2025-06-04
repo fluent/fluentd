@@ -5,6 +5,8 @@ require 'fileutils'
 require 'rake/testtask'
 require 'rake/clean'
 
+require_relative 'tasks/benchmark'
+
 task test: [:base_test]
 
 # 1. update ChangeLog and lib/fluent/version.rb
