@@ -84,7 +84,7 @@ module Fluent
           yield
         end
         # Update access time to prevent tmpwatch from deleting a lock file.
-        FileUtils.touch(lock_path);
+        FileUtils.touch(lock_path)
       end
 
       def string_safe_encoding(str)

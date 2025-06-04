@@ -118,7 +118,7 @@ class BaseTest < Test::Unit::TestCase
     Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
       ENV['FLUENTD_LOCK_DIR'] = lock_dir
       p = FluentPluginBaseTest::DummyPlugin.new
-      path = p.get_lock_path("Aa\\|=~/_123");
+      path = p.get_lock_path("Aa\\|=~/_123")
 
       assert_equal lock_dir, File.dirname(path)
       assert_equal "fluentd-Aa______123.lock", File.basename(path)
