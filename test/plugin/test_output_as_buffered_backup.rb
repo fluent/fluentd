@@ -195,7 +195,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         chunk_id = nil
         @i.configure(config_element('ROOT', '', {'@id' => id}, [config_element('buffer', 'tag', hash)]))
         @i.register(:write) { |chunk|
-          chunk_id = chunk.unique_id;
+          chunk_id = chunk.unique_id
           raise error_class, "yay, your #write must fail"
         }
 
@@ -220,7 +220,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         secconf = config_element('secondary','',{'@type' => 'backup_output'})
         @i.configure(config_element('ROOT', '', {'@id' => id}, [config_element('buffer', 'tag', hash), secconf]))
         @i.register(:write) { |chunk|
-          chunk_id = chunk.unique_id;
+          chunk_id = chunk.unique_id
           raise Fluent::UnrecoverableError, "yay, your #write must fail"
         }
 
@@ -242,7 +242,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         secconf = config_element('secondary', '', { '@type' => 'backup_output' })
         @i.configure(config_element('ROOT', '', { '@id' => id }, [config_element('buffer', 'tag', hash), secconf]))
         @i.register(:write) { |chunk|
-          chunk_id = chunk.unique_id;
+          chunk_id = chunk.unique_id
           raise Fluent::UnrecoverableError, "yay, your #write must fail"
         }
 
@@ -267,7 +267,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         secconf = config_element('secondary', '', { '@type' => 'backup_output' })
         @i.configure(config_element('ROOT', '', { '@id' => id }, [config_element('buffer', 'tag', hash), secconf]))
         @i.register(:write) { |chunk|
-          chunk_id = chunk.unique_id;
+          chunk_id = chunk.unique_id
           raise Fluent::UnrecoverableError, "yay, your #write must fail"
         }
 
@@ -293,7 +293,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         secconf = config_element('secondary','',{'@type' => 'backup_output2'})
         @i.configure(config_element('ROOT', '', {'@id' => id}, [config_element('buffer', 'tag', hash), secconf]))
         @i.register(:write) { |chunk|
-          chunk_id = chunk.unique_id;
+          chunk_id = chunk.unique_id
           raise Fluent::UnrecoverableError, "yay, your #write must fail"
         }
         @i.secondary.register(:write) { |chunk|
@@ -322,7 +322,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         secconf = config_element('secondary','',{'@type' => 'backup_async_output'})
         @i.configure(config_element('ROOT', '', {'@id' => id}, [config_element('buffer', 'tag', hash), secconf]))
         @i.register(:write) { |chunk|
-          chunk_id = chunk.unique_id;
+          chunk_id = chunk.unique_id
           raise Fluent::UnrecoverableError, "yay, your #write must fail"
         }
 
@@ -347,7 +347,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         chunk_id = nil
         @i.configure(config_element('ROOT', '', {'@id' => id}, [config_element('buffer', 'tag', hash)]))
         @i.register(:write) { |chunk|
-          chunk_id = chunk.unique_id;
+          chunk_id = chunk.unique_id
           raise Fluent::UnrecoverableError, "yay, your #write must fail"
         }
 
