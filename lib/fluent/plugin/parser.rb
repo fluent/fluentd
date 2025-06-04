@@ -46,8 +46,8 @@ module Fluent
                 @map.keys.each { |th|
                   time = @map[th]
                   if now - time > @timeout
-                    th.raise UncatchableError, "parsing timed out"
                     @map.delete(th)
+                    th.raise UncatchableError, "parsing timed out"
                   end
                 }
               }
