@@ -148,7 +148,7 @@ module Fluent
         def on_message(msg, addr)
           @parser.parse(msg) { |time, record|
             unless time && record
-              log.warn "pattern not matched: #{msg.inspect}"
+              log.warn { "pattern not matched: #{msg.inspect}" }
               return
             end
 

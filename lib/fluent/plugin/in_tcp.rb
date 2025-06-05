@@ -137,7 +137,7 @@ module Fluent::Plugin
 
             @parser.parse(msg) do |time, record|
               unless time && record
-                log.warn "pattern not matched", message: msg
+                log.on_warn { log.warn "pattern not matched", message: msg }
                 next
               end
 
@@ -187,7 +187,7 @@ module Fluent::Plugin
 
             @parser.parse(msg) do |time, record|
               unless time && record
-                log.warn "pattern not matched", message: msg
+                log.on_warn { log.warn "pattern not matched", message: msg }
                 next
               end
 
