@@ -153,12 +153,12 @@ module Fluent
 
     def run
       begin
+        @fluent_log_event_router.start
+
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         @root_agent_mutex.synchronize do
           start
         end
-
-        @fluent_log_event_router.start
 
         $log.info "fluentd worker is now running", worker: worker_id
         sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
