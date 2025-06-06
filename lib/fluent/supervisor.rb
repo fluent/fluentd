@@ -589,6 +589,7 @@ module Fluent
         chuser: params['chuser'],
         chgroup: params['chgroup'],
         chumask: params['chumask'].is_a?(Integer) ? params['chumask'] : params['chumask']&.to_i(8),
+        umask: params['umask'],
         daemonize: daemonize,
         rpc_endpoint: params['rpc_endpoint'],
         counter_server: params['counter_server'],
@@ -759,6 +760,11 @@ module Fluent
 
       if @standalone_worker && @system_config.workers != 1
         raise Fluent::ConfigError, "invalid number of workers (must be 1 or unspecified) with --no-supervisor: #{@system_config.workers}"
+      end
+      
+      if @system_config.umask
+        File.umask(@system_config.umask)
+        $log.info "Worker applied system umask", umask: sprintf("%04o", @system_config.umask)
       end
 
       if Fluent.windows? && @system_config.with_source_only
@@ -1202,6 +1208,10 @@ module Fluent
         end
       end
       system_config.overwrite_variables(**opt)
+      if system_config.umask
+        File.umask(system_config.umask)
+        $log.info "Applied system umask", umask: sprintf("%04o", system_config.umask)
+      end
       system_config
     end
 
