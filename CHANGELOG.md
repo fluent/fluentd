@@ -152,7 +152,7 @@
 
 ### Misc
 
-* CI improvemnts
+* CI improvements
   https://github.com/fluent/fluentd/pull/4956
 
 ## Release v1.16.8 - 2025/05/01
@@ -176,7 +176,7 @@
   https://github.com/fluent/fluentd/pull/4922
   https://github.com/fluent/fluentd/pull/4926
   https://github.com/fluent/fluentd/pull/4943
-* CI improvemnts
+* CI improvements
   https://github.com/fluent/fluentd/pull/4821
   https://github.com/fluent/fluentd/pull/4850
   https://github.com/fluent/fluentd/pull/4851
@@ -203,7 +203,7 @@
   https://github.com/fluent/fluentd/pull/4747
 * README: remove deprecated google analytics beacon
   https://github.com/fluent/fluentd/pull/4797
-* CI improvemnts
+* CI improvements
   https://github.com/fluent/fluentd/pull/4723
   https://github.com/fluent/fluentd/pull/4788
   https://github.com/fluent/fluentd/pull/4789
@@ -925,7 +925,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
 
 * Add webrick to support Ruby 3.0
   https://github.com/fluent/fluentd/pull/3257
-* Suggest Discource instead of Google Groups
+* Suggest Discourse instead of Google Groups
   https://github.com/fluent/fluentd/pull/3261
 * Update MAINTAINERS.md
   https://github.com/fluent/fluentd/pull/3282
@@ -1014,7 +1014,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
 
 ### Bug fix
 
-* Fix a bug that windows service isn't stopped gracefuly
+* Fix a bug that windows service isn't stopped gracefully
   https://github.com/fluent/fluentd/pull/3156
 
 ## Release v1.11.4 - 2020/10/13
@@ -1073,7 +1073,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   https://github.com/fluent/fluentd/pull/3092
 * cert: Raise an error for broken certificate file
   https://github.com/fluent/fluentd/pull/3086
-* cert: Set TLS ciphers list correcty on older OpenSSL
+* cert: Set TLS ciphers list correctly on older OpenSSL
   https://github.com/fluent/fluentd/pull/3093
 
 ## Release v1.11.1 - 2020/06/22
@@ -1325,7 +1325,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   https://github.com/fluent/fluentd/pull/2787
 * in_tail: Add `path_delimiter` to split with any char
   https://github.com/fluent/fluentd/pull/2796
-* in_tail: Remove an entry from PositionaFile when it is unwatched
+* in_tail: Remove an entry from PositionFile when it is unwatched
   https://github.com/fluent/fluentd/pull/2803
 * out_http: Add warning for `retryable_response_code`
   https://github.com/fluent/fluentd/pull/2809
@@ -1345,7 +1345,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
 
 ### New feature
 
-* New light-weight config reload mechanizm
+* New light-weight config reload mechanism
   https://github.com/fluent/fluentd/pull/2716
 * Drop ruby 2.1/2.2/2.3 support
   https://github.com/fluent/fluentd/pull/2750
@@ -1368,7 +1368,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
 
 * buffer: Disable the optimization of Metadata instance comparison on Windows
   https://github.com/fluent/fluentd/pull/2778
-* outut/buffer: Fix stage size computation
+* output/buffer: Fix stage size computation
   https://github.com/fluent/fluentd/pull/2734
 * server: Ignore Errno::EHOSTUNREACH in TLS accept to avoid fluentd restart
   https://github.com/fluent/fluentd/pull/2773
@@ -1415,7 +1415,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   https://github.com/fluent/fluentd/pull/2673
 * log: Deprecate top-level match for capturing fluentd logs
   https://github.com/fluent/fluentd/pull/2689
-* in_monitor_agent: Expose Fluentd verion in REST API
+* in_monitor_agent: Expose Fluentd version in REST API
   https://github.com/fluent/fluentd/pull/2706
 * time: Accept localtime xor utc
   https://github.com/fluent/fluentd/pull/2720
@@ -1850,7 +1850,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   https://github.com/fluent/fluentd/pull/2193
 * record_accessor helper: Delete top level field with bracket style
   https://github.com/fluent/fluentd/pull/2192
-* filter_record_transformer: Keep `class` methond to avoid undefined method error
+* filter_record_transformer: Keep `class` method to avoid undefined method error
   https://github.com/fluent/fluentd/pull/2186
 
 ## Release v1.3.0 - 2018/11/10
@@ -2223,7 +2223,7 @@ See [CNCF announcement](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 * formatter_tsv: Add add_newline parameter
   https://github.com/fluent/fluentd/pull/1691
-* out_file/out_secondary_file: Support ${chunk_id} placeholder. This includes extrace_placeholders API change
+* out_file/out_secondary_file: Support ${chunk_id} placeholder. This includes extract_placeholders API change
   https://github.com/fluent/fluentd/pull/1708
 * record_accessor: Support double quotes in bracket notation
   https://github.com/fluent/fluentd/pull/1716
@@ -2374,7 +2374,7 @@ See [CNCF announcement](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 ### Bug fixes
 
-* in_http: Fix X-Forwarded-For header handling. Accpet multiple headers
+* in_http: Fix X-Forwarded-For header handling. Accept multiple headers
   https://github.com/fluent/fluentd/pull/1535
 * Fix backward compatibility with Fluent::DetachProcess and Fluent::DetachMultiProcess
   https://github.com/fluent/fluentd/pull/1522
