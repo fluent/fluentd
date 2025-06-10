@@ -779,7 +779,24 @@ class FileOutputTest < Test::Unit::TestCase
       end
     end
 
-    def run_and_check(d, symlink_path)
+    test 'relative symlink' do
+      omit "Windows doesn't support symlinks" if Fluent.windows?
+
+      conf = CONFIG + %[
+        symlink_path #{SYMLINK_PATH}
+        symlink_path_use_relative true
+      ]
+      symlink_path = "#{SYMLINK_PATH}"
+
+      d = create_driver(conf)
+      begin
+        run_and_check(d, symlink_path, relative_symlink=true)
+      ensure
+        FileUtils.rm_rf(symlink_path)
+      end
+    end
+
+    def run_and_check(d, symlink_path, relative_symlink=false)
       d.run(default_tag: 'tag') do
         es = Fluent::OneEventStream.new(event_time("2011-01-02 13:14:15 UTC"), {"a"=>1})
         d.feed(es)
@@ -794,7 +811,14 @@ class FileOutputTest < Test::Unit::TestCase
         assert File.exist?(symlink_path)
 
         meta = d.instance.metadata('tag', event_time("2011-01-03 14:15:16 UTC"), {})
-        assert_equal d.instance.buffer.instance_eval{ @stage[meta].path }, File.readlink(symlink_path)
+        if relative_symlink
+          target_path = d.instance.buffer.instance_eval{ @stage[meta].path }
+          link_target = File.readlink(symlink_path)
+          expected_path = Pathname.new(target_path).relative_path_from(Pathname.new(File.dirname(symlink_path))).to_s
+          assert_equal expected_path, link_target
+        else
+          assert_equal d.instance.buffer.instance_eval{ @stage[meta].path }, File.readlink(symlink_path)
+        end
       end
     end
   end
