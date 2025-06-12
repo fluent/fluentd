@@ -1,9 +1,8 @@
 Fluentd: Open-Source Log Collector
 ===================================
 
-[![Testing on Ubuntu](https://github.com/fluent/fluentd/actions/workflows/linux-test.yaml/badge.svg?branch=master)](https://github.com/fluent/fluentd/actions/workflows/linux-test.yaml)
-[![Testing on Windows](https://github.com/fluent/fluentd/actions/workflows/windows-test.yaml/badge.svg?branch=master)](https://github.com/fluent/fluentd/actions/workflows/windows-test.yaml)
-[![Testing on macOS](https://github.com/fluent/fluentd/actions/workflows/macos-test.yaml/badge.svg?branch=master)](https://github.com/fluent/fluentd/actions/workflows/macos-test.yaml)
+[![Test](https://github.com/fluent/fluentd/actions/workflows/test.yml/badge.svg)](https://github.com/fluent/fluentd/actions/workflows/test.yml)
+[![Test with Ruby head](https://github.com/fluent/fluentd/actions/workflows/test-ruby-head.yml/badge.svg)](https://github.com/fluent/fluentd/actions/workflows/test-ruby-head.yml)
 [![Code Climate](https://codeclimate.com/github/fluent/fluentd/badges/gpa.svg)](https://codeclimate.com/github/fluent/fluentd)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1189/badge)](https://bestpractices.coreinfrastructure.org/projects/1189)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/fluent/fluentd/badge)](https://scorecard.dev/viewer/?uri=github.com/fluent/fluentd)
