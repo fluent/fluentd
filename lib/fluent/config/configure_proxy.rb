@@ -47,7 +47,7 @@ module Fluent
         #   should override "@name".
         @root_section = root
 
-        @param_name = param_name && param_name.to_sym
+        @param_name = param_name&.to_sym
         @init = init
         @required = required
         @multi = multi

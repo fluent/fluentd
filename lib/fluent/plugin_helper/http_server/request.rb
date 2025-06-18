@@ -45,7 +45,7 @@ module Fluent
         end
 
         def body
-          @request.body && @request.body.read
+          @request.body&.read
         end
       end
     end

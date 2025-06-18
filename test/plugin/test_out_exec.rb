@@ -282,7 +282,7 @@ EOC
       assert{ d.instance.dequeued_chunks.empty? }
 
     ensure
-      d.instance_shutdown if d && d.instance
+      d.instance_shutdown if d&.instance
     end
 
     test 'flushed chunk will be taken back after child process unexpectedly exits' do
@@ -306,7 +306,7 @@ EOC
       assert{ File.exist?(expect_path) && File.size(expect_path) == 0 }
 
     ensure
-      d.instance_shutdown if d && d.instance
+      d.instance_shutdown if d&.instance
     end
   end
 end

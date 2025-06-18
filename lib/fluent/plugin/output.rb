@@ -552,7 +552,7 @@ module Fluent
             @output_flush_threads.each do |state|
               # to wakeup thread and make it to stop by itself
               state.mutex.synchronize {
-                if state.thread && state.thread.status
+                if state.thread&.status
                   state.next_clock = 0
                   state.cond_var.signal
                 end
@@ -1131,7 +1131,7 @@ module Fluent
 
       def try_rollback_write
         @dequeued_chunks_mutex.synchronize do
-          while @dequeued_chunks.first && @dequeued_chunks.first.expired?
+          while @dequeued_chunks.first&.expired?
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
               @rollback_count_metrics.inc
@@ -1376,7 +1376,7 @@ module Fluent
         @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]
         state.mutex.synchronize {
-          if state.thread && state.thread.status # "run"/"sleep"/"aborting" or false(successfully stop) or nil(killed by exception)
+          if state.thread&.status # "run"/"sleep"/"aborting" or false(successfully stop) or nil(killed by exception)
             state.next_clock = 0
             state.cond_var.signal
           else
@@ -1422,7 +1422,7 @@ module Fluent
       def flush_thread_wakeup
         @output_flush_threads.each do |state|
           state.mutex.synchronize {
-            if state.thread && state.thread.status
+            if state.thread&.status
               state.next_clock = 0
               state.cond_var.signal
             end

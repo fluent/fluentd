@@ -143,7 +143,7 @@ module Fluent
         @_child_process_mutex.synchronize{ @_child_process_processes.keys }.each do |pid|
           process_info = @_child_process_processes[pid]
           next if !process_info
-          process_info.writeio && process_info.writeio.close rescue nil
+          process_info.writeio&.close rescue nil
         end
 
         super

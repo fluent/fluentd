@@ -193,8 +193,8 @@ module Fluent::Plugin
             log.warn "child process exits with error code", code: status.to_i, status: status.exitstatus, signal: status.termsig
           end
           c.mutex.synchronize do
-            (c.writeio && c.writeio.close) rescue nil
-            (c.readio && c.readio.close) rescue nil
+            c.writeio&.close rescue nil
+            c.readio&.close rescue nil
             c.pid = c.readio = c.writeio = nil
           end
         end
