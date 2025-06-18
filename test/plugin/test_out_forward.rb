@@ -541,7 +541,7 @@ EOL
   end
 
   test 'send_compressed_message_pack_stream_if_compress_is_gzip' do
-    target_input_driver = create_target_input_driver
+    target_input_driver = create_target_input_driver(conf: target_config + "skip_invalid_event false")
 
     @d = d = create_driver(config + %[
       flush_interval 1s
@@ -571,7 +571,7 @@ EOL
   end
 
   test 'send_compressed_message_pack_stream_if_compress_is_zstd' do
-    target_input_driver = create_target_input_driver
+    target_input_driver = create_target_input_driver(conf: target_config + "skip_invalid_event false")
 
     @d = d = create_driver(config + %[
       flush_interval 1s
