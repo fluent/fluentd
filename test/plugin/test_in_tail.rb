@@ -1766,7 +1766,7 @@ class TailInputTest < Test::Unit::TestCase
         }
       )
     ensure
-      d.instance_shutdown if d && d.instance
+      d.instance_shutdown if d&.instance
       cleanup_directory(@tmp_dir)
     end
 
@@ -2540,7 +2540,7 @@ class TailInputTest < Test::Unit::TestCase
     assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
            $log.out.logs.join("\n"))
   ensure
-    d.instance_shutdown if d && d.instance
+    d.instance_shutdown if d&.instance
   end
 
   def test_EACCES_error_after_setup_watcher
@@ -2567,7 +2567,7 @@ class TailInputTest < Test::Unit::TestCase
              $log.out.logs.join("\n"))
     end
   ensure
-    d.instance_shutdown if d && d.instance
+    d.instance_shutdown if d&.instance
     if File.exist?("#{@tmp_dir}/noaccess")
       FileUtils.chmod(0755, "#{@tmp_dir}/noaccess")
       FileUtils.rm_rf("#{@tmp_dir}/noaccess")
@@ -2589,7 +2589,7 @@ class TailInputTest < Test::Unit::TestCase
     end
     assert($log.out.logs.any?{|log| log.include?("expand_paths: stat() for #{path} failed with Errno::EACCES. Skip file.\n") })
   ensure
-    d.instance_shutdown if d && d.instance
+    d.instance_shutdown if d&.instance
   end
 
   def test_warn_without_directory_permission

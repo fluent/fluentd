@@ -525,7 +525,7 @@ module Fluent
           chunks = @stage.values
           chunks.concat(@queue)
           @timekeys = chunks.each_with_object({}) do |chunk, keys|
-            if chunk.metadata && chunk.metadata.timekey
+            if chunk.metadata&.timekey
               t = chunk.metadata.timekey
               keys[t] = keys.fetch(t, 0) + 1
             end
@@ -958,7 +958,7 @@ module Fluent
       def optimistic_queued?(metadata = nil)
         if metadata
           n = @queued_num[metadata]
-          n && n.nonzero?
+          n&.nonzero?
         else
           !@queue.empty?
         end

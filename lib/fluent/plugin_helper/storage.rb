@@ -38,7 +38,7 @@ module Fluent
         end
 
         s = @_storages[usage]
-        if s && s.running
+        if s&.running
           return s.storage
         elsif s
           # storage is already created, but not loaded / started
