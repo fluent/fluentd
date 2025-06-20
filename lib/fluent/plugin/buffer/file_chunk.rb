@@ -219,13 +219,17 @@ module Fluent
             # old type of restore
             data = Fluent::MessagePackFactory.msgpack_unpacker(symbolize_keys: true).feed(bindata).read rescue {}
           end
+          raise FileChunkError, "invalid meta data" if data.nil? || !data.is_a?(Hash)
+          raise FileChunkError, "invalid unique_id" unless data[:id]
+          raise FileChunkError, "invalid created_at" unless data[:c].to_i > 0
+          raise FileChunkError, "invalid modified_at" unless data[:m].to_i > 0
 
           now = Fluent::Clock.real_now
 
-          @unique_id = data[:id] || self.class.unique_id_from_path(@path) || @unique_id
+          @unique_id = data[:id]
           @size = data[:s] || 0
-          @created_at = data.fetch(:c, now.to_i)
-          @modified_at = data.fetch(:m, now.to_i)
+          @created_at = data[:c]
+          @modified_at = data[:m]
 
           @metadata.timekey = data[:timekey]
           @metadata.tag = data[:tag]

@@ -1180,9 +1180,7 @@ class FileBufferTest < Test::Unit::TestCase
   sub_test_case 'there are existing broken file chunks' do
     setup do
       @id_output = 'backup_test'
-      @bufdir = File.expand_path('../../tmp/broken_buffer_file', __FILE__)
-      FileUtils.rm_rf @bufdir rescue nil
-      FileUtils.mkdir_p @bufdir
+      @bufdir = Dir.mktmpdir
       @bufpath = File.join(@bufdir, 'broken_test.*.log')
 
       Fluent::Test.setup
@@ -1197,6 +1195,7 @@ class FileBufferTest < Test::Unit::TestCase
         @p.close unless @p.closed?
         @p.terminate unless @p.terminated?
       end
+      FileUtils.rm_rf(@bufdir) rescue nil
     end
 
     def setup_plugins(buf_conf)
@@ -1320,6 +1319,32 @@ class FileBufferTest < Test::Unit::TestCase
       compare_log(@p, 'enqueued meta file is broken')
       assert { not File.exist?(p2) }
       assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
+
+      # broken id, c, m fields in meta data
+      c3id, p3 = create_first_chunk('q')
+      metadata = File.read(p3 + '.meta')
+      File.open(p3 + '.meta', 'wb') { |f| f.write(metadata[0..6] + "\0" * (metadata.size - 6)) } # create enqueued broken meta file
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
+      compare_log(@p, 'enqueued meta file is broken')
+      assert { not File.exist?(p3) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c3id)}.log") }
+
+      # truncate meta data
+      c4id, p4 = create_first_chunk('q')
+      metadata = File.read(p4 + '.meta')
+      File.open(p4 + '.meta', 'wb') { |f| f.write(metadata[0..-2]) } # create enqueued broken meta file with last byte truncated
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
+      compare_log(@p, 'enqueued meta file is broken')
+      assert { not File.exist?(p4) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c4id)}.log") }
     end
 
     test '#resume throws away broken chunk with disable_chunk_backup' do
