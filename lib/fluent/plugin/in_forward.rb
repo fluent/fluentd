@@ -55,7 +55,7 @@ module Fluent::Plugin
     desc 'Received chunk is dropped if it is larger than this value.'
     config_param :chunk_size_limit, :size, default: nil
     desc 'Skip an event if incoming event is invalid.'
-    config_param :skip_invalid_event, :bool, default: false
+    config_param :skip_invalid_event, :bool, default: true
 
     desc "The field name of the client's source address."
     config_param :source_address_key, :string, default: nil
