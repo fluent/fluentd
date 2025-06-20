@@ -79,9 +79,9 @@ module Fluent
 
       def string_decompress_zstd(compressed_data)
         io = StringIO.new(compressed_data)
+        reader = Zstd::StreamReader.new(io)
         out = ''
         loop do
-          reader = Zstd::StreamReader.new(io)
           # Zstd::StreamReader needs to specify the size of the buffer
           out << reader.read(1024)
           # Zstd::StreamReader doesn't provide unused data, so we have to manually adjust the position
@@ -117,8 +117,8 @@ module Fluent
       end
 
       def io_decompress_zstd(input, output)
+        reader = Zstd::StreamReader.new(input)
         loop do
-          reader = Zstd::StreamReader.new(input)
           # Zstd::StreamReader needs to specify the size of the buffer
           v = reader.read(1024)
           output.write(v)

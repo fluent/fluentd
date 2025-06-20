@@ -83,5 +83,29 @@ class CompressableTest < Test::Unit::TestCase
       assert_equal '', decompress('')
       assert_equal '', decompress('', output_io: StringIO.new)
     end
+
+    test 'decompress large zstd compressed data' do
+      src1 = SecureRandom.random_bytes(1024)
+      src2 = SecureRandom.random_bytes(1024)
+      src3 = SecureRandom.random_bytes(1024)
+
+      zstd_compressed_data = compress(src1, type: :zstd) + compress(src2, type: :zstd) + compress(src3, type: :zstd)
+      assert_equal src1 + src2 + src3, decompress(zstd_compressed_data, type: :zstd)
+    end
+
+    test 'decompress large zstd compressed data with input_io and output_io' do
+      src1 = SecureRandom.random_bytes(1024)
+      src2 = SecureRandom.random_bytes(1024)
+      src3 = SecureRandom.random_bytes(1024)
+
+      zstd_compressed_data = compress(src1, type: :zstd) + compress(src2, type: :zstd) + compress(src3, type: :zstd)
+
+      input_io = StringIO.new(zstd_compressed_data)
+      output_io = StringIO.new
+      output_io.set_encoding(src1.encoding)
+
+      decompress(input_io: input_io, output_io: output_io, type: :zstd)
+      assert_equal src1 + src2 + src3, output_io.string
+    end
   end
 end
