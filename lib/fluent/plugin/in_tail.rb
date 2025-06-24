@@ -1034,9 +1034,10 @@ module Fluent::Plugin
         def initialize(from_encoding, encoding, log, max_line_size=nil)
           @from_encoding = from_encoding
           @encoding = encoding
-          @need_enc = from_encoding != encoding
-          @buffer = ''.force_encoding(from_encoding)
-          @eol = "\n".encode(from_encoding).freeze
+          @encoding_for_appending = from_encoding || encoding || Encoding::ASCII_8BIT
+          @need_enc = from_encoding && encoding && (from_encoding != encoding)
+          @buffer = ''.force_encoding(@encoding_for_appending)
+          @eol = "\n".encode(@encoding_for_appending).freeze
           @max_line_size = max_line_size
           @skip_current_line = false
           @skipping_current_line_bytesize = 0
@@ -1057,7 +1058,7 @@ module Fluent::Plugin
           # quad-byte encoding to IO#readpartial as the second arguments results in an
           # assertion failure on Ruby < 2.4.0 for unknown reasons.
           orig_encoding = chunk.encoding
-          chunk.force_encoding(from_encoding)
+          chunk.force_encoding(@encoding_for_appending)
           @buffer << chunk
           # Thus the encoding needs to be reverted back here
           chunk.force_encoding(orig_encoding)
@@ -1143,7 +1144,7 @@ module Fluent::Plugin
           @read_bytes_limit_per_second = read_bytes_limit_per_second
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
-          @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT, log, max_line_size)
+          @fifo = FIFO.new(from_encoding, encoding, log, max_line_size)
           @lines = []
           @io = nil
           @notify_mutex = Mutex.new

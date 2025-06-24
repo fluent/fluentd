@@ -244,6 +244,22 @@ class TailInputTest < Test::Unit::TestCase
           create_driver(conf)
         end
       end
+
+      test "parse message using regular expression by specified encoding" do
+        conf = CONFIG_READ_FROM_HEAD +
+           config_element("", "" , { "encoding" => "utf-8" },
+                          [config_element("parse", "", { "@type" => "/^あ(?<name>.*)お$/" })])
+
+        d = create_driver(conf)
+        d.run(expect_emits: 1, timeout: 5) do
+          Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f|
+            f.puts "あいうえお"
+          }
+        end
+        events = d.events
+        assert_equal(true, events.length > 0)
+        assert_equal({"name" => "いうえ"}, events[0][2])
+      end
     end
 
     sub_test_case "from_encoding" do
