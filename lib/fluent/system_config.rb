@@ -79,6 +79,7 @@ module Fluent
         end
       end
       config_param :rotate_size, :size, default: nil
+      config_param :forced_stacktrace_level, :enum, list: [:none, :trace, :debug, :info, :warn, :error, :fatal], default: :none
     end
 
     config_section :counter_server, multi: false do
@@ -116,6 +117,10 @@ module Fluent
       config_param :chunk_limit_size, :size, default: nil
       config_param :total_limit_size, :size, default: nil
       config_param :compress, :enum, list: [:text, :gzip], default: nil
+    end
+
+    def force_stacktrace_level?
+      @log.forced_stacktrace_level != :none
     end
 
     def self.create(conf, strict_config_value=false)
@@ -162,6 +167,7 @@ module Fluent
       end
 
       @log_level = Log.str_to_level(@log_level.to_s) if @log_level
+      @log[:forced_stacktrace_level] = Log.str_to_level(@log.forced_stacktrace_level.to_s) if force_stacktrace_level?
     end
 
     def dup

@@ -386,6 +386,85 @@ class LogTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "force_stacktrace_level" do
+    data(
+      none: [ nil, ["trace", "debug", "info", "warn", "error", "fatal"] ],
+      trace: [ Fluent::Log::LEVEL_TRACE, ["trace", "trace", "trace", "trace", "trace", "trace"] ],
+      debug: [ Fluent::Log::LEVEL_DEBUG, ["debug", "debug", "debug", "debug", "debug", "debug"] ],
+      info: [ Fluent::Log::LEVEL_INFO, ["info", "info", "info", "info", "info", "info"] ],
+      warn: [ Fluent::Log::LEVEL_WARN, ["warn", "warn", "warn", "warn", "warn", "warn"] ],
+      error: [ Fluent::Log::LEVEL_ERROR, ["error", "error", "error", "error", "error", "error"] ],
+      fatal: [ Fluent::Log::LEVEL_FATAL, ["fatal", "fatal", "fatal", "fatal", "fatal", "fatal"] ],
+    )
+    test "level should be forced" do |(level, expected)|
+      backtrace = ["backtrace"]
+      logger = Fluent::Log.new(
+        ServerEngine::DaemonLogger.new(
+          @log_device,
+          log_level: ServerEngine::DaemonLogger::TRACE,
+        )
+      )
+      logger.force_stacktrace_level(level) unless level.nil?
+
+      logger.trace_backtrace(backtrace)
+      logger.debug_backtrace(backtrace)
+      logger.info_backtrace(backtrace)
+      logger.warn_backtrace(backtrace)
+      logger.error_backtrace(backtrace)
+      logger.fatal_backtrace(backtrace)
+
+      assert do
+        expected == logger.out.logs.map { |log| log.match(/ \[([a-z]+)\]: backtrace$/)[1] }
+      end
+    end
+
+    test "stacktraces that do not meet log_level initially should be discarded" do
+      logger = Fluent::Log.new(
+        ServerEngine::DaemonLogger.new(
+          @log_device,
+          log_level: ServerEngine::DaemonLogger::INFO,
+        )
+      )
+      logger.force_stacktrace_level(Fluent::Log::LEVEL_INFO)
+
+      logger.trace_backtrace(["trace"])
+      logger.debug_backtrace(["debug"])
+      logger.info_backtrace(["info"])
+      logger.warn_backtrace(["warn"])
+      logger.error_backtrace(["error"])
+      logger.fatal_backtrace(["fatal"])
+
+      assert_equal(
+        [
+          "  #{@timestamp_str} [info]: info\n",
+          "  #{@timestamp_str} [info]: warn\n",
+          "  #{@timestamp_str} [info]: error\n",
+          "  #{@timestamp_str} [info]: fatal\n",
+        ],
+        logger.out.logs,
+      )
+    end
+
+    test "stacktraces that do not meet log_level finally should be discarded" do
+      logger = Fluent::Log.new(
+        ServerEngine::DaemonLogger.new(
+          @log_device,
+          log_level: ServerEngine::DaemonLogger::INFO,
+        )
+      )
+      logger.force_stacktrace_level(Fluent::Log::LEVEL_DEBUG)
+
+      logger.trace_backtrace(["trace"])
+      logger.debug_backtrace(["debug"])
+      logger.info_backtrace(["info"])
+      logger.warn_backtrace(["warn"])
+      logger.error_backtrace(["error"])
+      logger.fatal_backtrace(["fatal"])
+
+      assert_equal([], logger.out.logs)
+    end
+  end
+
   sub_test_case "ignore_repeated_log_interval" do
     def test_same_message
       message = "This is test"

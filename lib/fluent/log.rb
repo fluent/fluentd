@@ -138,6 +138,7 @@ module Fluent
       @optional_attrs = nil
 
       @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
+      @forced_stacktrace_level = nil
       @ignore_repeated_log_interval = opts[:ignore_repeated_log_interval]
       @ignore_same_log_interval = opts[:ignore_same_log_interval]
 
@@ -238,6 +239,14 @@ module Fluent
     def reopen!
       @out.reopen(@path, "a") if @path && @path != "-"
       nil
+    end
+
+    def force_stacktrace_level?
+      not @forced_stacktrace_level.nil?
+    end
+
+    def force_stacktrace_level(level)
+      @forced_stacktrace_level = level
     end
 
     def enable_debug(b=true)
@@ -498,6 +507,16 @@ module Fluent
     end
 
     def dump_stacktrace(type, backtrace, level)
+      return if @level > level
+
+      dump_stacktrace_internal(
+        type,
+        backtrace,
+        force_stacktrace_level? ? @forced_stacktrace_level : level,
+      )
+    end
+
+    def dump_stacktrace_internal(type, backtrace, level)
       return if @level > level
 
       time = Time.now

@@ -908,6 +908,7 @@ module Fluent
         ignore_repeated_log_interval: system_config.ignore_repeated_log_interval,
         ignore_same_log_interval: system_config.ignore_same_log_interval,
       )
+      $log.force_stacktrace_level(system_config.log.forced_stacktrace_level) if system_config.force_stacktrace_level?
       $log.enable_color(false) if actual_log_path
       $log.enable_debug if system_config.log_level <= Fluent::Log::LEVEL_DEBUG
 
