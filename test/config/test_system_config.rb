@@ -82,6 +82,7 @@ module Fluent::Config
       assert_nil(sc.log.path)
       assert_equal(:text, sc.log.format)
       assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
+      assert_equal(:none, sc.log.forced_stacktrace_level)
     end
 
     data(
@@ -124,6 +125,7 @@ module Fluent::Config
               path /tmp/fluentd.log
               format json
               time_format %Y
+              forced_stacktrace_level info
             </log>
           </system>
       EOS
@@ -133,6 +135,7 @@ module Fluent::Config
       assert_equal('/tmp/fluentd.log', sc.log.path)
       assert_equal(:json, sc.log.format)
       assert_equal('%Y', sc.log.time_format)
+      assert_equal(Fluent::Log::LEVEL_INFO, sc.log.forced_stacktrace_level)
     end
 
     # info is removed because info level can't be specified via command line

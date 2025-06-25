@@ -715,6 +715,7 @@ class SupervisorTest < ::Test::Unit::TestCase
           <log>
             format json
             time_format %FT%T.%L%z
+            forced_stacktrace_level info
           </log>
         </system>
       EOC
@@ -728,6 +729,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       assert_equal false, $log.suppress_repeated_stacktrace
       assert_equal 10, $log.ignore_repeated_log_interval
       assert_equal 20, $log.ignore_same_log_interval
+      assert_equal Fluent::Log::LEVEL_INFO, $log.instance_variable_get(:@forced_stacktrace_level)
+      assert_true $log.force_stacktrace_level?
     end
 
     data(
