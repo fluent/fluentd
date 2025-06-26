@@ -1223,6 +1223,22 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
   end
 
+  def test_encoding_for_regular_expression_parsing
+    conf = CONFIG_READ_FROM_HEAD +
+           config_element("", "" , { "encoding" => "utf-8" },
+                          [config_element("parse", "", { "@type" => "/^あ(?<name>.*)お$/" })])
+
+    d = create_driver(conf)
+    d.run(expect_emits: 1, timeout: 5) do
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f|
+        f.puts "あいうえお"
+      }
+    end
+    events = d.events
+    assert_equal(true, events.length > 0)
+    assert_equal({"name" => "いうえ"}, events[0][2])
+  end
+  
   sub_test_case "multiline" do
     data(flat: MULTILINE_CONFIG,
          parse: PARSE_MULTILINE_CONFIG)
