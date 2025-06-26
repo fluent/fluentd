@@ -1180,7 +1180,9 @@ class FileBufferTest < Test::Unit::TestCase
   sub_test_case 'there are existing broken file chunks' do
     setup do
       @id_output = 'backup_test'
-      @bufdir = Dir.mktmpdir
+      @bufdir = File.expand_path('../../tmp/broken_buffer_file', __FILE__)
+      FileUtils.rm_rf @bufdir rescue nil
+      FileUtils.mkdir_p @bufdir
       @bufpath = File.join(@bufdir, 'broken_test.*.log')
 
       Fluent::Test.setup
@@ -1195,7 +1197,6 @@ class FileBufferTest < Test::Unit::TestCase
         @p.close unless @p.closed?
         @p.terminate unless @p.terminated?
       end
-      FileUtils.rm_rf(@bufdir) rescue nil
     end
 
     def setup_plugins(buf_conf)
