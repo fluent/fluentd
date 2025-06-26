@@ -1320,32 +1320,36 @@ class FileBufferTest < Test::Unit::TestCase
       compare_log(@p, 'enqueued meta file is broken')
       assert { not File.exist?(p2) }
       assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
+    end
 
-      # broken id, c, m fields in meta data
-      c3id, p3 = create_first_chunk('q')
-      metadata = File.read(p3 + '.meta')
-      File.open(p3 + '.meta', 'wb') { |f| f.write(metadata[0..6] + "\0" * (metadata.size - 6)) } # create enqueued broken meta file
-
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
-        @p.start
-      end
-
-      compare_log(@p, 'enqueued meta file is broken')
-      assert { not File.exist?(p3) }
-      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c3id)}.log") }
-
-      # truncate meta data
-      c4id, p4 = create_first_chunk('q')
-      metadata = File.read(p4 + '.meta')
-      File.open(p4 + '.meta', 'wb') { |f| f.write(metadata[0..-2]) } # create enqueued broken meta file with last byte truncated
+    test '#resume backups enqueued broken metadata which has broken id, c, m fields' do
+      setup_plugins({'path' => @bufpath})
+      cid, path = create_first_chunk('q')
+      metadata = File.read(path + '.meta')
+      File.open(path + '.meta', 'wb') { |f| f.write(metadata[0..6] + "\0" * (metadata.size - 6)) } # create enqueued broken meta file
 
       Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
         @p.start
       end
 
       compare_log(@p, 'enqueued meta file is broken')
-      assert { not File.exist?(p4) }
-      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c4id)}.log") }
+      assert { not File.exist?(path) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(cid)}.log") }
+    end
+
+    test '#resume backups enqueued broken metadata by truncated' do
+      setup_plugins({'path' => @bufpath})
+      cid, path = create_first_chunk('q')
+      metadata = File.read(path + '.meta')
+      File.open(path + '.meta', 'wb') { |f| f.write(metadata[0..-2]) } # create enqueued broken meta file with last byte truncated
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
+      compare_log(@p, 'enqueued meta file is broken')
+      assert { not File.exist?(path) }
+      assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(cid)}.log") }
     end
 
     test '#resume throws away broken chunk with disable_chunk_backup' do
