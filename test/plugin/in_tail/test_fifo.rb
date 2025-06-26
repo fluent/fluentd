@@ -5,7 +5,7 @@ require 'fluent/plugin/in_tail'
 class IntailFIFO < Test::Unit::TestCase
   sub_test_case '#read_line' do
     test 'returns lines splitting per `\n`' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log)
       text = ("test\n" * 3).force_encoding(Encoding::ASCII_8BIT)
       fifo << text
       lines = []
@@ -15,7 +15,7 @@ class IntailFIFO < Test::Unit::TestCase
     end
 
     test 'concat line when line is separated' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log)
       text = ("test\n" * 3 + 'test').force_encoding(Encoding::ASCII_8BIT)
       fifo << text
       lines = []
@@ -30,7 +30,7 @@ class IntailFIFO < Test::Unit::TestCase
     end
 
     test 'returns lines which convert encoding' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::UTF_8, $log)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log, nil, Encoding::UTF_8)
       text = ("test\n" * 3).force_encoding(Encoding::ASCII_8BIT)
       fifo << text
       lines = []
@@ -40,7 +40,7 @@ class IntailFIFO < Test::Unit::TestCase
     end
 
     test 'reads lines as from_encoding' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::UTF_8, Encoding::ASCII_8BIT, $log)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::UTF_8, $log, nil, Encoding::ASCII_8BIT)
       text = ("test\n" * 3).force_encoding(Encoding::UTF_8)
       fifo << text
       lines = []
@@ -51,7 +51,7 @@ class IntailFIFO < Test::Unit::TestCase
 
     sub_test_case 'when it includes multi byte chars' do
       test 'handles it as ascii_8bit' do
-        fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
+        fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log)
         text = ("てすと\n" * 3).force_encoding(Encoding::ASCII_8BIT)
         fifo << text
         lines = []
@@ -61,7 +61,7 @@ class IntailFIFO < Test::Unit::TestCase
       end
 
       test 'replaces character with ? when convert error happens' do
-        fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::UTF_8, Encoding::ASCII_8BIT, $log)
+        fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::UTF_8, $log, nil, Encoding::ASCII_8BIT)
         text = ("てすと\n" * 3).force_encoding(Encoding::UTF_8)
         fifo << text
         lines = []
@@ -72,7 +72,7 @@ class IntailFIFO < Test::Unit::TestCase
     end
 
     test 'returns nothing when buffer is empty' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log)
       lines = []
       fifo.read_lines(lines)
       assert_equal [], lines
@@ -117,7 +117,7 @@ class IntailFIFO < Test::Unit::TestCase
     ])
     test 'return lines only that size is less than or equal to max_line_size' do |(input_texts, expected)|
       max_line_size = 5
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log, max_line_size)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log, max_line_size)
       lines = []
 
       input_texts.each do |text|
@@ -133,7 +133,7 @@ class IntailFIFO < Test::Unit::TestCase
 
   sub_test_case '#<<' do
     test 'does not make any change about encoding to an argument' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log)
       text = ("test\n" * 3).force_encoding(Encoding::UTF_8)
 
       assert_equal Encoding::UTF_8, text.encoding
@@ -144,7 +144,7 @@ class IntailFIFO < Test::Unit::TestCase
 
   sub_test_case '#reading_bytesize' do
     test 'returns buffer size' do
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log)
       text = "test\n" * 3 + 'test'
       fifo << text
 
@@ -163,7 +163,7 @@ class IntailFIFO < Test::Unit::TestCase
 
     test 'returns the entire line size even if the size is over max_line_size' do
       max_line_size = 20
-      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, Encoding::ASCII_8BIT, $log, max_line_size)
+      fifo = Fluent::Plugin::TailInput::TailWatcher::FIFO.new(Encoding::ASCII_8BIT, $log, max_line_size)
       lines = []
 
       text = "long line still not having EOL"

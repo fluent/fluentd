@@ -96,9 +96,9 @@ module Fluent::Plugin
     config_param :enable_watch_timer, :bool, default: true
     desc 'Enable the stat watcher based on inotify.'
     config_param :enable_stat_watcher, :bool, default: true
-    desc 'The encoding after conversion of the input.'
-    config_param :encoding, :string, default: nil
     desc 'The encoding of the input.'
+    config_param :encoding, :string, default: nil
+    desc "The original encoding of the input. If set, in_tail tries to encode string from this to 'encoding'. Must be set with 'encoding'. "
     config_param :from_encoding, :string, default: nil
     desc 'Add the log path being tailed to records. Specify the field name to be used.'
     config_param :path_key, :string, default: nil
@@ -828,17 +828,27 @@ module Fluent::Plugin
     private
 
     def io_handler(watcher, path)
-      TailWatcher::IOHandler.new(
-        watcher,
+      opts = {
         path: path,
         log: log,
         read_lines_limit: @read_lines_limit,
         read_bytes_limit_per_second: @read_bytes_limit_per_second,
         open_on_every_update: @open_on_every_update,
-        from_encoding: @from_encoding,
-        encoding: @encoding,
         metrics: @metrics,
         max_line_size: @max_line_size,
+      }
+      unless @encoding.nil?
+        if @from_encoding.nil?
+          opts[:encoding] = @encoding
+        else
+          opts[:encoding] = @from_encoding
+          opts[:encoding_to_convert] = @encoding
+        end
+      end
+
+      TailWatcher::IOHandler.new(
+        watcher,
+        **opts,
         &method(:receive_lines)
       )
     end
@@ -1031,47 +1041,30 @@ module Fluent::Plugin
       end
 
       class FIFO
-        def initialize(from_encoding, encoding, log, max_line_size=nil)
-          @from_encoding = from_encoding
-          @encoding = encoding
-          @encoding_for_appending = from_encoding || encoding || Encoding::ASCII_8BIT
-          @need_enc = from_encoding && encoding && (from_encoding != encoding)
-          @buffer = ''.force_encoding(@encoding_for_appending)
-          @eol = "\n".encode(@encoding_for_appending).freeze
+        def initialize(encoding, log, max_line_size=nil, encoding_to_convert=nil)
+          @buffer = ''.force_encoding(encoding)
+          @eol = "\n".encode(encoding).freeze
+          @encoding_to_convert = encoding_to_convert
           @max_line_size = max_line_size
           @skip_current_line = false
           @skipping_current_line_bytesize = 0
           @log = log
         end
 
-        attr_reader :from_encoding, :encoding, :buffer, :max_line_size
+        attr_reader :buffer, :max_line_size
 
         def <<(chunk)
-          # Although "chunk" is most likely transient besides String#force_encoding itself
-          # won't affect the actual content of it, it is also probable that "chunk" is
-          # a reused buffer and changing its encoding causes some problems on the caller side.
-          #
-          # Actually, the caller here is specific and "chunk" comes from IO#partial with
-          # the second argument, which the function always returns as a return value.
-          #
-          # Feeding a string that has its encoding attribute set to any double-byte or
-          # quad-byte encoding to IO#readpartial as the second arguments results in an
-          # assertion failure on Ruby < 2.4.0 for unknown reasons.
-          orig_encoding = chunk.encoding
-          chunk.force_encoding(@encoding_for_appending)
           @buffer << chunk
-          # Thus the encoding needs to be reverted back here
-          chunk.force_encoding(orig_encoding)
         end
 
         def convert(s)
-          if @need_enc
-            s.encode!(@encoding, @from_encoding)
+          if @encoding_to_convert
+            s.encode!(@encoding_to_convert)
           else
             s
           end
         rescue
-          s.encode!(@encoding, @from_encoding, :invalid => :replace, :undef => :replace)
+          s.encode!(@encoding_to_convert, :invalid => :replace, :undef => :replace)
         end
 
         def read_lines(lines)
@@ -1137,14 +1130,15 @@ module Fluent::Plugin
 
         attr_accessor :shutdown_timeout
 
-        def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, max_line_size: nil, log:, open_on_every_update:, from_encoding: nil, encoding: nil, metrics:, &receive_lines)
+        def initialize(watcher, path:, read_lines_limit:, read_bytes_limit_per_second:, max_line_size: nil, log:, open_on_every_update:, encoding: Encoding::ASCII_8BIT, encoding_to_convert: nil, metrics:, &receive_lines)
           @watcher = watcher
           @path = path
           @read_lines_limit = read_lines_limit
           @read_bytes_limit_per_second = read_bytes_limit_per_second
           @receive_lines = receive_lines
           @open_on_every_update = open_on_every_update
-          @fifo = FIFO.new(from_encoding, encoding, log, max_line_size)
+          @encoding = encoding
+          @fifo = FIFO.new(encoding, log, max_line_size, encoding_to_convert)
           @lines = []
           @io = nil
           @notify_mutex = Mutex.new
@@ -1226,7 +1220,7 @@ module Fluent::Plugin
           end
 
           with_io do |io|
-            iobuf = ''.force_encoding('ASCII-8BIT')
+            iobuf = ''.force_encoding(@encoding)
             begin
               read_more = false
               has_skipped_line = false
