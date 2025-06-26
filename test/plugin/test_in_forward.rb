@@ -580,9 +580,6 @@ class ForwardInputTest < Test::Unit::TestCase
       end
       chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
 
-      # check CompressedMessagePackEventStream is created
-      mock(Fluent::CompressedMessagePackEventStream).new(entries, nil, 0, compress: :gzip)
-
       d.run do
         Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
           option = d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
@@ -604,12 +601,9 @@ class ForwardInputTest < Test::Unit::TestCase
       entries = ''
       events.each do |_tag, _time, record|
         v = [_time, record].to_msgpack
-        entries << compress(v)
+        entries << compress(v, type: :zstd)
       end
       chunk = ["tag1", entries, { 'compressed' => 'zstd' }].to_msgpack
-
-      # check CompressedMessagePackEventStream is created
-      mock(Fluent::CompressedMessagePackEventStream).new(entries, nil, 0, compress: :zstd)
 
       d.run do
         Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
