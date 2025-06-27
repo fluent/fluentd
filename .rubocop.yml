@@ -1,0 +1,115 @@
+plugins:
+  - rubocop-performance
+
+AllCops:
+  Exclude:
+    - 'vendor/**/*'
+  NewCops: enable
+  SuggestExtensions: false
+  TargetRubyVersion: 3.4
+
+#
+# Policy: Check Security & Performance in primary use-cases
+# (Disable most of cosmetic rules)
+#
+
+Lint:
+  Enabled: false
+
+Style:
+  Enabled: false
+
+Gemspec:
+  Enabled: false
+
+Naming:
+  Enabled: false
+
+Layout:
+  Enabled: false
+
+Metrics:
+  Enabled: false
+
+Security:
+  Enabled: true
+
+Performance:
+  Enabled: true
+
+#
+# False positive or exceptional cases
+#
+
+# False positive because it's intentional
+Security/Open:
+  Exclude:
+    - lib/fluent/plugin/buffer/chunk.rb
+  Enabled: true
+
+# False positive because it's intentional
+Security/Eval:
+  Exclude:
+    - lib/fluent/plugin.rb
+    - lib/fluent/plugin/in_debug_agent.rb
+  Enabled: true
+
+# False positive because send method must accept literals.
+Performance/StringIdentifierArgument:
+  Exclude:
+    - test/plugin/test_in_tcp.rb
+    - test/plugin/test_in_udp.rb
+    - test/counter/test_server.rb
+    - test/plugin/test_out_forward.rb
+    - lib/fluent/plugin/out_forward.rb
+  Enabled: true
+
+Performance/StringInclude:
+  Exclude:
+    - 'test/**/*'
+    # It was not improved with String#include?
+    - lib/fluent/command/plugin_config_formatter.rb
+  Enabled: true
+
+# False positive for include? against constant ranges.
+# Almost same between include? and cover?.
+# See https://github.com/rubocop/rubocop-jp/issues/20
+Performance/RangeInclude:
+   Exclude:
+     - lib/fluent/plugin/parser_multiline.rb
+   Enabled: true
+
+# Allow using &method(:func)
+Performance/MethodObjectAsBlock:
+  Exclude:
+    - 'test/**/*'
+  Enabled: false
+
+# Allow block.call
+Performance/RedundantBlockCall:
+  Exclude:
+    - 'test/**/*'
+    - 'lib/fluent/plugin_helper/*.rb'
+    - 'lib/fluent/plugin/*.rb'
+    - 'lib/fluent/compat/*.rb'
+    - 'lib/fluent/config/*.rb'
+    - 'lib/fluent/*.rb'
+  Enabled: true
+
+#
+# TODO: low priority to be fixed
+#
+Performance/ConstantRegexp:
+   Exclude:
+     - 'test/**/*'
+   Enabled: true
+
+Performance/Sum:
+  Exclude:
+    - 'test/**/*'
+  Enabled: true
+
+Performance/CollectionLiteralInLoop:
+  Exclude:
+    - 'test/**/*'
+  Enabled: true
