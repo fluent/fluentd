@@ -40,7 +40,7 @@ module FluentPluginFileSingleBufferTest
 
   class DummyErrorOutputPlugin < DummyOutputPlugin
     def register_write(&block)
-      instance_variable_set("@write", block)
+      instance_variable_set(:@write, block)
     end
 
     def initialize
