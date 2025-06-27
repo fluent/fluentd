@@ -1,0 +1,22 @@
+services:
+  fluentd:
+    image: my-fluentd:latest
+    container_name: fluentd
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    environment:
+      - FLUENT_UID=0
+    restart: unless-stopped
+  victoria-logs:
+    image: my-victoria-logs:latest  # <-- your custom built image
+    container_name: victoria-logs-custom
+    ports:
+      - "9428:9428"
+    volumes:
+      - victoria-logs-data:/data
+    command: ["-storageDataPath=/data", "-retentionPeriod=7d"]
+    restart: unless-stopped
+
+volumes:
+  victoria-logs-data:
