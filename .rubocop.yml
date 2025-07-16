@@ -50,6 +50,7 @@ Security/Open:
 # False positive because it's intentional
 Security/Eval:
   Exclude:
+    - lib/fluent/config/dsl.rb
     - lib/fluent/plugin.rb
     - lib/fluent/plugin/in_debug_agent.rb
   Enabled: true
