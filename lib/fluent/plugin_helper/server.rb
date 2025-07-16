@@ -347,7 +347,10 @@ module Fluent
       end
 
       def shutdown
-        @_server_connections.each do |conn|
+        # When it invokes conn.cose, it reduces elements in @_server_connections by close_callback,
+        # and it reduces the number of loops. This prevents the connection closing.
+        # So, it requires invoking #dup to avoid the problem.
+        @_server_connections.dup.each do |conn|
           conn.close rescue nil
         end
 
