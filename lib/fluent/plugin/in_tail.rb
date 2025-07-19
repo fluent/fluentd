@@ -178,8 +178,8 @@ module Fluent::Plugin
         if @follow_inodes
           raise Fluent::ConfigError, "Can't follow inodes without pos_file configuration parameter"
         end
-        $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
-        $log.warn "this parameter is highly recommended to save the position to resume tailing."
+        log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
+        log.warn "this parameter is highly recommended to save the position to resume tailing."
       end
 
       configure_tag
@@ -369,7 +369,7 @@ module Fluent::Plugin
                 false
               end
             rescue Errno::ENOENT, Errno::EACCES
-              log.debug("#{p} is missing after refresh file list")
+              log.debug { "#{p} is missing after refresh file list" }
               false
             end
           }
@@ -405,7 +405,7 @@ module Fluent::Plugin
             hash[target_info.path] = target_info
           end
         rescue Errno::ENOENT, Errno::EACCES  => e
-          $log.warn "expand_paths: stat() for #{path} failed with #{e.class.name}. Skip file."
+          log.warn "expand_paths: stat() for #{path} failed with #{e.class.name}. Skip file."
         end
       }
       hash
@@ -523,7 +523,7 @@ module Fluent::Plugin
       begin
         target_info.ino = Fluent::FileWrapper.stat(path).ino
       rescue Errno::ENOENT, Errno::EACCES
-        $log.warn "stat() for #{path} failed. Continuing without tailing it."
+        log.warn "stat() for #{path} failed. Continuing without tailing it."
         return
       end
 
