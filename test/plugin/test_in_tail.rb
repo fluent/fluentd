@@ -2553,8 +2553,8 @@ class TailInputTest < Test::Unit::TestCase
     assert_nothing_raised do
       d.run(shutdown: false) {}
     end
-    assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
-           $log.out.logs.join("\n"))
+    assert(d.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
+           d.logs.join("\n"))
   ensure
     d.instance_shutdown if d&.instance
   end
@@ -2579,8 +2579,8 @@ class TailInputTest < Test::Unit::TestCase
       assert_nothing_raised do
         d.run(shutdown: false) {}
       end
-      assert($log.out.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
-             $log.out.logs.join("\n"))
+      assert(d.logs.any?{|log| log.include?("stat() for #{path} failed. Continuing without tailing it.\n") },
+             d.logs.join("\n"))
     end
   ensure
     d.instance_shutdown if d&.instance
@@ -2603,7 +2603,7 @@ class TailInputTest < Test::Unit::TestCase
     assert_nothing_raised do
       d.run(shutdown: false) {}
     end
-    assert($log.out.logs.any?{|log| log.include?("expand_paths: stat() for #{path} failed with Errno::EACCES. Skip file.\n") })
+    assert(d.logs.any?{|log| log.include?("expand_paths: stat() for #{path} failed with Errno::EACCES. Skip file.\n") })
   ensure
     d.instance_shutdown if d&.instance
   end
