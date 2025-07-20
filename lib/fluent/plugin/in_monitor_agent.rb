@@ -204,7 +204,7 @@ module Fluent::Plugin
     def start
       super
 
-      log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins for worker#{fluentd_worker_id}"
+      log.debug { "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins for worker#{fluentd_worker_id}" }
       api_handler = APIHandler.new(self)
       http_server_create_http_server(:in_monitor_http_server_helper, addr: @bind, port: @port, logger: log, default_app: NotFoundJson) do |serv|
         serv.get('/api/plugins') { |req| api_handler.plugins_ltsv(req) }
@@ -214,7 +214,7 @@ module Fluent::Plugin
       end
 
       if @tag
-        log.debug "tag parameter is specified. Emit plugins info to '#{@tag}'"
+        log.debug { "tag parameter is specified. Emit plugins info to '#{@tag}'" }
 
         opts = {with_config: false, with_retry: false}
         timer_execute(:in_monitor_agent_emit, @emit_interval, repeat: true) {
