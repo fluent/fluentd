@@ -3,7 +3,6 @@ Fluentd: Open-Source Log Collector
 
 [![Test](https://github.com/fluent/fluentd/actions/workflows/test.yml/badge.svg)](https://github.com/fluent/fluentd/actions/workflows/test.yml)
 [![Test with Ruby head](https://github.com/fluent/fluentd/actions/workflows/test-ruby-head.yml/badge.svg)](https://github.com/fluent/fluentd/actions/workflows/test-ruby-head.yml)
-[![Code Climate](https://codeclimate.com/github/fluent/fluentd/badges/gpa.svg)](https://codeclimate.com/github/fluent/fluentd)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1189/badge)](https://bestpractices.coreinfrastructure.org/projects/1189)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/fluent/fluentd/badge)](https://scorecard.dev/viewer/?uri=github.com/fluent/fluentd)
 
