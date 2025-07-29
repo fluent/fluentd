@@ -45,6 +45,20 @@ Others:
   https://github.com/fluent/fluentd/pull/4865
 * Add logging for errors about loading dependencies on startup
   https://github.com/fluent/fluentd/pull/4858
+* Performance improvements
+  * https://github.com/fluent/fluentd/pull/4759
+    https://github.com/fluent/fluentd/pull/4760
+    https://github.com/fluent/fluentd/pull/4763
+    https://github.com/fluent/fluentd/pull/4764
+    https://github.com/fluent/fluentd/pull/4769
+    https://github.com/fluent/fluentd/pull/4813
+    https://github.com/fluent/fluentd/pull/4817
+    https://github.com/fluent/fluentd/pull/4835
+    https://github.com/fluent/fluentd/pull/4845
+    https://github.com/fluent/fluentd/pull/4881
+    https://github.com/fluent/fluentd/pull/4884
+    https://github.com/fluent/fluentd/pull/4886
+    https://github.com/fluent/fluentd/pull/4995
 
 ### Bug Fix
 
@@ -75,32 +89,6 @@ Others:
   https://github.com/fluent/fluentd/pull/4962
 * config: change inspect format
   https://github.com/fluent/fluentd/pull/4914
-* formatter_json: reduce memory usage
-  https://github.com/fluent/fluentd/pull/4886
-* formatter_out_file: reduce memory usage
-  https://github.com/fluent/fluentd/pull/4884
-* in_tail: reduce memory usage slightly
-  https://github.com/fluent/fluentd/pull/4881
-* in_tail: fix slice length to reduce memory usage
-  https://github.com/fluent/fluentd/pull/4760
-* in_tail: reduce the lifespan of the buffer area
-  https://github.com/fluent/fluentd/pull/4763
-* buf_memory: improve memory performance
-  https://github.com/fluent/fluentd/pull/4845
-* Limit high-memory logging ('pattern not matched' in parsing) to necessary log level
-  https://github.com/fluent/fluentd/pull/4995
-* output: use Hash.new {|hash, key| ... } for default value
-  https://github.com/fluent/fluentd/pull/4764
-* formatter_json: use JSON as fallback parser instead of Yajl for performance
-  https://github.com/fluent/fluentd/pull/4835
-* Use JSON instead of Yajl to improve performance of store/load files
-  https://github.com/fluent/fluentd/pull/4759
-* parser_json: use JSON as fallback parser instead of Yajl for performance
-  https://github.com/fluent/fluentd/pull/4813
-* parser_json: use JSON.parse instead of .load
-  https://github.com/fluent/fluentd/pull/4817
-* Use #match? method instead of #match
-  https://github.com/fluent/fluentd/pull/4769
 * console_adapter: support console gem v1.30
   https://github.com/fluent/fluentd/pull/4857
 * http_server: stop fallback to WEBrick
