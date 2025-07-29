@@ -21,8 +21,6 @@
   https://github.com/fluent/fluentd/pull/5008
 * in_tail: add warning for directory permission.
   https://github.com/fluent/fluentd/pull/4865
-* console_adapter: support console gem v1.30
-  https://github.com/fluent/fluentd/pull/4857
 * Add logging for errors about loading dependencies on startup
   https://github.com/fluent/fluentd/pull/4858
 * in_monitor_agent: stop using CGI.parse due to support Ruby 3.5
@@ -103,6 +101,8 @@
   https://github.com/fluent/fluentd/pull/4817
 * Use #match? method instead of #match
   https://github.com/fluent/fluentd/pull/4769
+* console_adapter: support console gem v1.30
+  https://github.com/fluent/fluentd/pull/4857
 * http_server: stop fallback to WEBrick
   https://github.com/fluent/fluentd/pull/4899
 * CI fixes
