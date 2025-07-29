@@ -1,3 +1,132 @@
+# v1.19
+
+## Release v1.19.0 - 2025/07/29
+
+### Enhancement
+
+* Add zstd compression support https://github.com/fluent/fluentd/pull/4657
+  * Buffer: add `zstd` to `compress` option.
+  * out_file: add `zstd` to `compress` option.
+  * out_forward: add `zstd` to `compress` option.
+  * in_forward: support `zstd` format. (Experimental)
+* out_http: TLS1.3 support
+  https://github.com/fluent/fluentd/pull/4859
+* http_server helper: add `header` method for `Request`
+  https://github.com/fluent/fluentd/pull/4903
+* http_server: stop fallback to WEBrick
+  https://github.com/fluent/fluentd/pull/4899
+* in_http: allow empty Origin header requests to pass CORS checks
+  https://github.com/fluent/fluentd/pull/4866
+* config: change inspect format
+  https://github.com/fluent/fluentd/pull/4914
+* system_config: support built-in config files
+  https://github.com/fluent/fluentd/pull/4893
+* System configuration: Add forced_stacktrace_level to force the log level of stacktraces.
+  https://github.com/fluent/fluentd/pull/5008
+* in_tail: add warning for directory permission.
+  https://github.com/fluent/fluentd/pull/4865
+* console_adapter: support console gem v1.30
+  https://github.com/fluent/fluentd/pull/4857
+* Add logging for errors about loading dependencies on startup
+  https://github.com/fluent/fluentd/pull/4858
+* in_monitor_agent: stop using CGI.parse due to support Ruby 3.5
+  https://github.com/fluent/fluentd/pull/4962
+* HTTP server plugin helper: stop using CGI.parse due to support Ruby 3.5
+  https://github.com/fluent/fluentd/pull/4962
+* buffer: add feature to evacuate chunk files when retry limit
+  https://github.com/fluent/fluentd/pull/4986
+* out_file: add symlink_path_use_relative option to use relative path instead of absolute path in symlink_path
+  https://github.com/fluent/fluentd/pull/4904
+* in_forward: enable skip_invalid_event by default
+  https://github.com/fluent/fluentd/pull/5003
+* buf_file: reinforce buffer file corruption check
+  https://github.com/fluent/fluentd/pull/4998
+* metrics: enable input metrics by default
+  https://github.com/fluent/fluentd/pull/4966
+* output: add metrics for number of writing events in secondary
+  https://github.com/fluent/fluentd/pull/4971
+* output: add metrics for dropped oldest chunk count
+  https://github.com/fluent/fluentd/pull/4981
+* in_tail: add "tracked_file_count" metrics to see how many log files are being tracked
+  https://github.com/fluent/fluentd/pull/4980
+* metrics: add getter method automatically
+  https://github.com/fluent/fluentd/pull/4978
+
+### Bug Fix
+
+* in_tail: fixed where specifying only encoding parameter might cause data corruption (affects since v0.14.12).
+  https://github.com/fluent/fluentd/pull/5010
+* winsvc: Fix bug where service accidentally stops after starting
+  https://github.com/fluent/fluentd/pull/4954
+* winsvc: Stop the service when the supervisor is dead
+  https://github.com/fluent/fluentd/pull/4909
+* formatter_csv: fix memory leak
+  https://github.com/fluent/fluentd/pull/4864
+* Fixed a bug where the default `umask` was not set to `0` when using `--daemon` (td-agent, fluent-package) since v1.14.6.
+  https://github.com/fluent/fluentd/pull/4836
+* `--umask` command line option: Fixed so that it is applied when Fluentd runs with `--daemon` (fluent-package) as well as when Fluentd runs with `--no-supervisor`.
+  https://github.com/fluent/fluentd/pull/4836
+* Windows: Fixed an issue where stopping the service immediately after startup could leave the processes.
+  https://github.com/fluent/fluentd/pull/4782
+* Windows: Fixed an issue where stopping service sometimes can not be completed forever.
+  https://github.com/fluent/fluentd/pull/4782
+* plugin_id: fix typo
+  https://github.com/fluent/fluentd/pull/4964
+* multi_output: fix metrics name
+  https://github.com/fluent/fluentd/pull/4979
+* server plugin helper: ensure to close all connections at shutdown
+  https://github.com/fluent/fluentd/pull/502
+
+### Misc
+
+* formatter_json: reduce memory usage
+  https://github.com/fluent/fluentd/pull/4886
+* formatter_out_file: reduce memory usage
+  https://github.com/fluent/fluentd/pull/4884
+* in_tail: reduce memory usage slightly
+  https://github.com/fluent/fluentd/pull/4881
+* in_tail: fix slice length to reduce memory usage
+  https://github.com/fluent/fluentd/pull/4760
+* in_tail: reduce the lifespan of the buffer area
+  https://github.com/fluent/fluentd/pull/4763
+* buf_memory: improve memory performance
+  https://github.com/fluent/fluentd/pull/4845
+* Limit high-memory logging ('pattern not matched' in parsing) to necessary log level
+  https://github.com/fluent/fluentd/pull/4995
+* output: use Hash.new {|hash, key| ... } for default value
+  https://github.com/fluent/fluentd/pull/4764
+* formatter_json: use JSON as fallback parser instead of Yajl for performance
+  https://github.com/fluent/fluentd/pull/4835
+* Use JSON instead of Yajl to improve performance of store/load files
+  https://github.com/fluent/fluentd/pull/4759
+* parser_json: use JSON as fallback parser instead of Yajl for performance
+  https://github.com/fluent/fluentd/pull/4813
+* parser_json: use JSON.parse instead of .load
+  https://github.com/fluent/fluentd/pull/4817
+* Use #match? method instead of #match
+  https://github.com/fluent/fluentd/pull/4769
+* CI fixes
+  * https://github.com/fluent/fluentd/pull/4730
+    https://github.com/fluent/fluentd/pull/4748
+    https://github.com/fluent/fluentd/pull/4750
+    https://github.com/fluent/fluentd/pull/4728
+    https://github.com/fluent/fluentd/pull/4747
+    https://github.com/fluent/fluentd/pull/4746
+    https://github.com/fluent/fluentd/pull/4877
+    https://github.com/fluent/fluentd/pull/4820
+    https://github.com/fluent/fluentd/pull/4755
+    https://github.com/fluent/fluentd/pull/4874
+* Fixes Rubocop's remarks
+  * https://github.com/fluent/fluentd/pull/4932
+    https://github.com/fluent/fluentd/pull/4933
+    https://github.com/fluent/fluentd/pull/4934
+    https://github.com/fluent/fluentd/pull/4928
+    https://github.com/fluent/fluentd/pull/4930
+    https://github.com/fluent/fluentd/pull/4930
+    https://github.com/fluent/fluentd/pull/4931
+* CI: Add benchmark scripts
+  https://github.com/fluent/fluentd/pull/4989
+
 # v1.18
 
 ## Release v1.18.0 - 2024/11/29
@@ -2104,7 +2233,7 @@ We recommend to upgrade Fluentd to v1.14.2 or use patched version of
   https://github.com/fluent/fluentd/pull/1805
 * time: Fix the method for TimeFormatter#call
   https://github.com/fluent/fluentd/pull/1813
-  
+
 # v1.0
 
 ## Release v1.0.2 - 2017/12/17
@@ -2238,7 +2367,7 @@ See [CNCF announcement](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 * parser_apache2: Delay time parser initialization
   https://github.com/fluent/fluentd/pull/1690
-* cert_option: Improve generated certificates' conformance to X.509 specification 
+* cert_option: Improve generated certificates' conformance to X.509 specification
   https://github.com/fluent/fluentd/pull/1714
 * buffer: Always lock chunks first to avoid deadlock
   https://github.com/fluent/fluentd/pull/1721
