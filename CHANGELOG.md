@@ -39,8 +39,6 @@
   https://github.com/fluent/fluentd/pull/4981
 * in_tail: add "tracked_file_count" metrics to see how many log files are being tracked
   https://github.com/fluent/fluentd/pull/4980
-* metrics: add getter method automatically
-  https://github.com/fluent/fluentd/pull/4978
 
 ### Bug Fix
 
@@ -105,6 +103,8 @@
   https://github.com/fluent/fluentd/pull/4857
 * http_server: stop fallback to WEBrick
   https://github.com/fluent/fluentd/pull/4899
+* metrics: add getter method automatically
+  https://github.com/fluent/fluentd/pull/4978
 * CI fixes
     https://github.com/fluent/fluentd/pull/4728
     https://github.com/fluent/fluentd/pull/4746
