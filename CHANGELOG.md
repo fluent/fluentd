@@ -13,8 +13,6 @@
   https://github.com/fluent/fluentd/pull/4859
 * http_server helper: add `header` method for `Request`
   https://github.com/fluent/fluentd/pull/4903
-* http_server: stop fallback to WEBrick
-  https://github.com/fluent/fluentd/pull/4899
 * in_http: allow empty Origin header requests to pass CORS checks
   https://github.com/fluent/fluentd/pull/4866
 * system_config: support built-in config files
@@ -105,6 +103,8 @@
   https://github.com/fluent/fluentd/pull/4817
 * Use #match? method instead of #match
   https://github.com/fluent/fluentd/pull/4769
+* http_server: stop fallback to WEBrick
+  https://github.com/fluent/fluentd/pull/4899
 * CI fixes
     https://github.com/fluent/fluentd/pull/4728
     https://github.com/fluent/fluentd/pull/4746
