@@ -11,8 +11,6 @@
   * in_forward: support `zstd` format. (Experimental)
 * out_http: TLS1.3 support
   https://github.com/fluent/fluentd/pull/4859
-* http_server helper: add `header` method for `Request`
-  https://github.com/fluent/fluentd/pull/4903
 * in_http: allow empty Origin header requests to pass CORS checks
   https://github.com/fluent/fluentd/pull/4866
 * system_config: support built-in config files
@@ -101,6 +99,8 @@
   https://github.com/fluent/fluentd/pull/4899
 * metrics: add getter method automatically
   https://github.com/fluent/fluentd/pull/4978
+* http_server helper: add `header` method for `Request`
+  https://github.com/fluent/fluentd/pull/4903
 * multi_output: fix metrics name
   https://github.com/fluent/fluentd/pull/4979
 * plugin_id: fix typo
