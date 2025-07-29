@@ -72,8 +72,6 @@ Others:
   https://github.com/fluent/fluentd/pull/4836
 * `--umask` command line option: Fixed so that it is applied when Fluentd runs with `--daemon` (fluent-package) as well as when Fluentd runs with `--no-supervisor`.
   https://github.com/fluent/fluentd/pull/4836
-* Windows: Fix bug where service accidentally stops after starting
-  https://github.com/fluent/fluentd/pull/4954
 * Windows: Stop the service when the supervisor is dead
   https://github.com/fluent/fluentd/pull/4909
 * Windows: Fixed an issue where stopping the service immediately after startup could leave the processes.
