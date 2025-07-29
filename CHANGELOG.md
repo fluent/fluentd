@@ -64,22 +64,22 @@ Others:
 
 * in_tail: fixed where specifying only encoding parameter might cause data corruption (affects since v0.14.12).
   https://github.com/fluent/fluentd/pull/5010
-* winsvc: Fix bug where service accidentally stops after starting
-  https://github.com/fluent/fluentd/pull/4954
-* winsvc: Stop the service when the supervisor is dead
-  https://github.com/fluent/fluentd/pull/4909
 * formatter_csv: fix memory leak
   https://github.com/fluent/fluentd/pull/4864
+* server plugin helper: ensure to close all connections at shutdown
+  https://github.com/fluent/fluentd/pull/502
 * Fixed a bug where the default `umask` was not set to `0` when using `--daemon` (td-agent, fluent-package) since v1.14.6.
   https://github.com/fluent/fluentd/pull/4836
 * `--umask` command line option: Fixed so that it is applied when Fluentd runs with `--daemon` (fluent-package) as well as when Fluentd runs with `--no-supervisor`.
   https://github.com/fluent/fluentd/pull/4836
+* Windows: Fix bug where service accidentally stops after starting
+  https://github.com/fluent/fluentd/pull/4954
+* Windows: Stop the service when the supervisor is dead
+  https://github.com/fluent/fluentd/pull/4909
 * Windows: Fixed an issue where stopping the service immediately after startup could leave the processes.
   https://github.com/fluent/fluentd/pull/4782
 * Windows: Fixed an issue where stopping service sometimes can not be completed forever.
   https://github.com/fluent/fluentd/pull/4782
-* server plugin helper: ensure to close all connections at shutdown
-  https://github.com/fluent/fluentd/pull/502
 
 ### Misc
 
