@@ -811,14 +811,6 @@ class PluginLoggerTest < Test::Unit::TestCase
     assert_equal(logger, @logger)
   end
 
-  def test_level
-    log = Fluent::PluginLogger.new(@logger)
-    assert_equal(log.level, @logger.level)
-    log.level = "fatal"
-    assert_equal(Fluent::Log::LEVEL_FATAL, log.level)
-    assert_equal(Fluent::Log::LEVEL_TRACE, @logger.level)
-  end
-
   def test_enable_color
     log = Fluent::PluginLogger.new(@logger)
     log.enable_color(true)
@@ -862,6 +854,45 @@ class PluginLoggerTest < Test::Unit::TestCase
     @logger.warn  :default, "warn log 4"
     @logger.error :supervisor, "error log 5"
     @logger.fatal :worker0, "fatal log 6"
+  end
+
+  sub_test_case "take over the parent logger" do
+    def test_level
+      log = Fluent::PluginLogger.new(@logger)
+      assert_equal(log.level, @logger.level)
+      log.level = "fatal"
+      assert_equal(Fluent::Log::LEVEL_FATAL, log.level)
+      assert_equal(Fluent::Log::LEVEL_TRACE, @logger.level)
+    end
+
+    def test_options
+      parent_log = Fluent::Log.new(
+        ServerEngine::DaemonLogger.new(
+          @log_device,
+          log_level: ServerEngine::DaemonLogger::INFO,
+        ),
+        suppress_repeated_stacktrace: true,
+        ignore_repeated_log_interval: 10,
+        ignore_same_log_interval: 10,
+      )
+      parent_log.force_stacktrace_level(Fluent::Log::LEVEL_INFO)
+
+      log = Fluent::PluginLogger.new(parent_log)
+      assert_equal(
+        [
+          true,
+          Fluent::Log::LEVEL_INFO,
+          10,
+          10,
+        ],
+        [
+          log.instance_variable_get(:@suppress_repeated_stacktrace),
+          log.instance_variable_get(:@forced_stacktrace_level),
+          log.instance_variable_get(:@ignore_repeated_log_interval),
+          log.instance_variable_get(:@ignore_same_log_interval),
+        ]
+      )
+    end
   end
 
   sub_test_case "supervisor process type" do
@@ -1113,6 +1144,49 @@ class PluginLoggerMixinTest < Test::Unit::TestCase
     plugin = DummyPlugin.new
     mock(plugin.log).reset
     plugin.terminate
+  end
+
+  sub_test_case "take over the parent logger" do
+    def setup
+      super
+
+      begin
+        saved_global_logger = $log
+        $log = Fluent::Log.new(
+          ServerEngine::DaemonLogger.new(
+            Fluent::Test::DummyLogDevice.new,
+            log_level: ServerEngine::DaemonLogger::INFO,
+          ),
+          suppress_repeated_stacktrace: true,
+          ignore_repeated_log_interval: 10,
+          ignore_same_log_interval: 10,
+        )
+        $log.force_stacktrace_level(Fluent::Log::LEVEL_INFO)
+        yield
+      ensure
+        $log = saved_global_logger
+      end
+    end
+
+    def test_options
+      plugin = DummyPlugin.new
+      plugin.configure(Fluent::Config::Element.new("input", "", {"@id" => "foo"}, []))
+
+      assert_equal(
+        [
+          true,
+          Fluent::Log::LEVEL_INFO,
+          10,
+          10,
+        ],
+        [
+          plugin.log.instance_variable_get(:@suppress_repeated_stacktrace),
+          plugin.log.instance_variable_get(:@forced_stacktrace_level),
+          plugin.log.instance_variable_get(:@ignore_repeated_log_interval),
+          plugin.log.instance_variable_get(:@ignore_same_log_interval),
+        ]
+      )
+    end
   end
 end
 

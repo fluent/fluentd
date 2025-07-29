@@ -174,6 +174,7 @@ module Fluent
       clone.format = @format
       clone.time_format = @time_format
       clone.log_event_enabled = @log_event_enabled
+      clone.force_stacktrace_level(@forced_stacktrace_level)
       # optional headers/attrs are not copied, because new PluginLogger should have another one of it
       clone
     end
@@ -651,6 +652,9 @@ module Fluent
       @depth_offset = 2
       if logger.instance_variable_defined?(:@suppress_repeated_stacktrace)
         @suppress_repeated_stacktrace = logger.instance_variable_get(:@suppress_repeated_stacktrace)
+      end
+      if logger.instance_variable_defined?(:@forced_stacktrace_level)
+        @forced_stacktrace_level = logger.instance_variable_get(:@forced_stacktrace_level)
       end
       if logger.instance_variable_defined?(:@ignore_repeated_log_interval)
         @ignore_repeated_log_interval = logger.instance_variable_get(:@ignore_repeated_log_interval)
