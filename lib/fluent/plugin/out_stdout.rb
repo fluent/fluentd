@@ -25,7 +25,7 @@ module Fluent::Plugin
     DEFAULT_LINE_FORMAT_TYPE = 'stdout'
     DEFAULT_FORMAT_TYPE = 'json'
 
-    desc "If Fluentd logger outputs logs to a file, this plugin outputs events to the file as well."
+    desc "If Fluentd logger outputs logs to a file (with -o option), this plugin outputs events to the file as well."
     config_param :use_logger, :bool, default: true
 
     config_section :buffer do
