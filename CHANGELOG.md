@@ -17,8 +17,6 @@
   https://github.com/fluent/fluentd/pull/4899
 * in_http: allow empty Origin header requests to pass CORS checks
   https://github.com/fluent/fluentd/pull/4866
-* config: change inspect format
-  https://github.com/fluent/fluentd/pull/4914
 * system_config: support built-in config files
   https://github.com/fluent/fluentd/pull/4893
 * System configuration: Add forced_stacktrace_level to force the log level of stacktraces.
@@ -79,6 +77,8 @@
 
 ### Misc
 
+* config: change inspect format
+  https://github.com/fluent/fluentd/pull/4914
 * formatter_json: reduce memory usage
   https://github.com/fluent/fluentd/pull/4886
 * formatter_out_file: reduce memory usage
