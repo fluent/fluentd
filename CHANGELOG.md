@@ -4,39 +4,47 @@
 
 ### Enhancement
 
+New features:
+
 * Add zstd compression support https://github.com/fluent/fluentd/pull/4657
   * Buffer: add `zstd` to `compress` option.
   * out_file: add `zstd` to `compress` option.
   * out_forward: add `zstd` to `compress` option.
   * in_forward: support `zstd` format. (Experimental)
-* out_http: TLS1.3 support
-  https://github.com/fluent/fluentd/pull/4859
-* in_http: allow empty Origin header requests to pass CORS checks
-  https://github.com/fluent/fluentd/pull/4866
-* system_config: support built-in config files
-  https://github.com/fluent/fluentd/pull/4893
-* System configuration: Add forced_stacktrace_level to force the log level of stacktraces.
-  https://github.com/fluent/fluentd/pull/5008
-* in_tail: add warning for directory permission.
-  https://github.com/fluent/fluentd/pull/4865
-* Add logging for errors about loading dependencies on startup
-  https://github.com/fluent/fluentd/pull/4858
 * buffer: add feature to evacuate chunk files when retry limit
   https://github.com/fluent/fluentd/pull/4986
+* out_http: TLS1.3 support
+  https://github.com/fluent/fluentd/pull/4859
 * out_file: add symlink_path_use_relative option to use relative path instead of absolute path in symlink_path
   https://github.com/fluent/fluentd/pull/4904
-* in_forward: enable skip_invalid_event by default
-  https://github.com/fluent/fluentd/pull/5003
-* buf_file: reinforce buffer file corruption check
-  https://github.com/fluent/fluentd/pull/4998
+* System configuration: Add forced_stacktrace_level to force the log level of stacktraces.
+  https://github.com/fluent/fluentd/pull/5008
+* System configuration: support built-in config files
+  https://github.com/fluent/fluentd/pull/4893
+
+Metrics:
+
 * metrics: enable input metrics by default
   https://github.com/fluent/fluentd/pull/4966
+* in_tail: add "tracked_file_count" metrics to see how many log files are being tracked
+  https://github.com/fluent/fluentd/pull/4980
 * output: add metrics for number of writing events in secondary
   https://github.com/fluent/fluentd/pull/4971
 * output: add metrics for dropped oldest chunk count
   https://github.com/fluent/fluentd/pull/4981
-* in_tail: add "tracked_file_count" metrics to see how many log files are being tracked
-  https://github.com/fluent/fluentd/pull/4980
+
+Others:
+
+* in_forward: enable skip_invalid_event by default not to process broken data
+  https://github.com/fluent/fluentd/pull/5003
+* buf_file: reinforce buffer file corruption check
+  https://github.com/fluent/fluentd/pull/4998
+* in_http: allow empty Origin header requests to pass CORS checks
+  https://github.com/fluent/fluentd/pull/4866
+* in_tail: add warning for directory permission
+  https://github.com/fluent/fluentd/pull/4865
+* Add logging for errors about loading dependencies on startup
+  https://github.com/fluent/fluentd/pull/4858
 
 ### Bug Fix
 
