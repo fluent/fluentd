@@ -23,10 +23,6 @@
   https://github.com/fluent/fluentd/pull/4865
 * Add logging for errors about loading dependencies on startup
   https://github.com/fluent/fluentd/pull/4858
-* in_monitor_agent: stop using CGI.parse due to support Ruby 3.5
-  https://github.com/fluent/fluentd/pull/4962
-* HTTP server plugin helper: stop using CGI.parse due to support Ruby 3.5
-  https://github.com/fluent/fluentd/pull/4962
 * buffer: add feature to evacuate chunk files when retry limit
   https://github.com/fluent/fluentd/pull/4986
 * out_file: add symlink_path_use_relative option to use relative path instead of absolute path in symlink_path
@@ -73,6 +69,10 @@
 
 ### Misc
 
+* in_monitor_agent: stop using CGI.parse due to support Ruby 3.5
+  https://github.com/fluent/fluentd/pull/4962
+* HTTP server plugin helper: stop using CGI.parse due to support Ruby 3.5
+  https://github.com/fluent/fluentd/pull/4962
 * config: change inspect format
   https://github.com/fluent/fluentd/pull/4914
 * formatter_json: reduce memory usage
