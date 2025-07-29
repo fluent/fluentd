@@ -102,7 +102,8 @@ Others:
 * plugin_id: fix typo
   https://github.com/fluent/fluentd/pull/4964
 * CI fixes
-    https://github.com/fluent/fluentd/pull/4728
+  * https://github.com/fluent/fluentd/pull/4728
+    https://github.com/fluent/fluentd/pull/4730
     https://github.com/fluent/fluentd/pull/4746
     https://github.com/fluent/fluentd/pull/4747
     https://github.com/fluent/fluentd/pull/4748
@@ -111,15 +112,14 @@ Others:
     https://github.com/fluent/fluentd/pull/4820
     https://github.com/fluent/fluentd/pull/4874
     https://github.com/fluent/fluentd/pull/4877
-  * https://github.com/fluent/fluentd/pull/4730
 * Fixes Rubocop's remarks
-    https://github.com/fluent/fluentd/pull/4928
+  * https://github.com/fluent/fluentd/pull/4928
     https://github.com/fluent/fluentd/pull/4930
     https://github.com/fluent/fluentd/pull/4930
     https://github.com/fluent/fluentd/pull/4931
+    https://github.com/fluent/fluentd/pull/4932
     https://github.com/fluent/fluentd/pull/4933
     https://github.com/fluent/fluentd/pull/4934
-  * https://github.com/fluent/fluentd/pull/4932
 * CI: Add benchmark scripts
   https://github.com/fluent/fluentd/pull/4989
 
