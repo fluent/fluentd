@@ -58,8 +58,6 @@
   https://github.com/fluent/fluentd/pull/4782
 * Windows: Fixed an issue where stopping service sometimes can not be completed forever.
   https://github.com/fluent/fluentd/pull/4782
-* plugin_id: fix typo
-  https://github.com/fluent/fluentd/pull/4964
 * multi_output: fix metrics name
   https://github.com/fluent/fluentd/pull/4979
 * server plugin helper: ensure to close all connections at shutdown
@@ -105,6 +103,8 @@
   https://github.com/fluent/fluentd/pull/4899
 * metrics: add getter method automatically
   https://github.com/fluent/fluentd/pull/4978
+* plugin_id: fix typo
+  https://github.com/fluent/fluentd/pull/4964
 * CI fixes
     https://github.com/fluent/fluentd/pull/4728
     https://github.com/fluent/fluentd/pull/4746
