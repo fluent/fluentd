@@ -93,6 +93,9 @@ Others:
 * config: change inspect format
   https://github.com/fluent/fluentd/pull/4914
 * console_adapter: support console gem v1.30
+* in_http: replace WEBrick::HTTPUtils.parse_query with URI
+  Note that at least, this makes it unable to use ; delimiter.
+  https://github.com/fluent/fluentd/pull/4900
   https://github.com/fluent/fluentd/pull/4857
 * http_server: stop fallback to WEBrick
   https://github.com/fluent/fluentd/pull/4899
