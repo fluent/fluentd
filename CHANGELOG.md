@@ -1,6 +1,6 @@
 # v1.19
 
-## Release v1.19.0 - 2025/07/29
+## Release v1.19.0 - 2025/07/30
 
 ### Enhancement
 
