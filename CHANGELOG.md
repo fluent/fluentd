@@ -96,6 +96,8 @@ Others:
   https://github.com/fluent/fluentd/pull/4914
 * console_adapter: support console gem v1.30
   https://github.com/fluent/fluentd/pull/4857
+* gemspec: fix io-event and io-stream version to avoid unstable behavior on Windows
+  https://github.com/fluent/fluentd/pull/5042
 * in_http: replace WEBrick::HTTPUtils.parse_query with URI
   Note that at least, this makes it unable to use ; delimiter.
   https://github.com/fluent/fluentd/pull/4900
