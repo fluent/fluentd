@@ -74,7 +74,7 @@ Others:
 * formatter_csv: fix memory leak
   https://github.com/fluent/fluentd/pull/4864
 * server plugin helper: ensure to close all connections at shutdown
-  https://github.com/fluent/fluentd/pull/502
+  https://github.com/fluent/fluentd/pull/5026
 * Fixed a bug where the default `umask` was not set to `0` when using `--daemon` (td-agent, fluent-package) since v1.14.6.
   https://github.com/fluent/fluentd/pull/4836
 * `--umask` command line option: Fixed so that it is applied when Fluentd runs with `--daemon` (fluent-package) as well as when Fluentd runs with `--no-supervisor`.
