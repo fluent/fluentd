@@ -15,6 +15,8 @@ New features:
   https://github.com/fluent/fluentd/pull/4986
 * out_http: TLS1.3 support
   https://github.com/fluent/fluentd/pull/4859
+* out_stdout: support output to STDOUT independently of Fluentd logger by setting `use_logger` to `false`
+  https://github.com/fluent/fluentd/pull/5036
 * out_file: add symlink_path_use_relative option to use relative path instead of absolute path in symlink_path
   https://github.com/fluent/fluentd/pull/4904
 * System configuration: Add forced_stacktrace_level to force the log level of stacktraces.
