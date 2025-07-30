@@ -25,6 +25,9 @@ module Fluent::Plugin
     DEFAULT_LINE_FORMAT_TYPE = 'stdout'
     DEFAULT_FORMAT_TYPE = 'json'
 
+    desc "If Fluentd logger outputs logs to a file (with -o option), this plugin outputs events to the file as well."
+    config_param :use_logger, :bool, default: true
+
     config_section :buffer do
       config_set_default :chunk_keys, ['tag']
       config_set_default :flush_at_shutdown, true
@@ -44,6 +47,10 @@ module Fluent::Plugin
       true
     end
 
+    def dest_io
+      @use_logger ? $log : $stdout
+    end
+
     attr_accessor :formatter
 
     def configure(conf)
@@ -57,9 +64,9 @@ module Fluent::Plugin
     def process(tag, es)
       es = inject_values_to_event_stream(tag, es)
       es.each {|time,record|
-        $log.write(format(tag, time, record))
+        dest_io.write(format(tag, time, record))
       }
-      $log.flush
+      dest_io.flush
     end
 
     def format(tag, time, record)
@@ -68,7 +75,7 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      chunk.write_to($log)
+      chunk.write_to(dest_io)
     end
   end
 end
