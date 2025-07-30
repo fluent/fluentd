@@ -58,12 +58,12 @@ Others:
     https://github.com/fluent/fluentd/pull/4881
     https://github.com/fluent/fluentd/pull/4884
     https://github.com/fluent/fluentd/pull/4886
-    https://github.com/fluent/fluentd/pull/4995
     https://github.com/fluent/fluentd/pull/4930
     https://github.com/fluent/fluentd/pull/4931
     https://github.com/fluent/fluentd/pull/4932
     https://github.com/fluent/fluentd/pull/4933
     https://github.com/fluent/fluentd/pull/4934
+    https://github.com/fluent/fluentd/pull/4995
 
 ### Bug Fix
 
