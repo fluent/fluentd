@@ -118,7 +118,7 @@ Others:
     https://github.com/fluent/fluentd/pull/4820
     https://github.com/fluent/fluentd/pull/4874
     https://github.com/fluent/fluentd/pull/4877
-* Fixes Rubocop's remarks
+* Fixes RuboCop's remarks
   https://github.com/fluent/fluentd/pull/4928
 * CI: Add benchmark scripts
   https://github.com/fluent/fluentd/pull/4989
