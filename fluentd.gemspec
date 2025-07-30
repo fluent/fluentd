@@ -42,6 +42,13 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("uri", '~> 1.0')
   gem.add_runtime_dependency("async-http", "~> 0.86")
 
+  # It appears io-event >= 1.11.0 are unstable on Windows (confirmed on 1.12.1 or lower).
+  # See https://github.com/fluent/fluentd/issues/5041.
+  gem.add_runtime_dependency("io-event", "< 1.11.0")
+  # io-stream >= 0.8 needs io-event >= 1.12.0, so we need to fix io-stream version as well (confirmed on 0.10.0 or lower).
+  # See https://github.com/socketry/io-stream/issues/8.
+  gem.add_runtime_dependency("io-stream", "< 0.8.0")
+
   # gems that aren't default gems as of Ruby 3.4
   gem.add_runtime_dependency("base64", ["~> 0.2"])
   gem.add_runtime_dependency("csv", ["~> 3.2"])
