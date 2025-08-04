@@ -9,8 +9,8 @@ New features:
 * Add zstd compression support https://github.com/fluent/fluentd/pull/4657
   * Buffer: add `zstd` to `compress` option.
   * out_file: add `zstd` to `compress` option.
-  * out_forward: add `zstd` to `compress` option.
-  * in_forward: support `zstd` format. (Experimental)
+  * out_forward: add `zstd` to `compress` option. (Experimental)
+  * in_forward: support `zstd` format.
 * buffer: add feature to evacuate chunk files when retry limit
   https://github.com/fluent/fluentd/pull/4986
 * out_http: TLS1.3 support
