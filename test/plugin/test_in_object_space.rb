@@ -50,6 +50,10 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
   end
 
   def test_emit
+    # Force release garbaged objects due to avoid unexpected error by mock objects on `on_timer`
+    # https://github.com/fluent/fluentd/pull/5055
+    GC.start
+
     d = create_driver
 
     d.run(expect_emits: 3)
