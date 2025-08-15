@@ -70,6 +70,8 @@ class EventEmitterTest < Test::Unit::TestCase
     d.configure(config_element('ROOT', '', {'@label' => '@mytest'}))
     router = d.event_emitter_router("@mytest")
     assert_equal router_mock, router
+  ensure
+    Fluent::Engine.root_agent.labels['@mytest'] = nil
   end
 
   test 'get root router' do
