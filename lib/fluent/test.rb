@@ -40,9 +40,12 @@ module Fluent
 
       $log = dummy_logger
 
-      Fluent.__send__(:remove_const, :Engine)
-      engine = Fluent.const_set(:Engine, EngineClass.new).init(SystemConfig.new)
+      old_engine = Fluent.__send__(:remove_const, :Engine)
+      # Ensure that GC can remove the objects of the old engine.
+      # Some objects can still exist after `remove_const`. See https://github.com/fluent/fluentd/issues/5054.
+      old_engine.instance_variable_set(:@root_agent, nil)
 
+      engine = Fluent.const_set(:Engine, EngineClass.new).init(SystemConfig.new)
       engine.define_singleton_method(:now=) {|n|
         @now = n
       }
