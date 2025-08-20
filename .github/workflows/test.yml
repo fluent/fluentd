@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: bundle install
       - name: Run tests
-        run: bundle exec rake test TESTOPTS="-v --no-show-detail-immediately"
+        run: bundle exec rake test TESTOPTS="-v --report-slow-tests --no-show-detail-immediately"
 
   test-windows-service:
     runs-on: windows-latest
