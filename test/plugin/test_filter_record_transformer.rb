@@ -14,7 +14,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
     @tag = 'test.tag'
     @tag_parts = @tag.split('.')
     @time = event_time('2010-05-04 03:02:01 UTC')
-    Timecop.freeze(@time)
+    Timecop.freeze(@time.to_time)
   end
 
   teardown do
