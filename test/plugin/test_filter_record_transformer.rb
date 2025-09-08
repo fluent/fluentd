@@ -13,8 +13,10 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
     @hostname = Socket.gethostname.chomp
     @tag = 'test.tag'
     @tag_parts = @tag.split('.')
-    @time = event_time('2010-05-04 03:02:01 UTC')
-    Timecop.freeze(@time)
+
+    @timestamp = Time.parse('2010-05-04 03:02:01 UTC')
+    Timecop.freeze(@timestamp)
+    @event_time = event_time
   end
 
   teardown do
@@ -44,7 +46,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       d = create_driver(config)
       d.run {
         msgs.each { |msg|
-          d.feed(@tag, @time, {'foo' => 'bar', 'message' => msg, 'nest' => {'k1' => 'v1', 'k2' => 'v2'}})
+          d.feed(@tag, @event_time, {'foo' => 'bar', 'message' => msg, 'nest' => {'k1' => 'v1', 'k2' => 'v2'}})
         }
       }
       d.filtered
@@ -66,7 +68,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_equal('bar', r['foo'])
         assert_equal(@hostname, r['hostname'])
         assert_equal(@tag, r['tag'])
-        assert_equal(Time.at(@time).localtime.to_s, r['time'])
+        assert_equal(Time.at(@timestamp).localtime.to_s, r['time'])
         assert_equal("#{@hostname} #{@tag_parts[-1]} #{msgs[i]}", r['message'])
         assert_equal({'k1' => 'v1', 'k2' => 'v2'}, r['nest'])
       end
@@ -79,7 +81,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_not_include(r, 'foo')
         assert_equal(@hostname, r['hostname'])
         assert_equal(@tag, r['tag'])
-        assert_equal(Time.at(@time).localtime.to_s, r['time'])
+        assert_equal(Time.at(@timestamp).localtime.to_s, r['time'])
         assert_not_include(r, 'message')
       end
     end
@@ -100,7 +102,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_not_include(r, 'foo')
         assert_equal(@hostname, r['hostname'])
         assert_equal(@tag, r['tag'])
-        assert_equal(Time.at(@time).localtime.to_s, r['time'])
+        assert_equal(Time.at(@timestamp).localtime.to_s, r['time'])
         assert_equal("#{@hostname} #{@tag_parts[-1]} #{msgs[i]}", r['message'])
       end
     end
@@ -222,7 +224,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           { 'eventType0' => 'bar', 'message' => msg }
         end
         records.each do |record|
-          d.feed(@tag, @time, record)
+          d.feed(@tag, @event_time, record)
         end
       }
       d.filtered
@@ -294,9 +296,9 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         filtered = filter(config)
         filtered.each do |t, r|
           if enable_ruby == "yes"
-            assert_equal(Time.at(@time).localtime, r['message'])
+            assert_equal(Time.at(@timestamp).localtime, r['message'])
           else
-            assert_equal(Time.at(@time).localtime.to_s, r['message'])
+            assert_equal(Time.at(@timestamp).localtime.to_s, r['message'])
           end
         end
       end
@@ -533,7 +535,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       ]
       d = create_driver(config)
       message = {"@timestamp" => "foo"}
-      d.run { d.feed(@tag, @time, message) }
+      d.run { d.feed(@tag, @event_time, message) }
       filtered = d.filtered
       filtered.each do |t, r|
         assert_equal(message["@timestamp"], r['foo'])
@@ -551,7 +553,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       ]
       d = create_driver(config)
       message = {"@timestamp" => "foo"}
-      d.run { d.feed(@tag, @time, message) }
+      d.run { d.feed(@tag, @event_time, message) }
       filtered = d.filtered
       filtered.each do |t, r|
         assert_equal([message["@timestamp"]], r['foo'])
