@@ -15,7 +15,7 @@
 #
 
 require 'fluent/plugin/input'
-require 'yajl'
+require 'json'
 
 module Fluent::Plugin
   class ExecInput < Fluent::Plugin::Input
@@ -115,7 +115,7 @@ module Fluent::Plugin
       time ||= extract_time_from_record(record) || Fluent::EventTime.now
       router.emit(tag, time, record)
     rescue => e
-      log.error "exec failed to emit", tag: tag, record: Yajl.dump(record), error: e
+      log.error "exec failed to emit", tag: tag, record: JSON.generate(record), error: e
       router.emit_error_event(tag, time, record, e) if tag && time && record
     end
   end

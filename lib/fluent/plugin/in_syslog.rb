@@ -18,7 +18,7 @@ require 'fluent/plugin/input'
 require 'fluent/config/error'
 require 'fluent/plugin/parser'
 
-require 'yajl'
+require 'json'
 
 module Fluent::Plugin
   class SyslogInput < Input
@@ -274,7 +274,7 @@ module Fluent::Plugin
     def emit(tag, time, record)
       router.emit(tag, time, record)
     rescue => e
-      log.error "syslog failed to emit", error: e, tag: tag, record: Yajl.dump(record)
+      log.error "syslog failed to emit", error: e, tag: tag, record: JSON.generate(record)
     end
   end
 end

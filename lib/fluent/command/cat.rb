@@ -107,7 +107,7 @@ rescue
 end
 
 require 'socket'
-require 'yajl'
+require 'json'
 require 'msgpack'
 require 'fluent/ext_monitor_require'
 
@@ -304,7 +304,7 @@ class Writer
   end
 
   def abort_message(time, record)
-    $stdout.puts "!#{time}:#{Yajl.dump(record)}"
+    $stdout.puts "!#{time}:#{JSON.generate(record)}"
   end
 end
 
@@ -326,7 +326,7 @@ case format
 when 'json'
   begin
     while line = $stdin.gets
-      record = Yajl.load(line)
+      record = JSON.parse(line)
       w.write(record)
     end
   rescue

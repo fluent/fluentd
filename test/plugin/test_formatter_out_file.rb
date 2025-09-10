@@ -53,7 +53,7 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
       oldtz, ENV['TZ'] = ENV['TZ'], "UTC+07"
       d = create_driver(config_element('ROOT', '', {key => value}))
       tag = 'test'
-      assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}#{@default_newline}", d.instance.format(tag, time, record)
+      assert_equal "#{expected}\t#{tag}\t#{JSON.generate(record)}#{@default_newline}", d.instance.format(tag, time, record)
     ensure
       ENV['TZ'] = oldtz
     end
@@ -66,7 +66,7 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
     d = create_driver({"newline" => newline_conf})
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("#{time2str(@time)}\t#{tag}\t#{Yajl.dump(record)}#{newline}", formatted)
+    assert_equal("#{time2str(@time)}\t#{tag}\t#{JSON.generate(record)}#{newline}", formatted)
   end
 
   data("newline (LF)" => ["lf", "\n"],
@@ -76,7 +76,7 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
     d = create_driver('output_time' => 'false', 'newline' => newline_conf)
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("#{tag}\t#{Yajl.dump(record)}#{newline}", formatted)
+    assert_equal("#{tag}\t#{JSON.generate(record)}#{newline}", formatted)
   end
 
   data("newline (LF)" => ["lf", "\n"],
@@ -86,7 +86,7 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
     d = create_driver('output_tag' => 'false', 'newline' => newline_conf)
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("#{time2str(@time)}\t#{Yajl.dump(record)}#{newline}", formatted)
+    assert_equal("#{time2str(@time)}\t#{JSON.generate(record)}#{newline}", formatted)
   end
 
   data("newline (LF)" => ["lf", "\n"],
@@ -96,7 +96,7 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
     d = create_driver('output_tag' => 'false', 'output_time' => 'false', 'newline' => newline_conf)
     formatted = d.instance.format('tag', @time, record)
 
-    assert_equal("#{Yajl.dump(record)}#{newline}", formatted)
+    assert_equal("#{JSON.generate(record)}#{newline}", formatted)
   end
 
   data("newline (LF)" => ["lf", "\n"],
@@ -111,6 +111,6 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
                       ])
     formatted = d.instance.format('tag', @time, record)
 
-    assert_equal("#{Yajl.dump(record)}#{newline}", formatted)
+    assert_equal("#{JSON.generate(record)}#{newline}", formatted)
   end
 end
