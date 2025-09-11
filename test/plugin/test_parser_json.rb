@@ -23,7 +23,7 @@ class JsonParserTest < ::Test::Unit::TestCase
       end
     end
 
-    def test_fall_back_oj_to_yajl_if_oj_not_available
+    def test_fall_back_oj_to_json_if_oj_not_available
       stub(Fluent::OjOptions).available? { false }
 
       result = @parser.instance.configure_json_parser(:oj)

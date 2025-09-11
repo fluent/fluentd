@@ -1,6 +1,5 @@
 require_relative '../helper'
 
-require 'yajl'
 require 'flexmock/test_unit'
 require 'tmpdir'
 
