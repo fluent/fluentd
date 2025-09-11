@@ -364,6 +364,25 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         d2.stop; d2.before_shutdown; d2.shutdown; d2.after_shutdown; d2.close; d2.terminate
       end
     end
+
+    test 'close all connections by shutdown' do
+      @d.server_create_tcp(:s, @port) do |data, conn|
+      end
+
+      client_sockets = []
+      5.times do
+        client_sockets << TCPSocket.open("127.0.0.1", @port)
+      end
+      waiting(4){ sleep 0.1 until @d.instance_variable_get(:@_server_connections).size == 5 }
+
+      @d.stop
+      @d.before_shutdown
+      @d.shutdown
+
+      assert_true @d.instance_variable_get(:@_server_connections).empty?
+    ensure
+      client_sockets.each(&:close)
+    end
   end
 
   sub_test_case '#server_create' do
