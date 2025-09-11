@@ -2,7 +2,7 @@ require_relative 'helper'
 require 'fluent/plugin_helper'
 require 'fluent/plugin/base'
 
-class ConfigTest < Test::Unit::TestCase
+class PluginHelperTest < Test::Unit::TestCase
   module FluentTest; end
 
   sub_test_case 'Fluent::Plugin::Base.helpers method works as shortcut to include helper modules' do
