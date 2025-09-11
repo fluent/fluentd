@@ -133,5 +133,7 @@ class InputTest < Test::Unit::TestCase
     assert{ @p.router.object_id != original_router.object_id }
 
     @p.router.emit('mytag.testing', ['for mock'])
+  ensure
+    Fluent::Engine.root_agent.labels['@mytest'] = nil
   end
 end

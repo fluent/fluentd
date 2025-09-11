@@ -344,7 +344,7 @@ EOL
   end
 
   test 'set_compress_is_gzip_in_buffer_section' do
-    mock = flexmock($log)
+    mock = flexmock($log.dup)
     mock.should_receive(:log).with("buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>")
 
     @d = d = create_driver(config + %[
