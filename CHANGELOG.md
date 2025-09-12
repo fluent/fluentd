@@ -271,6 +271,22 @@ Others:
 
 # v1.16
 
+## Release v1.16.10 - 2025/09/12
+
+### Bug Fix
+
+* server plugin helper: ensure to close all connections at shutdown
+  https://github.com/fluent/fluentd/pull/5088
+
+### Misc
+
+* CI improvemnts
+  https://github.com/fluent/fluentd/pull/5083
+  https://github.com/fluent/fluentd/pull/5085
+  https://github.com/fluent/fluentd/pull/5086
+  https://github.com/fluent/fluentd/pull/5091
+  https://github.com/fluent/fluentd/pull/5092
+
 ## Release v1.16.9 - 2025/05/14
 
 ### Bug Fix
