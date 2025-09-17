@@ -535,7 +535,7 @@ class FileOutputTest < Test::Unit::TestCase
       end
 
       path = d.instance.last_written_path
-      check_zipped_result(path, %[#{Yajl.dump({"a" => 1, 'time' => time.to_i})}#{@default_newline}] + %[#{Yajl.dump({"a" => 2, 'time' => time.to_i})}#{@default_newline}])
+      check_zipped_result(path, %[#{JSON.generate({"a" => 1, 'time' => time.to_i})}#{@default_newline}] + %[#{JSON.generate({"a" => 2, 'time' => time.to_i})}#{@default_newline}])
     end
 
     test 'ltsv' do

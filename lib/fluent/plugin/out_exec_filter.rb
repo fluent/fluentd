@@ -17,7 +17,7 @@ require 'fluent/plugin/output'
 require 'fluent/env'
 require 'fluent/config/error'
 
-require 'yajl'
+require 'json'
 
 module Fluent::Plugin
   class ExecFilterOutput < Output
@@ -309,7 +309,7 @@ module Fluent::Plugin
       router.emit(tag, time, record)
     rescue => e
       if @suppress_error_log_interval == 0 || Time.now.to_i > @next_log_time
-        log.error "exec_filter failed to emit", record: Yajl.dump(record), error: e
+        log.error "exec_filter failed to emit", record: JSON.generate(record), error: e
         log.error_backtrace e.backtrace
         @next_log_time = Time.now.to_i + @suppress_error_log_interval
       end

@@ -15,6 +15,7 @@
 #
 
 require 'msgpack'
+require 'json'
 require 'yajl'
 
 require 'fluent/engine'
@@ -115,7 +116,7 @@ module Fluent
 
       class JSONFormatter < Formatter
         def call(record, out)
-          out << Yajl.dump(record) << "\n"
+          out << JSON.generate(record) << "\n"
         end
       end
 

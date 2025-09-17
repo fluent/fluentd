@@ -174,8 +174,8 @@ class ExecOutputTest < Test::Unit::TestCase
       d.feed(time, records[1])
     end
 
-    assert_equal Yajl.dump(records[0]) + "\n", d.formatted[0]
-    assert_equal Yajl.dump(records[1]) + "\n", d.formatted[1]
+    assert_equal JSON.generate(records[0]) + "\n", d.formatted[0]
+    assert_equal JSON.generate(records[1]) + "\n", d.formatted[1]
   end
 
   data(
