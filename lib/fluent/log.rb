@@ -221,7 +221,7 @@ module Fluent
           if wid = get_worker_id(type)
             r['worker_id'] = wid
           end
-          Yajl.dump(r)
+          JSON.generate(r)
         }
       end
 
@@ -554,7 +554,7 @@ module Fluent
           Thread.current[:last_repeated_stacktrace] = CachedLog.new(backtrace, time) if @suppress_repeated_stacktrace
         end
 
-        puts Yajl.dump(r)
+        puts JSON.generate(r)
       end
 
       nil

@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'yajl'
+require 'json'
 
 require 'fluent/plugin/input'
 
@@ -86,7 +86,7 @@ module Fluent::Plugin
 
       router.emit(@tag, now, record)
     rescue => e
-      log.error "object space failed to emit", error: e, tag: @tag, record: Yajl.dump(record)
+      log.error "object space failed to emit", error: e, tag: @tag, record: JSON.generate(record)
       log.error_backtrace
     end
   end
