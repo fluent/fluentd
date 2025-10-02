@@ -610,7 +610,17 @@ module Fluent::Plugin
       end
 
       def establish_connection(sock, ri)
+        start_time = Fluent::Clock.now
+        timeout = @sender.hard_timeout
+
         while ri.state != :established
+          # Check for timeout to prevent infinite loop
+          if Fluent::Clock.now - start_time > timeout
+            @log.warn "handshake timeout after #{timeout}s", host: @host, port: @port
+            disable!
+            break
+          end
+
           begin
             # TODO: On Ruby 2.2 or earlier, read_nonblock doesn't work expectedly.
             # We need rewrite around here using new socket/server plugin helper.
