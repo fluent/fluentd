@@ -1347,4 +1347,27 @@ EOL
       end
     end
   end
+
+  test 'establish_connection_timeout' do
+    @d = d = create_driver(%[
+      hard_timeout 1
+      <server>
+        host #{TARGET_HOST}
+        port #{@target_port}
+      </server>
+    ])
+
+    node = d.instance.nodes.first
+    mock_sock = flexmock('socket')
+    mock_sock.should_receive(:read_nonblock).with(512).and_return('').at_least.once
+
+    ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:helo)
+
+    assert_true node.available?
+    node.establish_connection(mock_sock, ri)
+    assert_false node.available?
+
+    logs = d.logs
+    assert{ logs.any?{|log| log.include?('handshake timeout after 1.0s') } }
+  end
 end
