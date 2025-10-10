@@ -101,7 +101,81 @@ module Fluent::Config
       'enable_input_metrics' => ['enable_input_metrics', false],
       'enable_size_metrics' => ['enable_size_metrics', true],
       'enable_jit' => ['enable_jit', true],
+      'umask' => ['umask', '0022'],
     )
+    sub_test_case "umask configuration" do
+      setup do
+        @original_umask = File.umask
+      end
+
+      teardown do
+        File.umask(@original_umask) # Restore original umask
+      end
+
+      test 'valid umask is applied' do
+        conf = parse_text(<<-EOS)
+          <system>
+            umask 0022
+          </system>
+        EOS
+        
+        log = Fluent::Test::TestLogger.new
+        sc = Fluent::SystemConfig.new(conf)
+        sc.apply(log)
+        
+        assert_equal '0022', sc.umask
+        assert_equal 0o022, File.umask
+        assert_true log.logs.any? { |msg| msg.include?('System umask changed') }
+      end
+
+      test 'invalid umask format logs warning' do
+        conf = parse_text(<<-EOS)
+          <system>
+            umask invalid
+          </system>
+        EOS
+        
+        log = Fluent::Test::TestLogger.new
+        sc = Fluent::SystemConfig.new(conf)
+        old_mask = File.umask
+        sc.apply(log)
+        
+        assert_equal old_mask, File.umask # Should not change
+        assert_true log.logs.any? { |msg| msg.include?('Invalid umask value') }
+      end
+
+      test 'out of range umask logs warning' do
+        conf = parse_text(<<-EOS)
+          <system>
+            umask 0888
+          </system>
+        EOS
+        
+        log = Fluent::Test::TestLogger.new
+        sc = Fluent::SystemConfig.new(conf)
+        old_mask = File.umask
+        sc.apply(log)
+        
+        assert_equal old_mask, File.umask # Should not change
+        assert_true log.logs.any? { |msg| msg.include?('out of range') }
+      end
+
+      test 'nil umask is ignored' do
+        conf = parse_text(<<-EOS)
+          <system>
+          </system>
+        EOS
+        
+        log = Fluent::Test::TestLogger.new
+        sc = Fluent::SystemConfig.new(conf)
+        old_mask = File.umask
+        sc.apply(log)
+        
+        assert_nil sc.umask
+        assert_equal old_mask, File.umask
+      end
+    end
+
     test "accepts parameters" do |(k, v)|
       conf = parse_text(<<-EOS)
           <system>

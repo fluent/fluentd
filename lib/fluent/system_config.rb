@@ -30,7 +30,7 @@ module Fluent
       :file_permission, :dir_permission, :counter_server, :counter_client,
       :strict_config_value, :enable_msgpack_time_support, :disable_shared_socket,
       :metrics, :enable_input_metrics, :enable_size_metrics, :enable_jit, :source_only_buffer,
-      :config_include_dir
+      :config_include_dir, :umask
     ]
 
     config_param :workers,   :integer, default: 1
@@ -61,6 +61,7 @@ module Fluent
       v.to_i(8)
     end
     config_param :config_include_dir, default: Fluent::DEFAULT_CONFIG_INCLUDE_DIR
+    config_param :umask, :string, default: nil # Keep as string for validation in apply()
     config_section :log, required: false, init: true, multi: false do
       config_param :path, :string, default: nil
       config_param :format, :enum, list: [:text, :json], default: :text
@@ -149,6 +150,29 @@ module Fluent
       super()
       conf ||= SystemConfig.blank_system_config
       configure(conf, strict_config_value)
+    end
+
+    def apply(log)
+      return unless @umask
+
+      begin
+        # Parse as octal integer and validate
+        new_mask = Integer(@umask, 8)
+        
+        if new_mask < 0 || new_mask > 0o777
+          log.warn "umask value out of range (must be between 0000 and 0777): #{@umask}"
+          return
+        end
+
+        # Only apply if valid
+        old_mask = File.umask(new_mask)
+        log.info "System umask changed from #{sprintf('0%03o', old_mask)} to #{sprintf('0%03o', new_mask)}"
+      rescue ArgumentError
+        log.warn "Invalid umask value '#{@umask}' - must be octal format (e.g., 0022)"
+      rescue => e
+        log.error "Failed to set umask", error: e
+        log.error_backtrace
+      end
     end
 
     def configure(conf, strict_config_value=false)
