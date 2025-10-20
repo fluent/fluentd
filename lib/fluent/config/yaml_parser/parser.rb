@@ -144,8 +144,12 @@ module Fluent
 
           config.each do |key, val|
             if val.is_a?(Array)
-              val.each do |v|
-                sb.add_section(section_build(key, v, indent: indent + @base_indent))
+              if val.all?{ |item| basic_type?(item) }
+                sb.add_line(key, val)
+              else
+                val.each do |v|
+                  sb.add_section(section_build(key, v, indent: indent + @base_indent))
+                end
               end
             elsif val.is_a?(Hash)
               harg = val.delete('$arg')
@@ -163,6 +167,9 @@ module Fluent
           end
 
           SectionBuilder.new(name, sb, indent, arg)
+        end
+        def basic_type?(value)
+          [Integer, Float, String, TrueClass, FalseClass, NilClass].any?{ |type| value.is_a?(type) }
         end
       end
     end
