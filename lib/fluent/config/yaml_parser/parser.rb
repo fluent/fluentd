@@ -168,8 +168,9 @@ module Fluent
 
           SectionBuilder.new(name, sb, indent, arg)
         end
-        def basic_type?(value)
-          [Integer, Float, String, TrueClass, FalseClass, NilClass].any?{ |type| value.is_a?(type) }
+
+        def section?(value)
+          value.is_a?(Array) or value.is_a?(Hash)
         end
       end
     end
