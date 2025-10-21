@@ -144,12 +144,12 @@ module Fluent
 
           config.each do |key, val|
             if val.is_a?(Array)
-              if val.all?{ |item| basic_type?(item) }
-                sb.add_line(key, val)
-              else
+              if section?(val.first)
                 val.each do |v|
                   sb.add_section(section_build(key, v, indent: indent + @base_indent))
                 end
+              else
+                sb.add_line(key, val)
               end
             elsif val.is_a?(Hash)
               harg = val.delete('$arg')
