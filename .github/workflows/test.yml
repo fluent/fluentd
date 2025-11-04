@@ -2,12 +2,12 @@ name: Test
 
 on:
   push:
-    branches: [master]
+    branches: [v1.19]
     paths-ignore:
       - '*.md'
       - 'lib/fluent/version.rb'
   pull_request:
-    branches: [master]
+    branches: [v1.19]
     paths-ignore:
       - '*.md'
       - 'lib/fluent/version.rb'
