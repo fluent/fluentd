@@ -343,6 +343,155 @@ class ConfigTest < Test::Unit::TestCase
       10.times { match_conf['type'] }
       assert_equal before_size, match_conf.unused.size
     end
+
+    data(
+      "One String for $arg" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: stdout
+              $tag: test.**
+              buffer:
+                $arg: tag
+                $type: memory
+                flush_mode: immediate
+      CONF
+      "Comma-separated String for $arg" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: stdout
+              $tag: test.**
+              buffer:
+                $arg: tag, time
+                $type: memory
+                timekey: 1h
+                flush_mode: immediate
+      CONF
+      "One-liner Array for $arg" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: stdout
+              $tag: test.**
+              buffer:
+                $arg: [tag, time]
+                $type: memory
+                timekey: 1h
+                flush_mode: immediate
+      CONF
+      "Multi-liner Array for $arg" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: stdout
+              $tag: test.**
+              buffer:
+                $arg:
+                  - tag
+                  - time
+                $type: memory
+                timekey: 1h
+                flush_mode: immediate
+      CONF
+      "One String for normal Array option" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: stdout
+              $tag: test.**
+              format:
+                $type: csv
+                fields: message
+      CONF
+      "Comma-separated String for normal Array option" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: stdout
+              $tag: test.**
+              inject:
+                time_key: timestamp
+                time_type: string
+              format:
+                $type: csv
+                fields: timestamp, message
+      CONF
+      "One-liner Array for normal Array option" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: stdout
+              $tag: test.**
+              inject:
+                time_key: timestamp
+                time_type: string
+              format:
+                $type: csv
+                fields: [timestamp, message]
+      CONF
+      "Multi-liner Array for normal Array option" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: stdout
+              $tag: test.**
+              inject:
+                time_key: timestamp
+                time_type: string
+              format:
+                $type: csv
+                fields:
+                  - timestamp
+                  - message
+      CONF
+      "Multiple sections" => <<~CONF,
+        config:
+          - source:
+              $type: sample
+              tag: test
+          - match:
+              $type: copy
+              $tag: test.**
+              store:
+                - $type: relabel
+                  $label: "@foo"
+                - $type: relabel
+                  $label: "@bar"
+          - label:
+              $name: "@foo"
+              config:
+                - match:
+                    $type: stdout
+                    $tag: test.**
+          - label:
+              $name: "@bar"
+              config:
+                - match:
+                    $type: stdout
+                    $tag: test.**
+      CONF
+    )
+    test "Can parse config without error" do |conf|
+      write_config "#{TMP_DIR}/config.yaml", conf
+      read_config("#{TMP_DIR}/config.yaml", use_yaml: true)
+    end
   end
 
   def write_config(path, data, encoding: 'utf-8')
