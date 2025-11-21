@@ -39,9 +39,8 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("strptime", [">= 0.2.4", "< 1.0.0"])
   gem.add_runtime_dependency("webrick", ["~> 1.4"])
   gem.add_runtime_dependency("zstd-ruby", ["~> 1.5"])
-  # uri v1.1.0 breaks the tests using IPv6 addresses.
-  # https://github.com/fluent/fluentd/issues/5141
-  gem.add_runtime_dependency("uri", ['~> 1.0', "< 1.1.0"])
+  gem.add_runtime_dependency("uri", '~> 1.0')
+  gem.add_runtime_dependency("net-http", '~> 0.8')
   gem.add_runtime_dependency("async-http", "~> 0.86")
 
   # gems that aren't default gems as of Ruby 3.4
