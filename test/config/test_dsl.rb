@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/config/element'
 require "fluent/config/dsl"
+require 'tempfile'
 
 TMP_DIR = File.dirname(__FILE__) + "/tmp/config_dsl#{ENV['TEST_ENV_NUMBER']}"
 def write_config(path, data)
@@ -358,9 +359,13 @@ module Fluent::Config
       sub_test_case '.parse' do
         test 'can get result of Kernel.open() by ruby.open()' do
           uname_string = `uname -a`
+          tmpfile = Tempfile.create('fluentd-test')
+          tmpfile.write(uname_string)
+          tmpfile.close
+
           root = Fluent::Config::DSL::Parser.parse(<<DSL)
 worker {
-  uname_str = ruby.open('|uname -a'){|out| out.read}
+  uname_str = ruby.open("#{tmpfile.path}"){|out| out.read}
   source {
     uname uname_str
   }
@@ -372,6 +377,8 @@ DSL
           assert_equal('source', source.name)
           assert_equal(1, source.keys.size)
           assert_equal(uname_string, source['uname'])
+        ensure
+          File.delete(tmpfile.path)
         end
 
         test 'accepts ruby keyword with block, which allow to use methods included from ::Kernel' do
