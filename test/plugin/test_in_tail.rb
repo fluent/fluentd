@@ -2648,6 +2648,21 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_other_user_owned_files
+    omit "Cannot test with root user" if Process::UID.eid == 0
+    omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
+    config = config_element('', '', {
+      'tag' => "tail",
+      'path' => "/var/log/*.log",
+      'format' => 'none',
+      "pos_file" => "#{@tmp_dir}/tail.pos",
+    })
+    assert_nothing_raised do
+      d = create_driver(config, false)
+    end
+  end
+
   def test_shutdown_timeout
     Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|
       # Should be large enough to take too long time to consume
