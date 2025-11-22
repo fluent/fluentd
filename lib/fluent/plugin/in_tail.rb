@@ -59,6 +59,7 @@ module Fluent::Plugin
       @shutdown_start_time = nil
       @metrics = nil
       @startup = true
+      @capability = Fluent::Capability.new(:current_process)
     end
 
     desc 'The paths to read. Multiple paths can be specified, separated by comma.'
@@ -195,7 +196,6 @@ module Fluent::Plugin
       @dir_perm = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
       # parser is already created by parser helper
       @parser = parser_create(usage: parser_config['usage'] || @parser_configs.first.usage)
-      @capability = Fluent::Capability.new(:current_process)
       if @read_bytes_limit_per_second > 0
         if !@enable_watch_timer
           raise Fluent::ConfigError, "Need to enable watch timer when using log throttling feature"
