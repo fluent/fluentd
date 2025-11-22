@@ -2649,6 +2649,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_other_user_owned_files
+    # https://github.com/fluent/fluentd/issues/5141
     omit "Cannot test with root user" if Process::UID.eid == 0
     omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
 
