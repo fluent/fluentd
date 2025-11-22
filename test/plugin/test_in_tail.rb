@@ -2660,7 +2660,7 @@ class TailInputTest < Test::Unit::TestCase
       "pos_file" => "#{@tmp_dir}/tail.pos",
     })
     assert_nothing_raised do
-      d = create_driver(config, false)
+      create_driver(config, false)
     end
   end
 
