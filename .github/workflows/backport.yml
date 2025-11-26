@@ -1,0 +1,37 @@
+name: Backport
+
+on:
+  schedule:
+    # Sun 10:00 (JST)
+    - cron: '0 1 * * 0'
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    continue-on-error: false
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-version: ['3.4']
+        task: ['backport:v1_16', 'backport:v1_19']
+
+    name: Backport PR on ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@8aeb6ff8030dd539317f8e1769a044873b56ea71 # v1.268.0
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+      - name: Install dependencies
+        run: bundle install
+      - name: Run Benchmark
+        shell: bash
+        run: |
+          bundle exec rake ${{ matrix.task }}
