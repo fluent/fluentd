@@ -6,6 +6,7 @@ require 'rake/testtask'
 require 'rake/clean'
 
 require_relative 'tasks/benchmark'
+require_relative 'tasks/backport'
 
 task test: [:base_test]
 
