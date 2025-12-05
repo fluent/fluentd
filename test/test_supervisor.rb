@@ -353,6 +353,7 @@ class SupervisorTest < ::Test::Unit::TestCase
       event = Win32::Event.open("TestFluentdEvent")
       event.set
       event.close
+      sleep 1.0 # Wait for dumping
     ensure
       server.stop_windows_event_thread
     end
@@ -379,6 +380,7 @@ class SupervisorTest < ::Test::Unit::TestCase
       event = Win32::Event.open("TestFluentdEvent_USR1")
       event.set
       event.close
+      sleep 1.0 # Wait for dumping
     ensure
       server.stop_windows_event_thread
     end
