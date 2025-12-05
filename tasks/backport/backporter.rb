@@ -53,7 +53,7 @@ class PullRequestBackporter
     pages = 5
     pages.times.each do |page|
       @logger.debug "Collecting backport information (#{page + 1}/#{pages})"
-      URI.open("https://api.github.com/repos/fluent/fluentd/pulls?state=closed&per_page=100&page=#{page+1}",
+      URI.open("https://api.github.com/repos/#{@options[:upstream]}/pulls?state=closed&per_page=100&page=#{page+1}",
                "Accept" => "application/vnd.github+json",
                "Authorization" => "Bearer #{ENV['GITHUB_TOKEN']}",
                "X-GitHub-Api-Version" => "2022-11-28") do |request|
