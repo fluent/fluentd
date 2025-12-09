@@ -10,7 +10,7 @@
 ### Misc
 
 * Add missing gem dependency on Ruby 3.4.
-  https://github.com/fluent/fluentd/pull/5177
+  https://github.com/fluent/fluentd/pull/5172
 
 * CI improvemnts
   https://github.com/fluent/fluentd/pull/5135
