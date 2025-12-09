@@ -1,6 +1,7 @@
 require_relative 'helper'
 require 'fluent/config/dsl'
 require 'fluent/test'
+require 'tempfile'
 
 class ConfigDSLTest < Test::Unit::TestCase
   # TEST_CONFIG1 = %[
@@ -107,8 +108,12 @@ match('aa')
 
   def test_with_ruby_keyword
     uname_string = `uname -a`
+    tmpfile = Tempfile.create('fluentd-test')
+    tmpfile.write(uname_string)
+    tmpfile.close
+
     root1 = Fluent::Config::DSL::Parser.parse(<<DSL)
-uname_str = ruby.open('|uname -a'){|out| out.read}
+uname_str = ruby.open("#{tmpfile.path}"){|out| out.read}
 source {
   uname uname_str
 }
@@ -144,5 +149,7 @@ source {
 }
 DSL
     assert_raise (NoMethodError) { Fluent::Config::DSL::Parser.parse(conf3) }
+  ensure
+    File.delete(tmpfile.path)
   end
 end
