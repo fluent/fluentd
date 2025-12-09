@@ -4,7 +4,8 @@
 
 ### Bug Fix
 
-* Fix infinite loop in out_forward handshake protocol that could cause logs to stop being flushed in unstable network environments.
+* out_forward: fix issue where could cause output to stop when using `<security>` and TLS setting together under unstable network environments
+  https://github.com/fluent/fluentd/pull/5137
 
 ### Misc
 
