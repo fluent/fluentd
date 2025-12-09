@@ -1,5 +1,24 @@
 # v1.16
 
+## Release v1.16.11 - 2025/12/12
+
+### Bug Fix
+
+* Fix infinite loop in out_forward handshake protocol that could cause logs to stop being flushed in unstable network environments.
+
+### Misc
+
+* Add missing gem dependency on Ruby 3.4.
+
+* CI improvemnts
+  https://github.com/fluent/fluentd/pull/5135
+  https://github.com/fluent/fluentd/pull/5175
+  https://github.com/fluent/fluentd/pull/5182
+  https://github.com/fluent/fluentd/pull/5183
+  https://github.com/fluent/fluentd/pull/5185
+  https://github.com/fluent/fluentd/pull/5187
+  https://github.com/fluent/fluentd/pull/5189
+
 ## Release v1.16.10 - 2025/09/12
 
 ### Bug Fix
