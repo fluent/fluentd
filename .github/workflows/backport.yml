@@ -30,7 +30,7 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true
-      - name: Run Benchmark
+      - name: Run backport task
         shell: bash
         run: |
           bundle exec rake ${{ matrix.task }}
