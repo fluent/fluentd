@@ -1,5 +1,26 @@
 # v1.16
 
+## Release v1.16.11 - 2025/12/12
+
+### Bug Fix
+
+* out_forward: fix issue where could cause output to stop when using `<security>` and TLS setting together under unstable network environments
+  https://github.com/fluent/fluentd/pull/5137
+
+### Misc
+
+* Add missing gem dependency on Ruby 3.4.
+  https://github.com/fluent/fluentd/pull/5172
+
+* CI improvemnts
+  https://github.com/fluent/fluentd/pull/5135
+  https://github.com/fluent/fluentd/pull/5175
+  https://github.com/fluent/fluentd/pull/5182
+  https://github.com/fluent/fluentd/pull/5183
+  https://github.com/fluent/fluentd/pull/5185
+  https://github.com/fluent/fluentd/pull/5187
+  https://github.com/fluent/fluentd/pull/5189
+
 ## Release v1.16.10 - 2025/09/12
 
 ### Bug Fix
