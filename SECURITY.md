@@ -15,6 +15,9 @@
 Please post your vulnerability report from the following page:
 https://github.com/fluent/fluentd/security/advisories
 
+> [!CAUTION]
+> In above contact form, we accept about **ONLY** Fluentd's vulnerability, in contrast, **REJECT** your vulnerability report about Fluentd derivative products such as fluent-package, Fluentd container images and Fluentd kubernetes deamonset images and so on. There are appropriate contact forms for every these derivative products. See the following notice.
+
 > [!NOTE]
 > If you use fluent-package, please check [fluent-package-builder](https://github.com/fluent/fluent-package-builder/blob/master/SECURITY.md) and report it there.
 
