@@ -1,4 +1,4 @@
-name: Backport
+name: Backport Pull Requests
 
 on:
   schedule:
@@ -22,7 +22,7 @@ jobs:
         ruby-version: ['3.4']
         task: ['backport:v1_16', 'backport:v1_19']
 
-    name: Backport PR on ${{ matrix.os }}
+    name: Backport PR ( ${{ matrix.task }} )
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Set up Ruby
@@ -30,7 +30,9 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true
-      - name: Run backport task
+      - name: Run backport task ( ${{ matrix.task }} )
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bundle exec rake ${{ matrix.task }}
