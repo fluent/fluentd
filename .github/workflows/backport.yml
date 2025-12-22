@@ -32,5 +32,7 @@ jobs:
           bundler-cache: true
       - name: Run backport task ( ${{ matrix.task }} )
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bundle exec rake ${{ matrix.task }}
