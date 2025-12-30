@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Set up Ruby
-        uses: ruby/setup-ruby@d354de180d0c9e813cfddfcbdc079945d4be589b # v1.275.0
+        uses: ruby/setup-ruby@8a836efbcebe5de0fe86b48a775b7a31b5c70c93 # v1.277.0
         with:
           ruby-version: ${{ matrix.ruby-version }}
       - name: Install dependencies
