@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
-        ruby-version: ['3.4', '3.3', '3.2']
+        ruby-version: ['4.0', '3.4', '3.3', '3.2']
     name: Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: ['3.4', '3.3', '3.2']
+        ruby-version: ['4.0', '3.4', '3.3', '3.2']
     name: Windows service (Ruby ${{ matrix.ruby-version }})
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
