@@ -148,6 +148,7 @@ class PullRequestBackporter
     failed.each do |backport|
       @logger.error "FAILED: #{backport[:number]} #{backport[:title]}"
     end
+    failed.empty?
   end
 
   def run(argv)
