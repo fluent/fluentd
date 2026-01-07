@@ -6,7 +6,9 @@ on:
     - cron: '0 1 * * 0'
   workflow_dispatch:
 
-permissions: read-all
+permissions:
+  contents: read
+  pull-requests: write
 
 concurrency:
   group: ${{ github.head_ref || github.sha }}-${{ github.workflow }}
