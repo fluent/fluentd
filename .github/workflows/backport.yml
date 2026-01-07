@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         ruby-version: ['3.4']
-        task: ['backport:v1_16', 'backport:v1_19']
+        task: ['backport:v1_19']
 
     name: Backport PR ( ${{ matrix.task }} )
     steps:

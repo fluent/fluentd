@@ -32,14 +32,6 @@ end
 
 namespace :backport do
 
-  desc "Backport PR to v1.16 branch"
-  task :v1_16 do
-    backporter = PullRequestBackporter.new
-    commands = ['--branch', 'v1.16', '--log-level', 'debug']
-    commands = append_additional_arguments(commands)
-    exit(backporter.run(commands))
-  end
-
   desc "Backport PR to v1.19 branch"
   task :v1_19 do
     commands = ['--branch', 'v1.19', '--log-level', 'debug']
