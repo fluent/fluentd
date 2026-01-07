@@ -27,17 +27,18 @@ module Fluent
     class V1Parser < LiteralParser
       ELEMENT_NAME = /[a-zA-Z0-9_]+/
 
-      def self.parse(data, fname, basepath = Dir.pwd, eval_context = nil)
+      def self.parse(data, fname, basepath = Dir.pwd, eval_context = nil, on_file_parsed: nil)
         ss = StringScanner.new(data)
-        ps = V1Parser.new(ss, basepath, fname, eval_context)
+        ps = V1Parser.new(ss, basepath, fname, eval_context, on_file_parsed: on_file_parsed)
         ps.parse!
       end
 
-      def initialize(strscan, include_basepath, fname, eval_context)
+      def initialize(strscan, include_basepath, fname, eval_context, on_file_parsed: nil)
         super(strscan, eval_context)
         @include_basepath = include_basepath
         @fname = fname
         @logger = defined?($log) ? $log : nil
+        @on_file_parsed = on_file_parsed
       end
 
       def parse!
@@ -138,6 +139,8 @@ module Fluent
           end
         end
 
+        @on_file_parsed&.call(File.join(@include_basepath, @fname)) if root_element
+
         return attrs, elems
       end
 
@@ -166,7 +169,7 @@ module Fluent
             data = File.read(entry)
             data.force_encoding('UTF-8')
             ss = StringScanner.new(data)
-            V1Parser.new(ss, basepath, fname, @eval_context).parse_element(true, nil, attrs, elems)
+            V1Parser.new(ss, basepath, fname, @eval_context, on_file_parsed: @on_file_parsed).parse_element(true, nil, attrs, elems)
           }
         else
           require 'open-uri'
@@ -175,7 +178,7 @@ module Fluent
           data = u.open { |f| f.read }
           data.force_encoding('UTF-8')
           ss = StringScanner.new(data)
-          V1Parser.new(ss, basepath, fname, @eval_context).parse_element(true, nil, attrs, elems)
+          V1Parser.new(ss, basepath, fname, @eval_context, on_file_parsed: @on_file_parsed).parse_element(true, nil, attrs, elems)
         end
       rescue SystemCallError => e
         cpe = ConfigParseError.new("include error #{uri} - #{e}")

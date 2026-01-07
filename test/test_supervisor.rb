@@ -1085,7 +1085,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
-                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+                                 type: anything,
+                                 on_file_parsed: anything) { config_element('ROOT', '', {}, [c]) }
       sources.each do |type|
         config = <<~EOF
         <source>
@@ -1111,7 +1112,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
-                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+                                 type: anything,
+                                 on_file_parsed: anything) { config_element('ROOT', '', {}, [c]) }
       sources.each do |type|
         config = <<~EOF
         config:
@@ -1139,7 +1141,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
-                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+                                 type: anything,
+                                 on_file_parsed: anything) { config_element('ROOT', '', {}, [c]) }
       sources.each do |type|
         if yaml
           config = <<~EOF
