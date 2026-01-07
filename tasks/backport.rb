@@ -37,7 +37,7 @@ namespace :backport do
     backporter = PullRequestBackporter.new
     commands = ['--branch', 'v1.16', '--log-level', 'debug']
     commands = append_additional_arguments(commands)
-    eixt(backporter.run(commands))
+    exit(backporter.run(commands))
   end
 
   desc "Backport PR to v1.19 branch"
