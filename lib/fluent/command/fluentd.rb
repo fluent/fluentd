@@ -344,6 +344,7 @@ if winsvcinstmode = opts[:regwinsvc]
 end
 
 if fluentdopt = opts[:fluentdopt]
+  require "win32/registry"
   Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\#{opts[:winsvc_name]}", Win32::Registry::KEY_ALL_ACCESS) do |reg|
     reg['fluentdopt', Win32::Registry::REG_SZ] = fluentdopt
   end
