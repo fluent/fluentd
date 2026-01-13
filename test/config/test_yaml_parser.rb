@@ -12,45 +12,70 @@ class YamlParserTest < Test::Unit::TestCase
     File.open(path, "w:#{encoding}:utf-8") {|f| f.write data }
   end
 
-  def test_special_yaml_elements_dollar
-    write_config "#{TMP_DIR}/test_special_yaml_elements_dollar_source.yaml", <<~EOS
-      config:
-        - source:
-            $type: dummy_type
-            $label: dummy_label
-            $id: dummy_id
-            $log_level: debug
-            $unknown: unknown
-    EOS
-    config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_special_yaml_elements_dollar_source.yaml")
-    assert_equal('source', config.elements[0].name)
-    assert_equal('dummy_type', config.elements[0]['@type'])
-    assert_equal('dummy_label', config.elements[0]['@label'])
-    assert_equal('dummy_id', config.elements[0]['@id'])
-    assert_equal('debug', config.elements[0]['@log_level'])
-    assert_nil(config.elements[0]['@unknown'])
+  sub_test_case 'Special YAML elements' do
+    def test_special_yaml_elements_dollar
+      write_config "#{TMP_DIR}/test_special_yaml_elements_dollar_source.yaml", <<~EOS
+        config:
+          - source:
+              $type: dummy_type
+              $label: dummy_label
+              $id: dummy_id
+              $log_level: debug
+              $unknown: unknown
+      EOS
+      config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_special_yaml_elements_dollar_source.yaml")
+      assert_equal('source', config.elements[0].name)
+      assert_equal('dummy_type', config.elements[0]['@type'])
+      assert_equal('dummy_label', config.elements[0]['@label'])
+      assert_equal('dummy_id', config.elements[0]['@id'])
+      assert_equal('debug', config.elements[0]['@log_level'])
+      assert_nil(config.elements[0]['@unknown'])
 
-    write_config "#{TMP_DIR}/test_special_yaml_elements_dollar_match.yaml", <<~EOS
-      config:
-        - match:
-            $tag: dummy_tag
-    EOS
-    config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_special_yaml_elements_dollar_match.yaml")
-    assert_equal('match', config.elements[0].name)
-    assert_equal('dummy_tag', config.elements[0].arg)
+      write_config "#{TMP_DIR}/test_special_yaml_elements_dollar_match.yaml", <<~EOS
+        config:
+          - match:
+              $tag: dummy_tag
+      EOS
+      config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_special_yaml_elements_dollar_match.yaml")
+      assert_equal('match', config.elements[0].name)
+      assert_equal('dummy_tag', config.elements[0].arg)
 
 
-    write_config "#{TMP_DIR}/test_special_yaml_elements_dollar_worker.yaml", <<~EOS
-      config:
-        - worker:
-            $arg: dummy_arg
-            config:
-              - source:
-                  $type: dummy
-    EOS
-    config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_special_yaml_elements_dollar_worker.yaml")
-    assert_equal('worker', config.elements[0].name)
-    assert_equal('dummy_arg', config.elements[0].arg)
+      write_config "#{TMP_DIR}/test_special_yaml_elements_dollar_worker.yaml", <<~EOS
+        config:
+          - worker:
+              $arg: dummy_arg
+              config:
+                - source:
+                    $type: dummy
+      EOS
+      config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_special_yaml_elements_dollar_worker.yaml")
+      assert_equal('worker', config.elements[0].name)
+      assert_equal('dummy_arg', config.elements[0].arg)
+    end
+
+    def test_embedded_ruby_code
+      write_config "#{TMP_DIR}/test_embedded_ruby_code.yaml", <<~EOS
+        config:
+          - source:
+              host: !fluent/s "#{Socket.gethostname}"
+      EOS
+      config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_embedded_ruby_code.yaml")
+      assert_equal(Socket.gethostname, config.elements[0]['host'])
+    end
+
+    def test_fluent_json_format
+      write_config "#{TMP_DIR}/test_fluent_json_format.yaml", <<~EOS
+        config:
+          - source:
+              hash_param: !fluent/json {
+                "k": "v",
+                "k1": 10
+              }
+      EOS
+      config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_fluent_json_format.yaml")
+      assert_equal({'k': 'v', 'k1': 10}.to_json, config.elements[0]['hash_param'])
+    end
   end
 
   sub_test_case 'root elements' do
@@ -508,29 +533,6 @@ class YamlParserTest < Test::Unit::TestCase
     assert_raises(Psych::AnchorNotDefined) do
       Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_unknown_anchor.yaml")
     end
-  end
-
-  def test_embedded_ruby_code
-    write_config "#{TMP_DIR}/test_embedded_ruby_code.yaml", <<~EOS
-      config:
-        - source:
-            host: !fluent/s "#{Socket.gethostname}"
-    EOS
-    config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_embedded_ruby_code.yaml")
-    assert_equal(Socket.gethostname, config.elements[0]['host'])
-  end
-
-  def test_fluent_json_format
-    write_config "#{TMP_DIR}/test_fluent_json_format.yaml", <<~EOS
-      config:
-        - source:
-            hash_param: !fluent/json {
-              "k": "v",
-              "k1": 10
-            }
-    EOS
-    config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_fluent_json_format.yaml")
-    assert_equal({'k': 'v', 'k1': 10}.to_json, config.elements[0]['hash_param'])
   end
 
   def test_yaml_values
