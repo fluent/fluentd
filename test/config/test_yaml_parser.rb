@@ -147,12 +147,7 @@ class YamlParserTest < Test::Unit::TestCase
       EOS
       config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_config_section_directives.yaml")
       assert_equal(6, config.elements.size)
-      assert_equal("source", config.elements[0].name)
-      assert_equal("filter", config.elements[1].name)
-      assert_equal("match", config.elements[2].name)
-      assert_equal("worker", config.elements[3].name)
-      assert_equal("label", config.elements[4].name)
-      assert_equal("filter", config.elements[5].name) # included section
+      assert_equal(%w(source filter match worker label filter), config.elements.map(&:name))
     end
 
     def test_config_section_unknown_directives
