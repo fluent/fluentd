@@ -60,7 +60,7 @@ module Fluent
             visitor.accept(Psych.parse(f))
           end
 
-          @on_file_parsed&.call(path.to_s)
+          @on_file_parsed&.call(File.expand_path(path.to_s))
 
           config
         end

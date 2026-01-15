@@ -139,7 +139,7 @@ module Fluent
           end
         end
 
-        @on_file_parsed&.call(File.join(@include_basepath, @fname)) if root_element
+        @on_file_parsed&.call(File.expand_path(File.join(@include_basepath, @fname))) if root_element
 
         return attrs, elems
       end
