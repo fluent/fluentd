@@ -1410,6 +1410,53 @@ class SupervisorTest < ::Test::Unit::TestCase
     ensure
       $log.out.reset if $log&.out&.respond_to?(:reset)
     end
+
+    test "can load config files even if disable config_include_dir" do
+      write_config("#{@config_include_dir}/forward.conf", <<~EOF)
+        <match test>
+          @type forward
+          <server>
+            host 127.0.0.1
+            port 24224
+          </server>
+        </match>
+      EOF
+
+      write_config("#{@tmp_dir}/fluent.conf", <<~EOF)
+        <system>
+          config_include_dir "" 
+        </system>
+
+        <match sample.*>
+          @type file
+        </match>
+
+        @include #{@config_include_dir}/*.conf
+      EOF
+
+      supervisor = Fluent::Supervisor.new({ config_path: "#{@tmp_dir}/fluent.conf" })
+      stub(supervisor).setup_global_logger { create_debug_dummy_logger }
+
+      supervisor.configure(supervisor: true)
+      elements = supervisor.instance_variable_get(:@conf).elements
+      assert_equal(3, elements.size)
+
+      assert_equal('system', elements[0].name)
+      assert_equal("", elements[0]['config_include_dir'])
+
+      assert_equal('match', elements[1].name)
+      assert_equal('file', elements[1]['@type'])
+
+      assert_equal('match', elements[2].name)
+      assert_equal('forward', elements[2]['@type'])
+
+      # There is no logs for additional loading
+      logs_line = $log.out.logs.join
+      assert_not_match(/skip auto loading, it was already loaded/, logs_line)
+      assert_not_match(/loading additional configuration file/, logs_line)
+    ensure
+      $log.out.reset if $log&.out&.respond_to?(:reset)
+    end
   end
 
   def create_debug_dummy_logger
