@@ -1209,6 +1209,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       EOF
 
       supervisor = Fluent::Supervisor.new({ config_path: "#{@tmp_dir}/fluent.conf" })
+      stub(supervisor).setup_global_logger { create_debug_dummy_logger }
+
       supervisor.configure(supervisor: true)
       elements = supervisor.instance_variable_get(:@conf).elements
       assert_equal(4, elements.size)
@@ -1229,10 +1231,40 @@ class SupervisorTest < ::Test::Unit::TestCase
       assert_equal('source', elements[3].name)
       assert_equal('obsolete_plugins', elements[3]['@type'])
 
+      skipped_files = %W[
+        #{@config_include_dir}/common_param.conf
+        #{@config_include_dir}/forward.conf
+        #{@config_include_dir}/system.conf
+      ]
+      loaded_files = %W[
+        #{@config_include_dir}/obsolete_plugins.conf
+      ]
+
+      logs_line = $log.out.logs.join
+      skipped_files.each do |path|
+        assert { logs_line.include?("skip auto loading, it was already loaded path=\"#{path}\"") }
+      end
+      loaded_files.each do |path|
+        assert { logs_line.include?("loading additional configuration file path=\"#{path}\"") }
+      end
+
       # reload
+      $log.out.reset
       supervisor.__send__(:reload_config)
+      sleep 0.2 # wait to finish reloading
+
       reload_elements = supervisor.instance_variable_get(:@conf).elements
       assert_equal(elements, reload_elements)
+
+      logs_line = $log.out.logs.join
+      skipped_files.each do |path|
+        assert { logs_line.include?("skip auto loading, it was already loaded path=\"#{path}\"") }
+      end
+      loaded_files.each do |path|
+        assert { logs_line.include?("loading additional configuration file path=\"#{path}\"") }
+      end
+    ensure
+      $log.out.reset if $log&.out&.respond_to?(:reset)
     end
 
     test "can load partial config loaded config_include_dir feature by even if already loaded" do
@@ -1274,6 +1306,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       EOF
 
       supervisor = Fluent::Supervisor.new({ config_path: "#{@tmp_dir}/fluent.conf" })
+      stub(supervisor).setup_global_logger { create_debug_dummy_logger }
+
       supervisor.configure(supervisor: true)
       elements = supervisor.instance_variable_get(:@conf).elements
       assert_equal(4, elements.size)
@@ -1294,6 +1328,25 @@ class SupervisorTest < ::Test::Unit::TestCase
 
       assert_equal('source', elements[3].name)
       assert_equal('obsolete_plugins', elements[3]['@type'])
+
+      skipped_files = %W[
+        #{@config_include_dir}/common_param.conf
+        #{@config_include_dir}/system.conf
+      ]
+      loaded_files = %W[
+        #{@config_include_dir}/forward.conf
+        #{@config_include_dir}/obsolete_plugins.conf
+      ]
+
+      logs_line = $log.out.logs.join
+      skipped_files.each do |path|
+        assert { logs_line.include?("skip auto loading, it was already loaded path=\"#{path}\"") }
+      end
+      loaded_files.each do |path|
+        assert { logs_line.include?("loading additional configuration file path=\"#{path}\"") }
+      end
+    ensure
+      $log.out.reset if $log&.out&.respond_to?(:reset)
     end
   end
 
