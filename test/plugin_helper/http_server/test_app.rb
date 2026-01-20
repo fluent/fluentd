@@ -37,7 +37,7 @@ unless skip
       test 'dispatch correct path' do |method|
         r = DummyRouter.new(method.downcase.to_sym => { '/path/' => 'hi' })
         app = Fluent::PluginHelper::HttpServer::App.new(r, NULL_LOGGER)
-        m = flexmock('request', method: method, path: '/path/')
+        m = flexmock('request', method: method, path: '/path/', body: nil)
         r = app.call(m)
         assert_equal(r.body.read, 'hi')
         assert_equal(r.status, 200)
@@ -46,7 +46,7 @@ unless skip
       test 'dispatch correct path for head' do |method|
         r = DummyRouter.new(head: { '/path/' => 'hi' })
         app = Fluent::PluginHelper::HttpServer::App.new(r, NULL_LOGGER)
-        m = flexmock('request', method: method, path: '/path')
+        m = flexmock('request', method: method, path: '/path', body: nil)
         r = app.call(m)
         assert_equal(r.body.read, '')
         assert_equal(r.status, 200)
@@ -55,7 +55,7 @@ unless skip
       test 'if path does not end with `/`' do |method|
         r = DummyRouter.new(head: { '/path/' => 'hi' })
         app = Fluent::PluginHelper::HttpServer::App.new(r, NULL_LOGGER)
-        m = flexmock('request', method: method, path: '/path')
+        m = flexmock('request', method: method, path: '/path', body: nil)
         r = app.call(m)
         assert_equal(r.body.read, '')
         assert_equal(r.status, 200)
