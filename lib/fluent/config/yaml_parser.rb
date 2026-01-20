@@ -21,7 +21,7 @@ require 'pathname'
 module Fluent
   module Config
     module YamlParser
-      def self.parse(path)
+      def self.parse(path, on_file_parsed: nil)
         context = Kernel.binding
 
         unless context.respond_to?(:use_nil)
@@ -48,7 +48,7 @@ module Fluent
           end
         end
 
-        s = Fluent::Config::YamlParser::Loader.new(context).load(Pathname.new(path))
+        s = Fluent::Config::YamlParser::Loader.new(context, on_file_parsed: on_file_parsed).load(Pathname.new(path))
         Fluent::Config::YamlParser::Parser.new(s).build.to_element
       end
     end

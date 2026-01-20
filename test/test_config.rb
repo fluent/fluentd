@@ -520,5 +520,118 @@ class ConfigTest < Test::Unit::TestCase
       assert_equal('value', c['key'])
       assert_equal('value2', c['key2'])
     end
+
+    sub_test_case 'on_file_parsed' do
+      test "calling order on normal configuration files" do
+        write_config("#{TMP_DIR}/build/common_param.conf", <<~EOS)
+          flush_interval 5s
+          total_limit_size 100m
+          chunk_limit_size 1m
+        EOS
+        write_config("#{TMP_DIR}/build/server.conf", <<~EOS)
+          <server>
+            host 127.0.0.1
+            port 24224
+          </server>
+        EOS
+        write_config("#{TMP_DIR}/build/forward.conf", <<~EOS)
+          <match test.*>
+            @type forward
+
+            @include server.conf
+          </match>
+        EOS
+        write_config("#{TMP_DIR}/build/inline.conf", <<~EOS)
+          <source>
+            @type stdout
+            tag test
+          </source>
+        EOS
+        write_config("#{TMP_DIR}/build/fluent.conf", <<~EOS)
+          <match sample.*>
+            @type file
+            <buffer>
+              @include common_param.conf
+            </buffer>
+          </match>
+          <match debug.*>
+            @type stdout
+            <buffer>
+              @include common_param.conf
+            </buffer>
+          </match>
+
+          @include forward.conf
+        EOS
+
+        # parsed_files contains file paths in the order of file parsed
+        parsed_files = []
+        Fluent::Config.build(
+          config_path: "#{TMP_DIR}/build/fluent.conf",
+          additional_config: "@include inline.conf",
+          on_file_parsed: ->(path) { parsed_files << path },
+        )
+
+        assert_equal(
+          [
+            "#{TMP_DIR}/build/common_param.conf",
+            "#{TMP_DIR}/build/common_param.conf",
+            "#{TMP_DIR}/build/server.conf",
+            "#{TMP_DIR}/build/forward.conf",
+            "#{TMP_DIR}/build/inline.conf",
+            "#{TMP_DIR}/build/fluent.conf"
+          ],
+          parsed_files
+        )
+      end
+
+      test "calling order on YAML configuration files" do
+        write_config("#{TMP_DIR}/build/common_buffer.yaml", <<~EOS)
+          - buffer:
+              flush_interval: 5s
+              total_limit_size: 100m
+              chunk_limit_size: 1m
+        EOS
+        write_config("#{TMP_DIR}/build/forward.yaml", <<~EOS)
+          - match:
+              $tag: test.*
+              server:
+                host: 127.0.0.1
+                port: 24224
+        EOS
+        write_config("#{TMP_DIR}/build/fluent.yaml", <<~EOS)
+          config:
+            - match:
+                $tag: sample.*
+                $type: file
+                <<: !include common_buffer.yaml
+            - match:
+                $tag: debug.*
+                $type: stdout
+                <<: !include common_buffer.yaml
+            - !include forward.yaml
+        EOS
+
+        # parsed_files contains file paths in the order of file parsed
+        # `additional_config` does not support YAML config
+        parsed_files = []
+        Fluent::Config.build(
+          config_path: "#{TMP_DIR}/build/fluent.yaml",
+          type: :yaml,
+          on_file_parsed: ->(path) { parsed_files << path },
+          )
+
+        assert_equal(
+          [
+            "#{TMP_DIR}/build/common_buffer.yaml",
+            "#{TMP_DIR}/build/common_buffer.yaml",
+            "#{TMP_DIR}/build/forward.yaml",
+            "#{TMP_DIR}/build/fluent.yaml"
+          ],
+          parsed_files
+        )
+      end
+
+    end
   end
 end
