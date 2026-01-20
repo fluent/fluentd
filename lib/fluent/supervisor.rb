@@ -18,6 +18,7 @@ require 'fileutils'
 require 'open3'
 require 'pathname'
 require 'find'
+require 'set'
 
 require 'fluent/config'
 require 'fluent/counter'
@@ -796,18 +797,20 @@ module Fluent
         $log.warn('the value "-" for `inline_config` is deprecated. See https://github.com/fluent/fluentd/issues/2711')
         @inline_config = STDIN.read
       end
+      parsed_files = Set.new
       @conf = Fluent::Config.build(
         config_path: @config_path,
         encoding: @conf_encoding,
         additional_config: @inline_config,
         use_v1_config: @use_v1_config,
         type: @config_file_type,
+        on_file_parsed: ->(path) { parsed_files << path },
       )
       @system_config = build_system_config(@conf)
 
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
 
-      build_additional_configurations do |additional_conf|
+      build_additional_configurations(parsed_files) do |additional_conf|
         @conf += additional_conf
       end
 
@@ -854,6 +857,7 @@ module Fluent
         additional_config: @inline_config,
         use_v1_config: @use_v1_config,
         type: @config_file_type,
+        on_file_parsed: nil,
       )
       system_config = build_system_config(conf)
 
@@ -1088,15 +1092,17 @@ module Fluent
         $log.debug('worker got SIGUSR2')
 
         begin
+          parsed_files = Set.new
           conf = Fluent::Config.build(
             config_path: @config_path,
             encoding: @conf_encoding,
             additional_config: @inline_config,
             use_v1_config: @use_v1_config,
             type: @config_file_type,
+            on_file_parsed: ->(path) { parsed_files << path },
           )
 
-          build_additional_configurations do |additional_conf|
+          build_additional_configurations(parsed_files) do |additional_conf|
             conf += additional_conf
           end
 
@@ -1206,7 +1212,7 @@ module Fluent
       system_config
     end
 
-    def build_additional_configurations
+    def build_additional_configurations(parsed_files)
       if @system_config.config_include_dir&.empty?
         $log.info :supervisor, 'configuration include directory is disabled'
         return
@@ -1218,11 +1224,17 @@ module Fluent
           next unless supported_suffixes.include?(File.extname(path))
           # NOTE: both types of normal config (.conf) and YAML will be loaded.
           # Thus, it does not care whether @config_path is .conf or .yml.
+          if parsed_files.include?(path)
+            $log.info :supervisor, 'skip auto loading, it was already loaded', path: path
+            next
+          end
+
           $log.info :supervisor, 'loading additional configuration file', path: path
           yield Fluent::Config.build(config_path: path,
                                      encoding: @conf_encoding,
                                      use_v1_config: @use_v1_config,
-                                     type: :guess)
+                                     type: :guess,
+                                     on_file_parsed: nil)
         end
       rescue Errno::ENOENT
         $log.info :supervisor, 'inaccessible include directory was specified', path: @system_config.config_include_dir

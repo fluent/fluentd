@@ -1085,7 +1085,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
-                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+                                 type: anything,
+                                 on_file_parsed: anything) { config_element('ROOT', '', {}, [c]) }
       sources.each do |type|
         config = <<~EOF
         <source>
@@ -1111,7 +1112,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
-                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+                                 type: anything,
+                                 on_file_parsed: anything) { config_element('ROOT', '', {}, [c]) }
       sources.each do |type|
         config = <<~EOF
         config:
@@ -1139,7 +1141,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       stub.proxy(Fluent::Config).build
       stub(Fluent::Config).build(config_path: "/etc/fluent/fluent.conf", encoding: "utf-8",
                                  additional_config: anything, use_v1_config: anything,
-                                 type: anything) { config_element('ROOT', '', {}, [c]) }
+                                 type: anything,
+                                 on_file_parsed: anything) { config_element('ROOT', '', {}, [c]) }
       sources.each do |type|
         if yaml
           config = <<~EOF
@@ -1164,6 +1167,295 @@ class SupervisorTest < ::Test::Unit::TestCase
       supervisor.__send__(:reload_config)
       expected = [c].concat(sources.collect { |type| {"@type" => type} })
       assert_equal(expected, supervisor.instance_variable_get(:@conf).elements)
+    end
+
+    test "prevent duplicate loading" do
+      write_config("#{@config_include_dir}/system.conf", <<~EOF)
+        <system>
+          config_include_dir #{@config_include_dir}
+        </system>
+      EOF
+      write_config("#{@config_include_dir}/forward.conf", <<~EOF)
+        <match test>
+          @type forward
+          <buffer>
+            @include #{@config_include_dir}/common_param.conf
+          </buffer>
+          <server>
+            host 127.0.0.1
+            port 24224
+          </server>
+        </match>
+      EOF
+      write_config("#{@config_include_dir}/common_param.conf", <<~EOF)
+        flush_interval 5s
+      EOF
+      write_config("#{@config_include_dir}/obsolete_plugins.conf", <<~EOF)
+        <source>
+          @type obsolete_plugins
+        </source>
+      EOF
+
+      write_config("#{@tmp_dir}/fluent.conf", <<~EOF)
+        <match sample.*>
+          @type file
+          <buffer>
+            @include #{@config_include_dir}/common_param.conf
+          </buffer>
+        </match>
+
+        @include #{@config_include_dir}/forward.conf
+        @include #{@config_include_dir}/system.conf
+      EOF
+
+      supervisor = Fluent::Supervisor.new({ config_path: "#{@tmp_dir}/fluent.conf" })
+      stub(supervisor).setup_global_logger { create_debug_dummy_logger }
+
+      supervisor.configure(supervisor: true)
+      elements = supervisor.instance_variable_get(:@conf).elements
+      assert_equal(4, elements.size)
+
+      assert_equal('match', elements[0].name)
+      assert_equal('file', elements[0]['@type'])
+      assert_equal('buffer', elements[0].elements[0].name)
+      assert_equal('5s', elements[0].elements[0]['flush_interval'])
+
+      assert_equal('match', elements[1].name)
+      assert_equal('forward', elements[1]['@type'])
+      assert_equal('buffer', elements[1].elements[0].name)
+      assert_equal('5s', elements[1].elements[0]['flush_interval'])
+
+      assert_equal('system', elements[2].name)
+      assert_equal(@config_include_dir, elements[2]['config_include_dir'])
+
+      assert_equal('source', elements[3].name)
+      assert_equal('obsolete_plugins', elements[3]['@type'])
+
+      skipped_files = %W[
+        #{@config_include_dir}/common_param.conf
+        #{@config_include_dir}/forward.conf
+        #{@config_include_dir}/system.conf
+      ]
+      loaded_files = %W[
+        #{@config_include_dir}/obsolete_plugins.conf
+      ]
+
+      logs_line = $log.out.logs.join
+      skipped_files.each do |path|
+        assert { logs_line.include?("skip auto loading, it was already loaded path=\"#{path}\"") }
+      end
+      loaded_files.each do |path|
+        assert { logs_line.include?("loading additional configuration file path=\"#{path}\"") }
+      end
+
+      # reload
+      $log.out.reset
+      supervisor.__send__(:reload_config)
+      sleep 0.2 # wait to finish reloading
+
+      reload_elements = supervisor.instance_variable_get(:@conf).elements
+      assert_equal(elements, reload_elements)
+
+      logs_line = $log.out.logs.join
+      skipped_files.each do |path|
+        assert { logs_line.include?("skip auto loading, it was already loaded path=\"#{path}\"") }
+      end
+      loaded_files.each do |path|
+        assert { logs_line.include?("loading additional configuration file path=\"#{path}\"") }
+      end
+    ensure
+      $log.out.reset if $log&.out&.respond_to?(:reset)
+    end
+
+    test "do not load additional configuration when loaded all files with @include" do
+      write_config("#{@config_include_dir}/forward.conf", <<~EOF)
+        <match test>
+          @type forward
+          <server>
+            host 127.0.0.1
+            port 24224
+          </server>
+        </match>
+      EOF
+      write_config("#{@config_include_dir}/obsolete_plugins.conf", <<~EOF)
+        <source>
+          @type obsolete_plugins
+        </source>
+      EOF
+
+      write_config("#{@tmp_dir}/fluent.conf", <<~EOF)
+        <system>
+          config_include_dir #{@config_include_dir}
+        </system>
+
+        <match sample.*>
+          @type file
+        </match>
+
+        @include #{@config_include_dir}/*.conf
+      EOF
+
+      supervisor = Fluent::Supervisor.new({ config_path: "#{@tmp_dir}/fluent.conf" })
+      stub(supervisor).setup_global_logger { create_debug_dummy_logger }
+
+      supervisor.configure(supervisor: true)
+      elements = supervisor.instance_variable_get(:@conf).elements
+      assert_equal(4, elements.size)
+
+      assert_equal('system', elements[0].name)
+      assert_equal(@config_include_dir, elements[0]['config_include_dir'])
+
+      assert_equal('match', elements[1].name)
+      assert_equal('file', elements[1]['@type'])
+
+      assert_equal('match', elements[2].name)
+      assert_equal('forward', elements[2]['@type'])
+
+      assert_equal('source', elements[3].name)
+      assert_equal('obsolete_plugins', elements[3]['@type'])
+
+      # no additional load, all files were skipped
+      skipped_files = %W[
+        #{@config_include_dir}/forward.conf
+        #{@config_include_dir}/obsolete_plugins.conf
+      ]
+
+      logs_line = $log.out.logs.join
+      skipped_files.each do |path|
+        assert { logs_line.include?("skip auto loading, it was already loaded path=\"#{path}\"") }
+      end
+      assert_not_match(/loading additional configuration file/, logs_line)
+    ensure
+      $log.out.reset if $log&.out&.respond_to?(:reset)
+    end
+
+    test "can load partial config loaded config_include_dir feature by even if already loaded" do
+      write_config("#{@config_include_dir}/system.conf", <<~EOF)
+        <system>
+          config_include_dir #{@config_include_dir}
+        </system>
+      EOF
+      write_config("#{@config_include_dir}/forward.conf", <<~EOF)
+        <match test>
+          @type forward
+          <buffer>
+            @include #{@config_include_dir}/common_param.conf
+          </buffer>
+          <server>
+            host 127.0.0.1
+            port 24224
+          </server>
+        </match>
+      EOF
+      write_config("#{@config_include_dir}/common_param.conf", <<~EOF)
+        flush_interval 5s
+      EOF
+      write_config("#{@config_include_dir}/obsolete_plugins.conf", <<~EOF)
+        <source>
+          @type obsolete_plugins
+        </source>
+      EOF
+
+      write_config("#{@tmp_dir}/fluent.conf", <<~EOF)
+        <match sample.*>
+          @type file
+          <buffer>
+            @include #{@config_include_dir}/common_param.conf
+          </buffer>
+        </match>
+
+        @include #{@config_include_dir}/system.conf
+      EOF
+
+      supervisor = Fluent::Supervisor.new({ config_path: "#{@tmp_dir}/fluent.conf" })
+      stub(supervisor).setup_global_logger { create_debug_dummy_logger }
+
+      supervisor.configure(supervisor: true)
+      elements = supervisor.instance_variable_get(:@conf).elements
+      assert_equal(4, elements.size)
+
+      assert_equal('match', elements[0].name)
+      assert_equal('file', elements[0]['@type'])
+      assert_equal('buffer', elements[0].elements[0].name)
+      assert_equal('5s', elements[0].elements[0]['flush_interval'])
+
+      assert_equal('system', elements[1].name)
+      assert_equal(@config_include_dir, elements[1]['config_include_dir'])
+
+      # include forward.conf using config_include_dir feature
+      assert_equal('match', elements[2].name)
+      assert_equal('forward', elements[2]['@type'])
+      assert_equal('buffer', elements[2].elements[0].name)
+      assert_equal('5s', elements[2].elements[0]['flush_interval'])
+
+      assert_equal('source', elements[3].name)
+      assert_equal('obsolete_plugins', elements[3]['@type'])
+
+      skipped_files = %W[
+        #{@config_include_dir}/common_param.conf
+        #{@config_include_dir}/system.conf
+      ]
+      loaded_files = %W[
+        #{@config_include_dir}/forward.conf
+        #{@config_include_dir}/obsolete_plugins.conf
+      ]
+
+      logs_line = $log.out.logs.join
+      skipped_files.each do |path|
+        assert { logs_line.include?("skip auto loading, it was already loaded path=\"#{path}\"") }
+      end
+      loaded_files.each do |path|
+        assert { logs_line.include?("loading additional configuration file path=\"#{path}\"") }
+      end
+    ensure
+      $log.out.reset if $log&.out&.respond_to?(:reset)
+    end
+
+    test "can load config files even if disable config_include_dir" do
+      write_config("#{@config_include_dir}/forward.conf", <<~EOF)
+        <match test>
+          @type forward
+          <server>
+            host 127.0.0.1
+            port 24224
+          </server>
+        </match>
+      EOF
+
+      write_config("#{@tmp_dir}/fluent.conf", <<~EOF)
+        <system>
+          config_include_dir "" 
+        </system>
+
+        <match sample.*>
+          @type file
+        </match>
+
+        @include #{@config_include_dir}/*.conf
+      EOF
+
+      supervisor = Fluent::Supervisor.new({ config_path: "#{@tmp_dir}/fluent.conf" })
+      stub(supervisor).setup_global_logger { create_debug_dummy_logger }
+
+      supervisor.configure(supervisor: true)
+      elements = supervisor.instance_variable_get(:@conf).elements
+      assert_equal(3, elements.size)
+
+      assert_equal('system', elements[0].name)
+      assert_equal("", elements[0]['config_include_dir'])
+
+      assert_equal('match', elements[1].name)
+      assert_equal('file', elements[1]['@type'])
+
+      assert_equal('match', elements[2].name)
+      assert_equal('forward', elements[2]['@type'])
+
+      # There is no logs for additional loading
+      logs_line = $log.out.logs.join
+      assert_not_match(/skip auto loading, it was already loaded/, logs_line)
+      assert_not_match(/loading additional configuration file/, logs_line)
+    ensure
+      $log.out.reset if $log&.out&.respond_to?(:reset)
     end
   end
 

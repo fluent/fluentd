@@ -26,7 +26,7 @@ module Fluent
     # @param additional_config [String] config which is added to last of config body
     # @param use_v1_config [Bool] config is formatted with v1 or not
     # @return [Fluent::Config]
-    def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true, type: nil)
+    def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true, type: nil, on_file_parsed: nil)
       if type == :guess
         config_file_ext = File.extname(config_path)
         if config_file_ext == '.yaml' || config_file_ext == '.yml'
@@ -35,7 +35,7 @@ module Fluent
       end
 
       if type == :yaml || type == :yml
-        return Fluent::Config::YamlParser.parse(config_path)
+        return Fluent::Config::YamlParser.parse(config_path, on_file_parsed: on_file_parsed)
       end
 
       config_fname = File.basename(config_path)
@@ -49,10 +49,10 @@ module Fluent
         s
       end
 
-      Fluent::Config.parse(config_data, config_fname, config_basedir, use_v1_config)
+      Fluent::Config.parse(config_data, config_fname, config_basedir, use_v1_config, on_file_parsed: on_file_parsed)
     end
 
-    def self.parse(str, fname, basepath = Dir.pwd, v1_config = nil, syntax: :v1)
+    def self.parse(str, fname, basepath = Dir.pwd, v1_config = nil, syntax: :v1, on_file_parsed: nil)
       parser = if fname =~ /\.rb$/ || syntax == :ruby
                  :ruby
                elsif v1_config.nil?
@@ -68,7 +68,7 @@ module Fluent
       case parser
       when :v1
         require 'fluent/config/v1_parser'
-        V1Parser.parse(str, fname, basepath, Kernel.binding)
+        V1Parser.parse(str, fname, basepath, Kernel.binding, on_file_parsed: on_file_parsed)
       when :v0
         # TODO: show deprecated message in v1
         require 'fluent/config/parser'
