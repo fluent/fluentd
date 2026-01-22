@@ -71,6 +71,8 @@ module Fluent
                 path
               end
             @router.route!(name, canonical_path, req)
+          ensure
+            request.body&.close
           end
         end
       end
