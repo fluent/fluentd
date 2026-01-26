@@ -30,9 +30,10 @@ module Fluent
         FLUENT_STR_TAG = 'tag:fluent/s'.freeze
         SHOVEL = '<<'.freeze
 
-        def initialize(context = Kernel.binding)
+        def initialize(context = Kernel.binding, on_file_parsed: nil)
           @context = context
           @current_path = nil
+          @on_file_parsed = on_file_parsed
         end
 
         # @param [String] path
@@ -55,9 +56,13 @@ module Fluent
             Fluent::Config::YamlParser::FluentValue::StringValue.new(val, @context)
           end
 
-          path.open do |f|
+          config = path.open do |f|
             visitor.accept(Psych.parse(f))
           end
+
+          @on_file_parsed&.call(File.expand_path(path.to_s))
+
+          config
         end
 
         def eval_include(path, parent)
