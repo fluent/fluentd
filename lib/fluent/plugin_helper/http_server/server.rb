@@ -37,7 +37,15 @@ module Fluent
 
           # TODO: support http2
           scheme = tls_context ? 'https' : 'http'
-          addr_display = @addr.include?(":") ? "[#{@addr}]" : @addr
+          # Handle IPv6 addresses properly in URI construction per RFC 3986
+          # Check if address is already bracketed to avoid double-bracketing
+          addr_display = if @addr.include?(":") && !@addr.start_with?('[')
+                           "[#{@addr}]"  # Bare IPv6 address - add brackets
+                         elsif @addr.start_with?('[') && @addr.end_with?(']')
+                           @addr         # Already bracketed - use as-is
+                         else
+                           @addr         # IPv4 or hostname - use directly
+                         end
           @uri = URI("#{scheme}://#{addr_display}:#{@port}").to_s
           @router = Router.new(default_app)
           @server_task = nil
