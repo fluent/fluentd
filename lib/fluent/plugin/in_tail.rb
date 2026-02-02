@@ -73,7 +73,7 @@ module Fluent::Plugin
     desc 'The paths to exclude the files from watcher list.'
     config_param :exclude_path, :array, default: []
     desc 'Specify interval to keep reference to old file when rotate a file.'
-    config_param :rotate_wait, :time, default: 5
+    config_param :rotate_wait, :time, default: (Fluent.windows? ? 10 : 5)
     desc 'Fluentd will record the position it last read into this file.'
     config_param :pos_file, :string, default: nil
     desc 'The cleanup interval of pos file'
@@ -181,6 +181,12 @@ module Fluent::Plugin
         end
         log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
         log.warn "this parameter is highly recommended to save the position to resume tailing."
+      end
+
+      if Fluent.windows?
+        if @rotate_wait < 10
+          log.warn "'rotate_wait SECONDS' parameter should not be less than 10s on Windows."
+        end
       end
 
       configure_tag

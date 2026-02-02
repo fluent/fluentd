@@ -2496,6 +2496,28 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "rotate_wait" do
+    test 'default value of rotate_wait must be 5 on non windows' do
+      omit 'skip checking with rotate_wait == 5 on Windows' if Fluent.windows?
+      c = config_element("", "", { "tag" => "t1", "path" => "#{@tmp_dir}/tail.txt" })
+      d = create_driver(c + SINGLE_LINE_CONFIG + PARSE_SINGLE_LINE_CONFIG, false)
+      assert_equal(5, d.instance.rotate_wait)
+    end
+
+    test 'default value of rotate_wait must be 10 on windows' do
+      omit 'skip checking with rotate_wait == 10 on non Windows 10' unless Fluent.windows?
+      c = config_element("", "", { "tag" => "t1", "path" => "#{@tmp_dir}/tail.txt" })
+      d = create_driver(c + SINGLE_LINE_CONFIG + PARSE_SINGLE_LINE_CONFIG, false)
+      assert_equal(10, d.instance.rotate_wait)
+    end
+
+    test 'warn rotate_wait < 10 on windows' do
+      omit 'skip checking with rotate_wait < 10 on non Windows' unless Fluent.windows?
+      d = create_driver
+      assert(d.logs.any?{|log| log.include?("'rotate_wait SECONDS' parameter should not be less than 10s on Windows.") })
+    end
+  end
+
   def test_limit_recently_modified
     now = Time.new(2010, 1, 2, 3, 4, 5)
     FileUtils.touch("#{@tmp_dir}/tail_unwatch.txt", mtime: (now - 3601))
