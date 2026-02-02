@@ -1,5 +1,24 @@
 # v1.19
 
+## Release v1.19.1 - 2025/11/06
+
+### Bug Fix
+
+* YAML config: Supports parsing array format https://github.com/fluent/fluentd/pull/5139
+
+### Misc
+
+* gem: fix uri gem version to keep IPv6 tests https://github.com/fluent/fluentd/pull/5144
+* CI fixes
+  * https://github.com/fluent/fluentd/pull/5055
+  * https://github.com/fluent/fluentd/pull/5057
+  * https://github.com/fluent/fluentd/pull/5063
+  * https://github.com/fluent/fluentd/pull/5064
+  * https://github.com/fluent/fluentd/pull/5077
+  * https://github.com/fluent/fluentd/pull/5078
+  * https://github.com/fluent/fluentd/pull/5136
+  * https://github.com/fluent/fluentd/pull/5140
+
 ## Release v1.19.0 - 2025/07/30
 
 ### Enhancement
