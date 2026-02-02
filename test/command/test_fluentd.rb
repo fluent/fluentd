@@ -1616,4 +1616,67 @@ CONF
       "#0 fluentd worker is now running worker=0"
     )
   end
+
+  sub_test_case "test suspicious harmful backed-up configuration" do
+    data('suspicious .bak.conf' => 'dummy.bak.conf',
+         'suspicious .old.conf' => 'dummy.old.conf',
+         'suspicious .backup.conf' => 'dummy.backup.conf',
+         'suspicious .orig.conf' => 'dummy.orig.conf',
+         'suspicious .prev.conf' => 'dummy.prev.conf',
+         'suspicious .conf.conf' => 'dummy.conf.conf',
+         'suspicious .tmp.conf' => 'dummy.tmp.conf',
+         'suspicious .temp.conf' => 'dummy.temp.conf',
+         'suspicious .debug.conf' => 'dummy.debug.conf',
+         'suspicious .wip.conf' => 'dummy.wip.conf'
+        )
+    test "warn suspicious backed-up file will be loaded" do |suspicious_conf|
+      create_conf_file("dummy.conf", <<~EOF)
+        <source>
+          @type forward
+        </source>
+      EOF
+      create_conf_file(suspicious_conf, <<~EOF)
+        <source>
+          @type forward
+        </source>
+      EOF
+      working_dir = File.join(@tmp_dir, 'working')
+      FileUtils.mkdir_p(working_dir)
+      conf_path = create_conf_file("working/fluent.conf", <<~EOF)
+        <system>
+          config_include_dir ""
+        </system>
+        @include #{@tmp_dir}/*.conf
+      EOF
+      expected_warning_message = "[warn]: There is a possibility that '@include #{@tmp_dir}/*.conf' includes duplicated backed-up config file such as <#{suspicious_conf}>"
+      assert_log_matches(create_cmdline(conf_path, '--dry-run'),
+                         expected_warning_message)
+    end
+
+    data('non suspicious bar.conf' => 'bar.conf')
+    test "no warn message" do |non_suspicious_conf|
+      create_conf_file("foo.conf", <<~EOF)
+        <source>
+          @type forward
+        </source>
+      EOF
+      create_conf_file(non_suspicious_conf, <<~EOF)
+        <source>
+          @type forward
+        </source>
+      EOF
+      working_dir = File.join(@tmp_dir, 'working')
+      FileUtils.mkdir_p(working_dir)
+      conf_path = create_conf_file("working/fluent.conf", <<~EOF)
+        <system>
+          config_include_dir ""
+        </system>
+        @include #{@tmp_dir}/*.conf
+      EOF
+      expected_warning_message = "[warn]: There is a possibility that '@include #{@tmp_dir}/*.conf' includes duplicated backed-up config file such as <#{non_suspicious_conf}>"
+      assert_log_matches(create_cmdline(conf_path, '--dry-run'),
+                         "as dry run mode", patterns_not_match: [expected_warning_message])
+    end
+  end
+
 end
