@@ -1,6 +1,6 @@
 # v1.19
 
-## Release v1.19.1 - TBD
+## Release v1.19.2 - TBD
 
 ### Bug fix
 
