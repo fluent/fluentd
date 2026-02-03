@@ -31,18 +31,22 @@ module Fluent
         # @param default_app [Object] This method must have #call.
         # @param tls_context [OpenSSL::SSL::SSLContext]
         def initialize(addr:, port:, logger:, default_app: nil, tls_context: nil)
-          @addr = addr
+          # Normalize the address: strip brackets if present
+          # Brackets are only for URI formatting, not for socket binding
+          @addr = if addr.start_with?('[') && addr.end_with?(']')
+                    addr[1..-2]  # Remove surrounding brackets
+                  else
+                    addr
+                  end
           @port = port
           @logger = logger
 
           # TODO: support http2
           scheme = tls_context ? 'https' : 'http'
           # Handle IPv6 addresses properly in URI construction per RFC 3986
-          # Check if address is already bracketed to avoid double-bracketing
-          addr_display = if @addr.include?(":") && !@addr.start_with?('[')
-                           "[#{@addr}]"  # Bare IPv6 address - add brackets
-                         elsif @addr.start_with?('[') && @addr.end_with?(']')
-                           @addr         # Already bracketed - use as-is
+          # Add brackets to IPv6 addresses for URI compliance
+          addr_display = if @addr.include?(":")
+                           "[#{@addr}]"  # IPv6 address - add brackets
                          else
                            @addr         # IPv4 or hostname - use directly
                          end
