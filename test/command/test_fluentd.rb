@@ -1679,4 +1679,63 @@ CONF
     end
   end
 
+  sub_test_case "test problematic antivirus exclusion path on Windows" do
+    test "warn pos_file path" do
+      omit "skip antivirus exclusion path about in_tail pos_file (Windows)" unless Fluent.windows?
+      conf_path = create_conf_file("warn_pos_file_dir.conf", <<~EOF)
+        <system>
+          config_include_dir ""
+        </system>
+        <source>
+          @type tail
+          tag t1
+          path #{@tmp_dir}/test.log
+          pos_file #{@tmp_dir}/test.pos
+        </source>
+      EOF
+      expected_warning_message = "[warn]: Recommend adding #{@tmp_dir} to the exclusion path of your antivirus software on Windows"
+      assert_log_matches(create_cmdline(conf_path, '--dry-run'),
+                         expected_warning_message)
+    end
+
+    test "warn storage path" do
+      omit "skip antivirus exclusion path about storage local (Windows)" unless Fluent.windows?
+      conf_path = create_conf_file("warn_storage_local_path.conf", <<~EOF)
+        <system>
+          config_include_dir ""
+        </system>
+        <source>
+          @type sample
+          tag t1
+          <storage>
+            @type local
+            persistent true
+            path #{@tmp_dir}/test.pos
+          </storage>
+        </source>
+      EOF
+      expected_warning_message = "[warn]: Recommend adding #{@tmp_dir} to the exclusion path of your antivirus software on Windows"
+      assert_log_matches(create_cmdline(conf_path, '--dry-run'),
+                         expected_warning_message)
+    end
+
+    test "no warn storage local on memory" do
+      omit "skip antivirus exclusion path about memory storage local (Windows)" unless Fluent.windows?
+      conf_path = create_conf_file("no_warn_storage_local.conf", <<~EOF)
+        <system>
+          config_include_dir ""
+        </system>
+        <source>
+          @type sample
+          tag t1
+          <storage>
+            @type local
+          </storage>
+        </source>
+      EOF
+      expected_warning_message = "[warn]: Recommend adding #{@tmp_dir} to the exclusion path of your antivirus software on Windows"
+      assert_log_matches(create_cmdline(conf_path, '--dry-run'),
+                         "Using on-memory store.", patterns_not_match: [expected_warning_message])
+    end
+  end
 end
