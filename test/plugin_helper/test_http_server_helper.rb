@@ -363,6 +363,53 @@ class HttpHelperTest < Test::Unit::TestCase
         end
       end
     end
+    
+    test 'http_server can bind and serve on IPv6 loopback ::1' do
+      return unless ipv6_enabled?
+      
+      on_driver do |driver|
+        driver.http_server_create_http_server(:ipv6_loopback_test, addr: '::1', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
+        end
+        
+        # Use Net::HTTP directly with proper IPv6 handling
+        http = Net::HTTP.new('::1', @port)
+        response = http.get('/test')
+        assert_equal('200', response.code)
+        assert_equal('OK', response.body)
+      end
+    end
+
+    test 'http_server can bind on IPv6 any address ::' do
+      return unless ipv6_enabled?
+      
+      on_driver do |driver|
+        driver.http_server_create_http_server(:ipv6_any_test, addr: '::', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
+        end
+        
+        # Connect via loopback to test the :: bind worked
+        http = Net::HTTP.new('::1', @port)
+        response = http.get('/test')
+        assert_equal('200', response.code)
+        assert_equal('OK', response.body)
+      end
+    end
+
+    test 'http_server handles pre-bracketed IPv6 address [::1]' do
+      return unless ipv6_enabled?
+      
+      on_driver do |driver|
+        driver.http_server_create_http_server(:ipv6_bracketed_test, addr: '[::1]', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
+        end
+        
+        http = Net::HTTP.new('::1', @port)
+        response = http.get('/test')
+        assert_equal('200', response.code)
+        assert_equal('OK', response.body)
+      end
+    end
 
     test 'must be called #start and #stop' do
       on_driver do |driver|
