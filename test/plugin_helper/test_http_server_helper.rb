@@ -21,6 +21,22 @@ class HttpHelperTest < Test::Unit::TestCase
     @port = nil
   end
 
+  def ipv6_enabled?
+    begin
+      # Try to actually bind to an IPv6 address to verify it works
+      sock = Socket.new(Socket::AF_INET6, Socket::SOCK_STREAM, 0)
+      sock.bind(Socket.sockaddr_in(0, '::1'))
+      sock.close
+      
+      # Also test that we can resolve IPv6 addresses
+      # This is needed because some systems can bind but can't connect
+      Socket.getaddrinfo('::1', nil, Socket::AF_INET6)
+      true
+    rescue Errno::EADDRNOTAVAIL, Errno::EAFNOSUPPORT, SocketError
+      false
+    end
+  end
+
   class Dummy < Fluent::Plugin::TestBase
     helpers :http_server
   end
@@ -473,6 +489,53 @@ class HttpHelperTest < Test::Unit::TestCase
       
       uri = URI("http://#{addr_display}:24231/metrics").to_s
       assert_equal('http://127.0.0.1:24231/metrics', uri)
+    end
+    
+    test 'http_server can bind and serve on IPv6 loopback ::1' do
+      return unless ipv6_enabled?
+      
+      on_driver do |driver|
+        driver.http_server_create_http_server(:ipv6_loopback_test, addr: '::1', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
+        end
+        
+        # Use Net::HTTP directly with proper IPv6 handling
+        http = Net::HTTP.new('::1', @port)
+        response = http.get('/test')
+        assert_equal('200', response.code)
+        assert_equal('OK', response.body)
+      end
+    end
+
+    test 'http_server can bind on IPv6 any address ::' do
+      return unless ipv6_enabled?
+      
+      on_driver do |driver|
+        driver.http_server_create_http_server(:ipv6_any_test, addr: '::', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
+        end
+        
+        # Connect via loopback to test the :: bind worked
+        http = Net::HTTP.new('::1', @port)
+        response = http.get('/test')
+        assert_equal('200', response.code)
+        assert_equal('OK', response.body)
+      end
+    end
+
+    test 'http_server handles pre-bracketed IPv6 address [::1]' do
+      return unless ipv6_enabled?
+      
+      on_driver do |driver|
+        driver.http_server_create_http_server(:ipv6_bracketed_test, addr: '[::1]', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
+        end
+        
+        http = Net::HTTP.new('::1', @port)
+        response = http.get('/test')
+        assert_equal('200', response.code)
+        assert_equal('OK', response.body)
+      end
     end
 
     test 'must be called #start and #stop' do
