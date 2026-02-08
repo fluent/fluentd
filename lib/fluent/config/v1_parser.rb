@@ -166,6 +166,11 @@ module Fluent
           Dir.glob(pattern).sort.each { |entry|
             basepath = File.dirname(entry)
             fname = File.basename(entry)
+            suspicious_backup_extensions = %w(bak old backup orig prev conf tmp temp debug wip)
+            if path.end_with?('*.conf') and
+              suspicious_backup_extensions.any? { |ext| fname.end_with?(".#{ext}.conf", "_#{ext}.conf") }
+              @logger.warn "There is a possibility that '@include #{uri}' includes duplicated backed-up config file such as <#{fname}>" if @logger
+            end
             data = File.read(entry)
             data.force_encoding('UTF-8')
             ss = StringScanner.new(data)
