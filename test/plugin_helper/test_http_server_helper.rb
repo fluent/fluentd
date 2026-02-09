@@ -364,47 +364,22 @@ class HttpHelperTest < Test::Unit::TestCase
       end
     end
     
-    test 'http_server can bind and serve on IPv6 loopback ::1' do
+    data(
+      'IPv6 loopback ::1' => [:ipv6_loopback_test, '::1', '::1'],
+      'IPv6 any address ::' => [:ipv6_any_test, '::', '::1'],
+      'pre-bracketed IPv6 [::1]' => [:ipv6_bracketed_test, '[::1]', '::1']
+    )
+    test 'http_server can bind and serve on IPv6 address' do |data|
       return unless ipv6_enabled?
       
+      test_name, bind_addr, connect_addr = data
+      
       on_driver do |driver|
-        driver.http_server_create_http_server(:ipv6_loopback_test, addr: '::1', port: @port, logger: NULL_LOGGER) do |s|
+        driver.http_server_create_http_server(test_name, addr: bind_addr, port: @port, logger: NULL_LOGGER) do |s|
           s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
         end
         
-        # Use Net::HTTP directly with proper IPv6 handling
-        http = Net::HTTP.new('::1', @port)
-        response = http.get('/test')
-        assert_equal('200', response.code)
-        assert_equal('OK', response.body)
-      end
-    end
-
-    test 'http_server can bind on IPv6 any address ::' do
-      return unless ipv6_enabled?
-      
-      on_driver do |driver|
-        driver.http_server_create_http_server(:ipv6_any_test, addr: '::', port: @port, logger: NULL_LOGGER) do |s|
-          s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
-        end
-        
-        # Connect via loopback to test the :: bind worked
-        http = Net::HTTP.new('::1', @port)
-        response = http.get('/test')
-        assert_equal('200', response.code)
-        assert_equal('OK', response.body)
-      end
-    end
-
-    test 'http_server handles pre-bracketed IPv6 address [::1]' do
-      return unless ipv6_enabled?
-      
-      on_driver do |driver|
-        driver.http_server_create_http_server(:ipv6_bracketed_test, addr: '[::1]', port: @port, logger: NULL_LOGGER) do |s|
-          s.get('/test') { [200, { 'Content-Type' => 'text/plain' }, 'OK'] }
-        end
-        
-        http = Net::HTTP.new('::1', @port)
+        http = Net::HTTP.new(connect_addr, @port)
         response = http.get('/test')
         assert_equal('200', response.code)
         assert_equal('OK', response.body)
