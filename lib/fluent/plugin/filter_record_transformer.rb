@@ -71,7 +71,7 @@ module Fluent::Plugin
           # require utilities which would be used in ruby placeholders
           require 'pathname'
           require 'uri'
-          require 'cgi'
+          require 'cgi/escape'
           RubyPlaceholderExpander.new(placeholder_expander_params)
         else
           PlaceholderExpander.new(placeholder_expander_params)
