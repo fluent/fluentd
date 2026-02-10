@@ -31,13 +31,26 @@ module Fluent
         # @param default_app [Object] This method must have #call.
         # @param tls_context [OpenSSL::SSL::SSLContext]
         def initialize(addr:, port:, logger:, default_app: nil, tls_context: nil)
-          @addr = addr
+          # Normalize the address: strip brackets if present
+          # Brackets are only for URI formatting, not for socket binding
+          @addr = if addr.start_with?('[') && addr.end_with?(']')
+                    addr[1..-2]  # Remove surrounding brackets
+                  else
+                    addr
+                  end
           @port = port
           @logger = logger
 
           # TODO: support http2
           scheme = tls_context ? 'https' : 'http'
-          @uri = URI("#{scheme}://#{@addr}:#{@port}").to_s
+          # Handle IPv6 addresses properly in URI construction per RFC 3986
+          # Add brackets to IPv6 addresses for URI compliance (ip-literal per RFC 3986)
+          ip_literal = if @addr.include?(":")
+                         "[#{@addr}]"  # IPv6 address - add brackets
+                       else
+                         @addr         # IPv4 or hostname - use directly
+                       end
+          @uri = URI("#{scheme}://#{ip_literal}:#{@port}").to_s
           @router = Router.new(default_app)
           @server_task = nil
           Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)

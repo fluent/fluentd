@@ -1,3 +1,15 @@
+# v1.20
+
+## Release v1.20.0 - TBD
+
+### Bug fix
+
+* http_server helper: Fix IPv6 bind address support in URI construction
+  * Fixed `URI::InvalidURIError` when binding to IPv6 addresses (e.g., `::`, `::1`)
+  * IPv6 addresses are now properly bracketed in URIs per RFC 3986 (e.g., `http://[::]:24231`)
+  * Handles pre-bracketed addresses correctly to avoid double-bracketing
+  * Affects all plugins using http_server helper with IPv6 bind addresses
+
 # v1.19
 
 ## Release v1.19.1 - 2025/11/06
