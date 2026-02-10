@@ -21,6 +21,16 @@ class HttpHelperTest < Test::Unit::TestCase
     @port = nil
   end
 
+  def ipv6_enabled?
+    begin
+      sock = Socket.new(Socket::AF_INET6, Socket::SOCK_STREAM, 0)
+      sock.close
+      true
+    rescue
+      false
+    end
+  end
+
   class Dummy < Fluent::Plugin::TestBase
     helpers :http_server
   end
@@ -361,6 +371,33 @@ class HttpHelperTest < Test::Unit::TestCase
             assert_equal('hello get', resp.body)
           end
         end
+      end
+    end
+
+    test 'bind to IPv6 address' do
+      omit('IPv6 not supported') unless ipv6_enabled?
+      on_driver do |driver|
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '::1', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello from ipv6'] }
+        end
+
+        resp = get("http://[::1]:#{@port}/example/hello")
+        assert_equal('200', resp.code)
+        assert_equal('hello from ipv6', resp.body)
+      end
+    end
+
+    test 'bind to IPv6 wildcard address' do
+      omit('IPv6 not supported') unless ipv6_enabled?
+      on_driver do |driver|
+        driver.http_server_create_http_server(:http_server_helper_test, addr: '::', port: @port, logger: NULL_LOGGER) do |s|
+          s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello from ipv6 wildcard'] }
+        end
+
+        # Can access via IPv4-mapped IPv6 or IPv6 loopback
+        resp = get("http://[::1]:#{@port}/example/hello")
+        assert_equal('200', resp.code)
+        assert_equal('hello from ipv6 wildcard', resp.body)
       end
     end
 

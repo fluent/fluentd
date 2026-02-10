@@ -37,7 +37,8 @@ module Fluent
 
           # TODO: support http2
           scheme = tls_context ? 'https' : 'http'
-          @uri = URI("#{scheme}://#{@addr}:#{@port}").to_s
+          addr_display = @addr.include?(":") ? "[#{@addr}]" : @addr
+          @uri = URI("#{scheme}://#{addr_display}:#{@port}").to_s
           @router = Router.new(default_app)
           @server_task = nil
           Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
