@@ -557,6 +557,25 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_equal([message["@timestamp"]], r['foo'])
       end
     end
+
+    test 'CGI.escape / CGI.unescape' do
+      config = %[
+        tag tag
+        enable_ruby yes
+        <record>
+          encoded_url ${CGI.escape(record["url"])}
+          decoded_text ${CGI.unescape(record["quoted"])}
+        </record>
+      ]
+      d = create_driver(config)
+      message = {"url": "http://example.com/?q=ruby & cgi", "quoted": "hello%21"}
+      d.run { d.feed(@tag, @time, message) }
+      filtered = d.filtered
+      filtered.each do |t, r|
+        assert_equal("http%3A%2F%2Fexample.com%2F%3Fq%3Druby+%26+cgi", r['encoded_url'])
+        assert_equal("hello!", r['decoded_text'])
+      end
+    end
   end # test placeholders
 
   sub_test_case 'test error record' do
