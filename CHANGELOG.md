@@ -12,6 +12,30 @@
 
 # v1.19
 
+## Release v1.19.2 - 2026/02/13
+
+### Bug Fix
+
+* out_forward: add timeout to establish_connection to prevent infinite loop https://github.com/fluent/fluentd/pull/5138
+* gem: use latest net-http to solve IPv6 addr error https://github.com/fluent/fluentd/pull/5192
+* in_tail: fix error when files without read permission are included in glob patterns https://github.com/fluent/fluentd/pull/5222
+* command/fluentd: load win32/registry when edit registry for Ruby 4.0 https://github.com/fluent/fluentd/pull/5221
+* plugin_helper/http_server: Ensure request body is closed to prevent socket leaks in POST requests https://github.com/fluent/fluentd/pull/5234
+* config: fix duplicate config file loading in config_include_dir https://github.com/fluent/fluentd/pull/5235
+* gem: add ostruct gem as dependency for Ruby 4.0 https://github.com/fluent/fluentd/pull/5251
+
+### Misc
+
+* config: warn when backed-up config file will be included https://github.com/fluent/fluentd/pull/5252
+* filter_record_transformer: use cgi/escape to avoid Ruby 4.0 deprecation https://github.com/fluent/fluentd/pull/5256
+* CI fixes
+  * https://github.com/fluent/fluentd/pull/5257
+  * https://github.com/fluent/fluentd/pull/5229
+  * https://github.com/fluent/fluentd/pull/5225
+  * https://github.com/fluent/fluentd/pull/5186
+  * https://github.com/fluent/fluentd/pull/5184
+  * https://github.com/fluent/fluentd/pull/5176
+
 ## Release v1.19.1 - 2025/11/06
 
 ### Bug Fix
