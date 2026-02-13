@@ -1679,4 +1679,37 @@ CONF
     end
   end
 
+  sub_test_case "test suspicious harmful antivirus exclusion path" do
+    test "warn pos_file path" do
+      omit "skip recommendation warnings about exclusion path for antivirus" unless Fluent.windows?
+      conf_path = create_conf_file("foo.conf", <<~EOF)
+        <source>
+          @type tail
+          tag t1
+          path #{@tmp_dir}/test.log
+          pos_file #{@tmp_dir}/test.pos
+        </source>
+      EOF
+      expected_warning_message = "[warn]: Recommend adding #{@tmp_dir} to the exclusion path of your antivirus software on Windows"
+      assert_log_matches(create_cmdline(conf_path, '--dry-run'),
+                         expected_warning_message)
+    end
+
+    test "warn storage path" do
+      omit "skip recommendation warnings about exclusion path for antivirus" unless Fluent.windows?
+      conf_path = create_conf_file("foo.conf", <<~EOF)
+        <source>
+          @type sample
+          tag t1
+          <storage>
+            @type local
+            path #{@tmp_dir}/test.pos
+          </storage>
+        </source>
+      EOF
+      expected_warning_message = "[warn]: Recommend adding #{@tmp_dir} to the exclusion path of your antivirus software on Windows"
+      assert_log_matches(create_cmdline(conf_path, '--dry-run'),
+                         expected_warning_message)
+    end
+  end
 end
