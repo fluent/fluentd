@@ -78,4 +78,11 @@ task :coverity do
   FileUtils.rm_rf(['./cov-int', 'cov-fluentd.tar.gz'])
 end
 
+task :check_env do
+  unless ENV['GEM_HOST_API_KEY']
+    abort "Missing required environment variable: GEM_HOST_API_KEY\nSee https://guides.rubygems.org/api-key-scopes/"
+  end
+end
+Rake::Task["release:rubygem_push"].enhance(["check_env"])
+
 task default: [:test, :build]
