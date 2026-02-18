@@ -153,6 +153,27 @@ EOL
     end
   end
 
+  test 'send_keepalive_packet is disabled by default' do
+    @d = d = create_driver(config)
+    assert_false d.instance.send_keepalive_packet
+  end
+
+  test 'send_keepalive_packet can be enabled' do
+    @d = d = create_driver(config + %[
+      keepalive true
+      send_keepalive_packet true
+    ])
+    assert_true d.instance.send_keepalive_packet
+  end
+
+  test 'send_keepalive_packet without keepalive raises error' do
+    assert_raise(Fluent::ConfigError.new("'send_keepalive_packet' is enabled but 'keepalive' is not. Enable 'keepalive' to use TCP keepalive.")) do
+      create_driver(config + %[
+        send_keepalive_packet true
+      ])
+    end
+  end
+
   test 'configure with ignore_network_errors_at_startup' do
     normal_conf = config_element('match', '**', {}, [
         config_element('server', '', {'name' => 'test', 'host' => 'unexisting.yaaaaaaaaaaaaaay.host.example.com'})
@@ -1303,7 +1324,8 @@ EOL
                                              linger_timeout: anything,
                                              send_timeout: anything,
                                              recv_timeout: anything,
-                                             connect_timeout: anything
+                                             connect_timeout: anything,
+                                             send_keepalive_packet: anything
                                             ) { |sock| mock(sock).close.once; sock }.twice
 
     target_input_driver.run(timeout: 15) do
@@ -1343,7 +1365,8 @@ EOL
                                                linger_timeout: anything,
                                                send_timeout: anything,
                                                recv_timeout: anything,
-                                               connect_timeout: anything
+                                               connect_timeout: anything,
+                                               send_keepalive_packet: anything
                                               ) { |sock| mock(sock).close.once; sock }.once
 
       target_input_driver.run(timeout: 15) do
@@ -1380,7 +1403,8 @@ EOL
                                                  linger_timeout: anything,
                                                  send_timeout: anything,
                                                  recv_timeout: anything,
-                                                 connect_timeout: anything) { |sock|
+                                                 connect_timeout: anything,
+                                                 send_keepalive_packet: anything) { |sock|
           mock(sock).close.once; sock
         }.twice
 

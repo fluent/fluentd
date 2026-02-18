@@ -119,6 +119,8 @@ module Fluent::Plugin
     config_param :keepalive, :bool, default: false
     desc "Expired time of keepalive. Default value is nil, which means to keep connection as long as possible"
     config_param :keepalive_timeout, :time, default: nil
+    desc 'Check the remote connection is still available by sending a keepalive packet if this value is true.'
+    config_param :send_keepalive_packet, :bool, default: false
 
     config_section :security, required: false, multi: false do
       desc 'The hostname'
@@ -270,6 +272,10 @@ module Fluent::Plugin
         log.warn('The value of keepalive_timeout is ignored. if you want to use keepalive, please add `keepalive true` to your conf.')
       end
 
+      if @send_keepalive_packet && !@keepalive
+        raise Fluent::ConfigError, "'send_keepalive_packet' is enabled but 'keepalive' is not. Enable 'keepalive' to use TCP keepalive."
+      end
+
       raise Fluent::ConfigError, "ack_response_timeout must be a positive integer" if @ack_response_timeout < 1
 
       if @compress == :zstd
@@ -414,6 +420,7 @@ module Fluent::Plugin
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
           connect_timeout: @connect_timeout,
+          send_keepalive_packet: @send_keepalive_packet,
           &block
         )
       when :tcp
@@ -423,6 +430,7 @@ module Fluent::Plugin
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
           connect_timeout: @connect_timeout,
+          send_keepalive_packet: @send_keepalive_packet,
           &block
         )
       else
