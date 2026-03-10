@@ -46,4 +46,12 @@ class DebugAgentInputTest < Test::Unit::TestCase
       assert_false d.instance.multi_workers_ready?
     end
   end
+
+  def test_default_configuration
+    assert_nothing_raised do
+      d = create_driver
+      assert_equal(['127.0.0.1', 24230, 'Fluent::Engine'],
+                   [d.instance.bind, d.instance.port, d.instance.object])
+    end
+  end
 end
