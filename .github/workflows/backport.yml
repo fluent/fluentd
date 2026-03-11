@@ -7,8 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: ${{ github.head_ref || github.sha }}-${{ github.workflow }}
@@ -16,6 +15,9 @@ concurrency:
 
 jobs:
   test:
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     continue-on-error: false
     strategy:
