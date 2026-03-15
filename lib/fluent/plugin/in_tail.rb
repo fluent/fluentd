@@ -1125,7 +1125,7 @@ module Fluent::Plugin
       end
 
       class IOHandler
-        BYTES_TO_READ = 8192
+        BYTES_TO_READ = 64 * 1024
         SHUTDOWN_TIMEOUT = 5
 
         attr_accessor :shutdown_timeout
