@@ -94,7 +94,7 @@ class IntailIOHandlerTest < Test::Unit::TestCase
   end
 
   sub_test_case 'when limit is 5' do
-    test 'call receive_lines once when short line(less than 8192)' do
+    test 'call receive_lines once when short line(less than 65536)' do
       text = "line\n" * 8
       @file.write(text)
       @file.close
@@ -120,8 +120,8 @@ class IntailIOHandlerTest < Test::Unit::TestCase
       assert_equal 8, returned_lines[0].size
     end
 
-    test 'call receive_lines some times when long line(more than 8192)' do
-      t = 'line' * (8192 / 8)
+    test 'call receive_lines some times when long line(more than 65536)' do
+      t = 'line' * (65536 / 8)
       text = "#{t}\n" * 8
       @file.write(text)
       @file.close
