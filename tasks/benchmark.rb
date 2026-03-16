@@ -17,7 +17,7 @@ namespace :benchmark do
 
       loop do
         f.puts data
-        break if File.size(BENCHMARK_FILE_PATH) > BENCHMARK_FILE_SIZE
+        break if f.size > BENCHMARK_FILE_SIZE
       end
     end
   end
