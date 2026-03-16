@@ -814,6 +814,20 @@ module Fluent
         @conf += additional_conf
       end
 
+      if Fluent.windows?
+        @conf.elements.each do |element|
+          next unless element.name == 'source'
+          if element['@type'] == 'tail' && element['pos_file']
+            $log.warn("Recommend adding #{File.dirname(element['pos_file'])} to the exclusion path of your antivirus software on Windows")
+          else
+            storage = element.elements.find { |v| v.name == 'storage' and v['@type'] == 'local' }
+            if storage
+              $log.warn("Recommend adding #{File.dirname(storage['path'])} to the exclusion path of your antivirus software on Windows")
+            end
+          end
+        end
+      end
+
       @libs.each do |lib|
         require lib
       end
