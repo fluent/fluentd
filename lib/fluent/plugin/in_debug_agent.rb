@@ -26,7 +26,7 @@ module Fluent::Plugin
       super
     end
 
-    config_param :bind, :string, default: '0.0.0.0'
+    config_param :bind, :string, default: '127.0.0.1'
     config_param :port, :integer, default: 24230
     config_param :unix_path, :string, default: nil
     #config_param :unix_mode  # TODO
