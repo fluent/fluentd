@@ -576,7 +576,15 @@ class TailInputTest < Test::Unit::TestCase
           end
 
           assert_true(Fluent::Clock.now - start_time > 1)
-          assert_equal(5242, d.events.size)
+
+          # Line length: msg = 'abc' * 8 is 24 bytes, plus \n (1 byte) = 25 bytes/line.
+          # Buffer size: BYTES_TO_READ is now 65,536 bytes.
+          # In this test environment, before the shutdown gracefully halts the read loop, in_tail manages to execute exactly two readpartial calls.
+          # Total bytes read = 65,536 * 2 = 131,072 bytes.
+          # 131,072 bytes / 25 bytes per line = 5242 lines (with a remainder of 22 bytes).
+          expected_read_lines = (65536 * 2) / ('abc' * 8 + "\n").size
+          assert_equal(expected_read_lines, d.events.size)
+
           assert_true(d.events.all? { |event| {"message" => msg} == event[2]})
         end
       end
