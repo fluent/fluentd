@@ -505,7 +505,7 @@ class TailInputTest < Test::Unit::TestCase
         config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit }) + PARSE_SINGLE_LINE_CONFIG
       end
       d = create_driver(config)
-      msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
+      msg = 'x' * 65000 # in_tail reads 65536 bytes at once.
 
       d.run(expect_emits: num_events, timeout: 10) do
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
@@ -527,15 +527,15 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       sub_test_case "reads_bytes_per_second w/o throttled" do
-        data("flat 8192 bytes, 2 events"        => [:flat, 100, 8192, 2],
-             "flat 8192 bytes, 2 events w/o stat watcher" => [:flat_without_stat, 100, 8192, 2],
-             "flat #{8192*10} bytes, 20 events"  => [:flat, 100, (8192 * 10), 20],
-             "flat #{8192*10} bytes, 20 events w/o stat watcher"  => [:flat_without_stat, 100, (8192 * 10), 20],
-             "parse #{8192*4} bytes, 8 events"  => [:parse, 100, (8192 * 4), 8],
-             "parse #{8192*4} bytes, 8 events w/o stat watcher"  => [:parse_without_stat, 100, (8192 * 4), 8],
-             "parse #{8192*10} bytes, 20 events" => [:parse, 100, (8192 * 10), 20],
-             "parse #{8192*10} bytes, 20 events w/o stat watcher" => [:parse_without_stat, 100, (8192 * 10), 20],
-             "flat 8k bytes with unit, 2 events" => [:flat, 100, "8k", 2])
+        data("flat 65536 bytes, 2 events"        => [:flat, 100, 65536, 2],
+             "flat 65536 bytes, 2 events w/o stat watcher" => [:flat_without_stat, 100, 65536, 2],
+             "flat #{65536*10} bytes, 20 events"  => [:flat, 100, (65536 * 10), 20],
+             "flat #{65536*10} bytes, 20 events w/o stat watcher"  => [:flat_without_stat, 100, (65536 * 10), 20],
+             "parse #{65536*4} bytes, 8 events"  => [:parse, 100, (65536 * 4), 8],
+             "parse #{65536*4} bytes, 8 events w/o stat watcher"  => [:parse_without_stat, 100, (65536 * 4), 8],
+             "parse #{65536*10} bytes, 20 events" => [:parse, 100, (65536 * 10), 20],
+             "parse #{65536*10} bytes, 20 events w/o stat watcher" => [:parse_without_stat, 100, (65536 * 10), 20],
+             "flat 64k bytes with unit, 2 events" => [:flat, 100, "64k", 2])
         def test_emit_with_read_bytes_limit_per_second(data)
           config_style, limit, limit_bytes, num_events = data
           case config_style
@@ -549,7 +549,7 @@ class TailInputTest < Test::Unit::TestCase
             config = CONFIG_READ_FROM_HEAD + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
           end
 
-          msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
+          msg = 'x' * 65000 # in_tail reads 65536 bytes at once.
           start_time = Fluent::Clock.now
 
           d = create_driver(config)
@@ -562,8 +562,8 @@ class TailInputTest < Test::Unit::TestCase
           end
 
           assert_true(Fluent::Clock.now - start_time > 1)
-          assert_equal(Array.new(num_events) { {"message" => msg} },
-                       d.events.collect { |event| event[2] })
+          assert_equal(num_events, d.events.size)
+          assert_true(d.events.all? { |event| {"message" => msg} == event[2]})
         end
 
         def test_read_bytes_limit_precede_read_lines_limit
@@ -573,7 +573,7 @@ class TailInputTest < Test::Unit::TestCase
                                     "read_lines_limit" => 1000,
                                     "read_bytes_limit_per_second" => 8192
                                   })
-          msg = 'abc'
+          msg = 'abc' * 8
           start_time = Fluent::Clock.now
           d = create_driver(config)
           d.run(expect_emits: 2) do
@@ -585,14 +585,22 @@ class TailInputTest < Test::Unit::TestCase
           end
 
           assert_true(Fluent::Clock.now - start_time > 1)
-          assert_equal(Array.new(4096) { {"message" => msg} },
-                       d.events.collect { |event| event[2] })
+
+          # Line length: msg = 'abc' * 8 is 24 bytes, plus \n (1 byte) = 25 bytes/line.
+          # Buffer size: BYTES_TO_READ is now 65,536 bytes.
+          # In this test environment, before the shutdown gracefully halts the read loop, in_tail manages to execute exactly two readpartial calls.
+          # Total bytes read = 65,536 * 2 = 131,072 bytes.
+          # 131,072 bytes / 25 bytes per line = 5242 lines (with a remainder of 22 bytes).
+          expected_read_lines = (65536 * 2) / ('abc' * 8 + "\n").size
+          assert_equal(expected_read_lines, d.events.size)
+
+          assert_true(d.events.all? { |event| {"message" => msg} == event[2]})
         end
       end
 
       sub_test_case "reads_bytes_per_second w/ throttled already" do
-        data("flat 8192 bytes"  => [:flat, 100, 8192],
-             "parse 8192 bytes" => [:parse, 100, 8192])
+        data("flat 65536 bytes"  => [:flat, 100, 65536],
+             "parse 65536 bytes" => [:parse, 100, 65536])
         def test_emit_with_read_bytes_limit_per_second(data)
           config_style, limit, limit_bytes = data
           case config_style
@@ -602,7 +610,7 @@ class TailInputTest < Test::Unit::TestCase
             config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
           end
           d = create_driver(config)
-          msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
+          msg = 'x' * 65000 # in_tail reads 65536 bytes at once.
 
           mock.proxy(d.instance).io_handler(anything, anything) do |io_handler|
             require 'fluent/config/types'
@@ -1252,7 +1260,7 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(true, events.length > 0)
     assert_equal({"name" => "いうえ"}, events[0][2])
   end
-  
+
   sub_test_case "multiline" do
     data(flat: MULTILINE_CONFIG,
          parse: PARSE_MULTILINE_CONFIG)
