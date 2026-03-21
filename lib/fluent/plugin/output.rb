@@ -903,16 +903,16 @@ module Fluent
         # it's wrong if timezone is configured as one which supports leap second, but it's very rare and
         # we can ignore it (especially in production systems).
         if @chunk_keys.empty?
-          if !@chunk_key_time && !@chunk_key_tag
-            @buffer.metadata()
-          elsif @chunk_key_time && @chunk_key_tag
+          if @chunk_key_time && @chunk_key_tag
             timekey = calculate_timekey(time)
             @buffer.metadata(timekey: timekey, tag: tag)
           elsif @chunk_key_time
             timekey = calculate_timekey(time)
             @buffer.metadata(timekey: timekey)
-          else
+          elsif @chunk_key_tag
             @buffer.metadata(tag: tag)
+          else
+            @buffer.metadata()
           end
         else
           timekey = if @chunk_key_time
