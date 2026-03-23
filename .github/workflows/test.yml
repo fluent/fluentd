@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Set up Ruby
-        uses: ruby/setup-ruby@dffb23f65a78bba8db45d387d5ea1bbd6be3ef18 # v1.293.0
+        uses: ruby/setup-ruby@319994f95fa847cf3fb3cd3dbe89f6dcde9f178f # v1.295.0
         with:
           ruby-version: ${{ matrix.ruby-version }}
       - name: Install addons
@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Set up Ruby
-        uses: ruby/setup-ruby@dffb23f65a78bba8db45d387d5ea1bbd6be3ef18 # v1.293.0
+        uses: ruby/setup-ruby@319994f95fa847cf3fb3cd3dbe89f6dcde9f178f # v1.295.0
         with:
           ruby-version: ${{ matrix.ruby-version }}
       - name: Install dependencies
