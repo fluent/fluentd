@@ -117,7 +117,17 @@ module Fluent::Plugin
       configured_time_slice_format = conf['time_slice_format']
 
       if conf.elements(name: 'buffer').empty?
+        # no <buffer> section, default time chunk key and timekey (1d) will be used.
+        log.warn "default timekey interval (1d) will be used because of missing <buffer> section. To change the output frequency, please modify the timekey value"
+
         conf.add_element('buffer', 'time')
+      else
+        unless conf.elements(name: 'buffer').first.has_key?('timekey')
+          if conf.elements(name: 'buffer').first.arg != "[]"
+            # with <buffer> section (except <buffer []>), and no timekey
+            log.warn "default timekey interval (1d) will be used. To change the output frequency, please modify the timekey value"
+          end
+        end
       end
       buffer_conf = conf.elements(name: 'buffer').first
       # Fluent::PluginId#configure is not called yet, so we can't use #plugin_root_dir here.

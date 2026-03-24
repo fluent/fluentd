@@ -1712,4 +1712,52 @@ CONF
                          expected_warning_message)
     end
   end
+
+  sub_test_case "test suspicious timekey interval (1d) in out_file configuration" do
+    data('without buffer' => {buffer: nil, buffer_arg: nil, message: :missing_buffer},
+         'buffer' => {buffer: true, buffer_arg: '', message: :warning},
+         'buffer time' => {buffer: true, buffer_arg: 'time', message: :warning},
+         'buffer []' => {buffer: true, buffer_arg: '[]', message: nil})
+    test 'warn the default value of timekey (1d) is used as-is' do |data|
+      prefix = "default timekey interval (1d) will be used"
+      advice = "To change the output frequency, please modify the timekey value"
+      missing_warning = "#{prefix} because of missing <buffer> section. #{advice}"
+      warning = "#{prefix}. #{advice}"
+
+      conf_path = if data[:buffer]
+                    create_conf_file("warning.conf", <<~EOF)
+                      <system>
+                        config_include_dir ""
+                      </system>
+                      <match>
+                        @type file
+                        tag test
+                        path #{@tmp_dir}/test.log
+                        <buffer #{data[:buffer_arg]}>
+                          @type file
+                        </buffer>
+                      </match>
+                    EOF
+                  else
+                    create_conf_file("warning.conf", <<~EOF)
+                      <system>
+                        config_include_dir ""
+                      </system>
+                      <match>
+                        @type file
+                        tag test
+                        path #{@tmp_dir}/test.log
+                      </match>
+                    EOF
+      end
+      case data[:message]
+      when :missing_buffer
+        assert_log_matches(create_cmdline(conf_path, '--dry-run'), missing_warning, patterns_not_match: [warning])
+      when :warning
+        assert_log_matches(create_cmdline(conf_path, '--dry-run'), "warning", patterns_not_match: [missing_warning])
+      else
+        assert_log_matches(create_cmdline(conf_path, '--dry-run'), patterns_not_match: [warning, missing_warning])
+      end
+    end
+  end
 end
