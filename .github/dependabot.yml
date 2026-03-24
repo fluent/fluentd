@@ -1,6 +1,14 @@
 version: 2
 updates:
+  # master branch
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
       interval: 'weekly'
+
+  # v1.19 branch
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    target-branch: 'v1.19'
+    schedule:
+      interval: 'monthly'
