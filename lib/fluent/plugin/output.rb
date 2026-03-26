@@ -372,6 +372,13 @@ module Fluent
             buf_type = Plugin.lookup_type_from_class(@buffer.class)
             log.warn "'flush_at_shutdown' is false, and buffer plugin '#{buf_type}' is not persistent buffer."
             log.warn "your configuration will lose buffered data at shutdown. please confirm your configuration again."
+          else
+            if Fluent.windows? && @buffer.persistent?
+              service_timeout = read_wait_to_kill_service_timeout
+              if service_timeout && service_timeout <= 5000 # default value might varies on windows client/server
+                log.warn "your WaitToKillServiceTimeout=#{service_timeout} registry configuration seems too short. Recommend to extend the value of 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\WaitToKillServiceTimeout' to prevent buffer corruption from a forced shutdown"
+              end
+            end
           end
 
           if (@flush_mode != :interval) && buffer_conf.has_key?('flush_interval')
@@ -416,6 +423,22 @@ module Fluent
         end
 
         self
+      end
+
+      def read_wait_to_kill_service_timeout
+        if Fluent.windows?
+          begin
+            require "win32/registry"
+            Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Control",
+                                                     Win32::Registry::KEY_READ) do |reg|
+              reg["WaitToKillServiceTimeout"].to_i
+            end
+          rescue => e
+            log.warn "'flush_at_shutdown' is true, but can't check WaitToKillServiceTimeout registry configuration", error: e
+          end
+        else
+          nil # not supported
+        end
       end
 
       def keep_buffer_config_compat
