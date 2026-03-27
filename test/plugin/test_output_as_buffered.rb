@@ -2021,4 +2021,53 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.rollback_count == 2 }
     end
   end
+
+  sub_test_case 'buffered output feature with resuming buffers' do
+    setup do
+      @tmp_dir = File.expand_path(File.dirname(__FILE__) + "/tmp/resuming-buffers")
+    end
+
+    teardown do
+      FileUtils.rm_rf(@tmp_dir)
+    end
+
+    data('buffer path has no brace {}' => 'test-a',
+         'buffer path has brace {}' => 'test-{a}',
+         'buffer path has bracket []' => 'test-[a]',
+         'buffer path has tag {[]}' => 'test-${tag[0]}')
+    test "resuming buffers which contains special characters in path" do |data|
+      options = {
+        '@type' => 'file',
+        'path' => "#{@tmp_dir}/#{data}",
+        'flush_at_shutdown' => 'false' # keep buffer files
+      }
+      @i = create_output(:buffered)
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',options)]))
+      @i.start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+      @i.stop
+      # staged buffer file was created (.b) and not ready to flush by enqueuing (.q) here
+      assert{ @i.buffer.stage.size == 1 && @i.buffer.queue.size == 0  }
+
+      @resumer = create_output(:buffered)
+      @resumer.configure(config_element('ROOT','',{},[config_element('buffer','tag',options)]))
+      @resumer.start
+      begin
+        retry_count ||= 0
+        @resumer.buffer.enqueue_all # workaround for grabbed file handle
+      rescue RuntimeError
+        sleep 0.5
+        retry_count += 1
+        retry if retry_count < 3
+      end
+      # staged buffer (.b) was picked up, then ready to flush by enqueuing (.q)
+      assert{ @resumer.buffer.stage.size == 0 && @resumer.buffer.queue.size == 1 }
+      @resumer.shutdown
+    end
+  end
 end
