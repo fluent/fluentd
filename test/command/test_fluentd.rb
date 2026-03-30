@@ -1760,4 +1760,22 @@ CONF
       end
     end
   end
+
+  sub_test_case "test suspicious shorter service timeout on windows" do
+    test 'warn when WaitToKillServiceTimeout is 5000 or less' do
+      omit "skip service timeout on windows test case" unless Fluent.windows?
+      conf_path = create_conf_file("warning.conf", <<~EOF)
+                    <system>
+                      config_include_dir ""
+                    </system>
+                    <match>
+                      @type file
+                      path #{@tmp_dir}/test.log
+                      flush_at_shutdown
+                    </match>
+                  EOF
+      message="your WaitToKillServiceTimeout=5000 registry configuration seems too short. Recommend to extend the value of 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\WaitToKillServiceTimeout' to prevent buffer corruption from a forced shutdown"
+      assert_log_matches(create_cmdline(conf_path, '--dry-run'), message)
+    end
+  end
 end
