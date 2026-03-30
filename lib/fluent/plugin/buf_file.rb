@@ -247,8 +247,8 @@ module Fluent
 
       def escaped_patterns(patterns)
         patterns.map { |pattern|
-          # '{' '}' are special character in Dir.glob
-          pattern.gsub(/[\{\}]/) { |c| "\\#{c}" }
+          # '{', '}', '[' and ']' are special character in Dir.glob
+          pattern.gsub(/[\{\}\[\]]/) { |c| "\\#{c}" }
         }
       end
     end
