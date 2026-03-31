@@ -65,6 +65,9 @@ Gem::Specification.new do |gem|
 
     # gems that aren't default gems as of Ruby 3.5
     gem.add_runtime_dependency("fiddle", ["~> 1.1"])
+
+    # gems that aren't default gems as of Ruby 4.1
+    gem.add_runtime_dependency("win32-registry", ["~> 0.1"])
   end
 
   gem.add_development_dependency("rake", ["~> 13.0"])
