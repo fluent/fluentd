@@ -31,19 +31,25 @@ module Fluent::Plugin
       end
 
       def checkout_or(key)
+        obsolete_sockets = []
+
         @mutex.synchronize do
-          tsock = pick_socket(key)
+          tsock, obsolete_sockets = pick_socket(key)
 
           if tsock
-            tsock.sock
+            return tsock.sock
           else
             sock = yield
             new_tsock = TimedSocket.new(timeout, key, sock)
             @log.debug("connect new socket #{new_tsock}")
 
             @inflight_sockets[sock] = new_tsock
-            new_tsock.sock
+            return new_tsock.sock
           end
+        end
+      ensure
+        obsolete_sockets.each do |sock|
+          sock.sock.close rescue nil
         end
       end
 
@@ -117,17 +123,32 @@ module Fluent::Plugin
       # this method is not thread safe
       def pick_socket(key)
         if @available_sockets[key].empty?
-          return nil
+          return nil, []
         end
 
         t = Time.now
-        if (s = @available_sockets[key].find { |sock| !expired_socket?(sock, time: t) })
-          @inflight_sockets[s.sock] = @available_sockets[key].delete(s)
-          s.timeout = timeout
-          s
-        else
-          nil
+        selected = nil
+        remaining = []
+        obsolete_sockets = []
+
+        @available_sockets[key].each do |sock|
+          if expired_socket?(sock, time: t) || unavailable_socket?(sock.sock)
+            obsolete_sockets << sock
+          elsif selected.nil?
+            selected = sock
+          else
+            remaining << sock
+          end
         end
+
+        @available_sockets[key] = remaining
+
+        if selected
+          @inflight_sockets[selected.sock] = selected
+          selected.timeout = timeout
+        end
+
+        [selected, obsolete_sockets]
       end
 
       def timeout
@@ -136,6 +157,20 @@ module Fluent::Plugin
 
       def expired_socket?(sock, time: Time.now)
         sock.timeout ? sock.timeout < time : false
+      end
+
+      def unavailable_socket?(sock)
+        return sock.closed? if sock.respond_to?(:closed?) && sock.closed?
+
+        io = if sock.respond_to?(:to_io)
+               sock.to_io
+             elsif sock.is_a?(IO)
+               sock
+             end
+
+        io ? !!IO.select([io], nil, nil, 0) : false
+      rescue IOError, SystemCallError
+        true
       end
     end
   end

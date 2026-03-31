@@ -2,6 +2,7 @@ require_relative '../../helper'
 
 require 'fluent/plugin/out_forward/socket_cache'
 require 'timecop'
+require 'socket'
 
 class SocketCacheTest < Test::Unit::TestCase
   sub_test_case 'checkout_or' do
@@ -47,6 +48,38 @@ class SocketCacheTest < Test::Unit::TestCase
       assert_nothing_raised(NoMethodError) do
         c.checkout_or('key') { 'new socket' }
       end
+    end
+
+    test 'discards cached socket after remote close' do
+      c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
+      server = TCPServer.open('127.0.0.1', unused_port(protocol: :tcp))
+      first_sock = TCPSocket.new('127.0.0.1', server.addr[1])
+      first_peer = server.accept
+
+      c.checkout_or('key') { first_sock }
+      c.checkin(first_sock)
+
+      first_peer.close
+      waiting(5) do
+        until IO.select([first_sock], nil, nil, 0)
+          sleep 0.01
+        end
+      end
+
+      second_peer = nil
+      second_sock = c.checkout_or('key') do
+        sock = TCPSocket.new('127.0.0.1', server.addr[1])
+        second_peer = server.accept
+        sock
+      end
+
+      assert_not_same(first_sock, second_sock)
+      assert_true(first_sock.closed?)
+    ensure
+      c&.clear
+      first_peer&.close rescue nil
+      second_peer&.close rescue nil
+      server&.close rescue nil
     end
   end
 
