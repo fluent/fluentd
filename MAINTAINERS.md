@@ -10,7 +10,7 @@
 - [Fujimoto Seiji](https://github.com/fujimots)
 - [Takuro Ashie](https://github.com/ashie), [ClearCode](https://www.clear-code.com/)
 - [Kentaro Hayashi](https://github.com/kenhys), [ClearCode](https://www.clear-code.com/)
-- [Daijiro Fukuda](https://github.com/daipom), [ClearCode](https://www.clear-code.com/)
+- [Daijiro Fukuda](https://github.com/daipom)
 
 ## Sub Projects: Fluent Bit
 
