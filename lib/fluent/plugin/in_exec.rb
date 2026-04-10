@@ -43,6 +43,8 @@ module Fluent::Plugin
     config_param :tag, :string, default: nil
     desc 'The interval time between periodic program runs.'
     config_param :run_interval, :time, default: nil
+    desc 'Command (program) execution timeout.'
+    config_param :command_timeout, :time, default: nil
     desc 'The default block size to read if parser requires partial read.'
     config_param :read_block_size, :size, default: 10240 # 10k
     desc 'The encoding to receive the result of the command, especially for non-ascii characters.'
@@ -86,9 +88,9 @@ module Fluent::Plugin
       options[:external_encoding] = @encoding if @encoding
 
       if @run_interval
-        child_process_execute(:exec_input, @command, interval: @run_interval, **options, &method(:run))
+        child_process_execute(:exec_input, @command, interval: @run_interval, wait_timeout: @command_timeout, **options, &method(:run))
       else
-        child_process_execute(:exec_input, @command, immediate: true, **options, &method(:run))
+        child_process_execute(:exec_input, @command, immediate: true, wait_timeout: @command_timeout, **options, &method(:run))
       end
     end
 
