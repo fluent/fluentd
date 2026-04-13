@@ -320,10 +320,11 @@ EOC
         </parse>
       ]
       start_time = Time.now
-      d.run(timeout: 3)
+      d.run(timeout: 5) do
+        sleep 1 # avoid to return test immediately
+      end
       elapsed = Time.now - start_time
-
-      assert elapsed < 4, "command should have been killed by command_timeout"
+      assert (elapsed >= 1.0 and elapsed < 5), "command should have been killed by command_timeout"
     end
 
     test 'command_timeout defaults to nil' do
