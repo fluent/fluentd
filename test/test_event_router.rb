@@ -114,7 +114,7 @@ class EventRouterTest < ::Test::Unit::TestCase
 
       data('Filter plugin' => 'filter',
            'Compat::Filter plugin' => 'compat_filter')
-      test 'set one filer' do |filter_type|
+      test 'set one filter' do |filter_type|
         @pipeline.add_filter(filter_type == 'filter' ? filter : compat_filter)
         @pipeline.emit_events('test', @es)
         assert_equal 1, output.events.size
@@ -124,7 +124,7 @@ class EventRouterTest < ::Test::Unit::TestCase
 
       data('Filter plugin' => 'filter',
            'Compat::Filter plugin' => 'compat_filter')
-      test 'set one filer with multi events' do |filter_type|
+      test 'set one filter with multi events' do |filter_type|
         @pipeline.add_filter(filter_type == 'filter' ? filter : compat_filter)
         @pipeline.emit_events('test', events)
         assert_equal 1, output.events.size
