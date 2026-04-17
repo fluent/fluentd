@@ -409,7 +409,6 @@ EOC
   tag monitor
   emit_interval 1
 ")
-      d.instance.start
       d.end_if do
         d.events.size >= 5
       end
@@ -539,6 +538,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       test_filter = response.split("\n")[3]
       assert_equal(expected_test_in_response, test_in)
       assert_equal(expected_test_filter_response, test_filter)
+
+      d.instance_shutdown
     end
 
     data(:include_config_and_retry_yes => [true, true, "include_config yes", "include_retry yes"],
@@ -593,6 +594,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
       assert_fuzzy_equal(expected_null_response, null_response)
+
+      d.instance_shutdown
     end
 
     test "/api/plugins.json/not_found" do
@@ -607,6 +610,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal('404', resp.code)
       body = JSON.parse(resp.body)
       assert_equal(body['message'], 'Not found')
+
+      d.instance_shutdown
     end
 
     data(:with_config_and_retry_yes => [true, true, "?with_config=yes&with_retry"],
@@ -659,6 +664,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
       assert_fuzzy_include(expected_null_response, null_response)
+
+      d.instance_shutdown
     end
 
     test "/api/plugins.json with 'with_ivars'. response contains specified instance variables of each plugin" do
@@ -708,6 +715,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
       assert_fuzzy_equal(expected_null_response, null_response)
+
+      d.instance_shutdown
     end
 
     test "/api/config" do
@@ -721,6 +730,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       expected_response_regex = %r{pid:\d+\tppid:\d+\tversion:#{Fluent::VERSION}\tconfig_path:#{@filepath}\tpid_file:\tplugin_dirs:/etc/fluent/plugin\tlog_path:}
       assert_match(expected_response_regex,
                    get("http://127.0.0.1:#{@port}/api/config").body)
+
+      d.instance_shutdown
     end
 
     test "/api/config.json" do
@@ -737,6 +748,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(["/etc/fluent/plugin"], res["plugin_dirs"])
       assert_nil(res["log_path"])
       assert_equal(Fluent::VERSION, res["version"])
+
+      d.instance_shutdown
     end
 
     test "/api/config.json?debug=1" do
@@ -750,6 +763,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       # To check pretty print
       assert_true !get("http://127.0.0.1:#{@port}/api/config.json").body.include?("\n")
       assert_true get("http://127.0.0.1:#{@port}/api/config.json?debug=1").body.include?("\n")
+
+      d.instance_shutdown
     end
 
     test "/api/config.json/not_found" do
@@ -764,6 +779,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal('404', resp.code)
       body = JSON.parse(resp.body)
       assert_equal(body['message'], 'Not found')
+
+      d.instance_shutdown
     end
   end
 
@@ -855,6 +872,11 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       # it's very hard to check exact retry count (because retries are called by output flush thread scheduling)
       assert{ response_retry_count >= 1 && response_retry["steps"] >= 0 }
       assert{ response_retry_count == response_retry["steps"] + 1 }
+
+      output.before_shutdown
+      output.shutdown
+      output.after_shutdown
+      d.instance_shutdown
     end
   end
 
@@ -868,12 +890,15 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
 ")
       d.instance.start
       assert_equal("200", get("http://127.0.0.1:#{port}/api/plugins").code)
+
+      d.instance_shutdown
     end
 
     test "worker_id = 2 on multi worker environment" do
       port = unused_port(protocol: :tcp)
+      driver = nil
       Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
-        d = Fluent::Test::Driver::Input.new(Fluent::Plugin::MonitorAgentInput)
+        driver = d = Fluent::Test::Driver::Input.new(Fluent::Plugin::MonitorAgentInput)
         d.instance.instance_eval{ @_fluentd_worker_id = 2 }
         d.configure("
   @type monitor_agent
@@ -883,6 +908,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         d.instance.start
       end
       assert_equal("200", get("http://127.0.0.1:#{port}/api/plugins").code)
+
+      driver.instance_shutdown
     end
   end
 
@@ -937,6 +964,8 @@ EOC
       assert_equal("200", get("http://127.0.0.1:#{port}/api/plugins.json").code)
       assert{ d.logs.none?{|log| log.include?("NoMethodError") } }
       assert_equal(false, d.instance.instance_variable_get(:@first_warn))
+
+      d.instance_shutdown
     end
   end
 end
