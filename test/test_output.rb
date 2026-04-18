@@ -235,14 +235,21 @@ module FluentOutputTest
                    else
                      "\n"
                    end
+        @d = nil
       end
 
       teardown do
         Timecop.return
+        if @d
+          @d.instance.before_shutdown unless @d.instance.before_shutdown?
+          @d.instance.shutdown unless @d.instance.shutdown?
+          @d.instance.after_shutdown unless @d.instance.after_shutdown?
+          @d.instance.close unless @d.instance.closed?
+        end
       end
 
       test "emit with invalid event" do
-        d = create_driver
+        @d = d = create_driver
         d.instance.start
         d.instance.after_start
         assert_raise ArgumentError, "time must be a Fluent::EventTime (or Integer)" do
@@ -251,7 +258,7 @@ module FluentOutputTest
       end
 
       test "plugin can get key of chunk in #write" do
-        d = create_driver
+        @d = d = create_driver
         d.instance.start
         d.instance.after_start
         d.instance.emit_events('test', OneEventStream.new(event_time("2016-11-08 17:44:30 +0900"), {"message" => "yay"}))
@@ -264,7 +271,7 @@ module FluentOutputTest
       end
 
       test "check formatted time compatibility with utc. Should Z, not +00:00" do
-        d = create_driver(CONFIG + %[
+        @d = d = create_driver(CONFIG + %[
           utc
           include_time_key
         ])
