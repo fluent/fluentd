@@ -2067,7 +2067,10 @@ class BufferedOutputTest < Test::Unit::TestCase
       end
       # staged buffer (.b) was picked up, then ready to flush by enqueuing (.q)
       assert{ @resumer.buffer.stage.size == 0 && @resumer.buffer.queue.size == 1 }
+      @resumer.stop
+      @resumer.before_shutdown
       @resumer.shutdown
+      @resumer.after_shutdown
     end
   end
 end
