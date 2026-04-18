@@ -50,6 +50,11 @@ class ChildProcessTest < Test::Unit::TestCase
     assert d1.log
 
     d1.start
+
+    d1.stop
+    d1.shutdown
+    d1.close
+    d1.terminate
   end
 
   test 'can execute external command asynchronously' do
