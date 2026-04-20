@@ -70,7 +70,12 @@ module Fluent
           num_waits.times { sleep 0.05 }
           return yield
         ensure
+          @instance.stop
+          @instance.before_shutdown
           @instance.shutdown
+          @instance.after_shutdown
+          @instance.close
+          @instance.terminate
         end
       end
     end
