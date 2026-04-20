@@ -70,8 +70,10 @@ class PullRequestBackporter
             @logger.info "* \##{pull_request['number']} #{pull_request['title']} LABELS: #{pull_request['labels'].collect { |label| label['name'] }}"
             # merged into this commit
             @logger.debug "MERGE_COMMIT_SHA: #{pull_request['merge_commit_sha']}"
-            body = pull_request["body"].gsub(/\*\*Which issue\(s\) this PR fixes\*\*: \r\n/,
-                                             "**Which issue(s) this PR fixes**: \r\nBackport \##{pull_request['number']}\r\n")
+            body = pull_request["body"] ?
+                     pull_request["body"].gsub(/\*\*Which issue\(s\) this PR fixes\*\*: \r\n/,
+                                               "**Which issue(s) this PR fixes**: \r\nBackport \##{pull_request['number']}\r\n") :
+                     "Backport \##{pull_request['number']}\r\n"
             backports << {
               number: pull_request["number"],
               merge_commit_sha: pull_request["merge_commit_sha"],
