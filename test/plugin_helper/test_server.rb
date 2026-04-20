@@ -186,6 +186,15 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(methods)
     test 'creates tls server in default if transport section and tcp protocol specified' do |m|
+      if @d
+        @d.stop unless @d.stopped?
+        @d.before_shutdown unless @d.before_shutdown?
+        @d.shutdown unless @d.shutdown?
+        @d.after_shutdown unless @d.after_shutdown?
+        @d.close unless @d.closed?
+        @d.terminate unless @d.terminated?
+      end
+
       @d = d = Dummy.new
       transport_conf = config_element('transport', 'tcp', {}, [])
       d.configure(config_element('ROOT', '', {}, [transport_conf]))
@@ -215,6 +224,15 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(methods)
     test 'creates tls server in default if transport section and tls protocol specified' do |m|
+      if @d
+        @d.stop unless @d.stopped?
+        @d.before_shutdown unless @d.before_shutdown?
+        @d.shutdown unless @d.shutdown?
+        @d.after_shutdown unless @d.after_shutdown?
+        @d.close unless @d.closed?
+        @d.terminate unless @d.terminated?
+      end
+
       @d = d = Dummy.new
       transport_conf = config_element('transport', 'tls', {'insecure' => 'true'}, [])
       d.configure(config_element('ROOT', '', {}, [transport_conf]))
@@ -1025,6 +1043,15 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
   sub_test_case '#server_create_tls with various certificate options' do
     setup do
+      if @d
+        @d.stop unless @d.stopped?
+        @d.before_shutdown unless @d.before_shutdown?
+        @d.shutdown unless @d.shutdown?
+        @d.after_shutdown unless @d.after_shutdown?
+        @d.close unless @d.closed?
+        @d.terminate unless @d.terminated?
+      end
+
       @d = Dummy.new # to get plugin not configured/started yet
 
       @certs_dir = File.join(TMP_DIR, "tls_certs")
