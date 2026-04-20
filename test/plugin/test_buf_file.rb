@@ -755,6 +755,12 @@ class FileBufferTest < Test::Unit::TestCase
         @p.close unless @p.closed?
         @p.terminate unless @p.terminated?
       end
+      if @d
+        @d.stop unless @d.stopped?
+        @d.before_shutdown unless @d.before_shutdown?
+        @d.shutdown unless @d.shutdown?
+        @d.after_shutdown unless @d.after_shutdown?
+      end
     end
 
     test 'worker(id=0) #resume returns staged/queued chunks with metadata, not only in worker dir, including the directory specified by path' do
