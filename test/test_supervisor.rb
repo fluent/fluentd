@@ -3,6 +3,7 @@ require 'fluent/event_router'
 require 'fluent/system_config'
 require 'fluent/supervisor'
 require 'fluent/file_wrapper'
+require 'fluent/version'
 require_relative 'test_plugin_classes'
 
 require 'net/http'
@@ -919,6 +920,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     ensure
       server.after_run
       ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
+      server.socket_manager_server.close
     end
   end
 
@@ -1013,6 +1015,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     ensure
       Fluent::Supervisor.cleanup_socketmanager_path
       ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
+      server.socket_manager_server.close
     end
 
     def test_share_sockets
@@ -1043,6 +1046,8 @@ class SupervisorTest < ::Test::Unit::TestCase
       new_server&.after_run
       ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
       ENV.delete("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD")
+      server.socket_manager_server.close
+      new_server.socket_manager_server.close
     end
 
     def test_stop_parallel_old_supervisor_after_delay
