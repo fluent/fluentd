@@ -32,7 +32,7 @@ module Fluent
 
       def configure(conf)
         super
-
+        @key_num = @keys.length
 
         if @parser_engine == :fast
           @quote_char = '"'
@@ -46,13 +46,18 @@ module Fluent
       end
 
       def parse(text, &block)
+        r = {}
+        i = 0
         values = CSV.parse_line(text, col_sep: @delimiter)
         unless values
           yield nil, nil
           return
         end
 
-        r = Hash[@keys.zip(values)]
+        while i < @key_num
+          r[@keys[i]] = values[i]
+          i += 1
+        end
         time, record = convert_values(parse_time(r), r)
         yield time, record
       end
