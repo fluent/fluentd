@@ -91,7 +91,7 @@ class PullRequestBackporter
     backports = collect_backports
     if backports.empty?
       @logger.info "No need to backport pull requests"
-      return
+      return true
     end
 
     failed = []
