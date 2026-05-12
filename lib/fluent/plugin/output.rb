@@ -922,29 +922,34 @@ module Fluent
           return Struct.new(:timekey, :tag, :variables).new
         end
 
+        timekey = @chunk_key_time ? calculate_timekey(time) : nil
+        @_metadata_cache ||= MetadataCache.new
+
         # timekey is int from epoch, and `timekey - timekey % 60` is assumed to mach with 0s of each minutes.
         # it's wrong if timezone is configured as one which supports leap second, but it's very rare and
         # we can ignore it (especially in production systems).
         if @chunk_keys.empty?
-          if @chunk_key_time && @chunk_key_tag
-            timekey = calculate_timekey(time)
-            @buffer.metadata(timekey: timekey, tag: tag)
-          elsif @chunk_key_time
-            timekey = calculate_timekey(time)
-            @buffer.metadata(timekey: timekey)
-          elsif @chunk_key_tag
-            @buffer.metadata(tag: tag)
-          else
-            @buffer.metadata()
-          end
+          return @_metadata_cache.metadata if @_metadata_cache.cached?(timekey: timekey, tag: tag)
+
+          meta = if @chunk_key_time && @chunk_key_tag
+                   @buffer.metadata(timekey: timekey, tag: tag)
+                 elsif @chunk_key_time
+                   @buffer.metadata(timekey: timekey)
+                 elsif @chunk_key_tag
+                   @buffer.metadata(tag: tag)
+                 else
+                   @buffer.metadata()
+                 end
+
+          @_metadata_cache.update(timekey: timekey, tag: tag, metadata: meta)
+          meta
         else
-          timekey = if @chunk_key_time
-                      calculate_timekey(time)
-                    else
-                      nil
-                    end
           pairs = Hash[@chunk_key_accessors.map { |k, a| [k, a.call(record)] }]
-          @buffer.metadata(timekey: timekey, tag: (@chunk_key_tag ? tag : nil), variables: pairs)
+          return @_metadata_cache.metadata if @_metadata_cache.cached?(timekey: timekey, tag: tag, variables: pairs)
+
+          meta = @buffer.metadata(timekey: timekey, tag: (@chunk_key_tag ? tag : nil), variables: pairs)
+          @_metadata_cache.update(timekey: timekey, tag: tag, variables: pairs, metadata: meta)
+          meta
         end
       end
 
@@ -1614,6 +1619,28 @@ module Fluent
         end
 
         { 'output' => stats }
+      end
+    end
+
+    class MetadataCache
+      attr_reader :metadata
+
+      def initialize
+        @timekey = nil
+        @tag = nil
+        @variables = nil
+        @metadata = nil
+      end
+
+      def cached?(timekey:, tag:, variables: nil)
+        @metadata && @timekey == timekey && @tag == tag && @variables == variables
+      end
+
+      def update(timekey:, tag:, variables: nil, metadata:)
+        @timekey = timekey
+        @tag = tag
+        @variables = variables
+        @metadata = metadata
       end
     end
   end
