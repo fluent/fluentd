@@ -47,6 +47,11 @@ module Fluent
 
       def parse(text, &block)
         values = CSV.parse_line(text, col_sep: @delimiter)
+        unless values
+          yield nil, nil
+          return
+        end
+
         r = Hash[@keys.zip(values)]
         time, record = convert_values(parse_time(r), r)
         yield time, record

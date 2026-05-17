@@ -101,6 +101,14 @@ class CSVParserTest < ::Test::Unit::TestCase
     end
   end
 
+  def test_parse_empty_line
+    d = create_driver('keys' => '["k1","k2","k3"]')
+    d.instance.parse("") do |time, record|
+      assert_nil time
+      assert_nil record
+    end
+  end
+
   sub_test_case 'parser' do
     data('normal' => 'normal',
          'fast' => 'fast')
