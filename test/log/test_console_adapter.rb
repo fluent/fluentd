@@ -13,6 +13,13 @@ class ConsoleAdapterTest < Test::Unit::TestCase
     @logger = ServerEngine::DaemonLogger.new(@logdev)
     @fluent_log = Fluent::Log.new(@logger)
     @console_logger = Fluent::Log::ConsoleAdapter.wrap(@fluent_log)
+
+    # The log format was modified in https://github.com/socketry/console/commit/14cf37da3f5d3a95ba2766a6dbd4dbce87a4588c
+    @duration_str = if Gem::Version.new(Console::VERSION) >= Gem::Version.new("1.35.0")
+                      " 0.00s"
+                    else
+                      "  0.0s"
+                    end
   end
 
   def teardown
@@ -45,7 +52,7 @@ class ConsoleAdapterTest < Test::Unit::TestCase
        fatal: :fatal)
   def test_string_subject(level)
     @console_logger.send(level, "subject")
-    assert_equal(["#{@timestamp_str} [#{level}]:   0.0s: subject\n"],
+    assert_equal(["#{@timestamp_str} [#{level}]: #{@duration_str}: subject\n"],
                  @logdev.logs)
   end
 
@@ -57,7 +64,7 @@ class ConsoleAdapterTest < Test::Unit::TestCase
   def test_args(level)
     @console_logger.send(level, "subject", 1, 2, 3)
     assert_equal([
-                   "#{@timestamp_str} [#{level}]:   0.0s: subject\n" +
+                   "#{@timestamp_str} [#{level}]: #{@duration_str}: subject\n" +
                    "      | 1\n" +
                    "      | 2\n" +
                    "      | 3\n"
@@ -76,7 +83,7 @@ class ConsoleAdapterTest < Test::Unit::TestCase
     args = JSON.parse(lines[1..].collect { |str| str.sub(/\s+\|/, "") }.join("\n"))
     assert_equal([
                    1,
-                   "#{@timestamp_str} [#{level}]:   0.0s: subject",
+                   "#{@timestamp_str} [#{level}]: #{@duration_str}: subject",
                    { "kwarg1" => "opt1", "kwarg2" => "opt2" }
                  ],
                  [
@@ -94,7 +101,7 @@ class ConsoleAdapterTest < Test::Unit::TestCase
   def test_block(level)
     @console_logger.send(level, "subject") { "block message" }
     assert_equal([
-                   "#{@timestamp_str} [#{level}]:   0.0s: subject\n" +
+                   "#{@timestamp_str} [#{level}]: #{@duration_str}: subject\n" +
                    "      | block message\n"
                  ],
                  @logdev.logs)
@@ -109,8 +116,8 @@ class ConsoleAdapterTest < Test::Unit::TestCase
     @console_logger.send(level, "subject1")
     @console_logger.send(level, "line2")
     assert_equal([
-                   "#{@timestamp_str} [#{level}]:   0.0s: subject1\n",
-                   "#{@timestamp_str} [#{level}]:   0.0s: line2\n"
+                   "#{@timestamp_str} [#{level}]: #{@duration_str}: subject1\n",
+                   "#{@timestamp_str} [#{level}]: #{@duration_str}: line2\n"
                  ],
                  @logdev.logs)
   end
