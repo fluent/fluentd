@@ -136,6 +136,35 @@ class LocalStorageTest < Test::Unit::TestCase
         @d.configure(conf)
       end
     end
+
+    test 'start properly if stored value contains non-latin chracters (issue #5378)' do
+      storage_path = File.join(TMP_DIR, 'my_store.json')
+      conf = config_element('ROOT', '', {}, [config_element('storage', '', {'path' => storage_path})])
+      @d.configure(conf)
+      @d.start
+      @p = @d.storage_create()
+      assert_equal storage_path, @p.path
+      assert @p.store.empty?
+
+      @p.put('key', 'Bonne Année François !')
+      assert_equal 'Bonne Année François !', @p.get('key')
+
+      @p.save
+      assert File.exist?(storage_path)
+
+      @d.stop; @d.before_shutdown; @d.shutdown; @d.after_shutdown; @d.close; @d.terminate
+      assert_equal({'key' => 'Bonne Année François !'}, File.open(storage_path){|f| JSON.parse(f.read) })
+
+      # re-create to reload storage contents
+      @d = MyInput.new
+      @d.configure(conf)
+      @d.start
+      @p = @d.storage_create()
+
+      assert_false @p.store.empty?
+      assert_equal 'Bonne Année François !', @p.get('key')
+
+    end
   end
 
   sub_test_case 'configured with root-dir and plugin id' do
