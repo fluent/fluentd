@@ -85,7 +85,7 @@ module Fluent
           if File.exist?(@path)
             raise Fluent::ConfigError, "Plugin storage path '#{@path}' is not readable/writable" unless File.readable?(@path) && File.writable?(@path)
             begin
-              data = File.open(@path, 'r:utf-8') { |io| io.read }
+              data = File.open(@path, 'r:utf-8:utf-8') { |io| io.read }
               if data.empty?
                 log.warn "detect empty plugin storage file during startup. Ignored: #{@path}"
                 return
@@ -113,7 +113,7 @@ module Fluent
         return if @on_memory
         return unless File.exist?(@path)
         begin
-          json_string = File.open(@path, 'r:utf-8'){ |io| io.read }
+          json_string = File.open(@path, 'r:utf-8:utf-8'){ |io| io.read }
           json = JSON.parse(json_string)
           unless json.is_a?(Hash)
             log.error "broken content for plugin storage (Hash required: ignored)", type: json.class
