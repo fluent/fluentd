@@ -11,7 +11,7 @@ class JsonParserTest < ::Test::Unit::TestCase
   sub_test_case "configure_json_parser" do
     data("oj", [:oj, [Oj.method(:load), Oj::ParseError]])
     data("json", [:json, [JSON.method(:parse), JSON::ParserError]])
-    data("yajl", [:yajl, [Yajl.method(:load), Yajl::ParseError]])
+    data("yajl", [:yajl, [JSON.method(:parse), JSON::ParserError]])
     def test_return_each_loader((input, expected_return))
       result = @parser.instance.configure_json_parser(input)
       assert_equal expected_return, result

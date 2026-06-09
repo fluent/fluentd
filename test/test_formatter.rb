@@ -68,28 +68,28 @@ module FormatterTest
       configure({})
       formatted = @formatter.format(tag, @time, record)
 
-      assert_equal("#{time2str(@time)}\t#{tag}\t#{Yajl.dump(record)}#{@newline}", formatted)
+      assert_equal("#{time2str(@time)}\t#{tag}\t#{JSON.generate(record)}#{@newline}", formatted)
     end
 
     def test_format_without_time
       configure('output_time' => 'false')
       formatted = @formatter.format(tag, @time, record)
 
-      assert_equal("#{tag}\t#{Yajl.dump(record)}#{@newline}", formatted)
+      assert_equal("#{tag}\t#{JSON.generate(record)}#{@newline}", formatted)
     end
 
     def test_format_without_tag
       configure('output_tag' => 'false')
       formatted = @formatter.format(tag, @time, record)
 
-      assert_equal("#{time2str(@time)}\t#{Yajl.dump(record)}#{@newline}", formatted)
+      assert_equal("#{time2str(@time)}\t#{JSON.generate(record)}#{@newline}", formatted)
     end
 
     def test_format_without_time_and_tag
       configure('output_tag' => 'false', 'output_time' => 'false')
       formatted = @formatter.format('tag', @time, record)
 
-      assert_equal("#{Yajl.dump(record)}#{@newline}", formatted)
+      assert_equal("#{JSON.generate(record)}#{@newline}", formatted)
     end
 
     def test_format_without_time_and_tag_against_string_literal_configure
@@ -100,7 +100,7 @@ module FormatterTest
       ])
       formatted = @formatter.format('tag', @time, record)
 
-      assert_equal("#{Yajl.dump(record)}#{@newline}", formatted)
+      assert_equal("#{JSON.generate(record)}#{@newline}", formatted)
     end
   end
 
@@ -122,7 +122,7 @@ module FormatterTest
       @formatter.configure('json_parser' => data)
       formatted = @formatter.format(tag, @time, record)
 
-      assert_equal("#{Yajl.dump(record)}#{@newline}", formatted)
+      assert_equal("#{JSON.generate(record)}#{@newline}", formatted)
     end
   end
 
