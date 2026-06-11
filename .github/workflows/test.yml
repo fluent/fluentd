@@ -20,15 +20,22 @@ concurrency:
 permissions: read-all
 
 jobs:
+  ruby-versions:
+    uses: ruby/actions/.github/workflows/ruby_versions.yml@master
+    with:
+      engine: cruby
+      min_version: 3.2
   test:
+    needs: ruby-versions
     runs-on: ${{ matrix.os }}
     continue-on-error: false
     strategy:
       fail-fast: false
       matrix:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest', 'windows-11-arm']
-        ruby-version: ['4.0', '3.4', '3.3', '3.2']
+        ruby-version: ${{ fromJson(needs.ruby-versions.outputs.versions) }}
         exclude:
+          - ruby-version: head
           - os: 'windows-11-arm'
             ruby-version: '3.3'
           - os: 'windows-11-arm'
@@ -51,11 +58,14 @@ jobs:
         run: bundle exec rake test TESTOPTS="-v --report-slow-tests --no-show-detail-immediately"
 
   test-windows-service:
+    needs: ruby-versions
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        ruby-version: ['4.0', '3.4', '3.3', '3.2']
+        ruby-version: ${{ fromJson(needs.ruby-versions.outputs.versions) }}
+        exclude:
+          - ruby-version: head
     name: Windows service (Ruby ${{ matrix.ruby-version }})
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
