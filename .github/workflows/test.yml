@@ -26,8 +26,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        os: ['ubuntu-latest', 'macos-latest', 'windows-latest', 'windows-11-arm']
         ruby-version: ['4.0', '3.4', '3.3', '3.2']
+        exclude:
+          - os: 'windows-11-arm'
+            ruby-version: '3.3'
+          - os: 'windows-11-arm'
+            ruby-version: '3.2'
     env:
       RUBYOPT: "--disable-frozen_string_literal"
     name: Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}

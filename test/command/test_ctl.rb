@@ -46,6 +46,7 @@ class TestFluentdCtl < ::Test::Unit::TestCase
        "reload" => ["reload", "USR2"])
   def test_commands_with_winsvcname(data)
     omit "Only for Windows" unless Fluent.windows?
+    omit "Need ffi 1.17.3 or later but blocked by https://github.com/chef/ffi-win32-extensions/issues/14" if Gem::Version.new(FFI::VERSION) < Gem::Version.new("1.17.3")
 
     command, event_suffix = data
     event_name = "testfluentdwinsvc"
