@@ -36,6 +36,8 @@ module Fluent::Plugin
     config_param :port, :integer, default: LISTEN_PORT
     desc 'The bind address to listen to.'
     config_param :bind, :string, default: '0.0.0.0'
+    desc 'Whether it accept only IPv6 connection with IPv6 bind address.'
+    config_param :bind_ipv6_only, :bool, default: true
 
     config_param :backlog, :integer, default: nil
     # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
@@ -176,6 +178,7 @@ module Fluent::Plugin
         resolve_name: @resolve_hostname,
         linger_timeout: @linger_timeout,
         send_keepalive_packet: @send_keepalive_packet,
+        bind_ipv6_only: @bind_ipv6_only,
         backlog: @backlog,
         &method(:handle_connection)
       )
