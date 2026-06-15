@@ -2776,9 +2776,9 @@ class TailInputTest < Test::Unit::TestCase
 
         emit_count = 0
         prev_count = 0
+        start_time = Fluent::Clock.now
 
         while emit_count < 3 do
-          start_time = Fluent::Clock.now
           sleep(sleep_interval) while d.emit_count <= emit_count
           elapsed_seconds = Fluent::Clock.now - start_time
           if emit_count > 0
@@ -2790,6 +2790,7 @@ class TailInputTest < Test::Unit::TestCase
           assert_equal(limit, d.record_count - prev_count)
           emit_count = d.emit_count
           prev_count = d.record_count
+          start_time = Fluent::Clock.now
         end
 
         ## When all the lines are read and rate_period seconds are over
