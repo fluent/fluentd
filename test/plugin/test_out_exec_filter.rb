@@ -521,17 +521,10 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     events = d.events
     assert_equal 4, events.length
 
-    pid_list = []
-    events.each do |event|
-      pid = event[2]['child_pid']
-      pid_list << pid unless pid_list.include?(pid)
-    end
-    assert_equal 2, pid_list.size, "the number of pids should be same with number of child processes: #{pid_list.inspect}"
+    pid_counts = events.map { |event| event[2]['child_pid'] }.tally
 
-    assert_equal pid_list[0], events[0][2]['child_pid']
-    assert_equal pid_list[1], events[1][2]['child_pid']
-    assert_equal pid_list[0], events[2][2]['child_pid']
-    assert_equal pid_list[1], events[3][2]['child_pid']
+    assert_equal 2, pid_counts.size, "the number of pids should be same with number of child processes: #{pid_counts.inspect}"
+    assert_equal [2, 2], pid_counts.values, "each child process should handle exactly 2 events"
   end
 
   # child process exits per 3 lines
