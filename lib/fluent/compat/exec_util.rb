@@ -77,7 +77,7 @@ module Fluent
 
       class JSONParser < Parser
         def call(io)
-          parser = JSON::Ext::ResumableParser.new({})
+          parser = JSON::ResumableParser.new({})
           buffer_size = 8192
 
           while (chunk = io.read(buffer_size))
