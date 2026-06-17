@@ -97,13 +97,15 @@ module Fluent
 
       def parse_io(io, &block)
         parser = JSON::ResumableParser.new({})
-        while (chunk = io.read(@stream_buffer_size))
-          parser << chunk
-
-          while parser.parse
-            record = parser.value
-            block.call(parse_time(record), record)
+        begin
+          while (chunk = io.readpartial(@stream_buffer_size))
+            parser << chunk
+            while parser.parse
+              record = parser.value
+              block.call(parse_time(record), record)
+            end
           end
+        rescue EOFError
         end
       end
     end

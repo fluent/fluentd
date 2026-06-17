@@ -76,15 +76,18 @@ module Fluent
       end
 
       class JSONParser < Parser
+        BYTES_TO_READ = 8192
+
         def call(io)
           parser = JSON::ResumableParser.new({})
-          buffer_size = 8192
-
-          while (chunk = io.read(buffer_size))
-            parser << chunk
-            while parser.parse
-              @on_message.call(parser.value)
+          begin
+            while (chunk = io.readpartial(BYTES_TO_READ))
+              parser << chunk
+              while parser.parse
+                @on_message.call(parser.value)
+              end
             end
+          rescue EOFError
           end
         end
       end
