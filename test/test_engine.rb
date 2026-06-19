@@ -194,7 +194,7 @@ class EngineTest < ::Test::Unit::TestCase
       e = assert_raise(Fluent::ConfigError) do
         engine.reload_config(new_conf)
       end
-      assert e.message.match?('Unreloadable plugin plugin: dummy_engine_class_var_test')
+      assert e.message.match?('Unreloadable plugin: dummy_engine_class_var_test')
 
       assert_kind_of DummyEngineTestInput, engine.root_agent.inputs[0]
       assert_kind_of DummyEngineTestOutput, engine.root_agent.outputs[0]
