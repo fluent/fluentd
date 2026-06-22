@@ -101,6 +101,7 @@ module Fluent::Config
       'enable_input_metrics' => ['enable_input_metrics', false],
       'enable_size_metrics' => ['enable_size_metrics', true],
       'enable_jit' => ['enable_jit', true],
+      'umask' => ['umask', '0022'],
     )
     test "accepts parameters" do |(k, v)|
       conf = parse_text(<<-EOS)

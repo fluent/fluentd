@@ -808,6 +808,12 @@ module Fluent
       )
       @system_config = build_system_config(@conf)
 
+      # `<system> umask` sets the process umask, just like the `--umask` command
+      # line option. The command line option takes precedence when both are given.
+      if @system_config.umask && !@cl_opt.key?(:chumask)
+        @chumask = @system_config.umask
+      end
+
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
 
       build_additional_configurations(parsed_files) do |additional_conf|
