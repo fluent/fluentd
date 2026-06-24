@@ -41,6 +41,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("uri", '~> 1.0')
   gem.add_runtime_dependency("net-http", '~> 0.8')
   gem.add_runtime_dependency("async-http", "~> 0.86")
+  gem.add_runtime_dependency("json", '>= 2.20')
 
   # gems that aren't default gems as of Ruby 3.4
   gem.add_runtime_dependency("base64", ["~> 0.2"])
