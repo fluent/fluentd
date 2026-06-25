@@ -81,7 +81,8 @@ module Fluent
         def call(io)
           parser = JSON::ResumableParser.new({})
           begin
-            while (chunk = io.readpartial(BYTES_TO_READ))
+            chunk = +"".b
+            while io.readpartial(BYTES_TO_READ, chunk)
               parser << chunk
               while parser.parse
                 @on_message.call(parser.value)
