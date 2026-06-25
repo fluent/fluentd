@@ -87,6 +87,27 @@ class FileBufferTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'configuration' do
+    setup do
+      Fluent::Test.setup
+
+      @dir = File.expand_path('../../tmp/buffer_file_dir', __FILE__)
+      FileUtils.rm_rf @dir
+      FileUtils.mkdir_p @dir
+    end
+
+    test 'passes decompression_size_limit to FileChunk' do
+      d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p = Fluent::Plugin::FileBuffer.new
+      p.owner = d
+      p.configure(config_element('buffer', '', {'path' => File.join(@dir, 'buffer.*.file'), 'decompression_size_limit' => 4 * 1024 * 1024}))
+
+      chunk = p.generate_chunk(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+
+      assert_equal 4 * 1024 * 1024, chunk.instance_variable_get(:@decompression_size_limit)
+    end
+  end
+
   sub_test_case 'non configured buffer plugin instance' do
     setup do
       Fluent::Test.setup

@@ -20,7 +20,7 @@ module FluentPluginBufferTest
   class DummyMemoryChunk < Fluent::Plugin::Buffer::MemoryChunk
     attr_reader :append_count, :rollbacked, :closed, :purged, :chunk
     attr_accessor :failing
-    def initialize(metadata, compress: :text)
+    def initialize(metadata, compress: :text, decompression_size_limit: Fluent::Plugin::Compressable::DEFAULT_DECOMPRESSION_SIZE_LIMIT)
       super
       @append_count = 0
       @rollbacked = false
@@ -79,7 +79,7 @@ module FluentPluginBufferTest
       return staged, queued
     end
     def generate_chunk(metadata)
-      DummyMemoryChunk.new(metadata, compress: @compress)
+      DummyMemoryChunk.new(metadata, compress: @compress, decompression_size_limit: @decompression_size_limit)
     end
   end
 end
@@ -1441,6 +1441,10 @@ class BufferTest < Test::Unit::TestCase
       assert_equal :gzip, @p.compress
     end
 
+    test 'decompression_size_limit is 256MB' do
+      assert_equal 256*1024*1024, @p.decompression_size_limit
+    end
+
     test 'create decompressable chunk' do
       chunk = @p.generate_chunk(create_metadata)
       assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::GzipDecompressable)
@@ -1450,8 +1454,8 @@ class BufferTest < Test::Unit::TestCase
       @p = create_buffer({'compress' => 'gzip', 'chunk_limit_size' => 70})
       timestamp = event_time('2016-04-11 16:00:02 +0000')
       es = Fluent::ArrayEventStream.new([[timestamp, {"message" => "012345"}], # overflow
-                                         [timestamp, {"message" => "aaa"}],
-                                         [timestamp, {"message" => "bbb"}]])
+                                         [timestamp, {"message" => "a"}],
+                                         [timestamp, {"message" => "b"}]])
       assert_equal [], @p.queue.map(&:metadata)
       assert_equal 70, @p.chunk_limit_size
 
@@ -1468,6 +1472,21 @@ class BufferTest < Test::Unit::TestCase
       # message a and b occupies each chunks in full, so both of messages are queued (no staged chunk)
       assert_equal([2, [@dm0, @dm0], [1, 1], nil],
                    [@p.queue.size, @p.queue.map(&:metadata), @p.queue.map(&:size), @p.stage[@dm0]])
+    end
+
+    test '#read raises SizeLimitError when decompressed data exceeds decompression_size_limit' do
+      @p = create_buffer({'compress' => 'gzip', 'decompression_size_limit' => 100})
+      timestamp = event_time('2016-04-11 16:00:02 +0000')
+
+      es = Fluent::ArrayEventStream.new([[timestamp, {"message" => "A" * 1024}]])
+
+      @p.write({@dm0 => es})
+
+      chunk = @p.stage[@dm0]
+
+      assert_raise Fluent::Plugin::Extractor::SizeLimitError do
+        chunk.read
+      end
     end
   end
 
