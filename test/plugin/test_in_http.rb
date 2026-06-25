@@ -31,6 +31,7 @@ class HttpInputTest < Test::Unit::TestCase
       port #{@port}
       bind "127.0.0.1"
       body_size_limit 10m
+      decompression_size_limit 128m
       keepalive_timeout 5
       respond_with_empty_img true
      use_204_response false
@@ -46,6 +47,7 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal @port, d.instance.port
     assert_equal '127.0.0.1', d.instance.bind
     assert_equal 10*1024*1024, d.instance.body_size_limit
+    assert_equal 128*1024*1024, d.instance.decompression_size_limit
     assert_equal 5, d.instance.keepalive_timeout
     assert_equal false, d.instance.add_http_headers
     assert_equal false, d.instance.add_query_params
@@ -1005,6 +1007,34 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[1][1]
   end
 
+  def test_content_encoding_gzip_size_error
+    d = create_driver(%[
+      port #{@port}
+      bind "127.0.0.1"
+      decompression_size_limit 512k
+    ])
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    events = [
+      ["tag1", time, {"msg"=>"a" * 1024 * 1024}],
+    ]
+    res_codes = []
+
+    d.run do
+      events.each do |tag, time, record|
+        header = {'Content-Type'=>'application/json', 'Content-Encoding'=>'gzip'}
+        res = post("/#{tag}?time=#{time}", compress_gzip(record.to_json), header)
+        res_codes << res.code
+      end
+    end
+
+    assert_equal ["400"], res_codes
+    assert_true d.events.empty?
+
+    log = d.logs.first
+    assert_true log.include?("fails to decode payload") && log.include?("Decompressed data exceeds limit of #{512*1024} bytes")
+  end
+
   def test_content_encoding_deflate
     d = create_driver
 
@@ -1026,6 +1056,34 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal events, d.events
     assert_equal_event_time time, d.events[0][1]
     assert_equal_event_time time, d.events[1][1]
+  end
+
+  def test_content_encoding_deflate_size_error
+    d = create_driver(%[
+      port #{@port}
+      bind "127.0.0.1"
+      decompression_size_limit 512k
+    ])
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    events = [
+      ["tag1", time, {"msg"=>"a" * 1024 * 1024}],
+    ]
+    res_codes = []
+
+    d.run do
+      events.each do |tag, time, record|
+        header = {'Content-Type'=>'application/msgpack', 'Content-Encoding'=>'deflate'}
+        res = post("/#{tag}?time=#{time}", Zlib.deflate(record.to_msgpack), header)
+        res_codes << res.code
+      end
+    end
+
+    assert_equal ["400"], res_codes
+    assert_true d.events.empty?
+
+    log = d.logs.first
+    assert_true log.include?("fails to decode payload") && log.include?("Decompressed data exceeds limit of #{512*1024} bytes")
   end
 
   def test_cors_disallowed

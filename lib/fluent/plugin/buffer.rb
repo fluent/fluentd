@@ -66,6 +66,9 @@ module Fluent
       desc 'Compress buffered data.'
       config_param :compress, :enum, list: [:text, :gzip, :zstd], default: :text
 
+      desc 'The size limit of the decompressed element.'
+      config_param :decompression_size_limit, :size, default: Compressable::DEFAULT_DECOMPRESSION_SIZE_LIMIT
+
       desc 'If true, chunks are thrown away when unrecoverable error happens'
       config_param :disable_chunk_backup, :bool, default: false
 

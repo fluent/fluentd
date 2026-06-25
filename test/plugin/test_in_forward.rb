@@ -612,6 +612,33 @@ class ForwardInputTest < Test::Unit::TestCase
         end
       end
     end
+
+    test 'raises SizeLimitError when decompressed size exceeds limit' do
+      @d = d = create_driver(%[
+        port #{@port}
+        bind "127.0.0.1"
+        decompression_size_limit 5k
+      ])
+
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
+      events = (1..20).map { ["tag1", time_i, {"a"=>"A" * 1000}] }
+
+      # create compressed entries
+      entries = ''
+      events.each do |_tag, _time, record|
+        v = [_time, record].to_msgpack
+        entries << compress(v)
+      end
+      chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
+
+      d.run do
+        assert_raise Fluent::Plugin::Extractor::SizeLimitError do
+          Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
+            d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
+          end
+        end
+      end
+    end
   end
 
   sub_test_case 'warning' do

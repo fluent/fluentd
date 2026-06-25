@@ -20,7 +20,7 @@ module Fluent
   module Plugin
     class Buffer
       class MemoryChunk < Chunk
-        def initialize(metadata, compress: :text)
+        def initialize(metadata, compress: :text, decompression_size_limit: Compressable::DEFAULT_DECOMPRESSION_SIZE_LIMIT)
           super
           @chunk = ''.force_encoding(Encoding::ASCII_8BIT)
           @chunk_bytes = 0

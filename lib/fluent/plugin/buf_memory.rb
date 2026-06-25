@@ -27,7 +27,7 @@ module Fluent
       end
 
       def generate_chunk(metadata)
-        Fluent::Plugin::Buffer::MemoryChunk.new(metadata, compress: @compress)
+        Fluent::Plugin::Buffer::MemoryChunk.new(metadata, compress: @compress, decompression_size_limit: @decompression_size_limit)
       end
     end
   end

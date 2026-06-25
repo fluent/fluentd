@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/plugin/extractor'
 require 'fluent/plugin/input'
 require 'fluent/plugin/parser'
 require 'fluent/event'
@@ -64,6 +65,8 @@ module Fluent::Plugin
     config_param :bind, :string, default: '0.0.0.0'
     desc 'The size limit of the POSTed element. Default is 32MB.'
     config_param :body_size_limit, :size, default: 32*1024*1024  # TODO default
+    desc 'The size limit of the decompressed element.'
+    config_param :decompression_size_limit, :size, default: 256*1024*1024  # TODO default
     desc 'The timeout limit for keeping the connection alive.'
     config_param :keepalive_timeout, :time, default: 10   # TODO default
     config_param :backlog, :integer, default: nil
@@ -259,7 +262,7 @@ module Fluent::Plugin
 
     def on_server_connect(conn)
       handler = Handler.new(conn, @km, method(:on_request),
-                            @body_size_limit, @format_name, log,
+                            @body_size_limit, @decompression_size_limit, @format_name, log,
                             @cors_allow_origins, @cors_allow_credentials,
                             @add_query_params)
 
@@ -343,12 +346,13 @@ module Fluent::Plugin
     class Handler
       attr_reader :content_type
 
-      def initialize(io, km, callback, body_size_limit, format_name, log,
+      def initialize(io, km, callback, body_size_limit, decompression_size_limit, format_name, log,
                      cors_allow_origins, cors_allow_credentials, add_query_params)
         @io = io
         @km = km
         @callback = callback
         @body_size_limit = body_size_limit
+        @decompression_size_limit = decompression_size_limit
         @next_close = false
         @format_name = format_name
         @log = log
@@ -518,9 +522,9 @@ module Fluent::Plugin
         # For now, we only support 'gzip' and 'deflate'.
         begin
           if @content_encoding == 'gzip'.freeze
-            @body = Zlib::GzipReader.new(StringIO.new(@body)).read
+            @body = Extractor.decompress_gzip(@body, limit: @decompression_size_limit)
           elsif @content_encoding == 'deflate'.freeze
-            @body = Zlib::Inflate.inflate(@body)
+            @body = Extractor.decompress_deflate(@body, limit: @decompression_size_limit)
           end
         rescue
           @log.warn 'fails to decode payload', error: $!.to_s
