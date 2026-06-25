@@ -44,6 +44,8 @@ module Fluent
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{([-_.@$a-zA-Z0-9]+)\}/
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[-?\d+\])?)\}/
       CHUNK_ID_PLACEHOLDER_PATTERN = /\$\{chunk_id\}/
+      INVALID_PATH_COMPONENT_PATTERN = %r{\.\.[/\\]|^[/\\]}
+      PARENT_DIRECTORY_PATTERN = %r{\.\.[/\\]}
 
       CHUNKING_FIELD_WARN_NUM = 4
 
@@ -825,9 +827,17 @@ module Fluent
           # ${tag}, ${tag[0]}, ${tag[1]}, ... , ${tag[-2]}, ${tag[-1]}
           if @chunk_key_tag
             if str.include?('${tag}')
+              if metadata.tag.match?(INVALID_PATH_COMPONENT_PATTERN)
+                raise Fluent::UnrecoverableError, "Invalid path component detected in tag: #{metadata.tag}"
+              end
+
               rvalue = rvalue.gsub('${tag}', metadata.tag)
             end
             if CHUNK_TAG_PLACEHOLDER_PATTERN.match?(str)
+              if metadata.tag.match?(INVALID_PATH_COMPONENT_PATTERN)
+                raise Fluent::UnrecoverableError, "Invalid path component detected in tag: #{metadata.tag}"
+              end
+
               hash = {}
               tag_parts = metadata.tag.split('.')
               tag_parts.each_with_index do |part, i|
@@ -858,9 +868,20 @@ module Fluent
             end
 
             rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN) do |matched|
-              hash.fetch(matched) do
+              replace = hash.fetch(matched) do
                 log.warn "chunk key placeholder '#{matched[2..-2]}' not replaced. template:#{str}"
                 ''
+              end
+              if replace.to_s.match?(INVALID_PATH_COMPONENT_PATTERN)
+                raise Fluent::UnrecoverableError, "Invalid path component detected in #{matched}: #{replace}"
+              end
+
+              replace
+            end
+            # Check if the number of parent directory components (../) has increased due to variable substitution
+            if rvalue.match?(PARENT_DIRECTORY_PATTERN)
+              if rvalue.scan(PARENT_DIRECTORY_PATTERN).size > str.scan(PARENT_DIRECTORY_PATTERN).size
+                raise Fluent::UnrecoverableError, "Invalid path component detected, replaced to: #{rvalue}"
               end
             end
           end
