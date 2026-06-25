@@ -448,6 +448,129 @@ class OutputTest < Test::Unit::TestCase
       assert { logs.any? { |log| log.include?("chunk key placeholder 'key2' not replaced. template:#{tmpl}") } }
     end
 
+    sub_test_case 'Path boundary validation for ${tag} placeholder' do
+      data(
+        'normal_dot'   => 'app.web',
+        'safe_slash'   => 'app/web',
+        'symbol_mixed' => 'my_tag-123',
+        'no_match'     => 'app..web/log',
+      )
+      test 'allows valid tags including safe slashes' do |tag|
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        v = { key1: "value1" }
+        m = create_metadata(timekey: t, tag: tag, variables: v)
+        result = @i.extract_placeholders("/data/${tag}/log", m)
+        assert_equal "/data/#{tag}/log", result
+      end
+
+      data(
+        'unix_relative'    => '../etc/cron.d',
+        'windows_relative' => '..\\Windows\\System32',
+        'unix_absolute'    => '/etc/passwd',
+        'windows_absolute' => '\\Windows'
+      )
+      test 'rejects tags containing parent directory relative or absolute root paths' do |tag|
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        v = { key1: "value1" }
+        m = create_metadata(timekey: t, tag: tag, variables: v)
+
+        err = assert_raise(Fluent::UnrecoverableError) do
+          @i.extract_placeholders("/data/${tag}/log", m)
+        end
+        assert_match(/Invalid path component detected in tag/, err.message)
+      end
+
+      data(
+        'unix_relative'    => '../etc/cron.d',
+        'windows_relative' => '..\\Windows\\System32',
+        'unix_absolute'    => '/etc/passwd',
+        'windows_absolute' => '\\Windows'
+      )
+      test 'rejects tags containing traversal paths even when only parts are used' do |tag|
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        v = { key1: "value1" }
+        m = create_metadata(timekey: t, tag: tag, variables: v)
+
+        err = assert_raise(Fluent::UnrecoverableError) do
+          @i.extract_placeholders("/data/${tag[0]}/log", m)
+        end
+        assert_match(/Invalid path component detected in tag/, err.message)
+      end
+
+      data(
+        'unix_relative'    => '../etc/cron.d',
+        'windows_relative' => '..\\Windows\\System32',
+        'unix_absolute'    => '/etc/passwd',
+        'windows_absolute' => '\\Windows'
+      )
+      test 'rejects variables containing parent directory relative or absolute root paths' do |var_value|
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag,file')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        v = { file: var_value }
+        m = create_metadata(timekey: t, tag: 'app.web', variables: v)
+
+        err = assert_raise(Fluent::UnrecoverableError) do
+          @i.extract_placeholders("/data/${tag}/${file}", m)
+        end
+        assert_match(/Invalid path component detected in \$\{file\}/, err.message)
+      end
+
+      data(
+        'combined ../' => { dot: '.', dotslash: './', file: 'safe.log' },
+        'combined ..\\' => { dot: '.', dotslash: '.\\', file: 'safe.log' },
+        )
+      test 'rejects combined variables containing dot and slash combination' do |var_value|
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag,dot,dotslash,file')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        v = var_value
+        m = create_metadata(timekey: t, tag: 'app.web', variables: v)
+
+        err = assert_raise(Fluent::UnrecoverableError) do
+          @i.extract_placeholders("/data/${dot}${dotslash}${file}", m)
+        end
+        assert_match(/Invalid path component detected, replaced to/, err.message)
+      end
+
+      test 'passes safely when placeholder expansion does NOT introduce additional ../' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'val1,val2,val3')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        v = { val1: "safe", val2: "." }
+        m = create_metadata(timekey: t, variables: v)
+
+        result = @i.extract_placeholders("../data/${val1}${val2}log", m)
+        assert_equal "../data/safe.log", result
+      end
+
+      data(
+        'normal_string' => 'app.log',
+        'safe_slash'    => 'logs/app.log',
+        'integer_val'   => 80,
+        'boolean_val'   => true
+      )
+      test 'allows valid variables including safe strings and non-string types' do |var_value|
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag,file')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        v = { file: var_value }
+        m = create_metadata(timekey: t, tag: 'app.web', variables: v)
+
+        result = @i.extract_placeholders("/data/${tag}/${file}", m)
+        assert_equal "/data/app.web/#{var_value}", result
+      end
+
+      test 'skips validation if ${tag} placeholder is not used' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        v = { key1: "value1" }
+        m = create_metadata(timekey: t, tag: '../etc/passwd', variables: v)
+
+        result = @i.extract_placeholders("/data/static/log", m)
+        assert_equal "/data/static/log", result
+      end
+    end
+
     sub_test_case '#placeholder_validators' do
       test 'returns validators for time, tag and keys when a template has placeholders even if plugin is not configured with these keys' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
