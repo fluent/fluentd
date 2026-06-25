@@ -12,6 +12,42 @@
 
 # v1.19
 
+## Release v1.19.3 - 2026/06/25
+
+### Bug Fix
+
+* out_http: add strict host validation for dynamic endpoints https://github.com/fluent/fluentd/pull/5394
+* buffer, in_http: enforce size limits on decompressed payloads https://github.com/fluent/fluentd/pull/5393
+* in_monitor_agent: change default visibility of config, retry, and debug info https://github.com/fluent/fluentd/pull/5392
+* output: enforce strict path boundary validation for tag https://github.com/fluent/fluentd/pull/5391
+* engine: remove duplicated word in unreloadable plugin error message https://github.com/fluent/fluentd/pull/5389
+* storage_local: fix encoding error when reading non-ASCII characters https://github.com/fluent/fluentd/pull/5382
+* parser_csv: skip empty or unparseable lines https://github.com/fluent/fluentd/pull/5359
+* out_forward: avoid reusing closed keepalive sockets after remote disconnects https://github.com/fluent/fluentd/pull/5343
+* buffer: resume buffer correctly even though path contains [] https://github.com/fluent/fluentd/pull/5305
+* in_debug_agent: accept only from local machine by default https://github.com/fluent/fluentd/pull/5279
+
+### Misc
+
+* gem: add win32-registry as runtime dependency for Ruby 4.1 https://github.com/fluent/fluentd/pull/5317
+* output windows: check shorter service timeout on shutdown https://github.com/fluent/fluentd/pull/5306
+* buffer: warn if default timekey (1d) will be used https://github.com/fluent/fluentd/pull/5291
+* warn recommended exclusion path for antivirus https://github.com/fluent/fluentd/pull/5280
+* CI fixes
+  * https://github.com/fluent/fluentd/pull/5387
+  * https://github.com/fluent/fluentd/pull/5386
+  * https://github.com/fluent/fluentd/pull/5366
+  * https://github.com/fluent/fluentd/pull/5342
+  * https://github.com/fluent/fluentd/pull/5341
+  * https://github.com/fluent/fluentd/pull/5340
+  * https://github.com/fluent/fluentd/pull/5339
+  * https://github.com/fluent/fluentd/pull/5338
+  * https://github.com/fluent/fluentd/pull/5337
+  * https://github.com/fluent/fluentd/pull/5336
+  * https://github.com/fluent/fluentd/pull/5335
+  * https://github.com/fluent/fluentd/pull/5334
+  * https://github.com/fluent/fluentd/pull/5333
+
 ## Release v1.19.2 - 2026/02/13
 
 ### Bug Fix
