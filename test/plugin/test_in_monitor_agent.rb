@@ -35,7 +35,9 @@ class MonitorAgentInputTest < Test::Unit::TestCase
     assert_equal(24220, d.instance.port)
     assert_equal(nil, d.instance.tag)
     assert_equal(60, d.instance.emit_interval)
-    assert_true d.instance.include_config
+    assert_false d.instance.include_config
+    assert_false d.instance.include_retry
+    assert_false d.instance.include_debug_info
   end
 
   sub_test_case "collect in_monitor_agent plugin statistics" do
@@ -614,8 +616,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       d.instance_shutdown
     end
 
-    data(:with_config_and_retry_yes => [true, true, "?with_config=yes&with_retry"],
-         :with_config_and_retry_no => [false, false, "?with_config=no&with_retry=no"])
+    data(:with_config_and_retry_yes => [true, true, "?with_config=no&with_retry=no"],
+         :with_config_and_retry_no => [false, false, "?with_config=yes&with_retry=yes"])
     test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, with_retry, query_param)|
 
       d = create_driver("
@@ -623,6 +625,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   bind '127.0.0.1'
   port #{@port}
   tag monitor
+  include_config #{with_config}
+  include_retry #{with_retry}
 ")
       d.instance.start
       expected_test_in_response = {
@@ -659,6 +663,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       }
       expected_null_response["config"] = {"@id" => "null", "@type" => "null"} if with_config
       expected_null_response["retry"] = {} if with_retry
+      # The values are retrieved based on the configuration settings, regardless of query parameters.
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json#{query_param}").body)
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
@@ -674,6 +679,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   bind '127.0.0.1'
   port #{@port}
   tag monitor
+  include_debug_info true
 ")
       d.instance.start
       expected_test_in_response = {
@@ -710,7 +716,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "flush_time_count" => Integer,
         "drop_oldest_chunk_count" => Integer,
       }
-      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_config=no&with_retry=no&with_ivars=id,num_errors").body)
+      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_config=no&with_retry=no&with_ivars=id,non_existed_ivar").body)
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
@@ -758,6 +764,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   bind '127.0.0.1'
   port #{@port}
   tag monitor
+  include_debug_info true
 ")
       d.instance.start
       # To check pretty print
@@ -823,7 +830,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   @type monitor_agent
   bind '127.0.0.1'
   port #{@port}
-  include_config no
+  include_config false
+  include_retry true
 ")
       d.instance.start
       output = @ra.outputs[0]
@@ -966,6 +974,88 @@ EOC
       assert_equal(false, d.instance.instance_variable_get(:@first_warn))
 
       d.instance_shutdown
+    end
+  end
+
+  sub_test_case 'debug information exposure configurations' do
+    setup do
+      @port = unused_port(protocol: :tcp)
+
+      conf = <<~EOC
+        <source>
+          @type test_in
+          @id test_in
+        </source>
+      EOC
+      @ra = Fluent::RootAgent.new(log: $log)
+      stub(Fluent::Engine).root_agent { @ra }
+      @ra = configure_ra(@ra, conf)
+    end
+
+    def config(include_debug_info:)
+      <<~"CONFIG"
+        @type monitor_agent
+        bind '127.0.0.1'
+        port #{@port}
+        tag monitor
+        include_debug_info #{include_debug_info}
+      CONFIG
+    end
+
+    sub_test_case "include_debug_info true" do
+      test "'/api/plugins.json?with_ivars=xxx' expose instance variables" do
+        d = create_driver(config(include_debug_info: true))
+        d.instance.start
+
+        response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_ivars=id").body)
+        test_in_response = response["plugins"][0]
+        assert_equal({"id" => "test_in"} , test_in_response["instance_variables"])
+
+        d.instance_shutdown
+      end
+
+      test "'/api/plugins.json?debug=1' expose instance variables" do
+        d = create_driver(config(include_debug_info: true))
+        d.instance.start
+
+        response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?debug=1").body)
+        test_in_response = response["plugins"][0]
+        assert_true(test_in_response.has_key?("instance_variables"))
+        # check existence about one of typical debug element
+        assert_false(test_in_response["instance_variables"]["log"].nil?)
+
+        d.instance_shutdown
+      end
+    end
+
+    sub_test_case "include_debug_info false" do
+      test "'/api/plugins.json?with_ivars=xxx' does not expose instance variables" do
+        d = create_driver(config(include_debug_info: false))
+        d.instance.start
+
+        response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_ivars=id").body)
+        test_in_response = response["plugins"][0]
+        assert_false(test_in_response.has_key?("instance_variables"))
+
+        no_query_response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json").body)
+        assert_equal(response, no_query_response)
+
+        d.instance_shutdown
+      end
+
+      test "'/api/plugins.json?debug=1' does not expose instance variables" do
+        d = create_driver(config(include_debug_info: false))
+        d.instance.start
+
+        response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?debug=1").body)
+        test_in_response = response["plugins"][0]
+        assert_false(test_in_response.has_key?("instance_variables"))
+
+        no_query_response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json").body)
+        assert_equal(response, no_query_response)
+
+        d.instance_shutdown
+      end
     end
   end
 end

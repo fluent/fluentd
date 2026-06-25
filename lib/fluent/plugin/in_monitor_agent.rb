@@ -37,9 +37,11 @@ module Fluent::Plugin
     desc 'Determine the rate to emit internal metrics as events.'
     config_param :emit_interval, :time, default: 60
     desc 'Determine whether to include the config information.'
-    config_param :include_config, :bool, default: true
+    config_param :include_config, :bool, default: false
     desc 'Determine whether to include the retry information.'
-    config_param :include_retry, :bool, default: true
+    config_param :include_retry, :bool, default: false
+    desc 'Determine whether to include the debug information.'
+    config_param :include_debug_info, :bool, default: false
 
     class APIHandler
       def initialize(agent)
@@ -151,28 +153,23 @@ module Fluent::Plugin
         # parse ?=query string
         qs.merge!(req.query || {})
 
-        # if ?debug=1 is set, set :with_debug_info for get_monitor_info
-        # and :pretty_json for render_json_error
-        opts = { query: qs }
-        if qs['debug'.freeze].first
-          opts[:with_debug_info] = true
-          opts[:pretty_json] = true
-        end
+        opts = {
+          query: qs,
+          with_config: @agent.include_config,
+          with_retry: @agent.include_retry
+        }
 
-        if ivars = qs['with_ivars'.freeze].first
-          opts[:ivars] = ivars.split(',')
-        end
+        if @agent.include_debug_info
+          # if ?debug=1 is set, set :with_debug_info for get_monitor_info
+          # and :pretty_json for render_json_error
+          if qs['debug'.freeze].first
+            opts[:with_debug_info] = true
+            opts[:pretty_json] = true
+          end
 
-        if with_config = qs['with_config'.freeze].first
-          opts[:with_config] = Fluent::Config.bool_value(with_config)
-        else
-          opts[:with_config] = @agent.include_config
-        end
-
-        if with_retry = qs['with_retry'.freeze].first
-          opts[:with_retry] = Fluent::Config.bool_value(with_retry)
-        else
-          opts[:with_retry] = @agent.include_retry
+          if ivars = qs['with_ivars'.freeze].first
+            opts[:ivars] = ivars.split(',')
+          end
         end
 
         opts
