@@ -129,6 +129,20 @@ class FileSingleBufferTest < Test::Unit::TestCase
       p = @d.instance.buffer
       assert_equal File.join(@bufdir, 'fsb.*.buf'), p.path
     end
+
+    test 'passes decompression_size_limit to FileChunk' do
+      @d = create_driver(%[
+        <buffer tag>
+          @type file_single
+          path #{@bufdir}/foo.*.bar
+          decompression_size_limit 4m
+        </buffer>
+      ])
+      p = @d.instance.buffer
+      chunk = p.generate_chunk(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+
+      assert_equal 4 * 1024 * 1024, chunk.instance_variable_get(:@decompression_size_limit)
+    end
   end
 
   sub_test_case 'buffer configurations and workers' do

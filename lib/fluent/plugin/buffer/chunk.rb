@@ -48,7 +48,7 @@ module Fluent
 
         # TODO: CompressedPackedMessage of forward protocol?
 
-        def initialize(metadata, compress: :text)
+        def initialize(metadata, compress: :text, decompression_size_limit: Compressable::DEFAULT_DECOMPRESSION_SIZE_LIMIT)
           super()
           @unique_id = generate_unique_id
           @metadata = metadata
@@ -64,6 +64,7 @@ module Fluent
           elsif compress == :zstd
             extend ZstdDecompressable
           end
+          @decompression_size_limit = decompression_size_limit
         end
 
         attr_reader :unique_id, :metadata, :state

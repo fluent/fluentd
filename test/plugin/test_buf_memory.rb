@@ -39,4 +39,13 @@ class MemoryBufferTest < Test::Unit::TestCase
     assert c2.is_a? Fluent::Plugin::Buffer::MemoryChunk
     assert_equal m2, c2.metadata
   end
+
+  test 'passes decompression_size_limit to MemoryChunk' do
+    @p.configure(config_element('buffer', '', {'decompression_size_limit' => 4 * 1024 * 1024}))
+
+    meta = Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil)
+    chunk = @p.generate_chunk(meta)
+
+    assert_equal 4 * 1024 * 1024, chunk.instance_variable_get(:@decompression_size_limit)
+  end
 end

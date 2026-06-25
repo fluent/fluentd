@@ -35,8 +35,8 @@ module Fluent
 
         attr_reader :path, :permission
 
-        def initialize(metadata, path, mode, key, perm: Fluent::DEFAULT_FILE_PERMISSION, compress: :text)
-          super(metadata, compress: compress)
+        def initialize(metadata, path, mode, key, perm: Fluent::DEFAULT_FILE_PERMISSION, compress: :text, decompression_size_limit: Compressable::DEFAULT_DECOMPRESSION_SIZE_LIMIT)
+          super(metadata, compress: compress, decompression_size_limit: decompression_size_limit)
           @key = key
           perm ||= Fluent::DEFAULT_FILE_PERMISSION
           @permission = perm.is_a?(String) ? perm.to_i(8) : perm

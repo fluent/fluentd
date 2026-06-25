@@ -268,11 +268,12 @@ module Fluent
   end
 
   class CompressedMessagePackEventStream < MessagePackEventStream
-    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil, compress: :gzip)
+    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil, compress: :gzip, decompression_size_limit: Fluent::Plugin::Compressable::DEFAULT_DECOMPRESSION_SIZE_LIMIT)
       super(data, cached_unpacker, size, unpacked_times: unpacked_times, unpacked_records: unpacked_records)
       @decompressed_data = nil
       @compressed_data = data
       @type = compress
+      @decompression_size_limit = decompression_size_limit
     end
 
     def empty?

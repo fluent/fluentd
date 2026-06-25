@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/plugin/extractor'
 require 'stringio'
 require 'zlib'
 require 'zstd-ruby'
@@ -21,6 +22,8 @@ require 'zstd-ruby'
 module Fluent
   module Plugin
     module Compressable
+      DEFAULT_DECOMPRESSION_SIZE_LIMIT = 256 * 1024 * 1024
+
       def compress(data, type: :gzip, **kwargs)
         output_io = kwargs[:output_io]
         io = output_io || StringIO.new
@@ -60,79 +63,21 @@ module Fluent
 
       private
 
-      def string_decompress_gzip(compressed_data)
-        io = StringIO.new(compressed_data)
-        out = ''
-        loop do
-          reader = Zlib::GzipReader.new(io)
-          out << reader.read
-          unused = reader.unused
-          reader.finish
-          unless unused.nil?
-            adjust = unused.length
-            io.pos -= adjust
-          end
-          break if io.eof?
-        end
-        out
-      end
-
-      def string_decompress_zstd(compressed_data)
-        io = StringIO.new(compressed_data)
-        reader = Zstd::StreamReader.new(io)
-        out = ''
-        loop do
-          # Zstd::StreamReader needs to specify the size of the buffer
-          out << reader.read(1024)
-          # Zstd::StreamReader doesn't provide unused data, so we have to manually adjust the position
-          break if io.eof?
-        end
-        out
-      end
-
       def string_decompress(compressed_data, type = :gzip)
         if type == :gzip
-          string_decompress_gzip(compressed_data)
+          Extractor.decompress_gzip(compressed_data, limit: @decompression_size_limit || DEFAULT_DECOMPRESSION_SIZE_LIMIT)
         elsif type == :zstd
-          string_decompress_zstd(compressed_data)
+          Extractor.decompress_zstd(compressed_data, limit: @decompression_size_limit || DEFAULT_DECOMPRESSION_SIZE_LIMIT)
         else
           raise ArgumentError, "Unknown compression type: #{type}"
         end
       end
 
-      def io_decompress_gzip(input, output)
-        loop do
-          reader = Zlib::GzipReader.new(input)
-          v = reader.read
-          output.write(v)
-          unused = reader.unused
-          reader.finish
-          unless unused.nil?
-            adjust = unused.length
-            input.pos -= adjust
-          end
-          break if input.eof?
-        end
-        output
-      end
-
-      def io_decompress_zstd(input, output)
-        reader = Zstd::StreamReader.new(input)
-        loop do
-          # Zstd::StreamReader needs to specify the size of the buffer
-          v = reader.read(1024)
-          output.write(v)
-          # Zstd::StreamReader doesn't provide unused data, so we have to manually adjust the position
-          break if input.eof?
-        end
-        output
-      end
-
       def io_decompress(input, output, type = :gzip)
         if type == :gzip
-          io_decompress_gzip(input, output)
+          Extractor.io_decompress_gzip(input, output)
         elsif type == :zstd
-          io_decompress_zstd(input, output)
+          Extractor.io_decompress_zstd(input, output)
         else
           raise ArgumentError, "Unknown compression type: #{type}"
         end

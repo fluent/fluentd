@@ -54,6 +54,8 @@ module Fluent::Plugin
     config_param :chunk_size_warn_limit, :size, default: nil
     desc 'Received chunk is dropped if it is larger than this value.'
     config_param :chunk_size_limit, :size, default: nil
+    desc 'The size limit of the decompressed element.'
+    config_param :decompression_size_limit, :size, default: 256*1024*1024
     desc 'Skip an event if incoming event is invalid.'
     config_param :skip_invalid_event, :bool, default: true
 
@@ -311,7 +313,7 @@ module Fluent::Plugin
         size = option['size'] || 0
 
         if option['compressed'] && option['compressed'] != 'text'
-          es = Fluent::CompressedMessagePackEventStream.new(entries, nil, size.to_i, compress: option['compressed'].to_sym)
+          es = Fluent::CompressedMessagePackEventStream.new(entries, nil, size.to_i, compress: option['compressed'].to_sym, decompression_size_limit: @decompression_size_limit)
         else
           es = Fluent::MessagePackEventStream.new(entries, nil, size.to_i)
         end

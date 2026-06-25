@@ -183,7 +183,7 @@ module Fluent
           end
 
           begin
-            chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(m, path, mode, @key_in_path, compress: @compress)
+            chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(m, path, mode, @key_in_path, compress: @compress, decompression_size_limit: @decompression_size_limit)
             chunk.restore_size(@chunk_format) if @calc_num_records
           rescue Fluent::Plugin::Buffer::FileSingleChunk::FileChunkError => e
             exist_broken_file = true
@@ -216,7 +216,7 @@ module Fluent
       def generate_chunk(metadata)
         # FileChunk generates real path with unique_id
         perm = @file_permission || system_config.file_permission
-        chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(metadata, @path, :create, @key_in_path, perm: perm, compress: @compress)
+        chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(metadata, @path, :create, @key_in_path, perm: perm, compress: @compress, decompression_size_limit: @decompression_size_limit)
 
         log.debug "Created new chunk", chunk_id: dump_unique_id_hex(chunk.unique_id), metadata: metadata
 
