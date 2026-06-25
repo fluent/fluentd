@@ -17,6 +17,7 @@
 require 'net/http'
 require 'uri'
 require 'openssl'
+require 'securerandom'
 require 'fluent/tls'
 require 'fluent/plugin/output'
 require 'fluent/plugin_helper/socket'
@@ -57,6 +58,9 @@ module Fluent::Plugin
     config_param :headers_from_placeholders, :hash, default: nil
     desc 'Compress HTTP request body'
     config_param :compress, :enum, list: [:text, :gzip], default: :text
+
+    desc 'Allowed hosts list for dynamic endpoints'
+    config_param :allowed_hosts, :array, default: []
 
     desc 'The connection open timeout in seconds'
     config_param :open_timeout, :integer, default: nil
@@ -106,6 +110,11 @@ module Fluent::Plugin
       config_param :aws_role_arn, :string, default: nil
     end
 
+    # To prevent URI::InvalidURIError, we replace Fluentd placeholders with a dummy string.
+    # We use the ".invalid" TLD (RFC 2606) to ensure it is RFC-compliant for URI parsing,
+    # while guaranteeing it will never conflict with a real-world hostname.
+    REPLACED_ENDPOINT_PLACEHOLDER = "#{SecureRandom.uuid}.invalid".freeze
+
     def connection_cache_id_thread_key
       "#{plugin_id}_connection_cache_id"
     end
@@ -144,6 +153,15 @@ module Fluent::Plugin
       if @retryable_response_codes.nil?
         log.warn('Status code 503 is going to be removed from default `retryable_response_codes` from fluentd v2. Please add it by yourself if you wish')
         @retryable_response_codes = [503]
+      end
+
+      begin
+        # Replace all Fluentd placeholder syntaxes (${...} or %{...})
+        endpoint = @endpoint.gsub(%r([$%]{[^}]+}), REPLACED_ENDPOINT_PLACEHOLDER)
+        # If @endpoint has placeholder as host name, then, @endpoint_host == REPLACED_ENDPOINT_PLACEHOLDER
+        @endpoint_host = URI.parse(endpoint).host
+      rescue URI::InvalidURIError => e
+        raise Fluent::ConfigError, "Invalid endpoint URI: #{@endpoint} (#{e.message})"
       end
 
       @http_opt = setup_http_option
@@ -278,7 +296,19 @@ module Fluent::Plugin
 
     def parse_endpoint(chunk)
       endpoint = extract_placeholders(@endpoint, chunk)
-      URI.parse(endpoint)
+      uri = URI.parse(endpoint)
+
+      if @endpoint_host != uri.host
+        if @allowed_hosts.empty?
+          raise Fluent::UnrecoverableError, "allowed_hosts is strictly required when using placeholders in the endpoint host"
+        end
+
+        unless @allowed_hosts.include?(uri.host)
+          raise Fluent::UnrecoverableError, "Not allowed host: #{uri.host}"
+        end
+      end
+
+      uri
     end
 
     def set_headers(req, uri, chunk)

@@ -228,6 +228,12 @@ class HTTPOutputTest < Test::Unit::TestCase
     assert_equal content_type, d.instance.content_type
   end
 
+  def test_configure_allowed_hosts
+    d = create_driver(config + 'allowed_hosts ["example.com"]')
+
+    assert_equal ["example.com"], d.instance.allowed_hosts
+  end
+
   data('PUT' => 'put', 'POST' => 'post')
   def test_write_with_method(method)
     d = create_driver(config + "http_method #{method}")
@@ -598,6 +604,63 @@ class HTTPOutputTest < Test::Unit::TestCase
       assert_equal 'application/x-ndjson', result.content_type
       assert_equal test_events, data.concat(result.data)
       assert_not_empty result.headers
+    end
+  end
+
+  sub_test_case 'dynamic endpoint host validation in parse_endpoint' do
+    setup do
+      @chunk = Object.new
+    end
+
+    test 'allows request when host does not change (e.g., placeholder only in path)' do
+      plugin = create_driver(%(
+        endpoint http://api.example.com/logs/${tag}
+      )).instance
+
+      stub(plugin).extract_placeholders { 'http://api.example.com/logs/my.custom.tag' }
+
+      uri = plugin.send(:parse_endpoint, @chunk)
+      assert_equal 'api.example.com', uri.host
+      assert_equal '/logs/my.custom.tag', uri.path
+    end
+
+    test 'allows request when host changes and new host is in allowed_hosts' do
+      plugin = create_driver(%(
+        endpoint http://${tag}:8080/api
+        allowed_hosts ["known-host.example.com", "another-host.example.com"]
+      )).instance
+
+      stub(plugin).extract_placeholders { 'http://known-host.example.com:8080/api' }
+
+      uri = plugin.send(:parse_endpoint, @chunk)
+      assert_equal 'known-host.example.com', uri.host
+    end
+
+    test 'raises UnrecoverableError when host changes and allowed_hosts is empty' do
+      plugin = create_driver(%(
+        endpoint http://${tag}:8080/api
+      )).instance
+
+      stub(plugin).extract_placeholders { 'http://unknown-host.example.com:8080/api' }
+
+      err = assert_raise(Fluent::UnrecoverableError) do
+        plugin.send(:parse_endpoint, @chunk)
+      end
+      assert_match(/allowed_hosts is strictly required when using placeholders in the endpoint host/, err.message)
+    end
+
+    test 'raises UnrecoverableError when host changes and it is not in allowed_hosts' do
+      plugin = create_driver(%(
+        endpoint http://${tag}:8080/api
+        allowed_hosts ["known-host.example.com"]
+      )).instance
+
+      stub(plugin).extract_placeholders { 'http://unknown-host.example.com:8080/api' }
+
+      err = assert_raise(Fluent::UnrecoverableError) do
+        plugin.send(:parse_endpoint, @chunk)
+      end
+      assert_match(/Not allowed host: unknown-host\.example\.com/, err.message)
     end
   end
 end
