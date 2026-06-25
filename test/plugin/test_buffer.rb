@@ -1454,8 +1454,8 @@ class BufferTest < Test::Unit::TestCase
       @p = create_buffer({'compress' => 'gzip', 'chunk_limit_size' => 70})
       timestamp = event_time('2016-04-11 16:00:02 +0000')
       es = Fluent::ArrayEventStream.new([[timestamp, {"message" => "012345"}], # overflow
-                                         [timestamp, {"message" => "a"}],
-                                         [timestamp, {"message" => "b"}]])
+                                         [timestamp, {"message" => "aaa"}],
+                                         [timestamp, {"message" => "bbb"}]])
       assert_equal [], @p.queue.map(&:metadata)
       assert_equal 70, @p.chunk_limit_size
 
