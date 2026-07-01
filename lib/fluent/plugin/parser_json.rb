@@ -18,7 +18,6 @@ require 'fluent/plugin/parser'
 require 'fluent/time'
 require 'fluent/oj_options'
 
-require 'yajl'
 require 'json'
 
 module Fluent
@@ -28,12 +27,10 @@ module Fluent
 
       config_set_default :time_key, 'time'
       desc 'Set JSON parser'
+      # NOTE: Contains yajl for backward compatibility
       config_param :json_parser, :enum, list: [:oj, :yajl, :json], default: :oj
 
-      # The Yajl library defines a default buffer size of 8KiB when parsing
-      # from IO streams, so maintain this for backwards-compatibility.
-      # https://www.rubydoc.info/github/brianmario/yajl-ruby/Yajl%2FParser:parse
-      desc 'Set the buffer size that Yajl will use when parsing streaming input'
+      desc 'Set the buffer size that JSON parser will use when parsing streaming input'
       config_param :stream_buffer_size, :integer, default: 8192
 
       config_set_default :time_type, :float
@@ -54,8 +51,8 @@ module Fluent
 
           log&.info "Oj is not installed, and failing back to JSON for json parser"
           configure_json_parser(:json)
-        when :json then [JSON.method(:parse), JSON::ParserError]
-        when :yajl then [Yajl.method(:load), Yajl::ParseError]
+        when :yajl, :json # NOTE: Fallback yajl to json for backward compatibility
+          [JSON.method(:parse), JSON::ParserError]
         else
           raise "BUG: unknown json parser specified: #{name}"
         end
@@ -94,11 +91,17 @@ module Fluent
       end
 
       def parse_io(io, &block)
-        y = Yajl::Parser.new
-        y.on_parse_complete = ->(record){
-          block.call(parse_time(record), record)
-        }
-        y.parse(io, @stream_buffer_size)
+        parser = JSON::ResumableParser.new({})
+        begin
+          while (chunk = io.readpartial(@stream_buffer_size))
+            parser << chunk
+            while parser.parse
+              record = parser.value
+              block.call(parse_time(record), record)
+            end
+          end
+        rescue EOFError
+        end
       end
     end
   end

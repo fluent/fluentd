@@ -19,7 +19,7 @@ require 'fluent/plugin/input'
 require 'fluent/msgpack_factory'
 
 require 'cool.io'
-require 'yajl'
+require 'json'
 require 'fileutils'
 require 'socket'
 
@@ -158,8 +158,7 @@ module Fluent::Plugin
         first = data[0]
         if first == '{'.freeze || first == '['.freeze
           m = method(:on_read_json)
-          @parser = Yajl::Parser.new
-          @parser.on_parse_complete = @on_message
+          @parser = JSON::ResumableParser.new({})
         else
           m = method(:on_read_msgpack)
           @parser = Fluent::MessagePackFactory.msgpack_unpacker
@@ -173,6 +172,9 @@ module Fluent::Plugin
 
       def on_read_json(data)
         @parser << data
+        while @parser.parse
+          @on_message.call(@parser.value)
+        end
       rescue => e
         @log.error "unexpected error in json payload", error: e.to_s
         @log.error_backtrace

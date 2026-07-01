@@ -17,7 +17,7 @@
 
 require 'fluent/plugin/input'
 require 'fluent/msgpack_factory'
-require 'yajl'
+require 'json'
 require 'digest'
 require 'securerandom'
 
@@ -250,13 +250,15 @@ module Fluent::Plugin
         unless feeder
           first = data[0]
           if first == '{' || first == '[' # json
-            parser = Yajl::Parser.new
-            parser.on_parse_complete = ->(obj){
-              block.call(obj, bytes, serializer)
-              bytes = 0
-            }
+            parser = JSON::ResumableParser.new({})
             serializer = :to_json.to_proc
-            feeder = ->(d){ parser << d }
+            feeder = ->(d){
+              parser << d
+              while parser.parse
+                block.call(parser.value, bytes, serializer)
+                bytes = 0
+              end
+            }
           else # msgpack
             parser = Fluent::MessagePackFactory.msgpack_unpacker
             serializer = :to_msgpack.to_proc

@@ -16,7 +16,6 @@
 
 require 'msgpack'
 require 'json'
-require 'yajl'
 
 require 'fluent/engine'
 require 'fluent/plugin'
@@ -77,10 +76,20 @@ module Fluent
       end
 
       class JSONParser < Parser
+        BYTES_TO_READ = 8192
+
         def call(io)
-          y = Yajl::Parser.new
-          y.on_parse_complete = @on_message
-          y.parse(io)
+          parser = JSON::ResumableParser.new({})
+          begin
+            chunk = +"".b
+            while io.readpartial(BYTES_TO_READ, chunk)
+              parser << chunk
+              while parser.parse
+                @on_message.call(parser.value)
+              end
+            end
+          rescue EOFError
+          end
         end
       end
 
