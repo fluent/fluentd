@@ -17,7 +17,6 @@
 require 'stringio'
 
 require 'json'
-require 'yajl'
 require 'socket'
 require 'ripper'
 
