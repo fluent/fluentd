@@ -201,7 +201,7 @@ module Fluent
       return nil if val.nil?
 
       param = if val.is_a?(String)
-                val.start_with?('{') ? JSON.parse(val) : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
+                val.start_with?('{') ? JSON.parse(val, Fluent::DEFAULT_JSON_PARSE_OPTIONS) : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
               else
                 val
               end
@@ -228,7 +228,7 @@ module Fluent
       return nil if val.nil?
 
       param = if val.is_a?(String)
-                val.start_with?('[') ? JSON.parse(val) : val.strip.split(/\s*,\s*/)
+                val.start_with?('[') ? JSON.parse(val, Fluent::DEFAULT_JSON_PARSE_OPTIONS) : val.strip.split(/\s*,\s*/)
               else
                 val
               end

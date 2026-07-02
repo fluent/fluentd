@@ -90,7 +90,7 @@ module Fluent
                 log.warn "detect empty plugin storage file during startup. Ignored: #{@path}"
                 return
               end
-              data = JSON.parse(data)
+              data = JSON.parse(data, Fluent::DEFAULT_JSON_PARSE_OPTIONS)
               raise Fluent::ConfigError, "Invalid contents (not object) in plugin storage file: '#{@path}'" unless data.is_a?(Hash)
             rescue => e
               log.error "failed to read data from plugin storage file", path: @path, error: e
@@ -114,7 +114,7 @@ module Fluent
         return unless File.exist?(@path)
         begin
           json_string = File.open(@path, 'r:utf-8:utf-8'){ |io| io.read }
-          json = JSON.parse(json_string)
+          json = JSON.parse(json_string, Fluent::DEFAULT_JSON_PARSE_OPTIONS)
           unless json.is_a?(Hash)
             log.error "broken content for plugin storage (Hash required: ignored)", type: json.class
             log.debug "broken content", content: json_string

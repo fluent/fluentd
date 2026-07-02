@@ -18,6 +18,7 @@ require 'socket'
 require 'json'
 require 'ostruct'
 
+require 'fluent/env'
 require 'fluent/plugin/filter'
 require 'fluent/config/error'
 require 'fluent/event'
@@ -116,7 +117,7 @@ module Fluent::Plugin
 
     def parse_value(value_str)
       if value_str.start_with?('{', '[')
-        JSON.parse(value_str)
+        JSON.parse(value_str, Fluent::DEFAULT_JSON_PARSE_OPTIONS)
       else
         value_str
       end
