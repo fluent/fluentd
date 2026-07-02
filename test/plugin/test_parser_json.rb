@@ -10,7 +10,7 @@ class JsonParserTest < ::Test::Unit::TestCase
 
   sub_test_case "configure_json_parser" do
     data("oj", [:oj, [Oj.method(:load), Oj::ParseError]])
-    data("json", [:json, [JSON.method(:parse), JSON::ParserError]])
+    data("json", [:json, [Fluent::Plugin::JSONParser::JSON_PARSE_PROC, JSON::ParserError]])
     data("yajl", [:yajl, [Yajl.method(:load), Yajl::ParseError]])
     def test_return_each_loader((input, expected_return))
       result = @parser.instance.configure_json_parser(input)
@@ -28,7 +28,7 @@ class JsonParserTest < ::Test::Unit::TestCase
 
       result = @parser.instance.configure_json_parser(:oj)
 
-      assert_equal [JSON.method(:parse), JSON::ParserError], result
+      assert_equal [Fluent::Plugin::JSONParser::JSON_PARSE_PROC, JSON::ParserError], result
       logs = @parser.logs.collect do |log|
         log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
       end
@@ -50,6 +50,16 @@ class JsonParserTest < ::Test::Unit::TestCase
                      'method' => 'PUT',
                    }, record)
     }
+  end
+
+  data('oj' => 'oj', 'json' => 'json', 'yajl' => 'yajl')
+  def test_parse_with_duplicated_key(data)
+    @parser.configure('json_parser' => data)
+    assert_nothing_raised do
+      @parser.instance.parse('{"k":"a","k":"b"}') { |time, record|
+        assert_equal('b', record['k'])
+      }
+    end
   end
 
   data('oj' => 'oj', 'yajl' => 'yajl')

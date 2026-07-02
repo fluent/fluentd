@@ -16,6 +16,7 @@
 
 require 'cool.io'
 
+require 'fluent/env'
 require 'fluent/plugin_helper'
 require 'fluent/plugin/service_discovery'
 
@@ -75,7 +76,7 @@ module Fluent
             -> (v) { YAML.safe_load(v).map }
           when :json
             require 'json'
-            -> (v) { JSON.parse(v) }
+            -> (v) { JSON.parse(v, Fluent::DEFAULT_JSON_PARSE_OPTIONS) }
           end
       end
 
