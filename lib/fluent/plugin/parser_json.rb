@@ -98,7 +98,8 @@ module Fluent
       def parse_io(io, &block)
         parser = JSON::ResumableParser.new({})
         begin
-          while (chunk = io.readpartial(@stream_buffer_size))
+          chunk = +"".b
+          while io.readpartial(@stream_buffer_size, chunk)
             parser << chunk
             while parser.parse
               record = parser.value
