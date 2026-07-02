@@ -158,7 +158,7 @@ module Fluent::Plugin
         first = data[0]
         if first == '{'.freeze || first == '['.freeze
           m = method(:on_read_json)
-          @parser = JSON::ResumableParser.new({})
+          @parser = JSON::ResumableParser.new(Fluent::DEFAULT_JSON_PARSE_OPTIONS)
         else
           m = method(:on_read_msgpack)
           @parser = Fluent::MessagePackFactory.msgpack_unpacker

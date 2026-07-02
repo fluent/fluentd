@@ -96,7 +96,7 @@ module Fluent
       end
 
       def parse_io(io, &block)
-        parser = JSON::ResumableParser.new({})
+        parser = JSON::ResumableParser.new(Fluent::DEFAULT_JSON_PARSE_OPTIONS)
         begin
           chunk = +"".b
           while io.readpartial(@stream_buffer_size, chunk)

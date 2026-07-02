@@ -15,6 +15,7 @@
 #
 
 
+require 'fluent/env'
 require 'fluent/plugin/input'
 require 'fluent/msgpack_factory'
 require 'json'
@@ -250,7 +251,7 @@ module Fluent::Plugin
         unless feeder
           first = data[0]
           if first == '{' || first == '[' # json
-            parser = JSON::ResumableParser.new({})
+            parser = JSON::ResumableParser.new(Fluent::DEFAULT_JSON_PARSE_OPTIONS)
             serializer = :to_json.to_proc
             feeder = ->(d){
               parser << d
