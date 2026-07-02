@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/env'
 require 'fluent/plugin/parser'
 require 'fluent/time'
 require 'fluent/oj_options'
@@ -38,6 +39,10 @@ module Fluent
 
       config_set_default :time_type, :float
 
+      # Use a shared proc rather than a per-call lambda so that
+      # configure_json_parser returns the same object every time.
+      JSON_PARSE_PROC = ->(text) { JSON.parse(text, Fluent::DEFAULT_JSON_PARSE_OPTIONS) }
+
       def configure(conf)
         if conf.has_key?('time_format')
           conf['time_type'] ||= 'string'
@@ -54,7 +59,7 @@ module Fluent
 
           log&.info "Oj is not installed, and failing back to JSON for json parser"
           configure_json_parser(:json)
-        when :json then [JSON.method(:parse), JSON::ParserError]
+        when :json then [JSON_PARSE_PROC, JSON::ParserError]
         when :yajl then [Yajl.method(:load), Yajl::ParseError]
         else
           raise "BUG: unknown json parser specified: #{name}"

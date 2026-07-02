@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/env'
 require 'fluent/config/configure_proxy'
 require 'fluent/config/section'
 require 'fluent/config/error'
