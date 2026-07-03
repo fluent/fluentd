@@ -70,6 +70,12 @@ class EventTimeTest < Test::Unit::TestCase
     assert_equal('["tag",100,{"key":"value"}]', Oj.dump(["tag", time, {"key" => "value"}], mode: :compat))
   end
 
+  test 'JSON.generate' do
+    time = Fluent::EventTime.new(100)
+    assert_equal('{"time":100}', JSON.generate({'time' => time}))
+    assert_equal('["tag",100,{"key":"value"}]', JSON.generate(["tag", time, {"key" => "value"}]))
+  end
+
   test '.from_time' do
     sec = 1000
     usec = 2
