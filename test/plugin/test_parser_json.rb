@@ -3,6 +3,38 @@ require 'fluent/test/driver/parser'
 require 'fluent/plugin/parser'
 
 class JsonParserTest < ::Test::Unit::TestCase
+  # Captures warnings emitted via Warning.warn while a capture buffer is set.
+  # `Module#prepend` cannot be undone, so the hook is installed once and
+  # delegates to `super` whenever no capture is active, keeping other tests
+  # unaffected.
+  module WarningCapture
+    class << self
+      attr_accessor :buffer
+    end
+
+    def warn(message, category: nil)
+      buffer = WarningCapture.buffer
+      if buffer
+        buffer << message
+      else
+        super
+      end
+    end
+  end
+  Warning.singleton_class.prepend(WarningCapture)
+
+  def with_captured_warnings
+    warnings = []
+    original_deprecated = Warning[:deprecated]
+    Warning[:deprecated] = true
+    WarningCapture.buffer = warnings
+    yield
+    warnings
+  ensure
+    WarningCapture.buffer = nil
+    Warning[:deprecated] = original_deprecated
+  end
+
   def setup
     Fluent::Test.setup
     @parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
@@ -215,6 +247,66 @@ class JsonParserTest < ::Test::Unit::TestCase
 
     assert_equal [{ "a" => 1 }, { "b" => 2 }], records
     assert_equal [], @parser.logs
+  end
+
+  # Yajl silently accepted duplicate keys (last value wins). The json gem
+  # warns on duplicate keys today and will raise in json 3.0 unless
+  # `allow_duplicate_key: true` is passed. These tests are two-fold:
+  # the last-wins assertions catch the json 3.0 raise, while the
+  # no-deprecation-warning assertions catch a missing option on current
+  # json 2.x, where duplicate keys still succeed with only a warning.
+  sub_test_case "duplicate keys are allowed for Yajl compatibility" do
+    DUPLICATE_KEY_JSON = '{"k":"a","k":"b"}'
+
+    def test_parse_io_last_value_wins_without_deprecation_warning
+      parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
+      parser.configure('json_parser' => 'json')
+
+      records = []
+      warnings = with_captured_warnings do
+        parser.instance.parse_io(StringIO.new(DUPLICATE_KEY_JSON)) do |_time, record|
+          records << record
+        end
+      end
+
+      assert_equal([{"k" => "b"}], records)
+      assert_equal([], warnings.grep(/duplicate key/))
+    end
+
+    data('oj' => 'oj', 'json' => 'json', 'yajl' => 'yajl')
+    def test_parse_last_value_wins_without_deprecation_warning(data)
+      # Use a fresh parser per test to avoid the json gem's per-parser
+      # deprecation warning cap (MAX_DEPRECATIONS) masking later warnings.
+      parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
+      parser.configure('json_parser' => data)
+
+      records = []
+      warnings = with_captured_warnings do
+        parser.instance.parse(DUPLICATE_KEY_JSON) do |_time, record|
+          records << record
+        end
+      end
+
+      assert_equal([{"k" => "b"}], records)
+      assert_equal([], warnings.grep(/duplicate key/))
+    end
+
+    def test_parse_io_multiple_documents_with_duplicated_keys
+      parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
+      parser.configure('json_parser' => 'json')
+
+      io = StringIO.new('{"k":"a","k":"b"}{"k":"c","k":"d"}')
+
+      records = []
+      warnings = with_captured_warnings do
+        parser.instance.parse_io(io) do |_time, record|
+          records << record
+        end
+      end
+
+      assert_equal([{"k" => "b"}, {"k" => "d"}], records)
+      assert_equal([], warnings.grep(/duplicate key/))
+    end
   end
 
   sub_test_case "various record pattern" do
