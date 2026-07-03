@@ -107,11 +107,7 @@ module Fluent
             end
           end
         rescue EOFError
-          # `rest` only reflects unconsumed tokenizer bytes, so a cut on a
-          # complete token boundary leaves it empty; `partial_value` covers
-          # those cases. Use `partial_value` only for its nil check: the
-          # partially built object it returns may hold sensitive record data
-          # and must never be logged.
+          # TODO: Once https://github.com/ruby/json/pull/1048 lands, replace this with the dedicated predicate
           if !parser.rest.empty? || !parser.partial_value.nil?
             log&.warn "JSON stream ended in the middle of a document; " \
                       "discarding incomplete data"
