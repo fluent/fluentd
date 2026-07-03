@@ -107,6 +107,10 @@ module Fluent
             end
           end
         rescue EOFError
+          unless parser.rest.empty?
+            log&.warn "JSON stream ended in the middle of a document; " \
+                      "discarding incomplete data", discarded_bytes: parser.rest.bytesize
+          end
         end
       end
     end

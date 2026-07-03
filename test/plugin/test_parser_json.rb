@@ -177,6 +177,46 @@ class JsonParserTest < ::Test::Unit::TestCase
     end
   end
 
+  def test_parse_io_warns_on_truncated_stream
+    @parser.configure('json_parser' => 'json')
+    io = StringIO.new('{"a":1}{"b":2')
+
+    records = []
+    assert_nothing_raised do
+      @parser.instance.parse_io(io) do |time, record|
+        records << record
+      end
+    end
+
+    assert_equal [{ "a" => 1 }], records
+
+    logs = @parser.logs.collect do |log|
+      log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
+    end
+    assert_equal 1, logs.size
+    assert_match(/\[warn\]: JSON stream ended in the middle of a document/, logs.first)
+    assert_match(/discarding incomplete data/, logs.first)
+    # Only the byte count is recorded, never the incomplete bytes themselves,
+    # since a record fragment may contain sensitive data.
+    assert_match(/discarded_bytes=1/, logs.first)
+    assert_not_match(/"b"/, logs.first)
+  end
+
+  def test_parse_io_does_not_warn_on_complete_stream
+    @parser.configure('json_parser' => 'json')
+    io = StringIO.new('{"a":1}{"b":2}')
+
+    records = []
+    assert_nothing_raised do
+      @parser.instance.parse_io(io) do |time, record|
+        records << record
+      end
+    end
+
+    assert_equal [{ "a" => 1 }, { "b" => 2 }], records
+    assert_equal [], @parser.logs
+  end
+
   sub_test_case "various record pattern" do
     data("Only string", { record: '"message"', expected: [nil] }, keep: true)
     data("Only string without quotation", { record: "message", expected: [nil] }, keep: true)
