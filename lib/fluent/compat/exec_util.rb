@@ -90,9 +90,14 @@ module Fluent
               end
             end
           rescue EOFError
-            unless parser.rest.empty?
+            # `rest` only reflects unconsumed tokenizer bytes, so a cut on a
+            # complete token boundary leaves it empty; `partial_value` covers
+            # those cases. Use `partial_value` only for its nil check: the
+            # partially built object it returns may hold sensitive record data
+            # and must never be logged.
+            if !parser.rest.empty? || !parser.partial_value.nil?
               $log&.warn "JSON stream ended in the middle of a document; " \
-                         "discarding incomplete data", discarded_bytes: parser.rest.bytesize
+                         "discarding incomplete data"
             end
           end
         end

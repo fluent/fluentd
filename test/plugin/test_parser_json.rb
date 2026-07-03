@@ -209,9 +209,18 @@ class JsonParserTest < ::Test::Unit::TestCase
     end
   end
 
-  def test_parse_io_warns_on_truncated_stream
+  # `rest` alone cannot detect a stream cut on a complete token boundary, so
+  # these shapes exercise the `rest` / `partial_value` logical-OR classifier.
+  # 'after-comma' is the critical case: without `partial_value` the whole
+  # record was silently dropped with no warning.
+  data('mid-token'   => ['{"a":1}{"b":2', [{"a" => 1}]],
+       'after-colon' => ['{"a":1}{"b":',  [{"a" => 1}]],
+       'after-brace' => ['{"a":1}{',      [{"a" => 1}]],
+       'after-comma' => ['{"a":1,',       []])
+  def test_parse_io_warns_on_truncated_stream(data)
+    input, expected_records = data
     @parser.configure('json_parser' => 'json')
-    io = StringIO.new('{"a":1}{"b":2')
+    io = StringIO.new(input)
 
     records = []
     assert_nothing_raised do
@@ -220,7 +229,7 @@ class JsonParserTest < ::Test::Unit::TestCase
       end
     end
 
-    assert_equal [{ "a" => 1 }], records
+    assert_equal expected_records, records
 
     logs = @parser.logs.collect do |log|
       log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
@@ -228,15 +237,18 @@ class JsonParserTest < ::Test::Unit::TestCase
     assert_equal 1, logs.size
     assert_match(/\[warn\]: JSON stream ended in the middle of a document/, logs.first)
     assert_match(/discarding incomplete data/, logs.first)
-    # Only the byte count is recorded, never the incomplete bytes themselves,
-    # since a record fragment may contain sensitive data.
-    assert_match(/discarded_bytes=1/, logs.first)
+    # The incomplete bytes themselves must never be logged, since a record
+    # fragment may contain sensitive data.
     assert_not_match(/"b"/, logs.first)
+    assert_not_match(/"a"/, logs.first)
   end
 
-  def test_parse_io_does_not_warn_on_complete_stream
+  data('no-trailing-space' => ['{"a":1}{"b":2}', [{"a" => 1}, {"b" => 2}]],
+       'trailing-space'    => ['{"a":1} ',       [{"a" => 1}]])
+  def test_parse_io_does_not_warn_on_complete_stream(data)
+    input, expected_records = data
     @parser.configure('json_parser' => 'json')
-    io = StringIO.new('{"a":1}{"b":2}')
+    io = StringIO.new(input)
 
     records = []
     assert_nothing_raised do
@@ -245,7 +257,7 @@ class JsonParserTest < ::Test::Unit::TestCase
       end
     end
 
-    assert_equal [{ "a" => 1 }, { "b" => 2 }], records
+    assert_equal expected_records, records
     assert_equal [], @parser.logs
   end
 
