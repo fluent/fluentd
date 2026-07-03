@@ -225,8 +225,10 @@ EOM
 
       def scan_json(is_array)
         result = nil
-        # Yajl does not raise ParseError for incomplete json string, like '[1', '{"h"', '{"h":' or '{"h1":1'
-        # This is the reason to use JSON module.
+        # scan_json detects the end of a JSON literal by repeatedly attempting
+        # to parse the buffer and treating a successful parse as completion.
+        # This requires a parser that raises JSON::ParserError for incomplete
+        # input like '[1', '{"h"', '{"h":' or '{"h1":1'.
 
         buffer = (is_array ? "[" : "{")
         line_buffer = ""
