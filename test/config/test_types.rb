@@ -378,14 +378,19 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "value_type: :integer w/o quote" => [[1,2,1], '1,2,1', {value_type: :integer}],
          "bare integer (YAML scalar)" => [[503], 503, {}],
          "bare integer w/ value_type" => [[503], 503, {value_type: :integer}],
+         "bare float (YAML scalar)" => [[1.5], 1.5, {}],
+         "bare true (YAML scalar)" => [[true], true, {}],
+         "bare false (YAML scalar)" => [[false], false, {}],
          "already an array is untouched" => [[503], [503], {}])
     test 'array' do |(expected, val, opts)|
       assert_equal(expected, Config::ARRAY_TYPE.call(val, opts))
     end
 
     data("hash" => [{"key" => "value"}, {}],
-         "hash w/ value_type" => [{"key" => "1"}, {value_type: :integer}])
-    test 'array w/ hash still raises' do |(val, opts)|
+         "hash w/ value_type" => [{"key" => "1"}, {value_type: :integer}],
+         "symbol" => [:foo, {}],
+         "time" => [Time.at(0), {}])
+    test 'array w/ unexpected type still raises' do |(val, opts)|
       assert_raise(Fluent::ConfigError.new("array required but got #{val.inspect}")) do
         Config::ARRAY_TYPE.call(val, opts)
       end
