@@ -15,6 +15,7 @@
 #
 
 require 'msgpack'
+require 'fluent/json'
 require 'json'
 
 require 'fluent/env'
@@ -77,6 +78,8 @@ module Fluent
       end
 
       class JSONParser < Parser
+        using Fluent::JSONResumableParserEmptyPredicate
+
         BYTES_TO_READ = 8192
 
         def call(io)
@@ -90,8 +93,7 @@ module Fluent
               end
             end
           rescue EOFError
-            # TODO: Once https://github.com/ruby/json/pull/1048 lands, replace this with the dedicated predicate
-            if !parser.rest.empty? || !parser.partial_value.nil?
+            unless parser.empty?
               $log&.warn "JSON stream ended in the middle of a document; " \
                          "discarding incomplete data"
             end

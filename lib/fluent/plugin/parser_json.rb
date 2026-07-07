@@ -19,11 +19,14 @@ require 'fluent/plugin/parser'
 require 'fluent/time'
 require 'fluent/oj_options'
 
+require 'fluent/json'
 require 'json'
 
 module Fluent
   module Plugin
     class JSONParser < Parser
+      using Fluent::JSONResumableParserEmptyPredicate
+
       Plugin.register_parser('json', self)
 
       config_set_default :time_key, 'time'
@@ -107,8 +110,7 @@ module Fluent
             end
           end
         rescue EOFError
-          # TODO: Once https://github.com/ruby/json/pull/1048 lands, replace this with the dedicated predicate
-          if !parser.rest.empty? || !parser.partial_value.nil?
+          unless parser.empty?
             log&.warn "JSON stream ended in the middle of a document; " \
                       "discarding incomplete data"
           end
