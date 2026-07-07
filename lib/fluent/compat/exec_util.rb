@@ -15,9 +15,10 @@
 #
 
 require 'msgpack'
+require 'fluent/json'
 require 'json'
-require 'yajl'
 
+require 'fluent/env'
 require 'fluent/engine'
 require 'fluent/plugin'
 require 'fluent/parser'
@@ -77,10 +78,26 @@ module Fluent
       end
 
       class JSONParser < Parser
+        using Fluent::JSONResumableParserEmptyPredicate
+
+        BYTES_TO_READ = 8192
+
         def call(io)
-          y = Yajl::Parser.new
-          y.on_parse_complete = @on_message
-          y.parse(io)
+          parser = JSON::ResumableParser.new(Fluent::DEFAULT_JSON_PARSE_OPTIONS)
+          begin
+            chunk = +"".b
+            while io.readpartial(BYTES_TO_READ, chunk)
+              parser << chunk
+              while parser.parse
+                @on_message.call(parser.value)
+              end
+            end
+          rescue EOFError
+            unless parser.empty?
+              $log&.warn "JSON stream ended in the middle of a document; " \
+                         "discarding incomplete data"
+            end
+          end
         end
       end
 

@@ -241,6 +241,33 @@ class ForwardInputTest < Test::Unit::TestCase
 
       assert_equal(records, d.events.sort_by {|a| a[0] })
     end
+
+    # Regression test for allow_duplicate_key: Yajl silently accepted
+    # duplicate keys (last value wins), and json 3.0 will raise unless the
+    # option is passed to JSON::ResumableParser.
+    test 'json_with_duplicated_keys_in_record' do
+      @d = d = create_driver
+
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
+
+      # Ruby Hash cannot hold duplicate keys, so build the payloads by hand.
+      messages = [
+        %Q(["tag1",#{time_i},{"k":"a","k":"b"}]),
+        %Q(["tag2",#{time_i},{"k":"c","k":"d"}]),
+      ]
+
+      d.run(expect_records: messages.length, timeout: 20) do
+        messages.each {|message|
+          send_data message
+        }
+      end
+
+      expected = [
+        ["tag1", time_i, {"k" => "b"}],
+        ["tag2", time_i, {"k" => "d"}],
+      ]
+      assert_equal(expected, d.events.sort_by {|a| a[0] })
+    end
   end
 
   sub_test_case 'forward' do

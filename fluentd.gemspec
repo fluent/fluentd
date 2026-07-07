@@ -29,7 +29,6 @@ Gem::Specification.new do |gem|
 
   gem.add_runtime_dependency("bundler")
   gem.add_runtime_dependency("msgpack", [">= 1.3.1", "< 2.0.0"])
-  gem.add_runtime_dependency("yajl-ruby", ["~> 1.0"])
   gem.add_runtime_dependency("cool.io", [">= 1.4.5", "< 2.0.0"])
   gem.add_runtime_dependency("serverengine", [">= 2.3.2", "< 3.0.0"])
   gem.add_runtime_dependency("http_parser.rb", [">= 0.5.1", "< 0.9.0"])
@@ -42,6 +41,16 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("uri", '~> 1.0')
   gem.add_runtime_dependency("net-http", '~> 0.8')
   gem.add_runtime_dependency("async-http", "~> 0.86")
+  gem.add_runtime_dependency("json", '>= 2.20')
+
+  if Gem::Version.new(RUBY_VERSION) < Gem::Version.new("4.1")
+    # Fluentd itself no longer uses yajl-ruby, replaced with JSON::ResumableParser.
+    # This dependency is kept temporarily because some third-party plugins `require 'yajl'` without declaring
+    # it in their own gemspec, relying on Fluentd to pull it in.
+    # The version guard exists because yajl-ruby fails to build on Ruby >= 4.1.
+    # We can remove this dependency when retired to support Ruby 4.0 or below.
+    gem.add_runtime_dependency("yajl-ruby", ["~> 1.0"])
+  end
 
   # gems that aren't default gems as of Ruby 3.4
   gem.add_runtime_dependency("base64", ["~> 0.2"])

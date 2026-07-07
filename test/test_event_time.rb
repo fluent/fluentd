@@ -1,7 +1,7 @@
 require_relative 'helper'
 require 'timecop'
 require 'oj'
-require 'yajl'
+require 'json'
 
 class EventTimeTest < Test::Unit::TestCase
   setup do
@@ -70,10 +70,10 @@ class EventTimeTest < Test::Unit::TestCase
     assert_equal('["tag",100,{"key":"value"}]', Oj.dump(["tag", time, {"key" => "value"}], mode: :compat))
   end
 
-  test 'Yajl.dump' do
+  test 'JSON.generate' do
     time = Fluent::EventTime.new(100)
-    assert_equal('{"time":100}', Yajl.dump({'time' => time}))
-    assert_equal('["tag",100,{"key":"value"}]', Yajl.dump(["tag", time, {"key" => "value"}]))
+    assert_equal('{"time":100}', JSON.generate({'time' => time}))
+    assert_equal('["tag",100,{"key":"value"}]', JSON.generate(["tag", time, {"key" => "value"}]))
   end
 
   test '.from_time' do
