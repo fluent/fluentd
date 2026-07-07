@@ -229,8 +229,10 @@ module Fluent
 
       param = if val.is_a?(String)
                 val.start_with?('[') ? JSON.parse(val, Fluent::DEFAULT_JSON_PARSE_OPTIONS) : val.strip.split(/\s*,\s*/)
-              else
+              elsif val.is_a?(Array) || val.is_a?(Hash)
                 val
+              else
+                [val]
               end
       if param.class != Array
         raise ConfigError, "array required but got #{val.inspect}"

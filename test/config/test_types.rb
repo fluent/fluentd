@@ -375,7 +375,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "space in a value w/o qupte" => [["a a","b","c"], 'a a,b,c', {}],
          "integers" => [[1,2,1], '[1,2,1]', {}],
          "value_type: :integer w/ quote" => [[1,2,1], '["1","2","1"]', {value_type: :integer}],
-         "value_type: :integer w/o quote" => [[1,2,1], '1,2,1', {value_type: :integer}])
+         "value_type: :integer w/o quote" => [[1,2,1], '1,2,1', {value_type: :integer}],
+         "bare integer (YAML scalar)" => [[503], 503, {}],
+         "bare integer w/ value_type" => [[503], 503, {value_type: :integer}],
+         "already an array is untouched" => [[503], [503], {}])
     test 'array' do |(expected, val, opts)|
       assert_equal(expected, Config::ARRAY_TYPE.call(val, opts))
     end
