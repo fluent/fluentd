@@ -383,6 +383,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(expected, Config::ARRAY_TYPE.call(val, opts))
     end
 
+    data("hash" => [{"key" => "value"}, {}],
+         "hash w/ value_type" => [{"key" => "1"}, {value_type: :integer}])
+    test 'array w/ hash still raises' do |(val, opts)|
+      assert_raise(Fluent::ConfigError.new("array required but got #{val.inspect}")) do
+        Config::ARRAY_TYPE.call(val, opts)
+      end
+    end
+
     data('["1","2"]' => [["1","2"], '["1","2"]'],
          '["3"]' => [["3"], '["3"]'])
     test 'array w/ default values' do |(expected, val)|
