@@ -32,6 +32,12 @@ module Fluent::Plugin
     helpers :server
 
     LISTEN_PORT = 24224
+    OPTION_ACK = 'ack'.freeze
+    OPTION_CHUNK = 'chunk'.freeze
+    OPTION_COMPRESSED = 'compressed'.freeze
+    OPTION_FLUENT_SIGNAL = 'fluent_signal'.freeze
+    OPTION_SIZE = 'size'.freeze
+    OPTION_TEXT = 'text'.freeze
 
     desc 'The port to listen to.'
     config_param :port, :integer, default: LISTEN_PORT
@@ -278,8 +284,8 @@ module Fluent::Plugin
     end
 
     def response(option)
-      if option && option['chunk']
-        return { 'ack' => option['chunk'] }
+      if option && option[OPTION_CHUNK]
+        return { OPTION_ACK => option[OPTION_CHUNK] }
       end
       nil
     end
@@ -313,14 +319,19 @@ module Fluent::Plugin
       when String
         # PackedForward
         option = msg[2] || {}
-        size = option['size'] || 0
+        size = option[OPTION_SIZE] || 0
+        compressed = option[OPTION_COMPRESSED]
 
-        if option['compressed'] && option['compressed'] != 'text'
-          es = Fluent::CompressedMessagePackEventStream.new(entries, nil, size.to_i, compress: option['compressed'].to_sym, decompression_size_limit: @decompression_size_limit)
+        if compressed && compressed != OPTION_TEXT
+          es = Fluent::CompressedMessagePackEventStream.new(entries, nil, size.to_i, compress: compressed.to_sym, decompression_size_limit: @decompression_size_limit)
         else
           es = Fluent::MessagePackEventStream.new(entries, nil, size.to_i)
         end
-        es = check_and_skip_invalid_event(tag, es, conn.remote_host) if @skip_invalid_event
+        if @skip_invalid_event
+          es = normalize_event_stream(tag, es, conn.remote_host)
+        elsif option[OPTION_FLUENT_SIGNAL] == 0
+          es = Fluent::MetadataTimeEventStream.new(es)
+        end
         if @enable_field_injection
           es = add_source_info(es, conn)
         end
@@ -328,19 +339,7 @@ module Fluent::Plugin
 
       when Array
         # Forward
-        es = if @skip_invalid_event
-               check_and_skip_invalid_event(tag, entries, conn.remote_host)
-             else
-               es = Fluent::MultiEventStream.new
-               entries.each { |e|
-                 record = e[1]
-                 next if record.nil?
-                 time = e[0]
-                 time = Fluent::EventTime.now if time.nil? || time.to_i == 0 # `to_i == 0` for empty EventTime
-                 es.add(time, record)
-               }
-               es
-             end
+        es = normalize_event_stream(tag, entries, conn.remote_host)
         if @enable_field_injection
           es = add_source_info(es, conn)
         end
@@ -349,7 +348,7 @@ module Fluent::Plugin
 
       else
         # Message
-        time = msg[1]
+        time = extract_event_time(msg[1])
         record = msg[2]
         if @skip_invalid_event && invalid_event?(tag, time, record)
           log.warn "got invalid event and drop it:", host: conn.remote_host, tag: tag, time: time, record: record
@@ -370,19 +369,27 @@ module Fluent::Plugin
     end
 
     def invalid_event?(tag, time, record)
+      time = extract_event_time(time)
       !((time.is_a?(Integer) || time.is_a?(::Fluent::EventTime)) && record.is_a?(Hash) && tag.is_a?(String))
     end
 
-    def check_and_skip_invalid_event(tag, es, remote_host)
+    def normalize_event_stream(tag, es, remote_host)
       new_es = Fluent::MultiEventStream.new
       es.each { |time, record|
-        if invalid_event?(tag, time, record)
+        time = extract_event_time(time)
+        if @skip_invalid_event && invalid_event?(tag, time, record)
           log.warn "skip invalid event:", host: remote_host, tag: tag, time: time, record: record
           next
         end
+        next if record.nil?
+        time = Fluent::EventTime.now if time.nil? || time.to_i == 0 # `to_i == 0` for empty EventTime
         new_es.add(time, record)
       }
       new_es
+    end
+
+    def extract_event_time(time)
+      time.is_a?(Array) ? time[0] : time
     end
 
     def add_source_info(es, conn)

@@ -309,6 +309,43 @@ module Fluent
     end
   end
 
+  class MetadataTimeEventStream < EventStream
+    def initialize(es)
+      @es = es
+    end
+
+    def empty?
+      @es.empty?
+    end
+
+    def dup
+      self.class.new(@es.dup)
+    end
+
+    def size
+      @es.size
+    end
+
+    def repeatable?
+      @es.repeatable?
+    end
+
+    def slice(index, num)
+      self.class.new(@es.slice(index, num))
+    end
+
+    def each(unpacker: nil, &block)
+      @es.each(unpacker: unpacker) do |time, record|
+        next if record.nil?
+
+        time = time[0] if time.is_a?(Array)
+        time = Fluent::EventTime.now if time.nil? || time.to_i == 0
+        block.call(time, record)
+      end
+      nil
+    end
+  end
+
   module ChunkMessagePackEventStreamer
     # chunk.extend(ChunkMessagePackEventStreamer)
     #  => chunk.each{|time, record| ... }

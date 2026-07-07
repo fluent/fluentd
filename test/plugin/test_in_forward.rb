@@ -303,6 +303,26 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal(records, d.events)
     end
 
+    test 'metadata attached logs type in entries array' do
+      @d = d = create_driver(base_config + "skip_invalid_event false")
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+      metadata = {}
+
+      records = [
+        {"a"=>1},
+        {"a"=>2}
+      ]
+
+      d.run(expect_records: records.length, timeout: 20) do
+        entries = records.map { |record| [[time, metadata], record] }
+        send_data packer.write(["tag1", entries, {"fluent_signal" => 0}]).to_s
+      end
+      assert_equal(["tag1", "tag1"], d.events.map { |tag, _time, _record| tag })
+      assert_equal([time, time], d.events.map { |_tag, time, _record| time })
+      assert_equal(records, d.events.map { |_tag, _time, record| record })
+    end
+
     data(tag: {
            param: "tag new_tag",
            result: "new_tag"
@@ -434,6 +454,29 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal(records, d.events)
     end
 
+    test 'metadata attached logs type in packed entries' do
+      @d = d = create_driver(base_config + "skip_invalid_event false")
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+      metadata = {}
+
+      records = [
+        {"a"=>1},
+        {"a"=>2},
+      ]
+
+      d.run(expect_records: records.length, timeout: 20) do
+        entries = ''
+        records.each {|record|
+          packer(entries).write([[time, metadata], record]).flush
+        }
+        send_data packer.write(["tag1", entries, {"fluent_signal" => 0}]).to_s
+      end
+      assert_equal(["tag1", "tag1"], d.events.map { |tag, _time, _record| tag })
+      assert_equal([time, time], d.events.map { |_tag, time, _record| time })
+      assert_equal(records, d.events.map { |_tag, _time, record| record })
+    end
+
     data(tag: {
            param: "tag new_tag",
            result: "new_tag"
@@ -536,6 +579,33 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'compressed packed forward' do
+    test 'metadata attached logs type without skip_invalid_event' do
+      @d = d = create_driver(base_config + "skip_invalid_event false")
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+      metadata = {}
+      records = [
+        {"a"=>1},
+        {"a"=>2},
+      ]
+
+      entries = ''
+      records.each do |record|
+        entries << compress([[time, metadata], record].to_msgpack)
+      end
+      chunk = ["tag1", entries, { 'compressed' => 'gzip', 'fluent_signal' => 0 }].to_msgpack
+
+      d.run do
+        Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
+          d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
+        end
+      end
+
+      assert_equal(["tag1", "tag1"], d.events.map { |tag, _time, _record| tag })
+      assert_equal([time, time], d.events.map { |_tag, time, _record| time })
+      assert_equal(records, d.events.map { |_tag, _time, record| record })
+    end
+
     test 'set_compress_to_option_gzip' do
       @d = d = create_driver
 
