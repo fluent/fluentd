@@ -1451,20 +1451,31 @@ class BufferTest < Test::Unit::TestCase
     end
 
     test '#write compressed data which exceeds chunk_limit_size, it raises BufferChunkOverflowError' do
-      @p = create_buffer({'compress' => 'gzip', 'chunk_limit_size' => 70})
+      # The gzipped size of a record varies by a few bytes depending on the zlib implementation (e.g. zlib vs zlib-ng),
+      # so a hard-coded chunk_limit_size makes this test environment-dependent.
+      # To keep it stable, derive chunk_limit_size from the actual gzipped size of the small records
+      # so that they always fit into a chunk, while the overflowing record is chosen to always exceed the limit by a wide
+      # margin regardless of the zlib implementation.
       timestamp = event_time('2016-04-11 16:00:02 +0000')
-      es = Fluent::ArrayEventStream.new([[timestamp, {"message" => "012345"}], # overflow
+      small_chunk = @p.generate_chunk(create_metadata)
+      small_chunk.append(Fluent::ArrayEventStream.new([[timestamp, {"message" => "aaa"}]]), compress: :gzip)
+      chunk_limit_size = small_chunk.bytesize
+
+      @p = create_buffer({'compress' => 'gzip', 'chunk_limit_size' => chunk_limit_size})
+      overflow_record = "The quick brown fox jumps over the lazy dog 123456"
+      es = Fluent::ArrayEventStream.new([[timestamp, {"message" => overflow_record}],
                                          [timestamp, {"message" => "aaa"}],
                                          [timestamp, {"message" => "bbb"}]])
       assert_equal [], @p.queue.map(&:metadata)
-      assert_equal 70, @p.chunk_limit_size
+      assert_equal chunk_limit_size, @p.chunk_limit_size
 
       # calculate the actual boundary value. it varies on machine
       c = @p.generate_chunk(create_metadata)
-      c.append(Fluent::ArrayEventStream.new([[timestamp, {"message" => "012345"}]]), compress: :gzip)
+      c.append(Fluent::ArrayEventStream.new([[timestamp, {"message" => overflow_record}]]), compress: :gzip)
       overflow_bytes = c.bytesize
+      assert_operator overflow_bytes, :>, chunk_limit_size
 
-      messages = "concatenated/appended a #{overflow_bytes} bytes record (nth: 0) is larger than buffer chunk limit size (70)"
+      messages = "concatenated/appended a #{overflow_bytes} bytes record (nth: 0) is larger than buffer chunk limit size (#{chunk_limit_size})"
       assert_raise Fluent::Plugin::Buffer::BufferChunkOverflowError.new(messages) do
         # test format == nil && compress == :gzip
         @p.write({@dm0 => es})
