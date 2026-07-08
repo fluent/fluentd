@@ -142,6 +142,8 @@ class FileSingleBufferTest < Test::Unit::TestCase
       chunk = p.generate_chunk(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
 
       assert_equal 4 * 1024 * 1024, chunk.instance_variable_get(:@decompression_size_limit)
+
+      chunk.purge
     end
   end
 
