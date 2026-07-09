@@ -2777,10 +2777,18 @@ class TailInputTest < Test::Unit::TestCase
         sleep_interval = 0.1
         tail_watcher_interval = 1.0 # hard coded value in in_tail
         safety_ratio = 1.2
-        lower_jitter = sleep_interval * safety_ratio
-        upper_jitter = (tail_watcher_interval + sleep_interval) * safety_ratio
-        lower_interval = rate_period - lower_jitter
-        upper_interval = rate_period + upper_jitter
+        # The throttling guarantees that consecutive *read starts* are at least
+        # rate_period apart. However, this test measures the interval between
+        # *emit* events, and an emit happens after a whole batch (= `limit` lines,
+        # ~8MB here) has been read, i.e. at `read_start + read_duration`. Since the
+        # read duration varies per batch (especially the first batch right after
+        # the file is opened), the measured emit interval can deviate from
+        # rate_period in either direction by roughly the same magnitude as the
+        # watcher scheduling delay. Use a symmetric jitter so the lower bound also
+        # tolerates this read/observation latency.
+        jitter = (tail_watcher_interval + sleep_interval) * safety_ratio
+        lower_interval = rate_period - jitter
+        upper_interval = rate_period + jitter
 
         emit_count = 0
         prev_count = 0
