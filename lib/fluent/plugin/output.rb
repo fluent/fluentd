@@ -28,6 +28,7 @@ require 'fluent/unique_id'
 require 'fluent/clock'
 require 'fluent/ext_monitor_require'
 
+require 'json'
 require 'time'
 
 module Fluent
@@ -1220,7 +1221,7 @@ module Fluent
         end
       end
 
-      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError, MessagePack::UnpackError, EncodingError]
+      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError, MessagePack::UnpackError, EncodingError, JSON::GeneratorError]
 
       def try_flush
         chunk = @buffer.dequeue_chunk
