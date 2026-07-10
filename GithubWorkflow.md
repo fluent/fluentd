@@ -9,7 +9,7 @@ Table of Contents
 * [Create a Pull Request](#create-a-pull-request)
 
 
-The [fluentd](https://github.com/fluent/fluentd.git) code is hosted on Github (https://github.com/fluent/fluentd). The repository is called `upstream`. Contributors will develop and commit their changes in a clone of upstream repository. Then contributors push their change to their forked repository (`origin`) and create a Pull Request (PR), the PR will be merged to `upstream` repository if it meets the all the necessary requirements.		
+The [fluentd](https://github.com/fluent/fluentd.git) code is hosted on Github (https://github.com/fluent/fluentd). The repository is called `upstream`. Contributors will develop and commit their changes in a clone of upstream repository. Then contributors push their change to their forked repository (`origin`) and create a Pull Request (PR), the PR will be merged to `upstream` repository if it meets all the necessary requirements.		
 
 ## Fork a repository
 
