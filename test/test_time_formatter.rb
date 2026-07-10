@@ -196,6 +196,29 @@ class TimeFormatterTest < ::Test::Unit::TestCase
     assert_equal("20140927 0000.000000000", formatter.format(time))
   end
 
+  # The Unix epoch used to match an empty cache slot, whose string is nil.
+  def test_format_epoch
+    formatter = Fluent::TimeFormatter.new(nil, false, nil)
+    assert_equal("1970-01-01T00:00:00Z", formatter.format(Fluent::EventTime.new(0)))
+
+    formatter = Fluent::TimeFormatter.new(nil, false, nil)
+    assert_equal("1970-01-01T00:00:00Z", formatter.format(0))
+    assert_equal("1970-01-01T00:00:01Z", formatter.format(Fluent::EventTime.new(1)))
+    assert_equal("1970-01-01T00:00:00Z", formatter.format(Fluent::EventTime.new(0)))
+  end
+
+  # Here the slot is compared with EventTime.eq?, which falls back to comparing
+  # seconds alone, so the whole first second of the epoch matched an empty slot.
+  def test_format_epoch_with_subsec
+    formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M%S.%N", false, nil)
+    assert_equal("19700101 000000.000000000", formatter.format(Fluent::EventTime.new(0, 0)))
+    assert_equal("19700101 000000.123456789", formatter.format(Fluent::EventTime.new(0, 123456789)))
+    assert_equal("19700101 000000.000000000", formatter.format(Fluent::EventTime.new(0, 0)))
+
+    formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M%S.%N", false, nil)
+    assert_equal("19700101 000000.999999999", formatter.format(Fluent::EventTime.new(0, 999999999)))
+  end
+
   sub_test_case 'TimeMixin::Formatter' do
     class DummyForTimeFormatter
       include Fluent::Configurable
