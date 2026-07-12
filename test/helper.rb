@@ -84,16 +84,38 @@ def unused_port(num = 1, protocol:, bind: "0.0.0.0")
   end
 end
 
-def unused_port_tcp_udp(num = 1)
+# Excluded port ranges reserved by Hyper-V/WinNAT/HNS on Windows come in
+# blocks of about 100-200 ports and can accumulate, so the range must be
+# wide enough that reservations can only ever cover a small fraction of it.
+PORT_RANGE_TCP_UDP = (55000..65000)
+
+def unused_port_tcp_udp(num = 1, retries: 1000)
   raise "not support num > 1" if num > 1
 
-  # The default maximum number of file descriptors in macOS is 256.
-  # It might need to set num to a smaller value than that.
-  tcp_ports = unused_port_tcp(200)
-  port = unused_port_udp(1, port_list: tcp_ports)
-  raise "can't find unused port" unless port
+  # Try random candidate ports until one can be bound for both TCP and UDP.
+  retries.times do
+    port = rand(PORT_RANGE_TCP_UDP)
+    return port if port_bindable_udp?(port) && port_bindable_tcp?(port)
+  end
 
-  port
+  raise "can't find unused port"
+end
+
+def port_bindable_udp?(port)
+  u = UDPSocket.new(::Socket::AF_INET)
+  u.bind("0.0.0.0", port)
+  true
+rescue SystemCallError
+  false
+ensure
+  u.close
+end
+
+def port_bindable_tcp?(port)
+  TCPServer.open("0.0.0.0", port).close
+  true
+rescue SystemCallError
+  false
 end
 
 def unused_port_tcp(num = 1)
@@ -165,7 +187,7 @@ def ipv6_enabled?
     sock = Socket.new(Socket::AF_INET6, Socket::SOCK_STREAM, 0)
     sock.bind(Socket.sockaddr_in(0, '::1'))
     sock.close
-    
+
     # Also test that we can resolve IPv6 addresses
     # This is needed because some systems can bind but can't connect
     Socket.getaddrinfo('::1', nil, Socket::AF_INET6)
