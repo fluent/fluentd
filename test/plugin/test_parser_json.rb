@@ -62,6 +62,18 @@ class JsonParserTest < ::Test::Unit::TestCase
     end
   end
 
+  data('oj' => 'oj', 'json' => 'json', 'yajl' => 'yajl')
+  def test_parse_with_comments(data)
+    @parser.configure('json_parser' => data)
+    assert_nothing_raised do
+      @parser.instance.parse('{
+        "key1":"a", // for a,
+        "key1":"b"  // for b
+        }') { |time, record|
+      }
+    end
+  end
+
   data('oj' => 'oj', 'yajl' => 'yajl')
   def test_parse_with_large_float(data)
     @parser.configure('json_parser' => data)
