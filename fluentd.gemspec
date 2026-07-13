@@ -41,7 +41,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("uri", '~> 1.0')
   gem.add_runtime_dependency("net-http", '~> 0.8')
   gem.add_runtime_dependency("async-http", "~> 0.86")
-  gem.add_runtime_dependency("json", '>= 2.20')
+  gem.add_runtime_dependency("json", '>= 2.21')
 
   if Gem::Version.new(RUBY_VERSION) < Gem::Version.new("4.1")
     # Fluentd itself no longer uses yajl-ruby, replaced with JSON::ResumableParser.
