@@ -88,7 +88,14 @@ end
 # blocks of about 100-200 ports and can accumulate, so the range must be
 # wide enough that reservations can only ever cover a small fraction of it.
 PORT_RANGE_TCP_UDP = (55000..65000)
-
+# Windows components such as Hyper-V, WinNAT, and HNS may reserve dynamic
+# excluded port ranges. These exclusions are commonly observed in blocks of
+# roughly 100 ports and multiple ranges may coexist, so use a sufficiently
+# wide candidate range to reduce the probability that all candidates are
+# excluded.
+# About dynamic excluded port ranges, see:
+# > netsh interface ipv4 show excludedportrange protocol=tcp
+# > netsh interface ipv4 show excludedportrange protocol=ucp
 def unused_port_tcp_udp(num = 1, retries: 1000)
   raise "not support num > 1" if num > 1
 
