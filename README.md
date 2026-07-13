@@ -5,6 +5,7 @@ Fluentd: Open-Source Log Collector
 [![Test with Ruby head](https://github.com/fluent/fluentd/actions/workflows/test-ruby-head.yml/badge.svg)](https://github.com/fluent/fluentd/actions/workflows/test-ruby-head.yml)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1189/badge)](https://bestpractices.coreinfrastructure.org/projects/1189)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/fluent/fluentd/badge)](https://scorecard.dev/viewer/?uri=github.com/fluent/fluentd)
+[![Backport Pull Requests](https://github.com/fluent/fluentd/actions/workflows/backport.yml/badge.svg)](https://github.com/fluent/fluentd/actions/workflows/backport.yml)
 
 [Fluentd](https://www.fluentd.org/) collects events from various data sources and writes them to files, RDBMS, NoSQL, IaaS, SaaS, Hadoop and so on. Fluentd helps you unify your logging infrastructure (Learn more about the [Unified Logging Layer](https://www.fluentd.org/blog/unified-logging-layer)).
 
