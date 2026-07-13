@@ -24,7 +24,7 @@ Fluentd: Open-Source Log Collector
 ### Branch
 
 - master: For v1 development.
-- v0.12: For v0.12. This is deprecated version. we already stopped supporting (See https://www.fluentd.org/blog/drop-schedule-announcement-in-2019).
+- v0.12: For v0.12. This is a deprecated version. we already stopped supporting (See https://www.fluentd.org/blog/drop-schedule-announcement-in-2019).
 
 ### Prerequisites
 
