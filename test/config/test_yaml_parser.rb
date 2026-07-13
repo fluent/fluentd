@@ -1,5 +1,6 @@
 require 'helper'
 require 'fluent/config/yaml_parser'
+require 'fluent/configurable'
 require 'socket'
 require 'json'
 require 'date'
@@ -557,5 +558,39 @@ class YamlParserTest < Test::Unit::TestCase
     assert_equal(:foo, config.elements[0]['symbol1'])
     assert_equal(:bar, config.elements[0]['symbol2'])
     assert_equal(/^$/, config.elements[0]['regexp'])
+  end
+
+  class ArrayParamOutput
+    include Fluent::Configurable
+
+    config_param :retryable_response_codes, :array, value_type: :integer, default: nil
+  end
+
+  sub_test_case 'array parameter' do
+    def test_array_param_accepts_bare_scalar
+      write_config "#{TMP_DIR}/test_array_param_accepts_bare_scalar.yaml", <<~EOS
+        config:
+          - match:
+              $tag: "**"
+              $type: http
+              retryable_response_codes: 503
+      EOS
+      config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_array_param_accepts_bare_scalar.yaml")
+      target = ArrayParamOutput.new.configure(config.elements[0])
+      assert_equal([503], target.retryable_response_codes)
+    end
+
+    def test_array_param_accepts_sequence
+      write_config "#{TMP_DIR}/test_array_param_accepts_sequence.yaml", <<~EOS
+        config:
+          - match:
+              $tag: "**"
+              $type: http
+              retryable_response_codes: [502, 503]
+      EOS
+      config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_array_param_accepts_sequence.yaml")
+      target = ArrayParamOutput.new.configure(config.elements[0])
+      assert_equal([502, 503], target.retryable_response_codes)
+    end
   end
 end
