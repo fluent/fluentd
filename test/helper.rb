@@ -84,16 +84,43 @@ def unused_port(num = 1, protocol:, bind: "0.0.0.0")
   end
 end
 
-def unused_port_tcp_udp(num = 1)
+# Windows components such as Hyper-V, WinNAT, and HNS may reserve dynamic
+# excluded port ranges. These exclusions are commonly observed in blocks of
+# roughly 100 ports and multiple ranges may coexist, so use a sufficiently
+# wide candidate range to reduce the probability that all candidates are
+# excluded.
+# About dynamic excluded port ranges, see:
+# > netsh interface ipv4 show excludedportrange protocol=tcp
+# > netsh interface ipv4 show excludedportrange protocol=ucp
+PORT_RANGE_TCP_UDP = (55000..65000)
+
+def unused_port_tcp_udp(num = 1, retries: 1000)
   raise "not support num > 1" if num > 1
 
-  # The default maximum number of file descriptors in macOS is 256.
-  # It might need to set num to a smaller value than that.
-  tcp_ports = unused_port_tcp(200)
-  port = unused_port_udp(1, port_list: tcp_ports)
-  raise "can't find unused port" unless port
+  # Try random candidate ports until one can be bound for both TCP and UDP.
+  retries.times do
+    port = rand(PORT_RANGE_TCP_UDP)
+    return port if port_bindable_udp?(port) && port_bindable_tcp?(port)
+  end
 
-  port
+  raise "can't find unused port"
+end
+
+def port_bindable_udp?(port)
+  u = UDPSocket.new(::Socket::AF_INET)
+  u.bind("0.0.0.0", port)
+  true
+rescue SystemCallError
+  false
+ensure
+  u.close
+end
+
+def port_bindable_tcp?(port)
+  TCPServer.open("0.0.0.0", port).close
+  true
+rescue SystemCallError
+  false
 end
 
 def unused_port_tcp(num = 1)
