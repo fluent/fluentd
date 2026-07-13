@@ -229,6 +229,14 @@ module Fluent
 
       param = if val.is_a?(String)
                 val.start_with?('[') ? JSON.parse(val, Fluent::DEFAULT_JSON_PARSE_OPTIONS) : val.strip.split(/\s*,\s*/)
+              elsif val.is_a?(Array)
+                val
+              elsif val.is_a?(Numeric) || val == true || val == false
+                # Wrap only the bare scalars that Psych/YAML actually produces
+                # here (nil is handled by the early return above). Any other
+                # type (Hash, Symbol, Time, arbitrary objects) falls through and
+                # still raises "array required" below.
+                [val]
               else
                 val
               end
