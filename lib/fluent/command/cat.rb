@@ -326,7 +326,7 @@ case format
 when 'json'
   begin
     while line = $stdin.gets
-      record = Yajl.load(line)
+      record = JSON.parse(line, Fluent::DEFAULT_JSON_PARSE_OPTIONS)
       w.write(record)
     end
   rescue

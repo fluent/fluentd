@@ -21,6 +21,7 @@ require 'yajl'
 require 'socket'
 require 'ripper'
 
+require 'fluent/env'
 require 'fluent/config/basic_parser'
 
 module Fluent
@@ -241,7 +242,7 @@ EOM
             # '{"foo":"bar", #' -> '{"foo":"bar"}' (to check)
             parsed = nil
             begin
-              parsed = JSON.parse(buffer + line_buffer.rstrip.sub(/,$/, '') + (is_array ? "]" : "}"))
+              parsed = JSON.parse(buffer + line_buffer.rstrip.sub(/,$/, '') + (is_array ? "]" : "}"), Fluent::DEFAULT_JSON_PARSE_OPTIONS)
             rescue JSON::ParserError
               # This '#' is in json string literals
             end
@@ -276,7 +277,7 @@ EOM
 
           line_buffer << char
           begin
-            result = JSON.parse(buffer + line_buffer)
+            result = JSON.parse(buffer + line_buffer, Fluent::DEFAULT_JSON_PARSE_OPTIONS)
           rescue JSON::ParserError
             # Incomplete json string yet
           end

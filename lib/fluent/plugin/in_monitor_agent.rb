@@ -16,6 +16,7 @@
 
 require 'json'
 
+require 'fluent/env'
 require 'fluent/config/types'
 require 'fluent/plugin/input'
 require 'fluent/plugin/output'
@@ -101,7 +102,7 @@ module Fluent::Plugin
       end
 
       def render_ltsv(obj, code: 200)
-        normalized = JSON.parse(obj.to_json)
+        normalized = JSON.parse(obj.to_json, Fluent::DEFAULT_JSON_PARSE_OPTIONS)
         text = ''
         normalized.each do |hash|
           row = []

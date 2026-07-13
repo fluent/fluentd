@@ -16,6 +16,7 @@
 
 require 'json'
 
+require 'fluent/env'
 require 'fluent/plugin/input'
 require 'fluent/config/error'
 
@@ -44,7 +45,7 @@ module Fluent::Plugin
     desc "The sample data to be generated. An array of JSON hashes or a single JSON hash."
     config_param :sample, alias: :dummy, default: [{"message" => "sample"}] do |val|
       begin
-        parsed = JSON.parse(val)
+        parsed = JSON.parse(val, Fluent::DEFAULT_JSON_PARSE_OPTIONS)
       rescue JSON::ParserError => ex
         # Fluent::ConfigParseError, "got incomplete JSON" will be raised
         # at literal_parser.rb with --use-v1-config, but I had to
