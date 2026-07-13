@@ -15,7 +15,6 @@
 #
 
 require 'msgpack'
-require 'fluent/json'
 require 'json'
 
 require 'fluent/env'
@@ -78,8 +77,6 @@ module Fluent
       end
 
       class JSONParser < Parser
-        using Fluent::JSONResumableParserEmptyPredicate
-
         BYTES_TO_READ = 8192
 
         def call(io)

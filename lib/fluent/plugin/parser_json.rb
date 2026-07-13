@@ -19,14 +19,11 @@ require 'fluent/plugin/parser'
 require 'fluent/time'
 require 'fluent/oj_options'
 
-require 'fluent/json'
 require 'json'
 
 module Fluent
   module Plugin
     class JSONParser < Parser
-      using Fluent::JSONResumableParserEmptyPredicate
-
       Plugin.register_parser('json', self)
 
       config_set_default :time_key, 'time'
