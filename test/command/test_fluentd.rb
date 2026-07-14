@@ -1344,6 +1344,54 @@ CONF
                        patterns_not_match: ["[error]"])
   end
 
+  test "<system> umask is applied to the permission of generated buffer files" do
+    omit "Windows doesn't support UNIX like permissions" if Fluent.windows?
+
+    buf_dir = File.join(@tmp_dir, "buffer")
+    # 0644 (DEFAULT_FILE_PERMISSION) masked by umask 0077 => 0600.
+    # `--no-supervisor` runs the worker in this process, where `<system> umask`
+    # is applied via File.umask, just like the `--umask` command line option.
+    conf = <<CONF
+<system>
+  umask 0077
+</system>
+<source>
+  @type sample
+  tag test.umask
+  rate 100
+</source>
+<match test.umask>
+  @type null
+  <buffer>
+    @type file
+    path #{buf_dir}
+    flush_mode interval
+    flush_interval 3600s
+    chunk_limit_size 10m
+  </buffer>
+</match>
+CONF
+    conf_path = create_conf_file("system_umask.conf", conf)
+
+    buffer_file = nil
+    buffer_perm = nil
+    assert_log_matches(create_cmdline(conf_path, "--no-supervisor"), "fluentd worker is now running") do
+      # Wait for the worker to stage a buffer chunk on disk, then read its
+      # permission while the process is still alive (the chunk may be flushed
+      # away on shutdown).
+      waiting(10) do
+        until buffer_file
+          buffer_file = Dir.glob(File.join(buf_dir, "buffer.*.log")).first
+          sleep 0.1
+        end
+      end
+      buffer_perm = File.stat(buffer_file).mode.to_s(8)[-3, 3]
+    end
+
+    assert_not_nil buffer_file, "a staged buffer file should be generated"
+    assert_equal "600", buffer_perm
+  end
+
   sub_test_case "--with-source-only" do
     setup do
       omit "Not supported on Windows" if Fluent.windows?

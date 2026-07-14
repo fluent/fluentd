@@ -704,6 +704,21 @@ class SupervisorTest < ::Test::Unit::TestCase
     supervisor.run_supervisor
   end
 
+  data("system config only", [{}, "0227", "0227"])
+  data("command line takes precedence", [{chumask: "222"}, "0227", "222"])
+  def test_umask_in_system_config_is_passed_to_ServerEngine((cl_opt, system_umask, expected_chumask_value))
+    proxy.mock(Fluent::Supervisor).serverengine_config(hash_including("chumask" => expected_chumask_value))
+    any_instance_of(ServerEngine::Daemon) { |daemon| mock(daemon).run.once }
+
+    supervisor = Fluent::Supervisor.new(cl_opt)
+    system_conf = config_element('ROOT', '', {}, [config_element('system', '', { 'umask' => system_umask })])
+    stub(Fluent::Config).build { system_conf }
+    stub(supervisor).build_spawn_command { "dummy command line" }
+    supervisor.configure(supervisor: true)
+
+    supervisor.run_supervisor
+  end
+
   sub_test_case "init logger" do
     data(supervisor: true)
     data(worker: false)
