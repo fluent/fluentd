@@ -78,6 +78,24 @@ module Fluent::Plugin
         end
       end
 
+      # Drop a socket instead of returning it to the keepalive reuse pool.
+      #
+      # Used when a chunk's ack timed out or came back with a mismatched chunk
+      # id: such a connection may still carry an in-flight/stale ack for a
+      # previous chunk. Reusing it would let that stale ack be read against a
+      # chunk sent on the reused socket, permanently offsetting every following
+      # ack and flooding the log with 'ack in response and chunk id in sent data
+      # are different' warnings (see #4057). Revoking removes it from the pool so
+      # the next chunk uses a fresh connection with a clean ack stream.
+      def discard(sock)
+        if @socket_cache
+          @socket_cache.revoke(sock)
+        else
+          sock.close_write rescue nil
+          sock.close rescue nil
+        end
+      end
+
       private
 
       def connect_keepalive(host:, port:, hostname:, ack: nil)
