@@ -533,17 +533,28 @@ module Fluent::Plugin
 
     def ack_check(select_interval)
       @ack_handler.collect_response(select_interval) do |chunk_id, node, sock, result|
-        @connection_manager.close(sock)
-
         case result
         when AckHandler::Result::SUCCESS
+          @connection_manager.close(sock)
           commit_write(chunk_id)
         when AckHandler::Result::FAILED
+          # The ack timed out or the peer closed the connection. A keepalive
+          # socket may still have an in-flight ack for this chunk, so drop it
+          # instead of returning it to the reuse pool; otherwise a late ack
+          # could later be read against a chunk sent on the reused socket (#4057).
+          @connection_manager.discard(sock)
           node&.disable!
           rollback_write(chunk_id, update_retry: false) if chunk_id
         when AckHandler::Result::CHUNKID_UNMATCHED
+          # The ack read from this socket belongs to a different chunk than the
+          # one tracked for it: the keepalive connection's ack stream is out of
+          # sync (e.g. a stale ack left over from before an aggregator restart).
+          # Discard the socket so the following acks are not each offset by one,
+          # which would otherwise flood the log with mismatch warnings (#4057).
+          @connection_manager.discard(sock)
           rollback_write(chunk_id, update_retry: false)
         else
+          @connection_manager.close(sock)
           log.warn("BUG: invalid status #{result} #{chunk_id}")
 
           if chunk_id
