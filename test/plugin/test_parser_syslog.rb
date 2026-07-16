@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/test/driver/parser'
 require 'fluent/plugin/parser'
+require 'timeout'
 
 class SyslogParserTest < ::Test::Unit::TestCase
   def setup
@@ -199,6 +200,16 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   class TestRFC5424Regexp < self
+    def test_rejects_invalid_structured_data_without_excessive_backtracking
+      text = 'host ident pid msgid ' + ('[example]' * 30) + 'invalid'
+
+      match = Timeout.timeout(1) do
+        Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP.match(text)
+      end
+
+      assert_nil(match)
+    end
+
     data('regexp' => 'regexp', 'string' => 'string')
     def test_parse_with_rfc5424_message(param)
       @parser.configure(
