@@ -71,6 +71,7 @@ module Fluent
         @time_parser_rfc5424 = nil
         @space_count_rfc3164 = nil
         @space_count_rfc5424 = nil
+        @time_format_starts_with_space_rfc3164 = false
         @skip_space_count_rfc3164 = false
         @skip_space_count_rfc5424 = false
         @time_parser_rfc5424_without_subseconds = nil
@@ -123,10 +124,12 @@ module Fluent
 
       def setup_time_parser_3164(time_fmt)
         @time_parser_rfc3164 = time_parser_create(format: time_fmt)
+        @time_format_starts_with_space_rfc3164 = time_fmt.start_with?(SPLIT_CHAR)
         if ['%b %d %H:%M:%S', '%b %d %H:%M:%S.%N'].include?(time_fmt)
           @skip_space_count_rfc3164 = true
         end
         @space_count_rfc3164 = time_fmt.squeeze(' ').count(' ') + 1
+        @space_count_rfc3164 -= 1 if @time_format_starts_with_space_rfc3164
       end
 
       def setup_time_parser_5424(time_fmt)
@@ -162,6 +165,13 @@ module Fluent
       end
 
       SPLIT_CHAR = ' '.freeze
+      SPLIT_BYTE = 0x20
+      DOT_CHAR = '.'.freeze
+      DOT_BYTE = 0x2e
+      GREATER_THAN_BYTE = 0x3e
+      ZERO_BYTE = 0x30
+      NINE_BYTE = 0x39
+      RFC3164_PRI_MINIMUM = [nil, nil, nil, 1, 10, 100].freeze
 
       def parse_rfc3164_regex(text, &block)
         idx = 0
@@ -180,12 +190,21 @@ module Fluent
 
         i = idx - 1
         sq = false
+        first_time_field = true
         @space_count_rfc3164.times do
           while text[i + 1] == SPLIT_CHAR
+            if first_time_field
+              unless @time_format_starts_with_space_rfc3164
+                idx += 1
+                i += 1
+                break
+              end
+            end
             sq = true
             i += 1
           end
 
+          first_time_field = false
           i = text.index(SPLIT_CHAR, i + 1)
         end
 
@@ -287,14 +306,43 @@ module Fluent
           end
         end
 
+        byte = text.getbyte(cursor)
+        space_after_priority = if byte == SPLIT_BYTE
+                                 true
+                               elsif @with_priority && text.getbyte(cursor - 1) != GREATER_THAN_BYTE
+                                 # String#index returns a character index. Mark
+                                 # non-ASCII PRI for the same timestamp lookup.
+                                 byte = nil
+                                 text[cursor] == SPLIT_CHAR
+                               else
+                                 false
+                               end
+        if space_after_priority
+          cursor = rfc3164_space_cursor(text, cursor, pri)
+          unless cursor
+            yield nil, nil
+            return
+          end
+        end
+
         if @skip_space_count_rfc3164
           # header part
           time_size = 15 # skip Mmm dd hh:mm:ss
-          time_end = text[cursor + time_size]
-          if time_end == SPLIT_CHAR
+          time_end_index = cursor + time_size
+          if byte
+            time_end = text.getbyte(time_end_index)
+            split_delimiter = SPLIT_BYTE
+            dot_delimiter = DOT_BYTE
+          else
+            time_end = text[time_end_index]
+            split_delimiter = SPLIT_CHAR
+            dot_delimiter = DOT_CHAR
+          end
+
+          if time_end == split_delimiter
             time_str = text.slice(cursor, time_size)
             cursor += 16 # time + ' '
-          elsif time_end == '.'.freeze
+          elsif time_end == dot_delimiter
             # support subsecond time
             i = text.index(SPLIT_CHAR, time_size)
             time_str = text.slice(cursor, i - cursor)
@@ -314,12 +362,12 @@ module Fluent
             i = text.index(SPLIT_CHAR, i + 1)
           end
 
-          time_str = sq ? text.slice(idx, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
+          time_str = sq ? text.slice(cursor, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
           cursor = i + 1
         end
 
         i = text.index(SPLIT_CHAR, cursor)
-        if i.nil?
+        unless i
           yield nil, nil
           return
         end
@@ -333,7 +381,7 @@ module Fluent
         i = text.index(SPLIT_CHAR, cursor)
 
         # message part
-        msg = if i.nil?  # for 'only non-space content case'
+        msg = unless i  # for 'only non-space content case'
                 text.slice(cursor, text.bytesize)
               else
                 if text[i - 1] == ':'.freeze
@@ -367,6 +415,27 @@ module Fluent
         record['time'] = time_str if @keep_time_key
 
         yield time, record
+      end
+
+      def rfc3164_space_cursor(text, cursor, pri)
+        if @with_priority
+          # A nonzero value with the expected decimal width proves that the
+          # whole PRI is numeric. Leading-zero values take the bytewise path.
+          minimum = RFC3164_PRI_MINIMUM[cursor]
+          return unless minimum
+
+          unless pri >= minimum
+            priority_byte = 1
+            while priority_byte < cursor - 1
+              byte = text.getbyte(priority_byte)
+              return unless byte >= ZERO_BYTE && byte <= NINE_BYTE
+
+              priority_byte += 1
+            end
+          end
+        end
+
+        @time_format_starts_with_space_rfc3164 ? cursor : cursor + 1
       end
 
       NILVALUE = '-'.freeze
