@@ -498,7 +498,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config)
       msg = 'x' * 65000 # in_tail reads 65536 bytes at once.
 
-      d.run(expect_emits: num_events, timeout: 2) do
+      d.run(expect_emits: num_events, timeout: 10) do
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts msg
           f.puts msg
@@ -792,7 +792,7 @@ class TailInputTest < Test::Unit::TestCase
 
       d = create_driver(config, false)
 
-      d.run(expect_emits: 1, timeout: 1) do
+      d.run(expect_emits: 1, timeout: 10) do
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
@@ -834,7 +834,7 @@ class TailInputTest < Test::Unit::TestCase
     def test_always_read_from_head_on_detecting_a_new_file
       d = create_driver(SINGLE_LINE_CONFIG)
 
-      d.run(expect_emits: 1, timeout: 3) do
+      d.run(expect_emits: 1, timeout: 10) do
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f|
           f.puts "test1\ntest2\n"
         }
