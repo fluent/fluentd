@@ -149,6 +149,7 @@ module Fluent::Config
         end
 
         test "support multiline string" do
+          assert_text_parsed_as(e('ROOT', '', {"k1" => "world\n\n"}), "k1 \"world\n\n\"")
           assert_text_parsed_as(e('ROOT', '',
             {"k1" => %[line1
                        line2]
