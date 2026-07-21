@@ -1429,4 +1429,70 @@ EOL
     logs = d.logs
     assert{ logs.any?{|log| log.include?('handshake timeout after 1.0s') } }
   end
+
+  sub_test_case 'ack_check discards tainted keepalive sockets (#4057)' do
+    def create_ack_driver
+      create_driver(config + %[
+        require_ack_response true
+        keepalive true
+      ])
+    end
+
+    # A keepalive socket whose ack failed or came back mismatched may still
+    # carry an in-flight/stale ack for a previous chunk. Returning it to the
+    # reuse pool lets that stale ack be read against a chunk sent on the reused
+    # socket, permanently offsetting every following ack and flooding the log
+    # with 'ack in response and chunk id in sent data are different' warnings.
+    data(
+      'mismatched ack' => Fluent::Plugin::ForwardOutput::AckHandler::Result::CHUNKID_UNMATCHED,
+      'failed ack' => Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED,
+    )
+    test 'discards the socket instead of reusing it' do |result|
+      @d = d = create_ack_driver
+      instance = d.instance
+      node = instance.nodes.first
+      sock = 'sock'
+
+      # One-shot: only the explicit ack_check below yields; the collect_response
+      # that after_shutdown triggers during teardown stays silent.
+      fake_ack_handler = Object.new
+      fake_ack_handler.instance_variable_set(:@yielded, false)
+      fake_ack_handler.define_singleton_method(:collect_response) do |_interval, &block|
+        next if @yielded
+        @yielded = true
+        block.call('chunk-id', node, sock, result)
+      end
+      instance.instance_variable_set(:@ack_handler, fake_ack_handler)
+      stub(instance).rollback_write
+
+      cm = instance.instance_variable_get(:@connection_manager)
+      mock(cm).discard(sock).once
+      mock(cm).close(sock).never
+
+      instance.__send__(:ack_check, 0)
+    end
+
+    test 'reuses the socket on a successful ack' do
+      @d = d = create_ack_driver
+      instance = d.instance
+      node = instance.nodes.first
+      sock = 'sock'
+
+      fake_ack_handler = Object.new
+      fake_ack_handler.instance_variable_set(:@yielded, false)
+      fake_ack_handler.define_singleton_method(:collect_response) do |_interval, &block|
+        next if @yielded
+        @yielded = true
+        block.call('chunk-id', node, sock, Fluent::Plugin::ForwardOutput::AckHandler::Result::SUCCESS)
+      end
+      instance.instance_variable_set(:@ack_handler, fake_ack_handler)
+      stub(instance).commit_write
+
+      cm = instance.instance_variable_get(:@connection_manager)
+      mock(cm).close(sock).once
+      mock(cm).discard(sock).never
+
+      instance.__send__(:ack_check, 0)
+    end
+  end
 end

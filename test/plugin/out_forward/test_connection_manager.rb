@@ -142,4 +142,66 @@ class ConnectionManager < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case '#discard' do
+    test 'closes the socket directly when socket_cache is nil' do
+      sock = 'sock'
+      cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
+        log: $log,
+        secure: false,
+        connection_factory: -> (_, _, _) { sock },
+        socket_cache: nil,
+      )
+
+      mock(sock).close_write.once
+      mock(sock).close.once
+      cm.discard(sock)
+    end
+
+    test 'revokes a keepalive socket instead of returning it to the reuse pool' do
+      cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
+      mock(cache).revoke('sock').once
+      mock(cache).checkin('sock').never
+
+      cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
+        log: $log,
+        secure: false,
+        connection_factory: -> (_, _, _) { 'sock' },
+        socket_cache: cache,
+      )
+
+      cm.discard('sock')
+    end
+
+    test 'a discarded keepalive socket is not reused, unlike a checked-in one' do
+      ack = Object.new
+      def ack.enqueue(_sock); end
+
+      # Baseline: a checked-in socket is returned to the pool and reused.
+      reused = []
+      reuse_cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
+        log: $log,
+        secure: false,
+        connection_factory: -> (_, _, _) { s = "sock#{reused.size}"; reused << s; s },
+        socket_cache: Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log),
+      )
+      reuse_cm.connect(host: 'host', port: 1234, hostname: 'name', ack: ack) { |_s, _ri| }
+      reuse_cm.close('sock0')
+      reuse_cm.connect(host: 'host', port: 1234, hostname: 'name', ack: ack) { |_s, _ri| }
+      assert_equal(['sock0'], reused)
+
+      # A discarded socket is dropped, so the next checkout builds a fresh one.
+      discarded = []
+      discard_cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
+        log: $log,
+        secure: false,
+        connection_factory: -> (_, _, _) { s = "sock#{discarded.size}"; discarded << s; s },
+        socket_cache: Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log),
+      )
+      discard_cm.connect(host: 'host', port: 1234, hostname: 'name', ack: ack) { |_s, _ri| }
+      discard_cm.discard('sock0')
+      discard_cm.connect(host: 'host', port: 1234, hostname: 'name', ack: ack) { |_s, _ri| }
+      assert_equal(['sock0', 'sock1'], discarded)
+    end
+  end
 end
