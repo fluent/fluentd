@@ -1339,6 +1339,23 @@ class BufferTest < Test::Unit::TestCase
       c3 = create_chunk(m, ["a" * 128] * 6 + ["a" * 64])
       assert !@p.chunk_size_full?(c3)
     end
+
+    test '#write does not leak stage_size when a staged chunk is unstaged in write_step_by_step' do
+      # dm2 is staged with 896 bytes (7*128); chunk_limit_size is 1024.
+      # First record (64B) is appended to the 896B staged chunk (-> 960B), then
+      # the second record (200B) would exceed chunk_limit_size (1024), so
+      # write_step_by_step deletes the chunk from @stage, marks it unstaged and
+      # enqueues it via enqueue_unstaged_chunk. stage_size must drop by exactly
+      # the chunk's already-counted bytes (its 896B before this write), not by
+      # its current bytesize.
+      assert_equal 128*7 + 128*5, @p.stage_size
+
+      dm2 = @p.metadata(timekey: @dm2.timekey)
+      @p.write({dm2 => ["x" * 64, "x" * 200]})
+
+      # Invariant: stage_size equals the real total size of the staged chunks.
+      assert_equal @p.stage.values.map(&:bytesize).sum, @p.stage_size
+    end
   end
 
   sub_test_case 'with configuration includes chunk_limit_records' do

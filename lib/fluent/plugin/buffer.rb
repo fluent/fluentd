@@ -850,7 +850,12 @@ module Fluent
                     # As already processed content is kept after rollback, then unstaged chunk should be queued.
                     # After that, re-process current split again.
                     # New chunk should be allocated, to do it, modify @stage and so on.
-                    synchronize { @stage.delete(modified_metadata) }
+                    synchronize do
+                      @stage.delete(modified_metadata)
+                      # Subtract this chunk's already-counted staged bytes here;
+                      # otherwise @stage_size leaks upward over the buffer's lifetime.
+                      @stage_size_metrics.sub(original_bytesize) if chunk.staged?
+                    end
                     staged_chunk_used = false
                     chunk.unstaged!
                     break
