@@ -191,7 +191,7 @@ module Fluent
             child_process_kill(process_info, force: true)
           end
 
-          break if living_process_exist
+          break unless living_process_exist
 
           sleep CHILD_PROCESS_LOOP_CHECK_INTERVAL
         end
