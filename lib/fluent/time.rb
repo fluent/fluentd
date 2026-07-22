@@ -363,6 +363,8 @@ module Fluent
 
   class TimeFormatter
     def initialize(format = nil, localtime = true, timezone = nil)
+      # An empty cache slot is marked by a nil string, not by its key: 0 is a
+      # valid timestamp, so a key can never say whether the slot is filled.
       @tc1 = 0
       @tc1_str = nil
       @tc2 = 0
@@ -390,9 +392,9 @@ module Fluent
     end
 
     def format_without_subsec(time)
-      if @tc1 == time
+      if @tc1_str && @tc1 == time
         return @tc1_str
-      elsif @tc2 == time
+      elsif @tc2_str && @tc2 == time
         return @tc2_str
       else
         str = format_nocache(time)
@@ -408,9 +410,9 @@ module Fluent
     end
 
     def format_with_subsec(time)
-      if Fluent::EventTime.eq?(@tc1, time)
+      if @tc1_str && Fluent::EventTime.eq?(@tc1, time)
         return @tc1_str
-      elsif Fluent::EventTime.eq?(@tc2, time)
+      elsif @tc2_str && Fluent::EventTime.eq?(@tc2, time)
         return @tc2_str
       else
         str = format_nocache(time)
