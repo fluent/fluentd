@@ -1461,6 +1461,13 @@ CONF
       stdio_buf = ""
       execute_command(cmdline) do |pid, stdout|
         begin
+          # Keep an incomplete trailing line across reads. A single read can end
+          # in the middle of a line (e.g. when the buffered records are flushed
+          # in a burst and the reader catches the pipe mid-write), so splitting
+          # each read chunk independently would drop the straddling record from
+          # the caller's counting. Carry the partial line over and only yield
+          # complete lines, exactly once each.
+          line_buf = +""
           waiting(60) do
             while true
               readables, _, _ = IO.select([stdout], nil, nil, 1)
@@ -1469,11 +1476,16 @@ CONF
 
               buf = eager_read(readables.first)
               stdio_buf << buf
-              logs = buf.split("\n")
+              line_buf << buf
+              # Complete lines to `logs`, trailing remainder to `line_buf`.
+              # The `-1` is required: without it split drops the trailing empty
+              # field, so a buffer ending in "\n" (the usual case) would carry
+              # over the last complete line and merge it with the next read.
+              *logs, line_buf = line_buf.split("\n", -1)
 
               yield logs
 
-              break if buf.include? "finish test"
+              break if logs.any? { |log| log.include?("finish test") }
             end
           end
         ensure
