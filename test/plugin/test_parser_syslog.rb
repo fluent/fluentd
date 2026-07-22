@@ -75,6 +75,220 @@ class SyslogParserTest < ::Test::Unit::TestCase
     assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
   end
 
+  data(
+    'regexp/rfc3164/parser priority' => ['regexp', 'rfc3164', true],
+    'string/rfc3164/parser priority' => ['string', 'rfc3164', true],
+    'regexp/auto/parser priority' => ['regexp', 'auto', true],
+    'string/auto/parser priority' => ['string', 'auto', true],
+    'regexp/rfc3164/without priority' => ['regexp', 'rfc3164', false],
+    'string/rfc3164/without priority' => ['string', 'rfc3164', false],
+    'regexp/auto/without priority' => ['regexp', 'auto', false],
+    'string/auto/without priority' => ['string', 'auto', false],
+  )
+  def test_parse_with_space_between_rfc3164_priority_and_header(data)
+    parser_engine, message_format, with_priority = data
+    @parser.configure(
+      'parser_engine' => parser_engine,
+      'message_format' => message_format,
+      'with_priority' => with_priority,
+      'keep_time_key' => true,
+    )
+
+    prefix = with_priority ? '<14>' : ''
+    message = 'Apr 25 16:43:29 PAA-SW1-1 General[procLOG]: main.c(257) 272264 %% Stopping System API  application'
+    results = ["#{prefix}#{message}", "#{prefix} #{message}"].map do |text|
+      result = nil
+      @parser.instance.parse(text) do |time, record|
+        result = [time, record]
+      end
+      result
+    end
+
+    assert_equal(results[0], results[1])
+    time, record = results[1]
+    assert_equal(event_time('Apr 25 16:43:29', format: '%b %d %H:%M:%S'), time)
+    assert_equal(14, record['pri']) if with_priority
+    assert_equal('Apr 25 16:43:29', record['time'])
+    assert_equal('PAA-SW1-1', record['host'])
+    assert_equal('General', record['ident'])
+    assert_equal('main.c(257) 272264 %% Stopping System API  application', record['message'])
+  end
+
+  data(
+    'regexp/single digit day/with priority' => ['regexp', true, '%b %d %H:%M:%S', 'Apr  5 16:43:29'],
+    'string/single digit day/with priority' => ['string', true, '%b %d %H:%M:%S', 'Apr  5 16:43:29'],
+    'regexp/subseconds/with priority' => ['regexp', true, '%b %d %H:%M:%S.%N', 'Apr 25 16:43:29.123456789'],
+    'string/subseconds/with priority' => ['string', true, '%b %d %H:%M:%S.%N', 'Apr 25 16:43:29.123456789'],
+    'regexp/custom format/with priority' => ['regexp', true, '%Y-%m-%dT%H:%M:%S', '2026-04-25T16:43:29'],
+    'string/custom format/with priority' => ['string', true, '%Y-%m-%dT%H:%M:%S', '2026-04-25T16:43:29'],
+    'regexp/single digit day/without priority' => ['regexp', false, '%b %d %H:%M:%S', 'Apr  5 16:43:29'],
+    'string/single digit day/without priority' => ['string', false, '%b %d %H:%M:%S', 'Apr  5 16:43:29'],
+    'regexp/subseconds/without priority' => ['regexp', false, '%b %d %H:%M:%S.%N', 'Apr 25 16:43:29.123456789'],
+    'string/subseconds/without priority' => ['string', false, '%b %d %H:%M:%S.%N', 'Apr 25 16:43:29.123456789'],
+    'regexp/custom format/without priority' => ['regexp', false, '%Y-%m-%dT%H:%M:%S', '2026-04-25T16:43:29'],
+    'string/custom format/without priority' => ['string', false, '%Y-%m-%dT%H:%M:%S', '2026-04-25T16:43:29'],
+  )
+  def test_parse_rfc3164_time_variants_with_space_after_priority(data)
+    parser_engine, with_priority, time_format, timestamp = data
+    @parser.configure(
+      'parser_engine' => parser_engine,
+      'time_format' => time_format,
+      'with_priority' => with_priority,
+      'keep_time_key' => true,
+    )
+
+    suffix = "#{timestamp} host app[123]: message"
+    prefix = with_priority ? '<14>' : ''
+    results = ["#{prefix}#{suffix}", "#{prefix} #{suffix}"].map do |text|
+      result = nil
+      @parser.instance.parse(text) do |time, record|
+        result = [time, record]
+      end
+      result
+    end
+
+    assert_equal(results[0], results[1])
+    expected_time_key = parser_engine == 'regexp' ? timestamp.squeeze(' ') : timestamp
+    assert_equal(expected_time_key, results[1][1]['time'])
+    assert_equal('host', results[1][1]['host'])
+    assert_equal('app', results[1][1]['ident'])
+    assert_equal('123', results[1][1]['pid'])
+    assert_equal('message', results[1][1]['message'])
+  end
+
+  data(
+    'regexp/parser priority' => ['regexp', true],
+    'string/parser priority' => ['string', true],
+    'regexp/input priority' => ['regexp', false],
+    'string/input priority' => ['string', false],
+  )
+  def test_parse_with_leading_space_time_format(data)
+    parser_engine, with_priority = data
+    @parser.configure(
+      'parser_engine' => parser_engine,
+      'time_format' => ' %b %d %H:%M:%S',
+      'with_priority' => with_priority,
+      'keep_time_key' => true,
+    )
+
+    prefix = with_priority ? '<14>' : ''
+    result = nil
+    @parser.instance.parse("#{prefix} Apr 25 16:43:29 host app[123]: message") do |time, record|
+      result = [time, record]
+    end
+
+    time, record = result
+    assert_equal(event_time('Apr 25 16:43:29', format: '%b %d %H:%M:%S'), time)
+    assert_equal(14, record['pri']) if with_priority
+    assert_equal(' Apr 25 16:43:29', record['time'])
+    assert_equal(
+      {'host' => 'host', 'ident' => 'app', 'pid' => '123', 'message' => 'message'},
+      record.reject { |key, _| ['pri', 'time'].include?(key) },
+    )
+  end
+
+  data(
+    'regexp/two spaces' => ['regexp', true, '<14>  Apr 25 16:43:29 host app: message'],
+    'string/two spaces' => ['string', true, '<14>  Apr 25 16:43:29 host app: message'],
+    'regexp/tab' => ['regexp', true, "<14>\tApr 25 16:43:29 host app: message"],
+    'string/tab' => ['string', true, "<14>\tApr 25 16:43:29 host app: message"],
+    'regexp/two leading spaces' => ['regexp', false, '  Apr 25 16:43:29 host app: message'],
+    'string/two leading spaces' => ['string', false, '  Apr 25 16:43:29 host app: message'],
+    'regexp/leading tab' => ['regexp', false, "\tApr 25 16:43:29 host app: message"],
+    'string/leading tab' => ['string', false, "\tApr 25 16:43:29 host app: message"],
+    'regexp/long priority' => ['regexp', true, '<1234> Apr 25 16:43:29 host app: message'],
+    'string/long priority' => ['string', true, '<1234> Apr 25 16:43:29 host app: message'],
+    'regexp/non-numeric priority' => ['regexp', true, '<ab> Apr 25 16:43:29 host app: message'],
+    'string/non-numeric priority' => ['string', true, '<ab> Apr 25 16:43:29 host app: message'],
+  )
+  def test_parse_does_not_broaden_rfc3164_priority_separator(data)
+    parser_engine, with_priority, text = data
+    @parser.configure('parser_engine' => parser_engine, 'with_priority' => with_priority)
+    parsed = false
+
+    begin
+      @parser.instance.parse(text) do |time, record|
+        parsed = !!(time && record)
+      end
+    rescue Fluent::TimeParser::TimeParseError
+      # The regexp and string parsers report invalid input differently.
+    end
+
+    assert_false(parsed)
+  end
+
+  data(
+    'zero' => ['<0> Apr 25 16:43:29 host app: message', 0],
+    'two digits with leading zero' => ['<01> Apr 25 16:43:29 host app: message', 1],
+    'three digits with leading zeros' => ['<001> Apr 25 16:43:29 host app: message', 1],
+  )
+  def test_string_parser_accepts_spaced_numeric_priority_with_leading_zeros(data)
+    text, expected_priority = data
+    @parser.configure('parser_engine' => 'string', 'with_priority' => true)
+    result = nil
+    @parser.instance.parse(text) do |time, record|
+      result = [time, record]
+    end
+
+    time, record = result
+    assert_not_nil(time)
+    assert_equal(expected_priority, record['pri'])
+    assert_equal('host', record['host'])
+    assert_equal('app', record['ident'])
+    assert_equal('message', record['message'])
+  end
+
+  data(
+    'long priority' => '<1234> Apr 25 16:43:29 host app: message',
+    'non-numeric priority' => '<ab> Apr 25 16:43:29 host app: message',
+    'partially numeric priority' => '<1a> Apr 25 16:43:29 host app: message',
+    'non-ASCII priority' => '<é> Apr 25 16:43:29 host app: message',
+  )
+  def test_leading_space_time_format_does_not_broaden_priority_syntax(text)
+    @parser.configure(
+      'parser_engine' => 'string',
+      'time_format' => ' %b %d %H:%M:%S',
+      'with_priority' => true,
+    )
+    parsed = false
+    @parser.instance.parse(text) do |time, record|
+      parsed = !!(time && record)
+    end
+
+    assert_false(parsed)
+  end
+
+  data(
+    'regexp/rfc5424/with priority' => ['regexp', 'rfc5424', true],
+    'string/rfc5424/with priority' => ['string', 'rfc5424', true],
+    'regexp/auto/with priority' => ['regexp', 'auto', true],
+    'string/auto/with priority' => ['string', 'auto', true],
+    'regexp/rfc5424/without priority' => ['regexp', 'rfc5424', false],
+    'string/rfc5424/without priority' => ['string', 'rfc5424', false],
+    'regexp/auto/without priority' => ['regexp', 'auto', false],
+    'string/auto/without priority' => ['string', 'auto', false],
+  )
+  def test_parse_does_not_accept_space_after_rfc5424_priority(data)
+    parser_engine, message_format, with_priority = data
+    @parser.configure(
+      'parser_engine' => parser_engine,
+      'message_format' => message_format,
+      'with_priority' => with_priority,
+    )
+    text = with_priority ? '<14> 1 2026-04-25T16:43:29Z host app 123 ID - message' : ' 1 2026-04-25T16:43:29Z host app 123 ID - message'
+    parsed = false
+
+    begin
+      @parser.instance.parse(text) do |time, record|
+        parsed = !!(time && record)
+      end
+    rescue Fluent::TimeParser::TimeParseError
+      # The regexp and string parsers report invalid input differently.
+    end
+
+    assert_false(parsed)
+  end
+
   data('regexp' => 'regexp', 'string' => 'string')
   def test_parse_rfc5452_with_priority(param)
     @parser.configure('with_priority' => true, 'parser_type' => param, 'message_format' => 'rfc5424')

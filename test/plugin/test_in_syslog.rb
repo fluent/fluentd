@@ -124,6 +124,78 @@ EOS
     }
   end
 
+  data(
+    'regexp/rfc3164/parser priority' => ['regexp', 'rfc3164', true],
+    'string/rfc3164/parser priority' => ['string', 'rfc3164', true],
+    'regexp/auto/parser priority' => ['regexp', 'auto', true],
+    'string/auto/parser priority' => ['string', 'auto', true],
+    'regexp/rfc3164/input priority' => ['regexp', 'rfc3164', false],
+    'string/rfc3164/input priority' => ['string', 'rfc3164', false],
+    'regexp/auto/input priority' => ['regexp', 'auto', false],
+    'string/auto/input priority' => ['string', 'auto', false],
+  )
+  def test_space_between_rfc3164_priority_and_header(data)
+    parser_engine, message_format, with_priority = data
+    d = create_driver([
+      ipv4_config,
+      'severity_key severity',
+      'facility_key facility',
+      '<parse>',
+      "  parser_engine #{parser_engine}",
+      "  message_format #{message_format}",
+      "  with_priority #{with_priority}",
+      '</parse>',
+    ].join("\n"))
+
+    message = 'Apr 25 16:43:29 PAA-SW1-1 General[procLOG]: main.c(257) 272264 %% Stopping System API  application'
+    d.run(expect_emits: 2) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', @port)
+      u.send("<14>#{message}", 0)
+      u.send("<14> #{message}", 0)
+    end
+
+    assert_equal(2, d.events.size)
+    assert_equal(d.events[0][1], d.events[1][1])
+    assert_equal(d.events[0][2], d.events[1][2])
+    d.events.each do |tag, time, record|
+      assert_equal('syslog.user.info', tag)
+      assert_equal(event_time('Apr 25 16:43:29', format: '%b %d %H:%M:%S'), time)
+      assert_equal('user', record['facility'])
+      assert_equal('info', record['severity'])
+      assert_equal('PAA-SW1-1', record['host'])
+      assert_equal('General', record['ident'])
+      assert_equal('main.c(257) 272264 %% Stopping System API  application', record['message'])
+    end
+  end
+
+  data('regexp' => 'regexp', 'string' => 'string')
+  def test_space_after_input_owned_priority_preserves_input_priority_syntax(parser_engine)
+    d = create_driver([
+      ipv4_config,
+      'emit_unmatched_lines true',
+      '<parse>',
+      "  parser_engine #{parser_engine}",
+      '  with_priority false',
+      '</parse>',
+    ].join("\n"))
+
+    messages = [
+      '<1234>Apr 25 16:43:29 host app: message',
+      '<1234> Apr 25 16:43:29 host app: message',
+      '<ab> Apr 25 16:43:29 host app: message',
+    ]
+    d.run(expect_emits: 3) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', @port)
+      messages.each { |message| u.send(message, 0) }
+    end
+
+    assert_equal(d.events[0], d.events[1])
+    assert_equal('syslog.unmatched', d.events[2][0])
+    assert_equal(messages[2], d.events[2][2]['unmatched_line'])
+  end
+
   def test_msg_size
     d = create_driver
     tests = create_test_case
