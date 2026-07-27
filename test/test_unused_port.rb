@@ -5,10 +5,10 @@ class UnusedPortTest < Test::Unit::TestCase
     port = unused_port(protocol: :all)
     assert_kind_of(Integer, port)
     assert_include(PORT_RANGE_TCP_UDP, port)
-    tcp = TCPServer.open("0.0.0.0", port)
+    tcp = TCPServer.open(BIND_ADDRESS_TCP_UDP, port)
     tcp.close
     udp = UDPSocket.new(::Socket::AF_INET)
-    udp.bind("0.0.0.0", port)
+    udp.bind(BIND_ADDRESS_TCP_UDP, port)
     udp.close
   end
 
@@ -20,7 +20,7 @@ class UnusedPortTest < Test::Unit::TestCase
 
   sub_test_case "port_bindable_tcp?" do
     test "returns false while the port is held and true after release" do
-      held = TCPServer.open("0.0.0.0", 0)
+      held = TCPServer.open(BIND_ADDRESS_TCP_UDP, 0)
       port = held.addr[1]
       assert_false(port_bindable_tcp?(port))
       held.close
@@ -31,7 +31,7 @@ class UnusedPortTest < Test::Unit::TestCase
   sub_test_case "port_bindable_udp?" do
     test "returns false while the port is held and true after release" do
       held = UDPSocket.new(::Socket::AF_INET)
-      held.bind("0.0.0.0", 0)
+      held.bind(BIND_ADDRESS_TCP_UDP, 0)
       port = held.addr[1]
       assert_false(port_bindable_udp?(port))
       held.close

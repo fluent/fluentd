@@ -89,10 +89,16 @@ end
 # roughly 100 ports and multiple ranges may coexist, so use a sufficiently
 # wide candidate range to reduce the probability that all candidates are
 # excluded.
+# Those reservations are taken from the dynamic port range (49152-65535 on
+# Windows, observed on GitHub Actions runners), and a port can become
+# reserved even between the checks below and the actual bind, which then
+# fails with EACCES. So keep the candidate range outside the dynamic port
+# range of every platform (Linux uses 32768-60999) to avoid competing with
+# the OS for ports in the first place.
 # About dynamic excluded port ranges, see:
 # > netsh interface ipv4 show excludedportrange protocol=tcp
-# > netsh interface ipv4 show excludedportrange protocol=ucp
-PORT_RANGE_TCP_UDP = (55000..65000)
+# > netsh interface ipv4 show excludedportrange protocol=udp
+PORT_RANGE_TCP_UDP = (20000..30000)
 
 def unused_port_tcp_udp(num = 1, retries: 1000)
   raise "not support num > 1" if num > 1
@@ -106,9 +112,13 @@ def unused_port_tcp_udp(num = 1, retries: 1000)
   raise "can't find unused port"
 end
 
+# Bind the loopback address that the tests using unused_port(protocol: :all)
+# actually bind, so that a successful check means the same bind can succeed.
+BIND_ADDRESS_TCP_UDP = "127.0.0.1"
+
 def port_bindable_udp?(port)
   u = UDPSocket.new(::Socket::AF_INET)
-  u.bind("0.0.0.0", port)
+  u.bind(BIND_ADDRESS_TCP_UDP, port)
   true
 rescue SystemCallError
   false
@@ -117,7 +127,7 @@ ensure
 end
 
 def port_bindable_tcp?(port)
-  TCPServer.open("0.0.0.0", port).close
+  TCPServer.open(BIND_ADDRESS_TCP_UDP, port).close
   true
 rescue SystemCallError
   false
