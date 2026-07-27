@@ -230,10 +230,10 @@ class TestFluentdCommand < ::Test::Unit::TestCase
       execute_command(cmdline) do |pid, stdout|
         begin
           waiting(timeout) do
-            while process_exist?(pid) && !running
+            until running
               readables, _, _ = IO.select([stdout], nil, nil, 1)
               next unless readables
-              next if readables.first.eof?
+              break if readables.first.eof?
 
               stdio_buf << eager_read(readables.first)
               lines = stdio_buf.split("\n")
