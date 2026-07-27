@@ -45,7 +45,7 @@ class BufferOutputTest < Test::Unit::TestCase
 
     time = event_time
     record = {"message" => "test"}
-    d.run(default_tag: 'test') do
+    d.run(default_tag: 'test', expect_emits: 1) do
       d.feed(time, record)
     end
 
