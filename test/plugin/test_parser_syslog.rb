@@ -157,19 +157,36 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
-    'boundary space' => '<14> Apr 25 16:43:29.5',
+    'rfc3164/parser priority' => ['rfc3164', true],
+    'auto/parser priority' => ['auto', true],
+    'rfc3164/input priority' => ['rfc3164', false],
+    'auto/input priority' => ['auto', false],
   )
-  def test_truncated_subsecond_rfc3164_is_rejected_without_raising(text)
+  def test_truncated_subsecond_rfc3164_is_rejected_without_raising(data)
+    message_format, with_priority = data
     @parser.configure(
       'parser_engine'  => 'string',
-      'message_format' => 'rfc3164',
-      'with_priority'  => true,
+      'message_format' => message_format,
+      'with_priority'  => with_priority,
       'time_format'    => '%b %d %H:%M:%S.%N',
+    )
+
+    prefix = with_priority ? '<14> ' : ' '
+    timestamp = 'Apr 25 16:43:29.5'
+    valid_result = nil
+    @parser.instance.parse("#{prefix}#{timestamp} host app: message") do |time, record|
+      valid_result = [time, record]
+    end
+    expected_record = {'host' => 'host', 'ident' => 'app', 'message' => 'message'}
+    expected_record['pri'] = 14 if with_priority
+    assert_equal(
+      [event_time(timestamp, format: '%b %d %H:%M:%S.%N'), expected_record],
+      valid_result,
     )
 
     result = :not_yielded
     assert_nothing_raised do
-      @parser.instance.parse(text) do |time, record|
+      @parser.instance.parse("#{prefix}#{timestamp}") do |time, record|
         result = [time, record]
       end
     end
