@@ -157,6 +157,26 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
+    'boundary space' => '<14> Apr 25 16:43:29.5',
+  )
+  def test_truncated_subsecond_rfc3164_is_rejected_without_raising(text)
+    @parser.configure(
+      'parser_engine'  => 'string',
+      'message_format' => 'rfc3164',
+      'with_priority'  => true,
+      'time_format'    => '%b %d %H:%M:%S.%N',
+    )
+
+    result = :not_yielded
+    assert_nothing_raised do
+      @parser.instance.parse(text) do |time, record|
+        result = [time, record]
+      end
+    end
+    assert_equal([nil, nil], result)
+  end
+
+  data(
     'regexp/parser priority' => ['regexp', true],
     'string/parser priority' => ['string', true],
     'regexp/input priority' => ['regexp', false],

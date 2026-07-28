@@ -345,6 +345,10 @@ module Fluent
           elsif time_end == dot_delimiter
             # support subsecond time
             i = text.index(SPLIT_CHAR, time_size)
+            unless i
+              yield nil, nil
+              return
+            end
             time_str = text.slice(cursor, i - cursor)
             cursor = i + 1
           else
