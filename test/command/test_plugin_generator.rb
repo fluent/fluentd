@@ -1,11 +1,14 @@
 require_relative '../helper'
 
 require 'pathname'
+require 'stringio'
 require 'fluent/command/plugin_generator'
 
 class TestFluentPluginGenerator < Test::Unit::TestCase
   TEMP_DIR = "tmp/plugin_generator"
+  APACHE_LICENSE = File.read(File.join(__dir__, "data/plugin_generator/LICENSE-2.0.txt"))
   setup do
+    stub_license_download
     FileUtils.mkdir_p(TEMP_DIR)
     @pwd = Dir.pwd
     Dir.chdir(TEMP_DIR)
@@ -14,6 +17,12 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
   teardown do
     Dir.chdir(@pwd)
     FileUtils.rm_rf(TEMP_DIR)
+  end
+
+  def stub_license_download
+    any_instance_of(URI::HTTP) do |uri|
+      stub(uri).open { |&block| block.call(StringIO.new(APACHE_LICENSE)) }
+    end
   end
 
   def stub_git_process(target)
@@ -57,6 +66,7 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
       ]
       actual = plugin_base_dir.find.reject {|f| f.fnmatch("*/.git*") }.map(&:to_s).sort
       assert_equal(expected, actual)
+      assert_equal(APACHE_LICENSE, (plugin_base_dir + "LICENSE").read)
     end
 
     test "no license" do
