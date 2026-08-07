@@ -780,6 +780,7 @@ module Fluent
         MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
         Fluent::Engine.init(@system_config, start_in_parallel: ENV.key?("FLUENT_RUNNING_IN_PARALLEL_WITH_OLD"))
         Fluent::Engine.run_configure(@conf)
+        enable_ruby_jit if @system_config.enable_jit
         Fluent::Engine.run
         self.class.cleanup_socketmanager_path if @standalone_worker
         exit 0
@@ -1214,6 +1215,19 @@ module Fluent
       exit!(unrecoverable_error ? 2 : 1)
     end
 
+    def enable_ruby_jit
+      unless defined?(RubyVM::YJIT) && RubyVM::YJIT.respond_to?(:enable)
+        $log.info "Ruby JIT is not available on this Ruby"
+        return
+      end
+
+      if RubyVM::YJIT.enable
+        $log.info "enabled Ruby JIT"
+      else
+        $log.warn "failed to enable Ruby JIT"
+      end
+    end
+
     def build_system_config(conf)
       system_config = SystemConfig.create(conf, @cl_opt[:strict_config_value])
       # Prefer the options explicitly specified in the command line
@@ -1279,11 +1293,6 @@ module Fluent
         fluentd_spawn_cmd.concat(adopted_encodes)
       else
         fluentd_spawn_cmd << '-Eascii-8bit:ascii-8bit'
-      end
-
-      if @system_config.enable_jit
-        $log.info "enable Ruby JIT for workers (--jit)"
-        fluentd_spawn_cmd << '--jit'
       end
 
       # Adding `-h` so that it can avoid ruby's command blocking

@@ -957,6 +957,52 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
   end
 
+  sub_test_case "enable_jit" do
+    setup do
+      omit "YJIT is not supported on Windows, and RubyVM::YJIT is not defined either" if Fluent.windows?
+    end
+
+    def create_worker(enable_jit)
+      sv = Fluent::Supervisor.new({})
+      conf = Fluent::Config::Element.new(
+        'ROOT', '', {}, [Fluent::Config::Element.new('system', '', { 'enable_jit' => enable_jit.to_s }, [])]
+      )
+      sv.instance_variable_set(:@system_config, sv.__send__(:build_system_config, conf))
+      sv.instance_variable_set(:@conf, conf)
+      sv
+    end
+
+    data("enabled" => [true, 1],
+         "disabled" => [false, 0])
+    def test_run_worker((enable_jit, expected_count))
+      sv = create_worker(enable_jit)
+
+      stub(sv).install_main_process_signal_handlers
+      stub(Fluent::MessagePackFactory).init
+      stub(Fluent::Engine).init
+      stub(Fluent::Engine).run_configure
+      stub(Fluent::Engine).run
+
+      enable_count = 0
+      stub(RubyVM::YJIT).enable { enable_count += 1; true }
+
+      assert_raise(SystemExit) { sv.run_worker }
+      assert_equal(expected_count, enable_count)
+    end
+
+    data("succeeded" => [true, "enabled Ruby JIT"],
+         "failed" => [false, "failed to enable Ruby JIT"])
+    def test_log_result((result, expected_message))
+      sv = create_worker(true)
+      create_info_dummy_logger
+
+      mock(RubyVM::YJIT).enable { result }
+      sv.__send__(:enable_ruby_jit)
+
+      assert { $log.out.logs.any? { |log| log.include?(expected_message) } }
+    end
+  end
+
   sub_test_case "zero_downtime_restart" do
     setup do
       omit "Not supported on Windows" if Fluent.windows?
