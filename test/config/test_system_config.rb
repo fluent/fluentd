@@ -78,7 +78,7 @@ module Fluent::Config
       assert_true(sc.enable_input_metrics)
       assert_nil(sc.enable_size_metrics)
       assert_nil(sc.enable_msgpack_time_support)
-      assert(!sc.enable_jit)
+      assert(sc.enable_jit)
       assert_nil(sc.log.path)
       assert_equal(:text, sc.log.format)
       assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
@@ -100,7 +100,7 @@ module Fluent::Config
       'enable_msgpack_time_support' => ['enable_msgpack_time_support', true],
       'enable_input_metrics' => ['enable_input_metrics', false],
       'enable_size_metrics' => ['enable_size_metrics', true],
-      'enable_jit' => ['enable_jit', true],
+      'enable_jit' => ['enable_jit', false],
       'umask' => ['umask', '0022'],
     )
     test "accepts parameters" do |(k, v)|
