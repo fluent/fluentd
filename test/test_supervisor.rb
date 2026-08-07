@@ -958,6 +958,10 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   sub_test_case "enable_jit" do
+    setup do
+      omit "YJIT is not supported on Windows, and RubyVM::YJIT is not defined either" if Fluent.windows?
+    end
+
     def create_worker(enable_jit)
       sv = Fluent::Supervisor.new({})
       conf = Fluent::Config::Element.new(
