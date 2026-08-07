@@ -24,7 +24,7 @@ jobs:
     uses: ruby/actions/.github/workflows/ruby_versions.yml@master
     with:
       engine: cruby
-      min_version: 3.2
+      min_version: 3.3
   test:
     needs: ruby-versions
     runs-on: ${{ matrix.os }}
@@ -38,8 +38,6 @@ jobs:
           - ruby-version: head
           - os: 'windows-11-arm'
             ruby-version: '3.3'
-          - os: 'windows-11-arm'
-            ruby-version: '3.2'
     env:
       RUBYOPT: "--disable-frozen_string_literal"
     name: Ruby ${{ matrix.ruby-version }} on ${{ matrix.os }}

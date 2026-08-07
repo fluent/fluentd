@@ -25,7 +25,7 @@ Gem::Specification.new do |gem|
   gem.metadata["changelog_uri"] = "https://github.com/fluent/fluentd/blob/master/CHANGELOG.md"
   gem.metadata["bug_tracker_uri"] = "https://github.com/fluent/fluentd/issues"
 
-  gem.required_ruby_version = '>= 3.2'
+  gem.required_ruby_version = '>= 3.3'
 
   gem.add_runtime_dependency("bundler")
   gem.add_runtime_dependency("msgpack", [">= 1.3.1", "< 2.0.0"])
