@@ -98,11 +98,10 @@ module Fluent
             else
               return string.join
             end
-          elsif check(/[^"]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/o)
-            if s = check(/[^\\]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/o)
-              string << s
-            end
-            skip(/[^"]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/o)
+          elsif skip(/\\(?:\r\n|[\r\n])/)
+            next
+          elsif s = scan(/\r\n|[\r\n]/)
+            string << s
           elsif s = scan(/\\./)
             string << eval_escape_char(s[1,1])
           elsif skip(/\#\{/)
