@@ -91,6 +91,28 @@ class LocalMetricsTest < ::Test::Unit::TestCase
         @m.set(10)
         assert_equal 10, @m.get # On gauge, value always should be overwritten.
       end
+
+      # Prevents negative buffer size metrics exported to Prometheus (#5303)
+      test 'gauge sub does not go below zero' do
+        @m.set(5)
+        @m.sub(10)
+        assert_equal 0, @m.get
+
+        @m.sub(1)
+        assert_equal 0, @m.get
+      end
+
+      test 'gauge dec does not go below zero' do
+        assert_equal 0, @m.get
+        @m.dec
+        assert_equal 0, @m.get
+
+        @m.set(1)
+        @m.dec
+        assert_equal 0, @m.get
+        @m.dec
+        assert_equal 0, @m.get
+      end
     end
   end
 end

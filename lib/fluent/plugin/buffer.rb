@@ -917,7 +917,11 @@ module Fluent
       ]
 
       def statistics
-        stage_size, queue_size = @stage_size_metrics.get, @queue_size_metrics.get
+        # Clamp to non-negative: historical races can leave counters slightly
+        # negative (issues #5303, #2712). Exported Prometheus gauges must not
+        # report negative buffer sizes.
+        stage_size = [@stage_size_metrics.get, 0].max
+        queue_size = [@queue_size_metrics.get, 0].max
         buffer_space = 1.0 - ((stage_size + queue_size * 1.0) / @total_limit_size)
         @stage_length_metrics.set(@stage.size)
         @queue_length_metrics.set(@queue.size)
