@@ -1003,6 +1003,39 @@ class SupervisorTest < ::Test::Unit::TestCase
     end
   end
 
+  sub_test_case "cleanup_lock_dir" do
+    def create_server(lock_dir)
+      server = DummyServer.new
+      server.instance_variable_set(:@fluentd_lock_dir, lock_dir)
+      server
+    end
+
+    def test_remove_lock_dir
+      lock_dir = File.join(@tmp_dir, "fluentd-lock")
+      FileUtils.mkdir_p(lock_dir)
+      FileUtils.touch(File.join(lock_dir, "fluentd-0.lock"))
+      FileUtils.touch(File.join(lock_dir, "fluentd-1.lock"))
+
+      create_server(lock_dir).cleanup_lock_dir
+
+      assert_false(File.exist?(lock_dir))
+    end
+
+    def test_keep_unrelated_file
+      lock_dir = File.join(@tmp_dir, "fluentd-lock")
+      FileUtils.mkdir_p(lock_dir)
+      FileUtils.touch(File.join(lock_dir, "fluentd-0.lock"))
+      FileUtils.touch(File.join(lock_dir, "unrelated.txt"))
+
+      assert_raise(Errno::ENOTEMPTY) do
+        create_server(lock_dir).cleanup_lock_dir
+      end
+
+      assert_false(File.exist?(File.join(lock_dir, "fluentd-0.lock")))
+      assert_true(File.exist?(File.join(lock_dir, "unrelated.txt")))
+    end
+  end
+
   sub_test_case "zero_downtime_restart" do
     setup do
       omit "Not supported on Windows" if Fluent.windows?
