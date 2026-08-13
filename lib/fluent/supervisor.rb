@@ -102,7 +102,7 @@ module Fluent
     def cleanup_lock_dir
       begin
         Dir.each_child(@fluentd_lock_dir) do |name|
-          FileUtils.rm(File.join(@fluentd_lock_dir, name)) if File.fnmatch?("fluentd-*.lock", name)
+          FileUtils.rm_f(File.join(@fluentd_lock_dir, name)) if File.fnmatch?("fluentd-*.lock", name)
         end
       rescue Errno::ENOENT
         # Directory is already missing. Fall through and let rmdir below
