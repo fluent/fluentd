@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'zlib'
 require 'fluent/plugin'
 require 'fluent/configurable'
 require 'fluent/system_config'
@@ -69,9 +70,13 @@ module Fluent
         true
       end
 
+      LOCK_FILE_BUCKETS = 65536
+
       def get_lock_path(name)
-        name = name.gsub(/[^a-zA-Z0-9]/, "_")
-        File.join(@fluentd_lock_dir, "fluentd-#{name}.lock")
+        # The mapping from a name to a bucket MUST be identical across worker processes.
+        # Ruby's String#hash is randomly seeded per process and MUST NOT be used here.
+        bucket = Zlib.crc32(name.to_s) % LOCK_FILE_BUCKETS
+        File.join(@fluentd_lock_dir, "fluentd-bucket-#{bucket}.lock")
       end
 
       def acquire_worker_lock(name)
