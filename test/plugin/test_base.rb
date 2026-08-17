@@ -121,7 +121,70 @@ class BaseTest < Test::Unit::TestCase
       path = p.get_lock_path("Aa\\|=~/_123")
 
       assert_equal lock_dir, File.dirname(path)
-      assert_equal "fluentd-Aa______123.lock", File.basename(path)
+      assert_equal "fluentd-bucket-39922.lock", File.basename(path)
+    end
+  end
+
+  data("short name" => ["test_base", "fluentd-bucket-54446.lock"],
+       "long path" => ["/var/log/app/#{'a' * 1024}.log", "fluentd-bucket-11403.lock"],
+       "multibyte" => ["ログ/日本語.log", "fluentd-bucket-29413.lock"])
+  test 'maps a name to a fixed lock file bucket' do |(name, expected)|
+    Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
+      ENV['FLUENTD_LOCK_DIR'] = lock_dir
+      p = FluentPluginBaseTest::DummyPlugin.new
+
+      assert_equal expected, File.basename(p.get_lock_path(name))
+    end
+  end
+
+  test 'maps a name to the same bucket in another process' do
+    omit "fork is not supported on Windows" if Fluent.windows?
+
+    names = [
+      "test_base",
+      "/var/log/app/083027ab-923e-4ff1-a774-a00d6a65dc76.log",
+      "ログ/日本語.log",
+      "Aa\\|=~/_123",
+    ]
+    Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
+      ENV['FLUENTD_LOCK_DIR'] = lock_dir
+      p = FluentPluginBaseTest::DummyPlugin.new
+
+      reader, writer = IO.pipe
+      pid = fork do
+        reader.close
+        writer.write(Marshal.dump(names.map { |name| p.get_lock_path(name) }))
+        writer.close
+        exit!(0)
+      end
+      writer.close
+      paths_in_child = Marshal.load(reader.read) # rubocop:disable Security/MarshalLoad
+      reader.close
+      Process.waitpid(pid)
+
+      assert_equal names.map { |name| p.get_lock_path(name) }, paths_in_child
+    end
+  end
+
+  test 'returns a bounded number of lock file names' do
+    Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
+      ENV['FLUENTD_LOCK_DIR'] = lock_dir
+      p = FluentPluginBaseTest::DummyPlugin.new
+      basenames = Array.new(2000) { |i| File.basename(p.get_lock_path("/var/log/app-#{i}/#{i}.log")) }
+
+      assert_equal [], basenames.reject { |basename| basename.match?(/\Afluentd-bucket-\d{1,5}\.lock\z/) }
+      assert_equal [], basenames.reject { |basename| basename[/\d+/].to_i < 65536 }
+    end
+  end
+
+  test 'returns the same lock path for the same name' do
+    Dir.mktmpdir("test-fluentd-lock-") do |lock_dir|
+      ENV['FLUENTD_LOCK_DIR'] = lock_dir
+      p = FluentPluginBaseTest::DummyPlugin.new
+      name = "/var/log/app/083027ab-923e-4ff1-a774-a00d6a65dc76.log"
+
+      assert_equal p.get_lock_path(name), p.get_lock_path(name)
+      assert_equal 1, Array.new(3) { p.get_lock_path(name) }.uniq.size
     end
   end
 
