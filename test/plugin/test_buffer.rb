@@ -475,6 +475,51 @@ class BufferTest < Test::Unit::TestCase
       assert{ qchunks.all?{ |c| c.purged } }
     end
 
+    test '#clear_queue! evacuates every queued chunk by default (no evacuate_limit_size)' do
+      evacuated = []
+      @p.define_singleton_method(:evacuate_chunk) { |chunk| evacuated << chunk.bytesize }
+      qchunks = @p.queue.dup
+
+      assert_nil @p.evacuate_limit_size
+
+      @p.clear_queue!
+
+      assert_equal [100, 100, 3], evacuated
+      assert_equal [], @p.queue
+      assert{ qchunks.all?{ |c| c.purged } }
+    end
+
+    test '#clear_queue! skips evacuation entirely when evacuate_limit_size is 0, but still purges' do
+      p = create_buffer({'evacuate_limit_size' => 0})
+      evacuated = []
+      p.define_singleton_method(:evacuate_chunk) { |chunk| evacuated << chunk.bytesize }
+      p.start
+      qchunks = p.queue.dup
+
+      p.clear_queue!
+
+      assert_equal [], evacuated
+      assert_equal [], p.queue
+      assert{ qchunks.all?{ |c| c.purged } }
+    end
+
+    test '#clear_queue! bounds the total evacuated size to evacuate_limit_size' do
+      p = create_buffer({'evacuate_limit_size' => 200})
+      evacuated = []
+      p.define_singleton_method(:evacuate_chunk) { |chunk| evacuated << chunk.bytesize }
+      p.start
+      qchunks = p.queue.dup
+
+      p.clear_queue!
+
+      # queued chunks are 100, 100 and 3 bytes; the first two fill the 200 byte
+      # budget, so the last one is purged without being evacuated
+      assert_equal [100, 100], evacuated
+      assert_equal 200, evacuated.sum
+      assert_equal [], p.queue
+      assert{ qchunks.all?{ |c| c.purged } }
+    end
+
     test '#write returns immediately if argument data is empty array' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3], @p.stage.keys
