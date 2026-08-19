@@ -623,13 +623,18 @@ class TailInputTest < Test::Unit::TestCase
 
           # We should not do shutdown here due to hard timeout.
           d.run do
-            start_time = Fluent::Clock.now
-            while Fluent::Clock.now - start_time < 0.8 do
-              Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") do |f|
-                f.puts msg
-                f.flush
+            if Fluent.linux?
+              # Other platforms receive no stat notification while appending, so it
+              # would just consume the throttling window and make this test flaky.
+              start_time = Fluent::Clock.now
+              while d.instance.statistics['input']['throttled_log_count'] < 5 &&
+                    Fluent::Clock.now - start_time < 0.8 do
+                Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") do |f|
+                  f.puts msg
+                  f.flush
+                end
+                sleep 0.05
               end
-              sleep 0.05
             end
           end
 
