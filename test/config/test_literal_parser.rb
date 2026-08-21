@@ -114,7 +114,8 @@ module Fluent::Config
       test("\"t\n\nt\"") { assert_text_parsed_as("t\n\nt", "\"t\n\nt\"") }
       test("\"\nt\"") { assert_text_parsed_as("\nt", "\"\nt\"") }
       test("\"t\\\\\nt\"") { assert_text_parsed_as("t\\\nt", "\"t\\\\\nt\"") }
-      test("\"t\r\nt\"") { assert_text_parsed_as("t\r\nt", "\"t\r\nt\"") }
+      test("\"t\r\nt\"") { assert_text_parsed_as("t\nt", "\"t\r\nt\"") }
+      test("\"t\rt\"") { assert_text_parsed_as("t\rt", "\"t\rt\"") }
       test("\"t\\\r\nt\"") { assert_text_parsed_as("tt", "\"t\\\r\nt\"") }
       test("\"t\n") { assert_parse_error("\"t\n") }
       test("\"t\\\n") { assert_parse_error("\"t\\\n") }
@@ -148,7 +149,8 @@ module Fluent::Config
       test("'t\nt'") { assert_text_parsed_as("t\nt", "'t\nt'") }
       test("'t\n\nt'") { assert_text_parsed_as("t\n\nt", "'t\n\nt'") }
       test("'\nt'") { assert_text_parsed_as("\nt", "'\nt'") }
-      test("'t\r\nt'") { assert_text_parsed_as("t\r\nt", "'t\r\nt'") }
+      test("'t\r\nt'") { assert_text_parsed_as("t\nt", "'t\r\nt'") }
+      test("'t\rt'") { assert_text_parsed_as("t\rt", "'t\rt'") }
       test("'t\\\nt'") { assert_text_parsed_as("t\\\nt", "'t\\\nt'") }
       test("'t\n") { assert_parse_error("'t\n") }
       test("t'") { assert_text_parsed_as("t'", "t'") }
