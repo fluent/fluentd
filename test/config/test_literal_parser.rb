@@ -145,6 +145,12 @@ module Fluent::Config
       test("'\\0'") { assert_text_parsed_as('\0', "'\\0'") }
       test("'\\1'") { assert_text_parsed_as('\1', "'\\1'") }
       test("'t") { assert_parse_error("'t") }  # non-terminated quoted character
+      test("'t\nt'") { assert_text_parsed_as("t\nt", "'t\nt'") }
+      test("'t\n\nt'") { assert_text_parsed_as("t\n\nt", "'t\n\nt'") }
+      test("'\nt'") { assert_text_parsed_as("\nt", "'\nt'") }
+      test("'t\r\nt'") { assert_text_parsed_as("t\r\nt", "'t\r\nt'") }
+      test("'t\\\nt'") { assert_text_parsed_as("t\\\nt", "'t\\\nt'") }
+      test("'t\n") { assert_parse_error("'t\n") }
       test("t'") { assert_text_parsed_as("t'", "t'") }
       test("'.'") { assert_text_parsed_as('.', "'.'") }
       test("'*'") { assert_text_parsed_as('*', "'*'") }

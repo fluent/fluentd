@@ -131,6 +131,8 @@ module Fluent
             string << "'"
           elsif s = scan(/\\\\/)
             string << "\\"
+          elsif s = scan(LINE_BREAK)
+            string << s
           elsif s = scan(/./)
             string << s
           else
