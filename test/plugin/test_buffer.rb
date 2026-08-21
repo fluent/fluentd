@@ -435,6 +435,32 @@ class BufferTest < Test::Unit::TestCase
       assert_equal({}, @p.dequeued)
     end
 
+    test '#purge_chunk releases queue_size even when chunk.purge raises (#5468)' do
+      # Simulate a physical purge failure (unlink/close on the buffer path)
+      # so chunk.purge raises after the chunk is dequeued.
+      failing_purge = Module.new do
+        def purge
+          raise IOError, 'simulated purge failure (unlink EIO)'
+        end
+      end
+      @p.buffer_class::Chunk.include(failing_purge)
+
+      m1 = @p.dequeue_chunk
+      assert_equal [@dm0, @dm1, @dm1], @p.queue.map(&:metadata)
+      assert_equal({m1.unique_id => m1}, @p.dequeued)
+
+      queued_before = @p.queue_size
+      assert queued_before > 0
+
+      # purge_chunk swallows the error but must still decrement queue_size
+      @p.purge_chunk(m1.unique_id)
+
+      assert m1.purged
+      # queue_size must return to its pre-dequeue value, not leak upward
+      assert_equal queued_before - m1.bytesize, @p.queue_size
+      assert @p.storable?
+    end
+
     test '#takeback_chunk returns false if specified chunk_id is already purged' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
