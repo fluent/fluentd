@@ -26,6 +26,13 @@ require 'fluent/config/basic_parser'
 module Fluent
   module Config
     class LiteralParser < BasicParser
+      # A physical line break (LF, CR, or CRLF) inside a double-quoted string.
+      # It is preserved as-is in the resulting value.
+      LINE_BREAK = /\r\n|[\r\n]/
+      # A backslash immediately followed by a physical line break.
+      # It works as a line continuation, so both are stripped from the value.
+      LINE_CONTINUATION = /\\#{LINE_BREAK}/o
+
       def self.unescape_char(c)
         case c
         when '"'
@@ -98,9 +105,9 @@ module Fluent
             else
               return string.join
             end
-          elsif skip(/\\(?:\r\n|[\r\n])/)
+          elsif skip(LINE_CONTINUATION)
             next
-          elsif s = scan(/\r\n|[\r\n]/)
+          elsif s = scan(LINE_BREAK)
             string << s
           elsif s = scan(/\\./)
             string << eval_escape_char(s[1,1])
