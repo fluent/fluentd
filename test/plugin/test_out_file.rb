@@ -779,6 +779,38 @@ class FileOutputTest < Test::Unit::TestCase
       end
     end
 
+    test 'symlink with placeholders and variable chunk keys creates a symlink per metadata (bulk input)' do
+      omit "Windows doesn't support symlink" if Fluent.windows?
+      conf = %[
+        path #{TMP_DIR}/${tag}/out_file_${myid}_%Y%m%d.log
+        symlink_path #{SYMLINK_PATH}/foo/${tag}_${myid}.log
+        <buffer tag,time,myid>
+        </buffer>
+      ]
+
+      d = create_driver(conf)
+      begin
+        d.run(default_tag: 'tag') do
+          # Bulk input: two events with different `myid` values but the SAME
+          # timekey arrive in one stream. Each metadata must get its own
+          # staged chunk and its own symlink (fluentd#5099).
+          es = Fluent::MultiEventStream.new
+          t = event_time("2011-01-02 13:14:15 UTC")
+          es.add(t, {"a" => 1, "myid" => "1"})
+          es.add(t, {"a" => 2, "myid" => "2"})
+          d.feed(es)
+        end
+
+        assert File.symlink?("#{SYMLINK_PATH}/foo/tag_1.log"),
+               "missing symlink for myid=1"
+        assert File.symlink?("#{SYMLINK_PATH}/foo/tag_2.log"),
+               "missing symlink for myid=2"
+      ensure
+        FileUtils.rm_f("#{SYMLINK_PATH}/foo/tag_1.log")
+        FileUtils.rm_f("#{SYMLINK_PATH}/foo/tag_2.log")
+      end
+    end
+
     test 'relative symlink' do
       omit "Windows doesn't support symlinks" if Fluent.windows?
 
