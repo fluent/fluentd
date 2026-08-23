@@ -922,7 +922,9 @@ module Fluent
         # report negative buffer sizes.
         stage_size = [@stage_size_metrics.get, 0].max
         queue_size = [@queue_size_metrics.get, 0].max
+        # Keep available-space ratio in [0, 1] even if counters overshoot total_limit_size.
         buffer_space = 1.0 - ((stage_size + queue_size * 1.0) / @total_limit_size)
+        buffer_space = [[buffer_space, 0.0].max, 1.0].min
         @stage_length_metrics.set(@stage.size)
         @queue_length_metrics.set(@queue.size)
         @available_buffer_space_ratios_metrics.set(buffer_space * 100)

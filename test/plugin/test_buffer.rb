@@ -1548,7 +1548,22 @@ class BufferTest < Test::Unit::TestCase
       assert_equal 0, stats['queue_byte_size']
       assert_equal 0, stats['total_queued_size']
       assert stats['total_queued_size'] >= 0
-      assert stats['available_buffer_space_ratios'] >= 0
+      # Negative gauges floor to 0 usage => full free space (100.0% with total_limit_size=1024)
+      assert_equal 100.0, stats['available_buffer_space_ratios']
+    end
+
+    test 'clamps available_buffer_space_ratios when usage exceeds total_limit_size' do
+      # Simulate counter overshoot past configured limit
+      @p.stage_size_metrics.set(2000)
+      @p.queue_size_metrics.set(2000)
+
+      stats = @p.statistics['buffer']
+      assert_equal 2000, stats['stage_byte_size']
+      assert_equal 2000, stats['queue_byte_size']
+      assert_equal 4000, stats['total_queued_size']
+      assert stats['available_buffer_space_ratios'] >= 0.0
+      assert stats['available_buffer_space_ratios'] <= 100.0
+      assert_equal 0.0, stats['available_buffer_space_ratios']
     end
   end
 end
