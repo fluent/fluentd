@@ -27,6 +27,15 @@ require 'fluent/config/basic_parser'
 module Fluent
   module Config
     class LiteralParser < BasicParser
+      # A physical line break (LF, CR, or CRLF) inside a quoted string.
+      # CRLF is normalized to LF so that the same config text does not produce a
+      # different value depending on whether the file was saved with LF or CRLF.
+      # A lone CR is kept as-is, and an escaped "\r\n" still produces CRLF.
+      LINE_BREAK = /\r\n|[\r\n]/
+      # A backslash immediately followed by a physical line break.
+      # It works as a line continuation, so both are stripped from the value.
+      LINE_CONTINUATION = /\\#{LINE_BREAK}/o
+
       def self.unescape_char(c)
         case c
         when '"'
@@ -99,11 +108,10 @@ module Fluent
             else
               return string.join
             end
-          elsif check(/[^"]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/o)
-            if s = check(/[^\\]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/o)
-              string << s
-            end
-            skip(/[^"]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/o)
+          elsif skip(LINE_CONTINUATION)
+            next
+          elsif s = scan(LINE_BREAK)
+            string << (s == "\r\n" ? "\n" : s)
           elsif s = scan(/\\./)
             string << eval_escape_char(s[1,1])
           elsif skip(/\#\{/)
@@ -126,6 +134,8 @@ module Fluent
             string << "'"
           elsif s = scan(/\\\\/)
             string << "\\"
+          elsif s = scan(LINE_BREAK)
+            string << (s == "\r\n" ? "\n" : s)
           elsif s = scan(/./)
             string << s
           else

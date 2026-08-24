@@ -28,7 +28,6 @@ module Fluent
       SPACING = /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
       ZERO_OR_MORE_SPACING = /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))*/
       SPACING_WITHOUT_COMMENT = /(?:[ \t\r\n]|\z)+/
-      LINE_END_WITHOUT_SPACING_AND_COMMENT = /(?:\z|[\r\n])/
 
       module ClassMethods
         def symbol(string)
