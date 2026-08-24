@@ -1565,5 +1565,18 @@ class BufferTest < Test::Unit::TestCase
       assert stats['available_buffer_space_ratios'] <= 100.0
       assert_equal 0.0, stats['available_buffer_space_ratios']
     end
+
+    test 'available_buffer_space_ratios is safe when total_limit_size is zero' do
+      # 0/0 would be NaN; Array#max/min on NaN raises — must not crash export.
+      @p.instance_variable_set(:@total_limit_size, 0)
+      @p.stage_size_metrics.set(0)
+      @p.queue_size_metrics.set(0)
+      stats = @p.statistics['buffer']
+      assert_equal 0, stats['stage_byte_size']
+      assert_equal 0, stats['queue_byte_size']
+      assert stats['available_buffer_space_ratios'] >= 0.0
+      assert stats['available_buffer_space_ratios'] <= 100.0
+      refute stats['available_buffer_space_ratios'].to_f.nan?
+    end
   end
 end
