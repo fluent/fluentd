@@ -1537,8 +1537,8 @@ class BufferTest < Test::Unit::TestCase
       assert_equal 10.0, @p.statistics['buffer']['available_buffer_space_ratios']
     end
 
-    # Export path clamps independently of LocalMetrics sub/dec (#5303).
-    # set_gauge can still hold a negative value (e.g. external metrics backends).
+    # Export-only clamp: internal gauges may be negative (self-correcting race
+    # or set_gauge); statistics must still publish non-negative sizes (#5303).
     test 'exports non-negative stage/queue byte sizes when gauges are negative' do
       @p.stage_size_metrics.set(-50)
       @p.queue_size_metrics.set(-100)

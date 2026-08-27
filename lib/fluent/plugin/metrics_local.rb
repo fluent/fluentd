@@ -62,10 +62,7 @@ module Fluent
 
       def dec_gauge
         @monitor.synchronize do
-          # Buffer size / length gauges must never go negative even if a race
-          # causes sub/dec to run more times than add/inc (see #5303).
           @store -= 1
-          @store = 0 if @store < 0
         end
       end
 
@@ -77,10 +74,7 @@ module Fluent
 
       def sub_gauge(value)
         @monitor.synchronize do
-          # Prevent negative values that leak into Prometheus buffer metrics
-          # (fluentd_output_status_buffer_total_bytes, etc.). See #5303 / #2712.
           @store -= value
-          @store = 0 if @store < 0
         end
       end
 

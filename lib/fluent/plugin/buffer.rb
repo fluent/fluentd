@@ -917,21 +917,15 @@ module Fluent
       ]
 
       def statistics
-        # Clamp to non-negative: historical races can leave counters slightly
-        # negative (issues #5303, #2712). Exported Prometheus gauges must not
-        # report negative buffer sizes.
+        # Export-only clamp: internal gauges may go transiently negative during
+        # the deferred stage_size add vs enqueue_chunk sub race (#5303, #2712).
+        # Clamping the gauge store itself would turn that into a permanent
+        # over-count and break Buffer#storable? -- keep raw gauge semantics.
         stage_size = [@stage_size_metrics.get, 0].max
         queue_size = [@queue_size_metrics.get, 0].max
-        # Keep available-space ratio in [0, 1] even if counters overshoot total_limit_size.
-        # Avoid Array#max/min on NaN (e.g. 0/0 when total_limit_size is 0), which raises.
         denom = @total_limit_size.to_f
-        if denom > 0.0
-          buffer_space = 1.0 - ((stage_size + queue_size).to_f / denom)
-          buffer_space = 0.0 if buffer_space.nan? || buffer_space < 0.0
-          buffer_space = 1.0 if buffer_space > 1.0
-        else
-          buffer_space = 0.0
-        end
+        # denom > 0 already excludes 0/0 NaN; stage/queue are floored above.
+        buffer_space = denom > 0.0 ? (1.0 - (stage_size + queue_size).to_f / denom).clamp(0.0, 1.0) : 0.0
         @stage_length_metrics.set(@stage.size)
         @queue_length_metrics.set(@queue.size)
         @available_buffer_space_ratios_metrics.set(buffer_space * 100)
