@@ -601,13 +601,19 @@ module Fluent
           metadata = chunk.metadata
           log.on_trace { log.trace "purging a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata }
 
+          bytesize = chunk.bytesize
           begin
-            bytesize = chunk.bytesize
             chunk.purge
-            @queue_size_metrics.sub(bytesize)
           rescue => e
             log.error "failed to purge buffer chunk", chunk_id: dump_unique_id_hex(chunk_id), error_class: e.class, error: e
             log.error_backtrace
+          ensure
+            # Always release the queued byte counter, even when purge raises
+            # (e.g. unlink/close failure on the buffer path). Otherwise
+            # @queue_size is never decremented for a dequeued chunk that is
+            # gone from both @queue and @dequeued, so the leak ratchets toward
+            # total_limit_size and storable? becomes permanently false (#5468).
+            @queue_size_metrics.sub(bytesize)
           end
 
           @dequeued_num[chunk.metadata] -= 1
