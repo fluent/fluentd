@@ -829,6 +829,42 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal @src, decomressed_data
     end
 
+    test '#open closes the temporary file for decompressed data when compress is gzip' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
+
+      decompressed_io = nil
+      path = nil
+      c.open do |io|
+        decompressed_io = io
+        path = io.path
+        assert_true File.exist?(path)
+      end
+
+      assert_true decompressed_io.closed?
+      assert_false File.exist?(path)
+    end
+
+    test '#open closes the temporary file for decompressed data even when the block raises and compress is gzip' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
+
+      decompressed_io = nil
+      path = nil
+      assert_raise RuntimeError.new('failed to consume decompressed data') do
+        c.open do |io|
+          decompressed_io = io
+          path = io.path
+          raise 'failed to consume decompressed data'
+        end
+      end
+
+      assert_true decompressed_io.closed?
+      assert_false File.exist?(path)
+    end
+
     test '#open with compressed option passes io object having decompressed data to a block when compress is gzip' do
       c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
       c.concat(@gzipped_src, @src.size)
@@ -891,6 +927,42 @@ class BufferFileChunkTest < Test::Unit::TestCase
         v
       end
       assert_equal @src, decomressed_data
+    end
+
+    test '#open closes the temporary file for decompressed data when compress is zstd' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :zstd)
+      c.concat(@zstded_src, @src.size)
+      c.commit
+
+      decompressed_io = nil
+      path = nil
+      c.open do |io|
+        decompressed_io = io
+        path = io.path
+        assert_true File.exist?(path)
+      end
+
+      assert_true decompressed_io.closed?
+      assert_false File.exist?(path)
+    end
+
+    test '#open closes the temporary file for decompressed data even when the block raises and compress is zstd' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :zstd)
+      c.concat(@zstded_src, @src.size)
+      c.commit
+
+      decompressed_io = nil
+      path = nil
+      assert_raise RuntimeError.new('failed to consume decompressed data') do
+        c.open do |io|
+          decompressed_io = io
+          path = io.path
+          raise 'failed to consume decompressed data'
+        end
+      end
+
+      assert_true decompressed_io.closed?
+      assert_false File.exist?(path)
     end
 
     test '#open with compressed option passes io object having decompressed data to a block when compress is zstd' do
