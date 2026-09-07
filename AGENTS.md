@@ -36,6 +36,7 @@ This file is for AI coding agents (Claude Code, Cursor, Codex, Copilot, ...) wor
 - Add or update tests under `test/` for behavior changes.
 - Do not add runtime dependencies without discussion.
 - Match the surrounding code style; there is no autoformatter to run. CI runs `rubocop`, but only the Security and Performance cops are enabled.
+- Fluentd runs on Linux, macOS and Windows. CI tests `ubuntu-latest`, `macos-latest`, `windows-latest` and `windows-11-arm`. Assume your change must work on Windows.
 
 ## Issues and pull requests
 
