@@ -1563,5 +1563,47 @@ class BufferTest < Test::Unit::TestCase
     test 'returns available_buffer_space_ratios' do
       assert_equal 10.0, @p.statistics['buffer']['available_buffer_space_ratios']
     end
+
+    # Export-only clamp: internal gauges may be negative (self-correcting race
+    # or set_gauge); statistics must still publish non-negative sizes (#5303).
+    test 'exports non-negative stage/queue byte sizes when gauges are negative' do
+      @p.stage_size_metrics.set(-50)
+      @p.queue_size_metrics.set(-100)
+
+      stats = @p.statistics['buffer']
+      assert_equal 0, stats['stage_byte_size']
+      assert_equal 0, stats['queue_byte_size']
+      assert_equal 0, stats['total_queued_size']
+      assert stats['total_queued_size'] >= 0
+      # Negative gauges floor to 0 usage => full free space (100.0% with total_limit_size=1024)
+      assert_equal 100.0, stats['available_buffer_space_ratios']
+    end
+
+    test 'clamps available_buffer_space_ratios when usage exceeds total_limit_size' do
+      # Simulate counter overshoot past configured limit
+      @p.stage_size_metrics.set(2000)
+      @p.queue_size_metrics.set(2000)
+
+      stats = @p.statistics['buffer']
+      assert_equal 2000, stats['stage_byte_size']
+      assert_equal 2000, stats['queue_byte_size']
+      assert_equal 4000, stats['total_queued_size']
+      assert stats['available_buffer_space_ratios'] >= 0.0
+      assert stats['available_buffer_space_ratios'] <= 100.0
+      assert_equal 0.0, stats['available_buffer_space_ratios']
+    end
+
+    test 'available_buffer_space_ratios is safe when total_limit_size is zero' do
+      # 0/0 would be NaN; Array#max/min on NaN raises — must not crash export.
+      @p.instance_variable_set(:@total_limit_size, 0)
+      @p.stage_size_metrics.set(0)
+      @p.queue_size_metrics.set(0)
+      stats = @p.statistics['buffer']
+      assert_equal 0, stats['stage_byte_size']
+      assert_equal 0, stats['queue_byte_size']
+      assert stats['available_buffer_space_ratios'] >= 0.0
+      assert stats['available_buffer_space_ratios'] <= 100.0
+      refute stats['available_buffer_space_ratios'].to_f.nan?
+    end
   end
 end

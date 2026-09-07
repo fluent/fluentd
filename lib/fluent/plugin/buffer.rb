@@ -923,8 +923,15 @@ module Fluent
       ]
 
       def statistics
-        stage_size, queue_size = @stage_size_metrics.get, @queue_size_metrics.get
-        buffer_space = 1.0 - ((stage_size + queue_size * 1.0) / @total_limit_size)
+        # Export-only clamp: internal gauges may go transiently negative during
+        # the deferred stage_size add vs enqueue_chunk sub race (#5303, #2712).
+        # Clamping the gauge store itself would turn that into a permanent
+        # over-count and break Buffer#storable? -- keep raw gauge semantics.
+        stage_size = [@stage_size_metrics.get, 0].max
+        queue_size = [@queue_size_metrics.get, 0].max
+        denom = @total_limit_size.to_f
+        # denom > 0 already excludes 0/0 NaN; stage/queue are floored above.
+        buffer_space = denom > 0.0 ? (1.0 - (stage_size + queue_size).to_f / denom).clamp(0.0, 1.0) : 0.0
         @stage_length_metrics.set(@stage.size)
         @queue_length_metrics.set(@queue.size)
         @available_buffer_space_ratios_metrics.set(buffer_space * 100)
