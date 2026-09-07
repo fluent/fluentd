@@ -2791,9 +2791,21 @@ class TailInputTest < Test::Unit::TestCase
         # rate_period in either direction by roughly the same magnitude as the
         # watcher scheduling delay. Use a symmetric jitter so the lower bound also
         # tolerates this read/observation latency.
+        #
+        # In addition, the throttling state is re-checked only when the watcher
+        # is notified. Once the file has been fully written, no further stat
+        # change is expected, so retries depend mainly on the timer notification
+        # (every tail_watcher_interval). Whether the tick that lands exactly
+        # rate_period after the previous read start already satisfies
+        # `time_spent >= rate_period` depends on sub-millisecond scheduling
+        # differences, so the next read can start one tick later, i.e.
+        # rate_period + tail_watcher_interval after the previous one. The jitter
+        # above already contains one tail_watcher_interval, but that allowance is
+        # shared with the read/observation latency. When the extra tick and a
+        # slow batch coincide, the sum exceeds it, so add one tick explicitly.
         jitter = (tail_watcher_interval + sleep_interval) * safety_ratio
         lower_interval = rate_period - jitter
-        upper_interval = rate_period + jitter
+        upper_interval = rate_period + tail_watcher_interval + jitter
 
         emit_count = 0
         prev_count = 0
