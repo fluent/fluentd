@@ -72,6 +72,9 @@ module Fluent
       desc 'If true, chunks are thrown away when unrecoverable error happens'
       config_param :disable_chunk_backup, :bool, default: false
 
+      desc 'The total size limit for chunks evacuated on unrecoverable errors. Once evacuation reaches this size, remaining chunks are purged without being evacuated. Set 0 to disable evacuation. nil (default) means no limit.'
+      config_param :evacuate_limit_size, :size, default: nil
+
       Metadata = Struct.new(:timekey, :tag, :variables, :seq) do
         def initialize(timekey, tag, variables)
           super(timekey, tag, variables, 0)
@@ -631,11 +634,15 @@ module Fluent
         log.on_trace { log.trace "clearing queue", instance: self.object_id }
 
         synchronize do
+          evacuated_size = 0
           until @queue.empty?
             begin
               q = @queue.shift
-              evacuate_chunk(q)
-              log.trace("purging a chunk in queue"){ {id: dump_unique_id_hex(chunk.unique_id), bytesize: chunk.bytesize, size: chunk.size} }
+              if evacuate_chunk?(q.bytesize, evacuated_size)
+                evacuate_chunk(q)
+                evacuated_size += q.bytesize
+              end
+              log.trace("purging a chunk in queue"){ {id: dump_unique_id_hex(q.unique_id), bytesize: q.bytesize, size: q.size} }
               q.purge
             rescue => e
               log.error "unexpected error while clearing buffer queue", error_class: e.class, error: e
@@ -644,6 +651,17 @@ module Fluent
           end
           @queue_size_metrics.set(0)
         end
+      end
+
+      # Decide whether a chunk should be evacuated, honoring evacuate_limit_size.
+      # nil limit means no bound (evacuate everything), 0 disables evacuation, and
+      # a positive limit only evacuates a chunk if it fits within the remaining budget
+      # so the total evacuated size never exceeds the limit.
+      def evacuate_chunk?(chunk_bytesize, evacuated_size)
+        return true if @evacuate_limit_size.nil?
+        return false if @evacuate_limit_size <= 0
+
+        evacuated_size + chunk_bytesize <= @evacuate_limit_size
       end
 
       def evacuate_chunk(chunk)
