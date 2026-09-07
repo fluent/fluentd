@@ -220,9 +220,13 @@ module Fluent
                               Tempfile.new('decompressed-data')
                             end
                 output_io.binmode if output_io.is_a?(Tempfile)
-                decompress(input_io: chunk_io, output_io: output_io)
-                output_io.seek(0, IO::SEEK_SET)
-                yield output_io
+                begin
+                  decompress(input_io: chunk_io, output_io: output_io)
+                  output_io.seek(0, IO::SEEK_SET)
+                  yield output_io
+                ensure
+                  output_io.close! if output_io.is_a?(Tempfile)
+                end
               end
             end
           end
@@ -274,9 +278,13 @@ module Fluent
                               Tempfile.new('decompressed-data')
                             end
                 output_io.binmode if output_io.is_a?(Tempfile)
-                decompress(input_io: chunk_io, output_io: output_io, type: :zstd)
-                output_io.seek(0, IO::SEEK_SET)
-                yield output_io
+                begin
+                  decompress(input_io: chunk_io, output_io: output_io, type: :zstd)
+                  output_io.seek(0, IO::SEEK_SET)
+                  yield output_io
+                ensure
+                  output_io.close! if output_io.is_a?(Tempfile)
+                end
               end
             end
           end
