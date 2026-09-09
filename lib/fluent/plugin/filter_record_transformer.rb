@@ -117,7 +117,7 @@ module Fluent::Plugin
 
     def parse_value(value_str)
       if value_str.start_with?('{', '[')
-        JSON.parse(value_str, Fluent::DEFAULT_JSON_PARSE_OPTIONS)
+        JSON.parse(value_str, **Fluent::DEFAULT_JSON_PARSE_OPTIONS)
       else
         value_str
       end

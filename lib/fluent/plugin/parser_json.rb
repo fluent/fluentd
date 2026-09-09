@@ -38,7 +38,7 @@ module Fluent
 
       # Use a shared proc rather than a per-call lambda so that
       # configure_json_parser returns the same object every time.
-      JSON_PARSE_PROC = ->(text) { JSON.parse(text, Fluent::DEFAULT_JSON_PARSE_OPTIONS) }
+      JSON_PARSE_PROC = ->(text) { JSON.parse(text, **Fluent::DEFAULT_JSON_PARSE_OPTIONS) }
 
       def configure(conf)
         if conf.has_key?('time_format')
@@ -96,7 +96,7 @@ module Fluent
       end
 
       def parse_io(io, &block)
-        parser = JSON::ResumableParser.new(Fluent::DEFAULT_JSON_PARSE_OPTIONS)
+        parser = JSON::ResumableParser.new(**Fluent::DEFAULT_JSON_PARSE_OPTIONS)
         begin
           chunk = +"".b
           while io.readpartial(@stream_buffer_size, chunk)

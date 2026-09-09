@@ -257,7 +257,7 @@ module Fluent::Plugin
         unless feeder
           first = data[0]
           if first == '{' || first == '[' # json
-            parser = JSON::ResumableParser.new(Fluent::DEFAULT_JSON_PARSE_OPTIONS)
+            parser = JSON::ResumableParser.new(**Fluent::DEFAULT_JSON_PARSE_OPTIONS)
             serializer = :to_json.to_proc
             feeder = ->(d){
               parser << d
