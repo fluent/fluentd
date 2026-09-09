@@ -235,6 +235,20 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
+    'two boundary spaces' => [nil, '<14>  Apr 25 16:43:2 host app: message'],
+    'subsecond format without subsecond' => ['%b %d %H:%M:%S.%N', '<14> Apr 25 16:43:29 host app: message'],
+    'subsecond format truncated second' => ['%b %d %H:%M:%S.%N', '<14>  Apr 25 16:43:2 host app: message'],
+  )
+  def test_broken_timestamp_is_rejected_without_raising(data)
+    time_format, text = data
+    config = {'parser_engine' => 'string', 'with_priority' => true}
+    config['time_format'] = time_format if time_format
+    @parser.configure(config)
+
+    assert_input_rejected(text, :rejects)
+  end
+
+  data(
     'regexp/subsecond/parser priority' => ['regexp', '%b %d %H:%M:%S.%L', 'Apr 25', true],
     'string/subsecond/parser priority' => ['string', '%b %d %H:%M:%S.%L', 'Apr 25', true],
     'regexp/subsecond/input priority' => ['regexp', '%b %d %H:%M:%S.%L', 'Apr 25', false],

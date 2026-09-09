@@ -399,7 +399,12 @@ module Fluent
         msg.chomp!
         record['message'] = msg
 
-        time = @time_parser_rfc3164.parse(time_str)
+        begin
+          time = @time_parser_rfc3164.parse(time_str)
+        rescue Fluent::TimeParser::TimeParseError
+          yield nil, nil
+          return
+        end
         record['time'] = time_str if @keep_time_key
 
         yield time, record
