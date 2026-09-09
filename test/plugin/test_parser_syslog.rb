@@ -15,6 +15,25 @@ class SyslogParserTest < ::Test::Unit::TestCase
     }
   end
 
+  def assert_input_rejected(text, expectation)
+    case expectation
+    when :raises
+      assert_raise(Fluent::TimeParser::TimeParseError) do
+        @parser.instance.parse(text) { |time, record| }
+      end
+    when :rejects
+      result = :not_yielded
+      assert_nothing_raised do
+        @parser.instance.parse(text) do |time, record|
+          result = [time, record]
+        end
+      end
+      assert_equal([nil, nil], result)
+    else
+      flunk("unknown expectation: #{expectation.inspect}")
+    end
+  end
+
   data('regexp' => 'regexp', 'string' => 'string')
   def test_parse(param)
     @parser.configure({'parser_type' => param})
@@ -157,15 +176,19 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
-    'rfc3164/parser priority' => ['rfc3164', true],
-    'auto/parser priority' => ['auto', true],
-    'rfc3164/input priority' => ['rfc3164', false],
-    'auto/input priority' => ['auto', false],
+    'regexp/rfc3164/parser priority' => ['regexp', 'rfc3164', true],
+    'string/rfc3164/parser priority' => ['string', 'rfc3164', true],
+    'regexp/auto/parser priority' => ['regexp', 'auto', true],
+    'string/auto/parser priority' => ['string', 'auto', true],
+    'regexp/rfc3164/input priority' => ['regexp', 'rfc3164', false],
+    'string/rfc3164/input priority' => ['string', 'rfc3164', false],
+    'regexp/auto/input priority' => ['regexp', 'auto', false],
+    'string/auto/input priority' => ['string', 'auto', false],
   )
   def test_truncated_subsecond_rfc3164_is_rejected_without_raising(data)
-    message_format, with_priority = data
+    parser_engine, message_format, with_priority = data
     @parser.configure(
-      'parser_engine'  => 'string',
+      'parser_engine'  => parser_engine,
       'message_format' => message_format,
       'with_priority'  => with_priority,
       'time_format'    => '%b %d %H:%M:%S.%N',
@@ -191,6 +214,46 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
     assert_equal([nil, nil], result)
+  end
+
+  data(
+    'rfc3164/parser priority' => ['rfc3164', true],
+    'auto/parser priority' => ['auto', true],
+    'rfc3164/input priority' => ['rfc3164', false],
+    'auto/input priority' => ['auto', false],
+  )
+  def test_non_ascii_rfc3164_header_is_rejected_without_raising(data)
+    message_format, with_priority = data
+    @parser.configure(
+      'parser_engine' => 'string',
+      'message_format' => message_format,
+      'with_priority' => with_priority,
+    )
+    prefix = with_priority ? '<14>' : ''
+
+    assert_input_rejected("#{prefix}Apr 25 16:43:é host app: message", :rejects)
+  end
+
+  data(
+    'regexp/subsecond/parser priority' => ['regexp', '%b %d %H:%M:%S.%L', 'Apr 25', true],
+    'string/subsecond/parser priority' => ['string', '%b %d %H:%M:%S.%L', 'Apr 25', true],
+    'regexp/subsecond/input priority' => ['regexp', '%b %d %H:%M:%S.%L', 'Apr 25', false],
+    'string/subsecond/input priority' => ['string', '%b %d %H:%M:%S.%L', 'Apr 25', false],
+    'regexp/iso8601/parser priority' => ['regexp', '%Y-%m-%dT%H:%M:%S', '2026-04-25T16:43:29', true],
+    'string/iso8601/parser priority' => ['string', '%Y-%m-%dT%H:%M:%S', '2026-04-25T16:43:29', true],
+    'regexp/iso8601/input priority' => ['regexp', '%Y-%m-%dT%H:%M:%S', '2026-04-25T16:43:29', false],
+    'string/iso8601/input priority' => ['string', '%Y-%m-%dT%H:%M:%S', '2026-04-25T16:43:29', false],
+  )
+  def test_truncated_rfc3164_header_is_rejected_without_raising(data)
+    parser_engine, time_format, timestamp, with_priority = data
+    @parser.configure(
+      'parser_engine' => parser_engine,
+      'with_priority' => with_priority,
+      'time_format' => time_format,
+    )
+    prefix = with_priority ? '<14> ' : ' '
+
+    assert_input_rejected("#{prefix}#{timestamp}", :rejects)
   end
 
   data(
@@ -225,33 +288,24 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
-    'regexp/two spaces' => ['regexp', true, '<14>  Apr 25 16:43:29 host app: message'],
-    'string/two spaces' => ['string', true, '<14>  Apr 25 16:43:29 host app: message'],
-    'regexp/tab' => ['regexp', true, "<14>\tApr 25 16:43:29 host app: message"],
-    'string/tab' => ['string', true, "<14>\tApr 25 16:43:29 host app: message"],
-    'regexp/two leading spaces' => ['regexp', false, '  Apr 25 16:43:29 host app: message'],
-    'string/two leading spaces' => ['string', false, '  Apr 25 16:43:29 host app: message'],
-    'regexp/leading tab' => ['regexp', false, "\tApr 25 16:43:29 host app: message"],
-    'string/leading tab' => ['string', false, "\tApr 25 16:43:29 host app: message"],
-    'regexp/long priority' => ['regexp', true, '<1234> Apr 25 16:43:29 host app: message'],
-    'string/long priority' => ['string', true, '<1234> Apr 25 16:43:29 host app: message'],
-    'regexp/non-numeric priority' => ['regexp', true, '<ab> Apr 25 16:43:29 host app: message'],
-    'string/non-numeric priority' => ['string', true, '<ab> Apr 25 16:43:29 host app: message'],
+    'regexp/two spaces' => ['regexp', true, '<14>  Apr 25 16:43:29 host app: message', :raises],
+    'string/two spaces' => ['string', true, '<14>  Apr 25 16:43:29 host app: message', :rejects],
+    'regexp/tab' => ['regexp', true, "<14>\tApr 25 16:43:29 host app: message", :raises],
+    'string/tab' => ['string', true, "<14>\tApr 25 16:43:29 host app: message", :rejects],
+    'regexp/two leading spaces' => ['regexp', false, '  Apr 25 16:43:29 host app: message', :raises],
+    'string/two leading spaces' => ['string', false, '  Apr 25 16:43:29 host app: message', :rejects],
+    'regexp/leading tab' => ['regexp', false, "\tApr 25 16:43:29 host app: message", :raises],
+    'string/leading tab' => ['string', false, "\tApr 25 16:43:29 host app: message", :rejects],
+    'regexp/long priority' => ['regexp', true, '<1234> Apr 25 16:43:29 host app: message', :rejects],
+    'string/long priority' => ['string', true, '<1234> Apr 25 16:43:29 host app: message', :rejects],
+    'regexp/non-numeric priority' => ['regexp', true, '<ab> Apr 25 16:43:29 host app: message', :rejects],
+    'string/non-numeric priority' => ['string', true, '<ab> Apr 25 16:43:29 host app: message', :rejects],
   )
   def test_parse_does_not_broaden_rfc3164_priority_separator(data)
-    parser_engine, with_priority, text = data
+    parser_engine, with_priority, text, expectation = data
     @parser.configure('parser_engine' => parser_engine, 'with_priority' => with_priority)
-    parsed = false
 
-    begin
-      @parser.instance.parse(text) do |time, record|
-        parsed = !!(time && record)
-      end
-    rescue Fluent::TimeParser::TimeParseError
-      # The regexp and string parsers report invalid input differently.
-    end
-
-    assert_false(parsed)
+    assert_input_rejected(text, expectation)
   end
 
   data(
@@ -296,34 +350,25 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
-    'regexp/rfc5424/with priority' => ['regexp', 'rfc5424', true],
-    'string/rfc5424/with priority' => ['string', 'rfc5424', true],
-    'regexp/auto/with priority' => ['regexp', 'auto', true],
-    'string/auto/with priority' => ['string', 'auto', true],
-    'regexp/rfc5424/without priority' => ['regexp', 'rfc5424', false],
-    'string/rfc5424/without priority' => ['string', 'rfc5424', false],
-    'regexp/auto/without priority' => ['regexp', 'auto', false],
-    'string/auto/without priority' => ['string', 'auto', false],
+    'regexp/rfc5424/with priority' => ['regexp', 'rfc5424', true, :rejects],
+    'string/rfc5424/with priority' => ['string', 'rfc5424', true, :raises],
+    'regexp/auto/with priority' => ['regexp', 'auto', true, :raises],
+    'string/auto/with priority' => ['string', 'auto', true, :rejects],
+    'regexp/rfc5424/without priority' => ['regexp', 'rfc5424', false, :raises],
+    'string/rfc5424/without priority' => ['string', 'rfc5424', false, :raises],
+    'regexp/auto/without priority' => ['regexp', 'auto', false, :raises],
+    'string/auto/without priority' => ['string', 'auto', false, :rejects],
   )
   def test_parse_does_not_accept_space_after_rfc5424_priority(data)
-    parser_engine, message_format, with_priority = data
+    parser_engine, message_format, with_priority, expectation = data
     @parser.configure(
       'parser_engine' => parser_engine,
       'message_format' => message_format,
       'with_priority' => with_priority,
     )
     text = with_priority ? '<14> 1 2026-04-25T16:43:29Z host app 123 ID - message' : ' 1 2026-04-25T16:43:29Z host app 123 ID - message'
-    parsed = false
 
-    begin
-      @parser.instance.parse(text) do |time, record|
-        parsed = !!(time && record)
-      end
-    rescue Fluent::TimeParser::TimeParseError
-      # The regexp and string parsers report invalid input differently.
-    end
-
-    assert_false(parsed)
+    assert_input_rejected(text, expectation)
   end
 
   data('regexp' => 'regexp', 'string' => 'string')

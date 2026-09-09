@@ -191,6 +191,7 @@ EOS
       messages.each { |message| u.send(message, 0) }
     end
 
+    assert_equal(3, d.events.size)
     assert_equal(d.events[0], d.events[1])
     assert_equal('syslog.unmatched', d.events[2][0])
     assert_equal(messages[2], d.events[2][2]['unmatched_line'])
