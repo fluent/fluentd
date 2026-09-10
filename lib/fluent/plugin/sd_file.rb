@@ -76,7 +76,7 @@ module Fluent
             -> (v) { YAML.safe_load(v).map }
           when :json
             require 'json'
-            -> (v) { JSON.parse(v, Fluent::DEFAULT_JSON_PARSE_OPTIONS) }
+            -> (v) { JSON.parse(v, **Fluent::DEFAULT_JSON_PARSE_OPTIONS) }
           end
       end
 
