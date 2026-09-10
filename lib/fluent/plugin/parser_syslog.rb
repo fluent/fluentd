@@ -71,6 +71,7 @@ module Fluent
         @time_parser_rfc5424 = nil
         @space_count_rfc3164 = nil
         @space_count_rfc5424 = nil
+        @time_format_starts_with_space_rfc3164 = false
         @skip_space_count_rfc3164 = false
         @skip_space_count_rfc5424 = false
         @time_parser_rfc5424_without_subseconds = nil
@@ -123,10 +124,12 @@ module Fluent
 
       def setup_time_parser_3164(time_fmt)
         @time_parser_rfc3164 = time_parser_create(format: time_fmt)
+        @time_format_starts_with_space_rfc3164 = time_fmt.start_with?(SPLIT_CHAR)
         if ['%b %d %H:%M:%S', '%b %d %H:%M:%S.%N'].include?(time_fmt)
           @skip_space_count_rfc3164 = true
         end
         @space_count_rfc3164 = time_fmt.squeeze(' ').count(' ') + 1
+        @space_count_rfc3164 -= 1 if @time_format_starts_with_space_rfc3164
       end
 
       def setup_time_parser_5424(time_fmt)
@@ -162,6 +165,8 @@ module Fluent
       end
 
       SPLIT_CHAR = ' '.freeze
+      DOT_CHAR = '.'.freeze
+      RFC3164_PRI_DIGITS_REGEXP = /\A[0-9]{1,3}\z/
 
       def parse_rfc3164_regex(text, &block)
         idx = 0
@@ -180,13 +185,26 @@ module Fluent
 
         i = idx - 1
         sq = false
+        first_time_field = true
         @space_count_rfc3164.times do
           while text[i + 1] == SPLIT_CHAR
+            if first_time_field
+              unless @time_format_starts_with_space_rfc3164
+                idx += 1
+                i += 1
+                break
+              end
+            end
             sq = true
             i += 1
           end
 
+          first_time_field = false
           i = text.index(SPLIT_CHAR, i + 1)
+          unless i
+            yield nil, nil
+            return
+          end
         end
 
         time_str = sq ? text.slice(idx, i - idx).squeeze(SPLIT_CHAR) : text.slice(idx, i - idx)
@@ -287,16 +305,30 @@ module Fluent
           end
         end
 
+        if text[cursor] == SPLIT_CHAR
+          cursor = rfc3164_space_cursor(text, cursor)
+          unless cursor
+            yield nil, nil
+            return
+          end
+        end
+
         if @skip_space_count_rfc3164
           # header part
           time_size = 15 # skip Mmm dd hh:mm:ss
-          time_end = text[cursor + time_size]
+          time_end_index = cursor + time_size
+          time_end = text[time_end_index]
+
           if time_end == SPLIT_CHAR
             time_str = text.slice(cursor, time_size)
             cursor += 16 # time + ' '
-          elsif time_end == '.'.freeze
+          elsif time_end == DOT_CHAR
             # support subsecond time
-            i = text.index(SPLIT_CHAR, time_size)
+            i = text.index(SPLIT_CHAR, time_end_index)
+            unless i
+              yield nil, nil
+              return
+            end
             time_str = text.slice(cursor, i - cursor)
             cursor = i + 1
           else
@@ -312,14 +344,18 @@ module Fluent
               i += 1
             end
             i = text.index(SPLIT_CHAR, i + 1)
+            unless i
+              yield nil, nil
+              return
+            end
           end
 
-          time_str = sq ? text.slice(idx, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
+          time_str = sq ? text.slice(cursor, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
           cursor = i + 1
         end
 
         i = text.index(SPLIT_CHAR, cursor)
-        if i.nil?
+        unless i
           yield nil, nil
           return
         end
@@ -363,10 +399,21 @@ module Fluent
         msg.chomp!
         record['message'] = msg
 
-        time = @time_parser_rfc3164.parse(time_str)
+        begin
+          time = @time_parser_rfc3164.parse(time_str)
+        rescue Fluent::TimeParser::TimeParseError
+          yield nil, nil
+          return
+        end
         record['time'] = time_str if @keep_time_key
 
         yield time, record
+      end
+
+      def rfc3164_space_cursor(text, cursor)
+        return if @with_priority && !RFC3164_PRI_DIGITS_REGEXP.match?(text.slice(1, cursor - 2))
+
+        @time_format_starts_with_space_rfc3164 ? cursor : cursor + 1
       end
 
       NILVALUE = '-'.freeze
