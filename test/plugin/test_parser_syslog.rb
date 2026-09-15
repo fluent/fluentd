@@ -75,6 +75,23 @@ class SyslogParserTest < ::Test::Unit::TestCase
     assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
   end
 
+  def test_parse_with_space_padded_rfc3164_timestamp
+    @parser.configure(
+      'parser_engine' => 'string',
+      'with_priority' => true,
+      'time_format' => '%Y-%m-%d %H:%M:%S',
+    )
+
+    result = nil
+    @parser.instance.parse('<6>2020-02-28  12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') do |time, record|
+      result = [time, record]
+    end
+
+    time, record = result
+    assert_equal(event_time('2020-02-28 12:00:00', format: '%Y-%m-%d %H:%M:%S'), time)
+    assert_equal(@expected.merge('pri' => 6), record)
+  end
+
   data('regexp' => 'regexp', 'string' => 'string')
   def test_parse_rfc5452_with_priority(param)
     @parser.configure('with_priority' => true, 'parser_type' => param, 'message_format' => 'rfc5424')
