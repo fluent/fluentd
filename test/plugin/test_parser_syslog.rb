@@ -385,6 +385,28 @@ class SyslogParserTest < ::Test::Unit::TestCase
     assert_input_rejected(text, expectation)
   end
 
+  def test_parse_rfc5424_with_space_containing_time_format
+    @parser.configure(
+      'parser_engine' => 'string',
+      'message_format' => 'rfc5424',
+      'with_priority' => true,
+      'time_format' => '%b %d %H:%M:%S',
+    )
+
+    result = nil
+    @parser.instance.parse('<16>1 Feb  6 13:14:15 192.168.0.1 fluentd 11111 ID - Hi, from Fluentd!') do |time, record|
+      result = [time, record]
+    end
+
+    time, record = result
+    assert_equal(event_time('Feb 6 13:14:15', format: '%b %d %H:%M:%S'), time)
+    assert_equal(
+      {'host' => '192.168.0.1', 'ident' => 'fluentd', 'pid' => '11111', 'msgid' => 'ID',
+       'pri' => 16, 'extradata' => '-', 'message' => 'Hi, from Fluentd!'},
+      record,
+    )
+  end
+
   data('regexp' => 'regexp', 'string' => 'string')
   def test_parse_rfc5452_with_priority(param)
     @parser.configure('with_priority' => true, 'parser_type' => param, 'message_format' => 'rfc5424')

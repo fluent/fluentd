@@ -453,7 +453,7 @@ module Fluent
             i = text.index(SPLIT_CHAR, i + 1)
           end
 
-          time_str = sq ? text.slice(idx, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
+          time_str = sq ? text.slice(cursor, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
           cursor = i + 1
         end
 
