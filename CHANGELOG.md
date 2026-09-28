@@ -1,5 +1,50 @@
 # v1.19
 
+## Release v1.19.4 - 2026/09/28
+
+### Bug Fix
+
+* buffer: enforce decompression_size_limit on the chunk IO path https://github.com/fluent/fluentd/pull/5504
+* buffer: clamp exported buffer size metrics to non-negative values https://github.com/fluent/fluentd/pull/5488
+* buffer: fix spurious `BufferOverflowError` caused by `queue_size` leaking when a chunk purge fails https://github.com/fluent/fluentd/pull/5487
+* buffer: fix `stage_byte_size` leak on staged to unstaged chunk demotion that could eventually raise spurious `BufferOverflowError` in plugins implementing `#format` https://github.com/fluent/fluentd/pull/5456
+* in_syslog: enforce message_length_limit on TCP/TLS transport https://github.com/fluent/fluentd/pull/5502
+  * The default value of `message_length_limit` is changed from 2048 to 8192 to match rsyslog's default `MaxMessageSize`.
+* output: fix incomplete path traversal check in extract_placeholders https://github.com/fluent/fluentd/pull/5501
+* output: treat JSON::GeneratorError as unrecoverable error https://github.com/fluent/fluentd/pull/5423
+* parser_syslog: fix NameError when RFC5424 timestamp has repeated spaces https://github.com/fluent/fluentd/pull/5500
+* parser_syslog: fix NameError when RFC3164 timestamp has repeated spaces https://github.com/fluent/fluentd/pull/5497
+* parser_syslog: avoid excessive backtracking when parsing malformed RFC5424 structured data https://github.com/fluent/fluentd/pull/5444
+* chunk: ensure to close the Tempfile for decompressed data https://github.com/fluent/fluentd/pull/5486
+* plugin base: bound the number of worker lock files by hashing the path into a fixed set of buckets https://github.com/fluent/fluentd/pull/5471
+* out_forward: stop the endless "ack in response and chunk id in sent data are different" warning storm by discarding (instead of reusing) a keepalive socket whose ack failed or came back with a mismatched chunk id https://github.com/fluent/fluentd/pull/5445
+* config: accept empty lines in quoted strings https://github.com/fluent/fluentd/pull/5478
+* config: fix a config error when a single scalar value is given to an array option in YAML config syntax (for example `retryable_response_codes: 503`) https://github.com/fluent/fluentd/pull/5433
+
+### Enhancement
+
+* in_http: add `<auth>` for basic authentication and `<security>` for client network allowlisting https://github.com/fluent/fluentd/pull/5503
+* supervisor: reduce memory usage of cleanup_lock_dir with huge number of lock files https://github.com/fluent/fluentd/pull/5472
+
+### Misc
+
+* gem: support json gem v3.x https://github.com/fluent/fluentd/pull/5493
+* Add `allow_comments: true` option for json parser https://github.com/fluent/fluentd/pull/5432
+* Set `allow_duplicate_key: true` for all `JSON.parse` call https://github.com/fluent/fluentd/pull/5430
+* CI fixes
+  * https://github.com/fluent/fluentd/pull/5495
+  * https://github.com/fluent/fluentd/pull/5477
+  * https://github.com/fluent/fluentd/pull/5466
+  * https://github.com/fluent/fluentd/pull/5460
+  * https://github.com/fluent/fluentd/pull/5455
+  * https://github.com/fluent/fluentd/pull/5454
+  * https://github.com/fluent/fluentd/pull/5453
+  * https://github.com/fluent/fluentd/pull/5452
+  * https://github.com/fluent/fluentd/pull/5434
+  * https://github.com/fluent/fluentd/pull/5426
+  * https://github.com/fluent/fluentd/pull/5425
+  * https://github.com/fluent/fluentd/pull/5424
+
 ## Release v1.19.3 - 2026/06/25
 
 ### Bug Fix
