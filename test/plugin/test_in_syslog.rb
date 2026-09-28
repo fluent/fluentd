@@ -509,4 +509,189 @@ EOS
       ])
     end
   end
+
+  sub_test_case 'message_length_limit for tcp' do
+    LIMIT = 1024
+    NORMAL_MESSAGE = '<6>Sep 10 00:00:00 localhost logger: hello'
+
+    def create_tcp_driver(port, frame_type: :traditional)
+      create_driver([
+        ipv4_config(port),
+        "<transport tcp>\n</transport>",
+        "frame_type #{frame_type}",
+        "message_length_limit #{LIMIT}",
+      ].join("\n"))
+    end
+
+    def max_buffer_size(d)
+      conns = d.instance.instance_variable_get(:@_server_connections)
+      conns.filter_map { |conn|
+        conn.instance_variable_get(:@callback_connection)&.buffer&.bytesize
+      }.max || 0
+    end
+
+    # The plugin closes the connection by sending RST (SO_LINGER 0), so both EOF and
+    # ECONNRESET mean that the connection was closed by the plugin.
+    def wait_until_closed(sock, timeout: 10)
+      waiting(timeout) do
+        loop do
+          begin
+            return true if sock.read_nonblock(1024).nil?
+          rescue EOFError, Errno::ECONNRESET
+            return true
+          rescue IO::WaitReadable
+            IO.select([sock], nil, nil, 0.1)
+          end
+        end
+      end
+    rescue Timeout::Error
+      false
+    end
+
+    def test_default_message_length_limit
+      assert_equal 8192, create_driver(ipv4_config).instance.message_length_limit
+    end
+
+    test 'traditional: the buffer does not grow unboundedly without delimiter' do
+      port = unused_port(protocol: :tcp)
+      d = create_tcp_driver(port)
+      observed_max = 0
+
+      d.run(expect_emits: 1, timeout: 30) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          # Send 200KB without any delimiter.
+          100.times do
+            s.write('x' * 2048)
+            s.flush
+            sleep 0.01
+            size = max_buffer_size(d)
+            observed_max = size if size > observed_max
+          end
+
+          # The tail of the oversized data is discarded up to the next delimiter,
+          # and the subsequent message must be still handled.
+          s.write("\n#{NORMAL_MESSAGE}\n")
+          s.flush
+          waiting(10) { sleep 0.1 until d.events.size >= 1 }
+        end
+      end
+
+      assert do
+        observed_max <= 32 * 1024 # much smaller than the 200KB we sent
+      end
+      assert_equal 1, d.events.size
+      assert_equal 'hello', d.events[0][2]['message']
+    end
+
+    test 'traditional: a message larger than the limit is dropped and the next one is emitted' do
+      port = unused_port(protocol: :tcp)
+      d = create_tcp_driver(port)
+
+      d.run(expect_emits: 1, timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          s.write("<6>Sep 10 00:00:00 localhost logger: #{'x' * (LIMIT * 2)}\n")
+          s.write("#{NORMAL_MESSAGE}\n")
+          s.flush
+          waiting(10) { sleep 0.1 until d.events.size >= 1 }
+        end
+      end
+
+      assert_equal 1, d.events.size
+      assert_equal 'hello', d.events[0][2]['message']
+    end
+
+    test 'traditional: a message split into multiple chunks is reassembled' do
+      port = unused_port(protocol: :tcp)
+      d = create_tcp_driver(port)
+
+      d.run(expect_emits: 1, timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          NORMAL_MESSAGE.each_char do |c|
+            s.write(c)
+            s.flush
+          end
+          s.write("\n")
+          s.flush
+        end
+      end
+
+      assert_equal 1, d.events.size
+      assert_equal 'hello', d.events[0][2]['message']
+    end
+
+    test 'octet_count: a declared length larger than the limit closes the connection' do
+      port = unused_port(protocol: :tcp)
+      d = create_tcp_driver(port, frame_type: :octet_count)
+      closed = false
+
+      d.run(timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          s.write("#{LIMIT + 1} #{NORMAL_MESSAGE}")
+          s.flush
+          closed = wait_until_closed(s)
+        end
+      end
+      assert_true closed
+      assert_equal 0, d.events.size
+    end
+
+    test 'octet_count: data without delimiter beyond the limit closes the connection' do
+      port = unused_port(protocol: :tcp)
+      d = create_tcp_driver(port, frame_type: :octet_count)
+      closed = false
+
+      d.run(timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          s.write('x' * (LIMIT * 2)) # no space delimiter at all
+          s.flush
+          closed = wait_until_closed(s)
+        end
+      end
+      assert_true closed
+      assert_equal 0, d.events.size
+    end
+
+    test 'octet_count: a message split into multiple chunks is reassembled' do
+      port = unused_port(protocol: :tcp)
+      d = create_tcp_driver(port, frame_type: :octet_count)
+
+      d.run(expect_emits: 1, timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          s.write("#{NORMAL_MESSAGE.size} ")
+          s.flush
+          sleep 0.1
+          s.write(NORMAL_MESSAGE[0...10])
+          s.flush
+          sleep 0.1
+          s.write(NORMAL_MESSAGE[10..-1])
+          s.flush
+        end
+      end
+
+      assert_equal 1, d.events.size
+      assert_equal 'hello', d.events[0][2]['message']
+    end
+
+    test 'octet_count: a near-limit message is not treated as an attack' do
+      port = unused_port(protocol: :tcp)
+      d = create_tcp_driver(port, frame_type: :octet_count)
+      message = "<6>Sep 10 00:00:00 localhost logger: #{'x' * (LIMIT - 37)}"
+      assert_equal LIMIT, message.size
+
+      d.run(expect_emits: 1, timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          # The length header + this partial frame (1025 bytes) exceeds the limit,
+          # but it must not be treated as an attack because the frame is legitimate.
+          s.write("#{message.size} #{message[0...1020]}")
+          s.flush
+          sleep 0.1
+          s.write(message[1020..-1])
+          s.flush
+        end
+      end
+
+      assert_equal 1, d.events.size
+      assert_equal 'x' * (LIMIT - 37), d.events[0][2]['message']
+    end
+  end
 end

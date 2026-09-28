@@ -98,8 +98,8 @@ module Fluent::Plugin
     desc 'The field name of the facility.'
     config_param :facility_key, :string, default: nil
 
-    desc "The max bytes of message"
-    config_param :message_length_limit, :size, default: 2048
+    desc "The max bytes of message. The messages exceeding this limit are dropped (UDP, TCP/TLS with traditional frame_type) or the connection is closed (TCP/TLS with octet_count frame_type)."
+    config_param :message_length_limit, :size, default: 8192
 
     config_param :blocking_timeout, :time, default: 0.5
 
@@ -190,29 +190,95 @@ module Fluent::Plugin
         resolve_name: @resolve_hostname,
         send_keepalive_packet: @send_keepalive_packet
       ) do |conn|
+        discard_till_next_delimiter = false
         conn.data do |data|
           buffer = conn.buffer
           buffer << data
           pos = 0
           if octet_count_frame
+            # Once an octet-counted stream contains an untrustworthy frame header, the stream
+            # can't be resynchronized. So close the connection instead of skipping bytes.
+            close_connection = false
             while idx = buffer.index(delimiter, pos)
-              num = Integer(buffer[pos..idx])
+              begin
+                num = Integer(buffer[pos..idx])
+              rescue ArgumentError
+                log.info "The message length is not a number, closing connection"
+                log.on_debug { log.debug "The message length is not a number:", head: buffer[pos, 32].dump }
+                close_connection = true
+                break
+              end
+
+              if num < 0
+                log.info "The message length is negative, closing connection:", size: num
+                close_connection = true
+                break
+              end
+
+              if num > @message_length_limit
+                log.info "The message length exceeds 'message_length_limit', closing connection:", limit: @message_length_limit, size: num
+                close_connection = true
+                break
+              end
+
               msg = buffer[idx + delimiter_size, num]
               if msg.size != num
+                # The frame is not fully received yet.
                 break
               end
 
               pos = idx + delimiter_size + num
               message_handler(msg, conn)
             end
+            buffer.slice!(0, pos) if pos > 0
+
+            # If the remaining buffer has no delimiter, no message length can be parsed from it.
+            # Since a valid frame header is much shorter than the limit, such a buffer never
+            # becomes a valid frame. (Note that a partially received valid frame always has a
+            # delimiter after its length, so this doesn't drop it even if it slightly exceeds
+            # the limit with its length header.)
+            if !close_connection && !buffer.index(delimiter) && buffer.bytesize > @message_length_limit
+              log.info "The buffer size exceeds 'message_length_limit', closing connection:", limit: @message_length_limit, size: buffer.bytesize
+              log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buffer[...32] }
+              close_connection = true
+            end
+
+            if close_connection
+              buffer.clear
+              conn.close
+              next
+            end
           else
             while idx = buffer.index(delimiter, pos)
               msg = buffer[pos...idx]
               pos = idx + delimiter_size
+
+              if discard_till_next_delimiter
+                discard_till_next_delimiter = false
+                next
+              end
+
+              if msg.bytesize > @message_length_limit
+                log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize
+                log.on_debug { log.debug "The received data is larger than 'message_length_limit':", head: msg[...32] }
+                next
+              end
+
               message_handler(msg, conn)
             end
+            buffer.slice!(0, pos) if pos > 0
+
+            # If the buffer size exceeds the limit here, it means that the next message will
+            # definitely exceed the limit. So we should clear the buffer here. Otherwise, it will
+            # keep storing useless data until the next delimiter comes.
+            if buffer.bytesize > @message_length_limit
+              log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buffer.bytesize
+              log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buffer[...32] }
+              buffer.clear
+              # We should discard the subsequent data until the next delimiter comes.
+              discard_till_next_delimiter = true
+            end
           end
-          buffer.slice!(0, pos) if pos > 0
         end
       end
     end
