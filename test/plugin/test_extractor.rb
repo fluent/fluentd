@@ -37,7 +37,7 @@ class ExtractorTest < Test::Unit::TestCase
 
   def incompressible_text(size)
     random = Random.new(0)
-    size.times.map { random.rand(36).to_s(36) }.join
+    Array.new(size) { random.rand(36).to_s(36) }.join
   end
 
   sub_test_case 'decompress_gzip' do
