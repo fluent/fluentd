@@ -24,6 +24,8 @@ require 'webrick/httputils'
 require 'uri'
 require 'socket'
 require 'json'
+require 'ipaddr'
+require 'openssl'
 
 module Fluent::Plugin
   class InHttpParser < Parser
@@ -90,6 +92,22 @@ module Fluent::Plugin
     desc "Add prefix to incoming tag"
     config_param :add_tag_prefix, :string, default: nil
 
+    config_section :auth, required: false, multi: false do
+      desc 'The method for HTTP authentication'
+      config_param :method, :enum, list: [:basic], default: :basic
+      desc 'The username for basic authentication'
+      config_param :username, :string
+      desc 'The password for basic authentication'
+      config_param :password, :string, secret: true
+    end
+
+    config_section :security, required: false, multi: false do
+      config_section :client, param_name: :clients, required: false, multi: true do
+        desc 'Address or network of the client, IPv4 or IPv6. e.g. 192.168.1.10, 192.168.0.0/16, fd00::/8'
+        config_param :network, :string
+      end
+    end
+
     config_section :parse do
       config_set_default :@type, 'in_http'
     end
@@ -100,6 +118,7 @@ module Fluent::Plugin
       super
 
       @km = nil
+      @nodes = []
       @format_name = nil
       @parser_time_key = nil
 
@@ -126,6 +145,8 @@ module Fluent::Plugin
       end
 
       raise Fluent::ConfigError, "'add_tag_prefix' parameter must not be empty" if @add_tag_prefix && @add_tag_prefix.empty?
+
+      configure_security if @security
 
       m = if @parser_configs.first['@type'] == 'in_http'
             @parser_msgpack = parser_create(usage: 'parser_in_http_msgpack', type: 'msgpack')
@@ -260,11 +281,33 @@ module Fluent::Plugin
 
     private
 
+    def configure_security
+      @nodes = @security.clients.map do |client|
+        begin
+          IPAddr.new(client.network)
+        rescue ArgumentError
+          raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
+        end
+      end
+    end
+
+    def allowed_client?(address)
+      return true if @nodes.empty?
+      @nodes.any? { |node| node.include?(address) rescue false }
+    end
+
     def on_server_connect(conn)
+      unless allowed_client?(conn.remote_addr)
+        log.warn "client address does not match any allowed network", address: conn.remote_addr
+        conn.data {|_data| }
+        conn.close
+        return
+      end
+
       handler = Handler.new(conn, @km, method(:on_request),
                             @body_size_limit, @decompression_size_limit, @format_name, log,
                             @cors_allow_origins, @cors_allow_credentials,
-                            @add_query_params)
+                            @add_query_params, @auth)
 
       conn.on(:data) do |data|
         handler.on_read(data)
@@ -347,7 +390,7 @@ module Fluent::Plugin
       attr_reader :content_type
 
       def initialize(io, km, callback, body_size_limit, decompression_size_limit, format_name, log,
-                     cors_allow_origins, cors_allow_credentials, add_query_params)
+                     cors_allow_origins, cors_allow_credentials, add_query_params, auth = nil)
         @io = io
         @km = km
         @callback = callback
@@ -360,6 +403,8 @@ module Fluent::Plugin
         @cors_allow_credentials = cors_allow_credentials
         @idle = 0
         @add_query_params = add_query_params
+        @auth = auth
+        @authorization = nil
         @km.add(self)
 
         @remote_port, @remote_addr = io.remote_port, io.remote_addr
@@ -399,6 +444,7 @@ module Fluent::Plugin
         @env = {}
         @content_type = ""
         @content_encoding = ""
+        @authorization = nil
         headers.each_pair {|k,v|
           @env["HTTP_#{k.tr('-','_').upcase}"] = v
           case k
@@ -426,8 +472,22 @@ module Fluent::Plugin
             @access_control_request_method = v
           when /\AAccess-Control-Request-Headers\Z/i
             @access_control_request_headers = v
+          when /\AAuthorization\Z/i
+            @authorization = v.is_a?(Array) ? v.first : v
           end
         }
+
+        if @auth
+          # Never let the credential reach a record built by add_http_headers.
+          @env.delete("HTTP_AUTHORIZATION")
+
+          unless preflight_request? || authenticate
+            @log.warn "authentication failed", address: @remote_addr
+            send_response_and_close(RES_401_STATUS, {'WWW-Authenticate' => AUTH_CHALLENGE}, "")
+            return
+          end
+        end
+
         if expect
           if expect == '100-continue'.freeze
             if !size || size < @body_size_limit
@@ -442,6 +502,8 @@ module Fluent::Plugin
       end
 
       def on_body(chunk)
+        return if closing?
+
         if @body.bytesize + chunk.bytesize > @body_size_limit
           unless closing?
             send_response_and_close("413 Request Entity Too Large", {}, "Too large")
@@ -452,6 +514,8 @@ module Fluent::Plugin
       end
 
       RES_200_STATUS = "200 OK".freeze
+      RES_401_STATUS = "401 Unauthorized".freeze
+      AUTH_CHALLENGE = 'Basic realm="fluentd"'.freeze
       RES_403_STATUS = "403 Forbidden".freeze
 
       # Azure App Service sends GET requests for health checking purpose.
@@ -650,6 +714,23 @@ module Fluent::Plugin
 
       def parse_query(query)
         query.nil? ? {} : Hash[URI.decode_www_form(query, Encoding::ASCII_8BIT)]
+      end
+
+      # Browsers never attach Authorization to a CORS preflight.
+      def preflight_request?
+        @parser.http_method == 'OPTIONS'.freeze
+      end
+
+      def authenticate
+        scheme, credentials = @authorization.to_s.split(' ', 2)
+        return false unless scheme == 'Basic'.freeze
+
+        username, password = credentials.to_s.unpack1('m').to_s.split(':', 2)
+        username_matched = OpenSSL.secure_compare(username.to_s, @auth.username)
+        password_matched = OpenSSL.secure_compare(password.to_s, @auth.password)
+        username_matched && password_matched
+      rescue ArgumentError
+        false
       end
     end
   end
