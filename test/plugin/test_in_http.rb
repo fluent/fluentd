@@ -53,6 +53,272 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal false, d.instance.add_query_params
   end
 
+  def security_config(body, base = config)
+    base + %[
+      <security>
+      #{body}
+      </security>
+    ]
+  end
+
+  def test_configure_security_client_without_network
+    assert_raise(Fluent::ConfigError) do
+      create_driver(security_config("<client>\n</client>"))
+    end
+  end
+
+  def test_configure_security_with_invalid_network
+    assert_raise(Fluent::ConfigError) do
+      create_driver(security_config("<client>\n  network 300.0.0.0/8\n</client>"))
+    end
+  end
+
+  def test_allowed_client_is_accepted
+    d = create_driver(security_config("<client>\n  network 127.0.0.0/8\n</client>"))
+    time = event_time("2011-01-02 13:14:15 UTC")
+    time_i = time.to_i
+
+    d.run(expect_records: 1) do
+      res = post("/tag1", {"json" => {"a" => 1}.to_json, "time" => time_i.to_s})
+      assert_equal "200", res.code
+    end
+
+    assert_equal [["tag1", time, {"a" => 1}]], d.events
+  end
+
+  def test_disallowed_client_is_disconnected
+    d = create_driver(security_config("<client>\n  network 10.0.0.0/8\n</client>"))
+
+    d.run(expect_records: 0, timeout: 5) do
+      assert_raise(EOFError, Errno::ECONNRESET, Errno::EPIPE) do
+        post("/tag1", {"json" => {"a" => 1}.to_json})
+      end
+    end
+
+    assert_equal [], d.events
+  end
+
+  def test_disallowed_client_cannot_spoof_with_x_forwarded_for
+    d = create_driver(security_config("<client>\n  network 10.0.0.0/8\n</client>"))
+
+    d.run(expect_records: 0, timeout: 5) do
+      assert_raise(EOFError, Errno::ECONNRESET, Errno::EPIPE) do
+        post("/tag1", {"json" => {"a" => 1}.to_json}, {"X-Forwarded-For" => "10.0.0.1"})
+      end
+    end
+
+    assert_equal [], d.events
+  end
+
+  def test_allowed_client_matches_ipv4_and_ipv6_entries
+    d = create_driver(security_config(%[
+      <client>
+        network 10.0.0.0/8
+      </client>
+      <client>
+        network 2001:db8::/32
+      </client>
+    ]))
+    instance = d.instance
+
+    assert_true(instance.send(:allowed_client?, "10.1.2.3"))
+    assert_true(instance.send(:allowed_client?, "2001:db8::1"))
+    assert_false(instance.send(:allowed_client?, "11.1.2.3"))
+    assert_false(instance.send(:allowed_client?, "2001:db9::1"))
+    assert_false(instance.send(:allowed_client?, "not an address"))
+  end
+
+  def test_security_without_client_accepts_any_peer
+    d = create_driver(security_config(""))
+    time = event_time("2011-01-02 13:14:15 UTC")
+    time_i = time.to_i
+
+    d.run(expect_records: 1) do
+      res = post("/tag1", {"json" => {"a" => 1}.to_json, "time" => time_i.to_s})
+      assert_equal "200", res.code
+    end
+
+    assert_equal [["tag1", time, {"a" => 1}]], d.events
+  end
+
+  def auth_config(base = config)
+    base + %[
+      <auth>
+        method basic
+        username fluentd
+        password s3cret
+      </auth>
+    ]
+  end
+
+  def basic_credentials(username = "fluentd", password = "s3cret")
+    "Basic " + ["#{username}:#{password}"].pack('m0')
+  end
+
+  def test_configure_auth_without_username
+    assert_raise(Fluent::ConfigError) do
+      create_driver(config + %[
+        <auth>
+          method basic
+          password s3cret
+        </auth>
+      ])
+    end
+  end
+
+  def read_http_response(sock)
+    status = sock.readline.split(' ')[1]
+    length = 0
+    while (line = sock.readline) != "\r\n"
+      length = line.split(':', 2)[1].strip.to_i if /\AContent-Length:/i.match?(line)
+    end
+    sock.read(length) if length > 0
+    status
+  end
+
+  def test_basic_auth_accepts_valid_credentials
+    d = create_driver(auth_config)
+    time = event_time("2011-01-02 13:14:15 UTC")
+    time_i = time.to_i
+
+    d.run(expect_records: 1) do
+      res = post("/tag1", {"json" => {"a" => 1}.to_json, "time" => time_i.to_s},
+                 {"Authorization" => basic_credentials})
+      assert_equal "200", res.code
+    end
+
+    assert_equal [["tag1", time, {"a" => 1}]], d.events
+  end
+
+  def test_basic_auth_rejects_wrong_and_missing_credentials
+    d = create_driver(auth_config)
+    codes = []
+
+    d.end_if { codes.size == 4 }
+    d.run(expect_records: 0, timeout: 5) do
+      codes << post("/tag1", {"json" => "{}"}, {"Authorization" => basic_credentials("fluentd", "wrong")}).code
+      codes << post("/tag1", {"json" => "{}"}, {"Authorization" => basic_credentials("nobody", "s3cret")}).code
+      codes << post("/tag1", {"json" => "{}"}).code
+      codes << post("/tag1", {"json" => "{}"}, {"Authorization" => "Bearer s3cret"}).code
+    end
+
+    assert_equal ["401", "401", "401", "401"], codes
+    assert_equal [], d.events
+  end
+
+  class FakeIO
+    attr_reader :written
+
+    def initialize
+      @written = +''
+    end
+
+    def remote_addr
+      "127.0.0.1"
+    end
+
+    def remote_port
+      12345
+    end
+
+    def write(data)
+      @written << data
+    end
+
+    def close
+    end
+  end
+
+  def build_handler(instance, io)
+    Fluent::Plugin::HttpInput::Handler.new(
+      io,
+      Fluent::Plugin::HttpInput::KeepaliveManager.new(10),
+      ->(_path, _params) { ["200 OK", {}, ""] },
+      instance.body_size_limit,
+      instance.decompression_size_limit,
+      "default",
+      $log,
+      nil,
+      false,
+      false,
+      instance.auth
+    )
+  end
+
+  def feed_request(handler, authorization)
+    body = "x" * 65536
+    header = +"POST /tag1 HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+    header << "Authorization: #{authorization}\r\n" if authorization
+    header << "Content-Type: application/json\r\nContent-Length: #{body.bytesize}\r\n\r\n"
+    handler.on_read(header)
+    handler.on_read(body)
+    handler.instance_variable_get(:@body).bytesize
+  end
+
+  def test_unauthorized_request_body_is_not_buffered
+    d = create_driver(auth_config)
+
+    rejected_io = FakeIO.new
+    rejected = feed_request(build_handler(d.instance, rejected_io), nil)
+
+    accepted = feed_request(build_handler(d.instance, FakeIO.new), basic_credentials)
+
+    assert_true(rejected_io.written.start_with?("HTTP/1.1 401 Unauthorized"))
+    assert_equal(0, rejected)
+    assert_equal(65536, accepted)
+  end
+
+  def test_authorization_header_is_kept_out_of_records
+    d = create_driver(auth_config(config + "add_http_headers true"))
+    time_i = event_time("2011-01-02 13:14:15 UTC").to_i
+
+    d.run(expect_records: 1) do
+      res = post("/tag1", {"json" => {"a" => 1}.to_json, "time" => time_i.to_s},
+                 {"Authorization" => basic_credentials})
+      assert_equal "200", res.code
+    end
+
+    record = d.events[0][2]
+    assert_false(record.key?("HTTP_AUTHORIZATION"))
+    assert_equal(1, record["a"])
+  end
+
+  def test_cors_preflight_is_exempt_from_authentication
+    d = create_driver(auth_config(config + %[cors_allow_origins ["http://example.com"]]))
+    codes = []
+
+    d.end_if { codes.size == 1 }
+    d.run(expect_records: 0, timeout: 5) do
+      codes << options("/tag1", {}, {"Origin" => "http://example.com",
+                                     "Access-Control-Request-Method" => "POST"}).code
+    end
+
+    assert_equal ["200"], codes
+  end
+
+  def test_authorization_is_not_carried_over_a_keepalive_connection
+    d = create_driver(auth_config)
+    codes = []
+    body = {"a" => 1}.to_json
+
+    d.end_if { codes.size == 2 }
+    d.run(expect_records: 1, timeout: 5) do
+      TCPSocket.open("127.0.0.1", @port) do |sock|
+        sock.write("POST /tag1 HTTP/1.1\r\nHost: 127.0.0.1\r\n" \
+                   "Authorization: #{basic_credentials}\r\n" \
+                   "Content-Type: application/json\r\nContent-Length: #{body.bytesize}\r\n\r\n#{body}")
+        codes << read_http_response(sock)
+
+        sock.write("POST /tag1 HTTP/1.1\r\nHost: 127.0.0.1\r\n" \
+                   "Content-Type: application/json\r\nContent-Length: #{body.bytesize}\r\n\r\n#{body}")
+        codes << read_http_response(sock)
+      end
+    end
+
+    assert_equal ["200", "401"], codes
+    assert_equal 1, d.events.size
+  end
+
   def test_time
     d = create_driver
     time = event_time("2011-01-02 13:14:15.123 UTC")
