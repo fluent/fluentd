@@ -45,8 +45,21 @@ module Fluent
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{([-_.@$a-zA-Z0-9]+)\}/
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[-?\d+\])?)\}/
       CHUNK_ID_PLACEHOLDER_PATTERN = /\$\{chunk_id\}/
-      INVALID_PATH_COMPONENT_PATTERN = %r{\.\.[/\\]|^[/\\]}
-      PARENT_DIRECTORY_PATTERN = %r{\.\.[/\\]}
+
+      # Matches absolute paths, including the POSIX root, Windows drive roots, and UNC paths (e.g., \\host\share).
+      # It also accounts for forward slashes used as directory separators in Windows.
+      ABSOLUTE_PATH_PATTERN = %r{\A[/\\]}
+      # Matches Windows drive specifications.
+      # A trailing separator after the colon is not required, because a drive-relative path like C:Windows can still escape a relative path template.
+      WINDOWS_DRIVE_PATTERN = %r{\A[a-zA-Z]:}
+      # Matches .. only when it acts as an independent path component (e.g., ../etc or foo/..),
+      # ignoring dots embedded within strings like app..web or a..b/c.
+      # It uses zero-width negative lookarounds to avoid consuming characters.
+      # This ensures that adjacent components like /a/../../b are accurately detected and counted without missing any.
+      PARENT_DIRECTORY_PATTERN = %r{(?<![^/\\])\.\.(?![^/\\])}
+
+      INVALID_PATH_COMPONENT_PATTERN =
+        Regexp.union(ABSOLUTE_PATH_PATTERN, WINDOWS_DRIVE_PATTERN, PARENT_DIRECTORY_PATTERN)
 
       CHUNKING_FIELD_WARN_NUM = 4
 
@@ -879,12 +892,13 @@ module Fluent
 
               replace
             end
-            # Check if the number of parent directory components (../) has increased due to variable substitution
-            if rvalue.match?(PARENT_DIRECTORY_PATTERN)
-              if rvalue.scan(PARENT_DIRECTORY_PATTERN).size > str.scan(PARENT_DIRECTORY_PATTERN).size
-                raise Fluent::UnrecoverableError, "Invalid path component detected, replaced to: #{rvalue}"
-              end
-            end
+          end
+
+          # Verifies that the number of parent directory traversals (..) has not increased after variable substitution.
+          # While each replaced value is validated individually, this step prevents harmless values from concatenating into a dangerous path (e.g., ${tag}${key}/ becoming ../ if both tag and key are .).
+          if rvalue.match?(PARENT_DIRECTORY_PATTERN) &&
+             rvalue.scan(PARENT_DIRECTORY_PATTERN).size > str.scan(PARENT_DIRECTORY_PATTERN).size
+            raise Fluent::UnrecoverableError, "Invalid path component detected, replaced to: #{rvalue}"
           end
 
           if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
