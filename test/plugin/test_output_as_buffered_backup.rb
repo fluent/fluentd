@@ -338,6 +338,33 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
       end
     end
 
+    test 'chunk is thrown away when it exceeds decompression_size_limit' do
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
+        id = 'backup_test_decompression_size_limit'
+        hash = {
+          'flush_interval' => 1,
+          'flush_thread_burst_interval' => 0.1,
+          'compress' => 'gzip',
+          'decompression_size_limit' => 10,
+        }
+        chunk_id = nil
+        @i.configure(config_element('ROOT', '', {'@id' => id}, [config_element('buffer', 'tag', hash)]))
+        @i.register(:write) { |chunk|
+          chunk_id = chunk.unique_id
+          raise Fluent::UnrecoverableError, "yay, your #write must fail"
+        }
+
+        flush_chunks
+
+        logs = @i.log.out.logs
+        waiting(5) { Thread.pass until logs.any? { |l| l.include?("failed to back up") } }
+
+        # commit_write runs after the failed backup, so the chunk is gone and the flush thread lives
+        waiting(5) { Thread.pass until @i.buffer.queue.empty? && @i.buffer.stage.empty? }
+        assert { logs.any? { |l| l.include?(@i.dump_unique_id_hex(chunk_id)) } }
+      end
+    end
+
     test 'chunk is thrown away when disable_chunk_backup is true' do
       Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test'

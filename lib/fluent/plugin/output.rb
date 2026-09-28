@@ -1334,9 +1334,14 @@ module Fluent
         if @buffer.disable_chunk_backup
           log.warn "disable_chunk_backup is true. #{dump_unique_id_hex(chunk.unique_id)} chunk is thrown away"
         else
-          @buffer.backup(chunk.unique_id) { |f|
-            chunk.write_to(f)
-          }
+          begin
+            @buffer.backup(chunk.unique_id) { |f|
+              chunk.write_to(f)
+            }
+          rescue => e
+            log.warn "failed to back up #{dump_unique_id_hex(chunk.unique_id)} chunk. it is thrown away", error: e
+            log.warn_backtrace
+          end
         end
         commit_write(chunk.unique_id, secondary: using_secondary, delayed: delayed_commit)
       end

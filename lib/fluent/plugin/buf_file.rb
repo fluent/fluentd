@@ -163,7 +163,7 @@ module Fluent
           end
 
           begin
-            chunk = Fluent::Plugin::Buffer::FileChunk.new(m, path, mode, compress: @compress) # file chunk resumes contents of metadata
+            chunk = Fluent::Plugin::Buffer::FileChunk.new(m, path, mode, compress: @compress, decompression_size_limit: @decompression_size_limit) # file chunk resumes contents of metadata
           rescue Fluent::Plugin::Buffer::FileChunk::FileChunkError => e
             exist_broken_file = true
             handle_broken_files(path, mode, e)

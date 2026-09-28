@@ -106,6 +106,29 @@ class FileBufferTest < Test::Unit::TestCase
 
       assert_equal 4 * 1024 * 1024, chunk.instance_variable_get(:@decompression_size_limit)
     end
+
+    test 'passes decompression_size_limit to FileChunk on resume' do
+      conf = config_element('buffer', '', {'path' => File.join(@dir, 'buffer.*.file'), 'decompression_size_limit' => 4 * 1024 * 1024})
+
+      p = Fluent::Plugin::FileBuffer.new
+      p.owner = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p.configure(conf)
+      chunk = p.generate_chunk(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil)).staged!
+      chunk.append(["a" * 100])
+      chunk.commit
+      chunk.close
+
+      p2 = Fluent::Plugin::FileBuffer.new
+      p2.owner = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p2.configure(conf)
+      stage, queue = p2.resume
+      resumed = stage.values + queue
+
+      assert_equal 1, resumed.size
+      assert_equal 4 * 1024 * 1024, resumed.first.instance_variable_get(:@decompression_size_limit)
+    ensure
+      resumed&.each(&:close)
+    end
   end
 
   sub_test_case 'non configured buffer plugin instance' do
