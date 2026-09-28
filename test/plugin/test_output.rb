@@ -454,6 +454,11 @@ class OutputTest < Test::Unit::TestCase
         'safe_slash'   => 'app/web',
         'symbol_mixed' => 'my_tag-123',
         'no_match'     => 'app..web/log',
+        'dots_in_middle' => 'a..b',
+        'dots_as_prefix' => '..b/log',
+        'dots_as_suffix' => 'a../log',
+        'single_dot'     => '.',
+        'not_drive_spec' => 'http://example.com',
       )
       test 'allows valid tags including safe slashes' do |tag|
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
@@ -468,7 +473,15 @@ class OutputTest < Test::Unit::TestCase
         'unix_relative'    => '../etc/cron.d',
         'windows_relative' => '..\\Windows\\System32',
         'unix_absolute'    => '/etc/passwd',
-        'windows_absolute' => '\\Windows'
+        'windows_absolute' => '\\Windows',
+        'windows_unc'      => '\\\\host\\share',
+        'bare_parent'      => '..',
+        'trailing_parent'  => 'app/..',
+        'middle_parent'    => 'app/../etc',
+        'trailing_parent_windows' => 'app\\..',
+        'windows_drive'           => 'C:\\Windows\\Temp',
+        'windows_drive_slash'     => 'C:/Windows/Temp',
+        'windows_drive_relative'  => 'C:Temp',
       )
       test 'rejects tags containing parent directory relative or absolute root paths' do |tag|
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
@@ -486,7 +499,10 @@ class OutputTest < Test::Unit::TestCase
         'unix_relative'    => '../etc/cron.d',
         'windows_relative' => '..\\Windows\\System32',
         'unix_absolute'    => '/etc/passwd',
-        'windows_absolute' => '\\Windows'
+        'windows_absolute' => '\\Windows',
+        'bare_parent'      => '..',
+        'trailing_parent'  => 'app/..',
+        'windows_drive'    => 'C:\\Windows\\Temp',
       )
       test 'rejects tags containing traversal paths even when only parts are used' do |tag|
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
@@ -504,7 +520,12 @@ class OutputTest < Test::Unit::TestCase
         'unix_relative'    => '../etc/cron.d',
         'windows_relative' => '..\\Windows\\System32',
         'unix_absolute'    => '/etc/passwd',
-        'windows_absolute' => '\\Windows'
+        'windows_absolute' => '\\Windows',
+        'bare_parent'      => '..',
+        'trailing_parent'  => 'app/..',
+        'middle_parent'    => 'app/../etc',
+        'windows_drive'    => 'C:\\Windows\\Temp',
+        'windows_drive_relative' => 'C:Temp',
       )
       test 'rejects variables containing parent directory relative or absolute root paths' do |var_value|
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag,file')]))
@@ -532,6 +553,40 @@ class OutputTest < Test::Unit::TestCase
           @i.extract_placeholders("/data/${dot}${dotslash}${file}", m)
         end
         assert_match(/Invalid path component detected, replaced to/, err.message)
+      end
+
+      data(
+        'tag and tag'      => ['/data/${tag}${tag}/log', 'tag'],
+        'tag and variable' => ['/data/${tag}${dot}/log', 'tag,dot'],
+      )
+      test 'rejects traversal built up by concatenating placeholders' do |(tmpl, chunk_keys)|
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', chunk_keys)]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        m = create_metadata(timekey: t, tag: '.', variables: { dot: '.' })
+
+        err = assert_raise(Fluent::UnrecoverableError) do
+          @i.extract_placeholders(tmpl, m)
+        end
+        assert_match(/Invalid path component detected, replaced to/, err.message)
+      end
+
+      test 'rejects traversal placed at the end of the path' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'dot')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        m = create_metadata(timekey: t, variables: { dot: '.' })
+
+        err = assert_raise(Fluent::UnrecoverableError) do
+          @i.extract_placeholders('/data/${dot}${dot}', m)
+        end
+        assert_match(/Invalid path component detected, replaced to/, err.message)
+      end
+
+      test 'passes safely when a template itself contains ../ and only tag is replaced' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
+        t = event_time('2016-04-11 20:30:00 +0900')
+        m = create_metadata(timekey: t, tag: 'app.web', variables: {})
+
+        assert_equal '../data/app.web/log', @i.extract_placeholders('../data/${tag}/log', m)
       end
 
       test 'passes safely when placeholder expansion does NOT introduce additional ../' do
