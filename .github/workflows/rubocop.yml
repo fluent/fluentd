@@ -1,4 +1,4 @@
-name: RucoCop Security & Performance Check
+name: RuboCop Security & Performance Check
 
 on:
   push:
