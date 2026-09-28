@@ -1543,6 +1543,37 @@ class BufferTest < Test::Unit::TestCase
         chunk.read
       end
     end
+
+    test '#write_to raises SizeLimitError when decompressed data exceeds decompression_size_limit' do
+      @p = create_buffer({'compress' => 'gzip', 'decompression_size_limit' => 100})
+      timestamp = event_time('2016-04-11 16:00:02 +0000')
+
+      es = Fluent::ArrayEventStream.new([[timestamp, {"message" => "A" * 1024}]])
+
+      @p.write({@dm0 => es})
+
+      chunk = @p.stage[@dm0]
+      io = StringIO.new
+
+      assert_raise Fluent::Plugin::Extractor::SizeLimitError do
+        chunk.write_to(io)
+      end
+    end
+
+    test '#open raises SizeLimitError when decompressed data exceeds decompression_size_limit' do
+      @p = create_buffer({'compress' => 'gzip', 'decompression_size_limit' => 100})
+      timestamp = event_time('2016-04-11 16:00:02 +0000')
+
+      es = Fluent::ArrayEventStream.new([[timestamp, {"message" => "A" * 1024}]])
+
+      @p.write({@dm0 => es})
+
+      chunk = @p.stage[@dm0]
+
+      assert_raise Fluent::Plugin::Extractor::SizeLimitError do
+        chunk.open { |io| io.read }
+      end
+    end
   end
 
   sub_test_case '#statistics' do

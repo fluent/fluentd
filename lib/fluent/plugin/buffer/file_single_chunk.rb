@@ -141,9 +141,11 @@ module Fluent
 
         def open(**kwargs, &block)
           @chunk.seek(0, IO::SEEK_SET)
-          val = yield @chunk
-          @chunk.seek(0, IO::SEEK_END) if self.staged?
-          val
+          begin
+            yield @chunk
+          ensure
+            @chunk.seek(0, IO::SEEK_END) if self.staged?
+          end
         end
 
         def self.assume_chunk_state(path)

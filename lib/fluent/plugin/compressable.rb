@@ -75,9 +75,9 @@ module Fluent
 
       def io_decompress(input, output, type = :gzip)
         if type == :gzip
-          Extractor.io_decompress_gzip(input, output)
+          Extractor.io_decompress_gzip(input, output, limit: @decompression_size_limit || DEFAULT_DECOMPRESSION_SIZE_LIMIT)
         elsif type == :zstd
-          Extractor.io_decompress_zstd(input, output)
+          Extractor.io_decompress_zstd(input, output, limit: @decompression_size_limit || DEFAULT_DECOMPRESSION_SIZE_LIMIT)
         else
           raise ArgumentError, "Unknown compression type: #{type}"
         end
