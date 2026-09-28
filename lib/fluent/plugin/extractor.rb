@@ -26,6 +26,9 @@ module Fluent
 
       BYTES_TO_READ = 64 * 1024
       INFLATE_BYTES_TO_READ = 1024
+      # Zstd::StreamReader#read takes a number of compressed bytes, unlike
+      # Zlib::GzipReader#read which takes decompressed bytes
+      ZSTD_BYTES_TO_READ = 1024
 
       def self.decompress_gzip(compressed_data, limit:)
         io = StringIO.new(compressed_data)
@@ -55,8 +58,7 @@ module Fluent
         reader = Zstd::StreamReader.new(io)
         out = ''
         loop do
-          # Zstd::StreamReader needs to specify the size of the buffer
-          out << reader.read(BYTES_TO_READ)
+          out << reader.read(ZSTD_BYTES_TO_READ)
           if out.bytesize > limit
             raise SizeLimitError, "Decompressed data exceeds limit of #{limit} bytes"
           end
@@ -88,10 +90,15 @@ module Fluent
         out
       end
 
-      def self.io_decompress_gzip(input, output)
+      def self.io_decompress_gzip(input, output, limit:)
+        size = 0
         loop do
           reader = Zlib::GzipReader.new(input)
           while (chunk = reader.read(BYTES_TO_READ))
+            size += chunk.bytesize
+            if size > limit
+              raise SizeLimitError, "Decompressed data exceeds limit of #{limit} bytes"
+            end
             output.write(chunk)
           end
           unused = reader.unused
@@ -105,11 +112,15 @@ module Fluent
         output
       end
 
-      def self.io_decompress_zstd(input, output)
+      def self.io_decompress_zstd(input, output, limit:)
         reader = Zstd::StreamReader.new(input)
+        size = 0
         loop do
-          # Zstd::StreamReader needs to specify the size of the buffer
-          chunk = reader.read(BYTES_TO_READ)
+          chunk = reader.read(ZSTD_BYTES_TO_READ)
+          size += chunk.bytesize
+          if size > limit
+            raise SizeLimitError, "Decompressed data exceeds limit of #{limit} bytes"
+          end
           output.write(chunk)
           # Zstd::StreamReader doesn't provide unused data, so we have to manually adjust the position
           break if input.eof?
