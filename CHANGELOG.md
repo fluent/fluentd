@@ -20,11 +20,11 @@
 * out_forward: stop the endless "ack in response and chunk id in sent data are different" warning storm by discarding (instead of reusing) a keepalive socket whose ack failed or came back with a mismatched chunk id https://github.com/fluent/fluentd/pull/5445
 * config: accept empty lines in quoted strings https://github.com/fluent/fluentd/pull/5478
 * config: fix a config error when a single scalar value is given to an array option in YAML config syntax (for example `retryable_response_codes: 503`) https://github.com/fluent/fluentd/pull/5433
+* supervisor: reduce memory usage of cleanup_lock_dir with huge number of lock files https://github.com/fluent/fluentd/pull/5472
 
 ### Enhancement
 
 * in_http: add `<auth>` for basic authentication and `<security>` for client network allowlisting https://github.com/fluent/fluentd/pull/5503
-* supervisor: reduce memory usage of cleanup_lock_dir with huge number of lock files https://github.com/fluent/fluentd/pull/5472
 
 ### Misc
 
