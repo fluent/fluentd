@@ -46,10 +46,13 @@ module FluentPluginBufferTest
       @purged = true
     end
   end
+  # DummyPlugin#resume pre-seeds staged/queued chunks; tests that assert exact
+  # byte accounting on an empty buffer need this empty-resume variant.
   class DummyPlugin < Fluent::Plugin::Buffer
     def create_metadata(timekey=nil, tag=nil, variables=nil)
       Fluent::Plugin::Buffer::Metadata.new(timekey, tag, variables)
     end
+
     def create_chunk(metadata, data)
       c = FluentPluginBufferTest::DummyMemoryChunk.new(metadata)
       c.append(data)
@@ -81,6 +84,14 @@ module FluentPluginBufferTest
     def generate_chunk(metadata)
       DummyMemoryChunk.new(metadata, compress: @compress, decompression_size_limit: @decompression_size_limit)
     end
+  end
+end
+
+# DummyPlugin#resume pre-seeds staged/queued chunks; tests that assert exact
+# byte accounting on an empty buffer need this empty-resume variant.
+class EmptyResumeDummyPlugin < FluentPluginBufferTest::DummyPlugin
+  def resume
+    return {}, []
   end
 end
 
@@ -1604,6 +1615,62 @@ class BufferTest < Test::Unit::TestCase
       assert stats['available_buffer_space_ratios'] >= 0.0
       assert stats['available_buffer_space_ratios'] <= 100.0
       refute stats['available_buffer_space_ratios'].to_f.nan?
+    end
+  end
+
+  sub_test_case 'stage_size accounting between concurrent write and enqueue' do
+    def create_empty_buffer(hash)
+      buffer_conf = config_element('buffer', '', hash, [])
+      owner = FluentPluginBufferTest::DummyOutputPlugin.new
+      owner.configure(config_element('ROOT', '', {}, [ buffer_conf ]))
+      p = EmptyResumeDummyPlugin.new
+      p.owner = owner
+      p.configure(buffer_conf)
+      p
+    end
+
+    test 'stage_size does not go negative while a write is pending' do
+      b = create_empty_buffer('total_limit_size' => 1024, 'chunk_limit_size' => 4096)
+      b.start
+
+      m = create_metadata
+      b.write({ m => ['a' * 400] })
+      chunk = b.stage[m]
+      assert_equal 400, b.stage_size
+
+      reached = Queue.new
+      resume = Queue.new
+      armed = false
+
+      chunk.define_singleton_method(:mon_exit) do
+        result = super()
+        if armed
+          armed = false
+          reached << true
+          resume.pop
+        end
+        result
+      end
+
+      armed = true
+      writer = Thread.new { b.write({ m => ['b' * 400] }) }
+      reached.pop
+
+      b.enqueue_chunk(m)
+      assert_equal 0, b.stage_size
+
+      resume << true
+      writer.join
+
+      assert_equal 0, b.stage.size
+      assert_equal 0, b.stage_size
+      assert_equal 800, b.queue_size
+    ensure
+      if writer&.alive?
+        resume << true
+        writer.join
+      end
+      b&.stop
     end
   end
 end
