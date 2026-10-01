@@ -383,6 +383,12 @@ module Fluent
             if enqueue || first_chunk.unstaged? || chunk_size_full?(first_chunk)
               chunks_to_enqueue << first_chunk
             end
+            if (bytesize = staged_bytesizes_by_chunk[first_chunk])
+              # Account while the chunk lock is still held so enqueue_chunk
+              # cannot remove the chunk and subtract its bytes first.
+              @stage_size_metrics.add(bytesize)
+              log.on_trace { log.trace { "chunk #{first_chunk.path} size_added: #{bytesize} new_size: #{first_chunk.bytesize}" } }
+            end
             first_chunk.mon_exit
           rescue
             operated_chunks.unshift(first_chunk)
@@ -397,6 +403,10 @@ module Fluent
               if enqueue || chunk.unstaged? || chunk_size_full?(chunk)
                 chunks_to_enqueue << chunk
               end
+              if (bytesize = staged_bytesizes_by_chunk[chunk])
+                @stage_size_metrics.add(bytesize)
+                log.on_trace { log.trace { "chunk #{chunk.path} size_added: #{bytesize} new_size: #{chunk.bytesize}" } }
+              end
               chunk.mon_exit
             rescue => e
               chunk.rollback
@@ -406,17 +416,6 @@ module Fluent
           end
 
           # All locks about chunks are released.
-
-          #
-          # Now update the stage, stage_size with proper locking
-          # FIX FOR stage_size miscomputation - https://github.com/fluent/fluentd/issues/2712
-          #
-          staged_bytesizes_by_chunk.each do |chunk, bytesize|
-            chunk.synchronize do
-              synchronize { @stage_size_metrics.add(bytesize) }
-              log.on_trace { log.trace { "chunk #{chunk.path} size_added: #{bytesize} new_size: #{chunk.bytesize}" } }
-            end
-          end
 
           chunks_to_enqueue.each do |c|
             if c.staged? && (enqueue || chunk_size_full?(c))
