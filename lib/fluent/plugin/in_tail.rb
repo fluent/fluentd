@@ -706,7 +706,7 @@ module Fluent::Plugin
         else
           if @emit_unmatched_lines
             record = { 'unmatched_line' => buf }
-            record[@path_key] ||= tail_watcher.path unless @path_key.nil?
+            record[@path_key] ||= tw.path unless @path_key.nil?
             tag = if @tag_prefix || @tag_suffix
                     @tag_prefix + tw.tag + @tag_suffix
                   else
