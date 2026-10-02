@@ -110,6 +110,15 @@ class TailInputTest < Test::Unit::TestCase
                     })
     ])
 
+  # A parser which never matches, like parser plugins which don't implement
+  # the `unmatched_lines` feature. Such parsers yield (nil, nil) to the caller.
+  class NeverMatchingParser
+    def parse(text, &block)
+      block.call(nil, nil)
+      nil
+    end
+  end
+
   EX_ROTATE_WAIT = 0
   EX_FOLLOW_INODES = false
 
@@ -1308,6 +1317,32 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message1" => "test5"}, events[2][2])
       assert_equal({"message1" => "test6", "message2" => "test7"}, events[3][2])
       assert_equal({"message1" => "test8"}, events[4][2])
+    end
+
+    data(flat: MULTILINE_CONFIG,
+         parse: PARSE_MULTILINE_CONFIG)
+    def test_multiline_flush_buffer_with_emit_unmatched_lines_and_path_key(data)
+      config = data + config_element("", "", { "emit_unmatched_lines" => true, "path_key" => "path" })
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |f| }
+
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        plugin = d.instance
+        # `unmatched_lines` is a feature of each parser plugin, so a parser
+        # which doesn't implement it yields (nil, nil) even if
+        # `emit_unmatched_lines` is enabled. in_tail must emit the buffered
+        # line as `unmatched_line` in that case.
+        plugin.instance_variable_set(:@parser, NeverMatchingParser.new)
+        tw = Fluent::Plugin::TailInput::TailWatcher.new(
+          create_target_info("#{@tmp_dir}/tail.txt"), nil, $log, true, false, nil, nil, nil, nil
+        )
+        plugin.flush_buffer(tw, "incomplete line\n")
+      end
+
+      events = d.events
+      assert_equal(1, events.length)
+      assert_equal("t1", events[0][0])
+      assert_equal({ "unmatched_line" => "incomplete line", "path" => "#{@tmp_dir}/tail.txt" }, events[0][2])
     end
 
     data(
