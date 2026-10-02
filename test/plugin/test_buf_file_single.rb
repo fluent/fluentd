@@ -371,6 +371,142 @@ class FileSingleBufferTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'unstaged chunks created by write_step_by_step' do
+    setup do
+      @conf = %[
+        <buffer tag>
+          @type file_single
+          path #{PATH}
+          chunk_limit_size 1024
+        </buffer>
+      ]
+      @d = create_driver(@conf)
+      @p = @d.instance.buffer
+      @p.start
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+    end
+
+    def write_with_single_record_overflow(m)
+      @p.write({m => ["a" * 600]})
+      @p.write({m => ["b" * 600, "c" * 600, "d" * 380]})
+    end
+
+    test 'enqueued unstaged chunks are queued and are not re-staged' do
+      m = metadata()
+      write_with_single_record_overflow(m)
+
+      assert_equal [:queued, :queued, :queued], @p.queue.map(&:state)
+      assert_equal [600, 600, 980], @p.queue.map(&:bytesize)
+      assert_true @p.queue.all? { |c| File.basename(c.path).start_with?('fsb.testing.q') }
+      assert_true @p.stage.empty?
+      assert_equal 0, @p.stage_size
+      assert_equal 2180, @p.queue_size
+    end
+
+    test 'enqueued unstaged chunks are resumed as queued chunks' do
+      m = metadata()
+      write_with_single_record_overflow(m)
+      @p.stop; @p.before_shutdown; @p.shutdown; @p.after_shutdown; @p.close; @p.terminate
+
+      @d = create_driver(@conf)
+      @p = @d.instance.buffer
+      @p.start
+
+      assert_true @p.stage.empty?
+      assert_equal [600, 600, 980], @p.queue.map(&:bytesize).sort
+      assert_equal 0, @p.stage_size
+      assert_equal 2180, @p.queue_size
+    end
+
+    test 'committed data is kept when renaming an enqueued unstaged chunk fails' do
+      m = metadata()
+      @p.write({m => ["a" * 600]})
+      first = @p.stage[m]
+      first.define_singleton_method(:file_rename) { |*| raise Errno::EACCES, "injected" }
+
+      assert_nothing_raised { @p.write({m => ["b" * 600, "c" * 600, "d" * 380]}) }
+      assert_equal 1, @d.logs.count { |l| l.include?("error occurs in enqueueing a chunk") }
+
+      assert_true @p.queue.any? { |c| c.equal?(first) }
+      assert_equal :queued, first.state
+      assert_equal 600, first.bytesize
+      assert_true File.exist?(first.path)
+      assert_equal @p.queue.sum(&:bytesize), @p.queue_size
+
+      read = +""
+      while (chunk = @p.dequeue_chunk)
+        assert_nothing_raised { read << chunk.read }
+        @p.purge_chunk(chunk.unique_id)
+      end
+      assert_true read.include?("a" * 600)
+      assert_true read.include?("b" * 600)
+      assert_equal 0, @p.queue_size
+    end
+
+    test 'all data is resumed after a rename failure and a restart' do
+      m = metadata()
+      @p.write({m => ["a" * 600]})
+      first = @p.stage[m]
+      first.define_singleton_method(:file_rename) { |*| raise Errno::EACCES, "injected" }
+      @p.write({m => ["b" * 600, "c" * 600, "d" * 380]})
+      @p.write({m => ["e" * 100]})
+      @p.stop; @p.before_shutdown; @p.shutdown; @p.after_shutdown; @p.close; @p.terminate
+
+      @d = create_driver(@conf)
+      @p = @d.instance.buffer
+      @p.start
+
+      chunks = @p.stage.values + @p.queue
+      assert_equal 4, chunks.size
+      assert_equal 600 + 1580 + 100, chunks.sum(&:bytesize)
+      assert_equal chunks.sum(&:bytesize), @p.stage_size + @p.queue_size
+    end
+
+    test 'a staged chunk stays queued with consistent gauges when its rename fails' do
+      m = metadata()
+      @p.write({m => ["a" * 600]})
+      chunk = @p.stage[m]
+      chunk.define_singleton_method(:file_rename) { |*| raise Errno::EACCES, "injected" }
+
+      assert_raise(RuntimeError) { @p.enqueue_chunk(m) }
+
+      assert_true @p.stage.empty?
+      assert_equal [chunk], @p.queue
+      assert_equal :queued, chunk.state
+      assert_equal 0, @p.stage_size
+      assert_equal 600, @p.queue_size
+
+      assert_nothing_raised { @p.dequeue_chunk.read }
+      @p.purge_chunk(chunk.unique_id)
+      assert_equal 0, @p.queue_size
+    end
+
+    test 'each chunk is flushed once and the gauges return to zero' do
+      m = metadata()
+      write_with_single_record_overflow(m)
+      @p.write({m => ["e" * 600, "f" * 300]})
+      assert_equal @p.queue.size, @p.queue.map(&:object_id).uniq.size
+
+      while (chunk = @p.dequeue_chunk)
+        assert_nothing_raised { chunk.read }
+        @p.purge_chunk(chunk.unique_id)
+      end
+
+      assert_equal 0, @p.queue_size
+      assert_equal @p.stage.values.sum(&:bytesize), @p.stage_size
+    end
+  end
+
   sub_test_case 'configured with system root directory and plugin @id' do
     setup do
       @root_dir = File.expand_path('../../tmp/buffer_file_single_root', __FILE__)
