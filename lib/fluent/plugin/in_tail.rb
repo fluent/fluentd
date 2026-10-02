@@ -553,8 +553,6 @@ module Fluent::Plugin
 
     def stop_watchers(targets_info, immediate: false, unwatched: false, remove_watcher: true)
       targets_info.each_value { |target_info|
-        remove_path_from_group_watcher(target_info.path)
-
         if remove_watcher
           tw = @tails.delete(target_info.path)
         else
@@ -647,6 +645,9 @@ module Fluent::Plugin
 
       tw.close if close_io
 
+      # A watcher waiting for `rotate_wait` cannot read once its path leaves the group watcher.
+      tw.group_watcher&.delete(tw.path)
+
       if @pf && tw.unwatched && (@follow_inodes || !@tails[tw.path])
         target_info = TargetInfo.new(tw.path, ino)
         @pf.unwatch(target_info)
@@ -665,6 +666,7 @@ module Fluent::Plugin
       if @open_on_every_update
         # Detach now because it's already closed, waiting it doesn't make sense.
         detach_watcher(tw, ino)
+        return
       end
 
       return if @tails_rotate_wait[tw]
