@@ -81,14 +81,8 @@ module Fluent::Plugin
       def add_path_to_group_watcher(path)
         return nil if @group.nil?
         group_watcher = find_group_from_metadata(path)
-        group_watcher.add(path) unless group_watcher.include?(path)
+        group_watcher.add(path)
         group_watcher
-      end
-
-      def remove_path_from_group_watcher(path)
-        return if @group.nil?
-        group_watcher = find_group_from_metadata(path)
-        group_watcher.delete(path)
       end
 
       def construct_group_key(named_captures)
@@ -135,6 +129,7 @@ module Fluent::Plugin
       FileCounter = Struct.new(
         :number_lines_read,
         :start_reading_time,
+        :watcher_count,
       )
 
       def initialize(rate_period = 60, limit = -1)
@@ -144,7 +139,7 @@ module Fluent::Plugin
       end
 
       def add(path)
-        @current_paths[path] = FileCounter.new(0, nil)
+        (@current_paths[path] ||= FileCounter.new(0, nil, 0)).watcher_count += 1
       end
 
       def include?(path)
@@ -156,7 +151,10 @@ module Fluent::Plugin
       end
 
       def delete(path)
-        @current_paths.delete(path)
+        counter = @current_paths[path]
+        return unless counter
+        counter.watcher_count -= 1
+        @current_paths.delete(path) if counter.watcher_count <= 0
       end
 
       def update_reading_time(path)
@@ -185,7 +183,7 @@ module Fluent::Plugin
         return true if @limit == 0
 
         return false if @limit < 0
-        return false if @current_paths[path].number_lines_read < @limit / size
+        return false if @current_paths[path].number_lines_read < [@limit / size, 1].max
 
         # update_reading_time(path)
         if limit_time_period_reached?(path) # Exceeds limit
