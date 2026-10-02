@@ -671,6 +671,69 @@ EOC
     end
   end
 
+  sub_test_case 'error events which fail in @ERROR' do
+    setup do
+      @ra = RootAgent.new(log: $log)
+      stub(Engine).root_agent { @ra }
+      # <match> in @ERROR raises an error at emit time, just like
+      # BufferChunkOverflowError raised for a record larger than chunk_limit_size
+      conf = <<-EOC
+<match **>
+  @type test_out
+</match>
+<label @ERROR>
+  <match **>
+    @type test_out_error
+  </match>
+</label>
+EOC
+      @ra.configure(Config.parse(conf, "(test)", "(test_dir)", true))
+      @ra.log.out.reset
+    end
+
+    test 'an error event is dumped and dropped, not routed to @ERROR again' do
+      @ra.emit_error_event("tag", event_time, {"message" => "test"}, StandardError.new("original error"))
+
+      logs = @ra.log.out.logs
+      assert_equal([1, 1],
+                   [logs.count { |line| line.include?("send an error event to @ERROR") },
+                    logs.count { |line| line.include?("dump an error event stream because it failed in @ERROR") }])
+    end
+
+    test 'an error event emitted from inside @ERROR is dumped and dropped' do
+      # A plugin in @ERROR may call router.emit_error_event by itself, e.g. a filter
+      # which fails to handle a record.
+      stub(@ra.error_collector).emit do |tag, time, record|
+        @ra.emit_error_event(tag, time, record, StandardError.new("error in @ERROR"))
+      end
+      @ra.emit_error_event("tag", event_time, {"message" => "test"}, StandardError.new("original error"))
+
+      logs = @ra.log.out.logs
+      assert_equal([1, 1],
+                   [logs.count { |line| line.include?("send an error event to @ERROR") },
+                    logs.count { |line| line.include?("dump an error event because it failed in @ERROR") }])
+    end
+
+    test 'an error event stream is dumped and dropped, not routed to @ERROR again' do
+      es = Fluent::OneEventStream.new(event_time, {"message" => "test"})
+      @ra.handle_emits_error("tag", es, StandardError.new("original error"))
+
+      logs = @ra.log.out.logs
+      assert_equal([1, 1],
+                   [logs.count { |line| line.include?("send an error event stream to @ERROR") },
+                    logs.count { |line| line.include?("dump an error event stream because it failed in @ERROR") }])
+    end
+
+    test 'the next error event is routed to @ERROR again' do
+      2.times do
+        @ra.emit_error_event("tag", event_time, {"message" => "test"}, StandardError.new("original error"))
+      end
+
+      logs = @ra.log.out.logs
+      assert_equal(2, logs.count { |line| line.include?("send an error event to @ERROR") })
+    end
+  end
+
   sub_test_case 'configured at worker2 with 4 workers environment' do
     setup do
       ENV['SERVERENGINE_WORKER_ID'] = '2'
