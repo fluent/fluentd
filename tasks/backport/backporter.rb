@@ -71,8 +71,8 @@ class PullRequestBackporter
             # merged into this commit
             @logger.debug "MERGE_COMMIT_SHA: #{pull_request['merge_commit_sha']}"
             body = pull_request["body"] ?
-                     pull_request["body"].gsub(/\*\*Which issue\(s\) this PR fixes\*\*: \r\n/,
-                                               "**Which issue(s) this PR fixes**: \r\nBackport \##{pull_request['number']}\r\n") :
+                     pull_request["body"].sub(/(\*\*Which issue\(s\) this PR fixes\*\*:[ \t]*(\r?\n))/,
+                                              "\\1Backport \##{pull_request['number']}\\2") :
                      "Backport \##{pull_request['number']}\r\n"
             backports << {
               number: pull_request["number"],
