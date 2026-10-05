@@ -3007,6 +3007,52 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal([], d.logs.grep(/Stopping the timer/))
     end
 
+    test "position of other files survives compaction while a stopped watcher drains" do
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/*.log",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "limit_recently_modified" => "10s",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_stat_watcher" => "false",
+        }
+      ) + create_group_directive(pattern, "1s", rule)
+
+      Fluent::FileWrapper.open("#{@tmp_dir}/a.log", "wb") { |f| 60000.times { f.puts "old" } }
+      Fluent::FileWrapper.open("#{@tmp_dir}/b.log", "wb") { |f| f.puts "new" }
+
+      d = create_driver(config, false)
+      d.run(timeout: 30) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/a.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        File.utime(Time.now - 20, Time.now - 20, "#{@tmp_dir}/a.log")
+        d.instance.refresh_watchers
+        d.instance.instance_variable_get(:@pf).try_compact
+
+        waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+      end
+
+      position_entries = {}
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "r") do |f|
+        f.readlines(chomp: true).each do |line|
+          values = line.split("\t")
+          position_entries[values[0]] = values[1].to_i(16)
+        end
+      end
+      assert_equal({ "#{@tmp_dir}/a.log" => 240000, "#{@tmp_dir}/b.log" => 4 }, position_entries)
+    end
+
     test "lines collected with throttling" do
       file = "podname1_namespace12_container-123456.log"
       limit = 1000
