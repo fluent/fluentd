@@ -174,7 +174,7 @@ module Fluent
           when :staged
             # unstaged chunk created at Buffer#write_step_by_step is identified as the staged chunk here because FileChunk#assume_chunk_state checks only the file name.
             # https://github.com/fluent/fluentd/blob/9d113029d4550ce576d8825bfa9612aa3e55bff0/lib/fluent/plugin/buffer.rb#L663
-            # This case can happen when fluentd process is killed by signal or other reasons between creating unstaged chunks and changing them to staged mode in Buffer#write
+            # This case can happen when fluentd process is killed by signal or other reasons between creating unstaged chunks and enqueueing them (which renames them) in Buffer#write
             # these chunks(unstaged chunks) has shared the same metadata
             # So perform enqueue step again https://github.com/fluent/fluentd/blob/9d113029d4550ce576d8825bfa9612aa3e55bff0/lib/fluent/plugin/buffer.rb#L364
             if chunk_size_full?(chunk) || stage.key?(chunk.metadata)

@@ -193,7 +193,11 @@ module Fluent
 
           case chunk.state
           when :staged
-            stage[chunk.metadata] = chunk
+            if chunk_size_full?(chunk) || stage.key?(chunk.metadata)
+              queue << chunk.enqueued!
+            else
+              stage[chunk.metadata] = chunk
+            end
           when :queued
             queue << chunk
           end

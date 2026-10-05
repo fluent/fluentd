@@ -418,29 +418,39 @@ module Fluent
             end
           end
 
+          enqueue_errors = []
           chunks_to_enqueue.each do |c|
-            if c.staged? && (enqueue || chunk_size_full?(c))
-              m = c.metadata
-              enqueue_chunk(m)
-              if unstaged_chunks[m] && !unstaged_chunks[m].empty?
-                u = unstaged_chunks[m].pop
-                u.synchronize do
-                  if u.unstaged? && !chunk_size_full?(u)
-                    # `u.metadata.seq` and `m.seq` can be different but Buffer#enqueue_chunk expect them to be the same value
-                    u.metadata.seq = 0
-                    synchronize {
-                      @stage[m] = u.staged!
-                      @stage_size_metrics.add(u.bytesize)
-                    }
+            begin
+              if c.staged? && (enqueue || chunk_size_full?(c))
+                m = c.metadata
+                enqueue_chunk(m)
+                if unstaged_chunks[m] && !unstaged_chunks[m].empty?
+                  u = unstaged_chunks[m].pop
+                  u.synchronize do
+                    if u.unstaged? && !chunk_size_full?(u)
+                      # `u.metadata.seq` and `m.seq` can be different but Buffer#enqueue_chunk expect them to be the same value
+                      u.metadata.seq = 0
+                      synchronize {
+                        @stage[m] = u.staged!
+                        @stage_size_metrics.add(u.bytesize)
+                      }
+                    end
                   end
                 end
+              elsif c.unstaged?
+                enqueue_unstaged_chunk(c)
+              else
+                # previously staged chunk is already enqueued, closed or purged.
+                # no problem.
               end
-            elsif c.unstaged?
-              enqueue_unstaged_chunk(c)
-            else
-              # previously staged chunk is already enqueued, closed or purged.
-              # no problem.
+            rescue => e
+              enqueue_errors << e
             end
+          end
+
+          enqueue_errors.each do |e|
+            log.warn "error occurs in enqueueing a chunk", error: e
+            log.warn_backtrace e.backtrace
           end
 
           operated_chunks.clear if errors.empty?
@@ -492,6 +502,9 @@ module Fluent
 
         chunk.synchronize do
           synchronize do
+            bytesize = chunk.bytesize
+            @stage_size_metrics.sub(bytesize)
+            @queue_size_metrics.add(bytesize)
             if chunk.empty?
               chunk.close
             else
@@ -500,9 +513,6 @@ module Fluent
               @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
               chunk.enqueued!
             end
-            bytesize = chunk.bytesize
-            @stage_size_metrics.sub(bytesize)
-            @queue_size_metrics.add(bytesize)
           end
         end
         nil
@@ -517,9 +527,9 @@ module Fluent
             metadata.seq = 0 # metadata.seq should be 0 for counting @queued_num
             @queue << chunk
             @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
+            @queue_size_metrics.add(chunk.bytesize)
             chunk.enqueued!
           end
-          @queue_size_metrics.add(chunk.bytesize)
         end
       end
 
