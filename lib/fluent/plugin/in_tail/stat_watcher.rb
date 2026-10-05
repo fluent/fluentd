@@ -1,0 +1,52 @@
+#
+# Fluentd
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
+require 'fluent/plugin/input'
+require 'cool.io'
+
+module Fluent::Plugin
+  class TailInput < Fluent::Plugin::Input
+    class StatWatcher < Coolio::StatWatcher
+      def initialize(path, log, &callback)
+        @callback = callback
+        @log = log
+        super(path)
+      end
+
+      def on_change(prev, cur)
+        @callback.call
+      rescue
+        @log.error $!.to_s
+        @log.error_backtrace
+      end
+    end
+
+    class TimerTrigger < Coolio::TimerWatcher
+      def initialize(interval, log, &callback)
+        @log = log
+        @callback = callback
+        super(interval, true)
+      end
+
+      def on_timer
+        @callback.call
+      rescue => e
+        @log.error e.to_s
+        @log.error_backtrace
+      end
+    end
+  end
+end
