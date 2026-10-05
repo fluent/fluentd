@@ -21,7 +21,7 @@ require 'fluent/plugin/in_tail/position_file'
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     class TailWatcher
-      def initialize(target_info, pe, log, read_from_head, follow_inodes, update_watcher, line_buffer_timer_flusher, io_handler_build, metrics)
+      def initialize(target_info, pe, log, read_from_head, follow_inodes, update_watcher, file_feed, io_handler_build, metrics)
         @path = target_info.path
         @ino = target_info.ino
         @pe = pe || MemoryPositionEntry.new
@@ -30,7 +30,7 @@ module Fluent::Plugin
         @update_watcher = update_watcher
         @log = log
         @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
-        @line_buffer_timer_flusher = line_buffer_timer_flusher
+        @file_feed = file_feed
         @io_handler = nil
         @io_handler_build = io_handler_build
         @metrics = metrics
@@ -39,10 +39,17 @@ module Fluent::Plugin
 
       attr_reader :path, :ino
       attr_reader :pe
-      attr_reader :line_buffer_timer_flusher
+      attr_reader :file_feed
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
       attr_reader :watchers
       attr_accessor :group_watcher
+
+      # Kept for compatibility with the plugins which used the object keeping the
+      # line buffer of the multiline mode, before LineFeeder::FileFeed replaced
+      # LineBufferTimerFlusher.
+      def line_buffer_timer_flusher
+        @file_feed
+      end
 
       def tag
         @parsed_tag ||= @path.tr('/', '.').squeeze('.').gsub(/^\./, '')
@@ -57,7 +64,7 @@ module Fluent::Plugin
           @io_handler.ready_to_shutdown(shutdown_start_time)
           @io_handler.on_notify
         end
-        @line_buffer_timer_flusher&.close(self)
+        @file_feed&.close(self)
       end
 
       def close
@@ -84,7 +91,7 @@ module Fluent::Plugin
       end
 
       def read_more
-        @line_buffer_timer_flusher.on_notify(self) if @line_buffer_timer_flusher
+        @file_feed&.on_notify(self)
         @io_handler.on_notify if @io_handler
       end
 
@@ -206,43 +213,6 @@ module Fluent::Plugin
         rescue
           @log.error $!.to_s
           @log.error_backtrace
-        end
-      end
-
-      class LineBufferTimerFlusher
-        attr_accessor :line_buffer
-
-        def initialize(log, flush_interval, &flush_method)
-          @log = log
-          @flush_interval = flush_interval
-          @flush_method = flush_method
-          @start = nil
-          @line_buffer = nil
-        end
-
-        def on_notify(tw)
-          unless @start && @flush_method
-            return
-          end
-
-          if Time.now - @start >= @flush_interval
-            @flush_method.call(tw, @line_buffer) if @line_buffer
-            @line_buffer = nil
-            @start = nil
-          end
-        end
-
-        def close(tw)
-          return unless @line_buffer
-
-          @flush_method.call(tw, @line_buffer)
-          @line_buffer = nil
-        end
-
-        def reset_timer
-          return unless @flush_interval
-
-          @start = Time.now
         end
       end
     end

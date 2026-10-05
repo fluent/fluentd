@@ -214,6 +214,21 @@ module Fluent::Plugin
       tracked_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_tracked_count", help_text: "Number of tracked files", prefer_gauge: true)
 
       @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics, tracked_file_metrics)
+
+      @line_feeder = LineFeeder.new(
+        parser: @parser,
+        router_provider: method(:router),
+        log: log,
+        tag: @tag,
+        tag_prefix: @tag_prefix,
+        tag_suffix: @tag_suffix,
+        path_key: @path_key,
+        emit_unmatched_lines: @emit_unmatched_lines,
+        multiline_mode: @multiline_mode,
+        parse_handler: method(@multiline_mode ? :parse_multilines : :parse_singleline),
+        convert_handler: method(:convert_line_to_event),
+        flush_handler: method(:flush_buffer),
+      )
     end
 
     def check_dir_permission
@@ -265,20 +280,6 @@ module Fluent::Plugin
 
     def start
       super
-
-      @line_feeder = LineFeeder.new(
-        parser: @parser,
-        router_provider: method(:router),
-        log: log,
-        tag: @tag,
-        tag_prefix: @tag_prefix,
-        tag_suffix: @tag_suffix,
-        path_key: @path_key,
-        emit_unmatched_lines: @emit_unmatched_lines,
-        multiline_mode: @multiline_mode,
-        parse_handler: method(@multiline_mode ? :parse_multilines : :parse_singleline),
-        convert_handler: method(:convert_line_to_event),
-      )
 
       if @pos_file
         pos_file_dir = File.dirname(@pos_file)
@@ -505,9 +506,9 @@ module Fluent::Plugin
     end
 
     def setup_watcher(target_info, pe)
-      line_buffer_timer_flusher = @multiline_mode ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
+      file_feed = @line_feeder.new_file_feed(path: target_info.path, flush_interval: @multiline_flush_interval)
       read_from_head = !@startup || @read_from_head
-      tw = TailWatcher.new(target_info, pe, log, read_from_head, @follow_inodes, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler), @metrics)
+      tw = TailWatcher.new(target_info, pe, log, read_from_head, @follow_inodes, method(:update_watcher), file_feed, method(:io_handler), @metrics)
 
       if @enable_watch_timer
         tt = TimerTrigger.new(1, log) { tw.on_notify }
@@ -721,13 +722,17 @@ module Fluent::Plugin
     # inherit TailInput and override line processing methods. TailInput is a
     # built-in plugin, not a public inheritance API, and these methods may be
     # removed in a future release.
+    #
+    # #receive_lines keeps the state of the file in the FileFeed of the watcher,
+    # which LineFeeder#new_file_feed builds for it, so a plugin which builds a
+    # watcher by itself must build a FileFeed for it too.
     def flush_buffer(tw, buf)
       @line_feeder.flush_buffer(tw, buf)
     end
 
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
     def receive_lines(lines, tail_watcher)
-      @line_feeder.feed_lines(lines, tail_watcher)
+      tail_watcher.file_feed.feed_lines(lines, tail_watcher)
     end
 
     def convert_line_to_event(line, es, tail_watcher)

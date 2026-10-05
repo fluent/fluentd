@@ -26,7 +26,7 @@ module Fluent::Plugin
     # TailInput passes its line processing methods as handlers so that existing
     # TailInput subclasses can continue to override those methods.
     class LineFeeder
-      def initialize(parser:, router_provider:, log:, tag:, tag_prefix:, tag_suffix:, path_key:, emit_unmatched_lines:, multiline_mode:, parse_handler: nil, convert_handler: nil)
+      def initialize(parser:, router_provider:, log:, tag:, tag_prefix:, tag_suffix:, path_key:, emit_unmatched_lines:, multiline_mode:, parse_handler: nil, convert_handler: nil, flush_handler: nil)
         @parser = parser
         @router_provider = router_provider
         @log = log
@@ -35,32 +35,57 @@ module Fluent::Plugin
         @tag_suffix = tag_suffix
         @path_key = path_key
         @emit_unmatched_lines = emit_unmatched_lines
+        @multiline_mode = multiline_mode
         @parse_handler = parse_handler || if multiline_mode
                                            method(:parse_multilines)
                                          else
                                            method(:parse_singleline)
                                          end
         @convert_handler = convert_handler || method(:convert_line_to_event)
+        @flush_handler = flush_handler || method(:flush_buffer)
       end
 
+      # Builds the object which feeds the lines of one tailed file to #parse and
+      # #emit, keeping the state of the file: the line buffer of the multiline
+      # mode and the time to flush the buffered line.
+      #
+      # A multiline parser without a firstline keeps buffering the lines until the
+      # record is completed, so the flush interval is applied only to a parser
+      # with a firstline.
+      def new_file_feed(path:, flush_interval: nil)
+        timer_flush_interval = (@multiline_mode && @parser.has_firstline?) ? flush_interval : nil
+        FileFeed.new(self, path: path, flush_interval: timer_flush_interval, flush_handler: @flush_handler)
+      end
+
+      # Parses the lines read from the file of the watcher, and returns the events
+      # of the complete records.
+      #
+      # The line which is not a complete record yet is kept in the FileFeed of the
+      # watcher, which is built by #new_file_feed.
+      def parse(lines, tail_watcher)
+        @parse_handler.call(lines, tail_watcher)
+      end
+
+      # Emits the events returned by #parse, with the tag of the file of the
+      # watcher which the lines were read from.
       # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
-      def feed_lines(lines, tail_watcher)
-        es = @parse_handler.call(lines, tail_watcher)
-        unless es.empty?
-          tag = tag_for(tail_watcher)
-          begin
-            @router_provider.call.emit_stream(tag, es)
-          rescue Fluent::Plugin::Buffer::BufferOverflowError
-            return false
-          rescue
-            # ignore non BufferQueueLimitError errors because in_tail can't recover. Engine shows logs and backtraces.
-            return true
-          end
+      def emit(es, tail_watcher)
+        return true if es.empty?
+
+        begin
+          @router_provider.call.emit_stream(tag_for(tail_watcher), es)
+        rescue Fluent::Plugin::Buffer::BufferOverflowError
+          return false
+        rescue
+          # ignore non BufferQueueLimitError errors because in_tail can't recover. Engine shows logs and backtraces.
+          return true
         end
 
         return true
       end
 
+      # Flushes the line buffered in the FileFeed of the watcher, which is not a
+      # complete record yet, as a record of its own.
       def flush_buffer(tw, buf)
         buf.chomp!
         @parser.parse(buf) { |time, record|
@@ -76,6 +101,77 @@ module Fluent::Plugin
             @log.warn "got incomplete line at shutdown from #{tw.path}: #{buf.inspect}"
           end
         }
+      end
+
+      # Feeds the lines read from one tailed file to LineFeeder, keeping the state
+      # of the file: the line buffer of the multiline mode and the time when the
+      # lines were fed to it.
+      #
+      # It replaces the LineBufferTimerFlusher which TailWatcher kept for each
+      # file, and the plugins which built it by themselves can use this instead.
+      class FileFeed
+        # The line which was read but is not a complete record yet. LineFeeder
+        # reads and writes it through the FileFeed of the watcher, so the plugins
+        # which override TailInput#parse_multilines can keep the previous
+        # signature which takes a TailWatcher.
+        attr_accessor :line_buffer
+
+        def initialize(line_feeder, path:, flush_interval:, flush_handler:)
+          @line_feeder = line_feeder
+          @path = path
+          @flush_interval = flush_interval
+          @flush_handler = flush_handler
+          @line_buffer = nil
+          @start = nil
+        end
+
+        attr_reader :path
+
+        # Parses the lines read from the file of the watcher and emits the events
+        # of the complete records, keeping the line which is not a complete record
+        # yet until the next line of the file is read.
+        #
+        # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
+        def feed_lines(lines, tail_watcher)
+          es = @line_feeder.parse(lines, tail_watcher)
+          reset_timer
+          @line_feeder.emit(es, tail_watcher)
+        end
+
+        # Flushes the buffered line when it has not been completed for the flush
+        # interval, like LineBufferTimerFlusher#on_notify did.
+        def on_notify(tail_watcher)
+          return unless @start
+
+          if Time.now - @start >= @flush_interval
+            flush_buffer(@line_buffer, tail_watcher) if @line_buffer
+            @line_buffer = nil
+            @start = nil
+          end
+        end
+
+        # Flushes the buffered line and forgets it, like LineBufferTimerFlusher#close did.
+        def close(tail_watcher)
+          return unless @line_buffer
+
+          flush_buffer(@line_buffer, tail_watcher)
+          @line_buffer = nil
+        end
+
+        # Flushes the given line of the file as a record of its own, calling the
+        # flush handler of LineFeeder to keep TailInput#flush_buffer of the
+        # subclasses of TailInput on the call path.
+        def flush_buffer(buf, tail_watcher)
+          @flush_handler.call(tail_watcher, buf)
+        end
+
+        private
+
+        def reset_timer
+          return unless @flush_interval
+
+          @start = Time.now
+        end
       end
 
       def convert_line_to_event(line, es, tail_watcher)
@@ -109,10 +205,9 @@ module Fluent::Plugin
       end
 
       def parse_multilines(lines, tail_watcher)
-        lb = tail_watcher.line_buffer_timer_flusher.line_buffer
+        lb = tail_watcher.file_feed.line_buffer
         es = Fluent::MultiEventStream.new
         if @parser.has_firstline?
-          tail_watcher.line_buffer_timer_flusher.reset_timer
           lines.each { |line|
             if @parser.firstline?(line)
               if lb
@@ -142,7 +237,7 @@ module Fluent::Plugin
             }
           end
         end
-        tail_watcher.line_buffer_timer_flusher.line_buffer = lb
+        tail_watcher.file_feed.line_buffer = lb
         es
       end
 
