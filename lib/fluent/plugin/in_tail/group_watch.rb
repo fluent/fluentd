@@ -78,10 +78,10 @@ module Fluent::Plugin
         end
       end
 
-      def add_path_to_group_watcher(path)
+      def add_path_to_group_watcher(path, watcher)
         return nil if @group.nil?
         group_watcher = find_group_from_metadata(path)
-        group_watcher.add(path)
+        group_watcher.add(path, watcher)
         group_watcher
       end
 
@@ -129,7 +129,7 @@ module Fluent::Plugin
       FileCounter = Struct.new(
         :number_lines_read,
         :start_reading_time,
-        :watcher_count,
+        :watchers,
       )
 
       def initialize(rate_period = 60, limit = -1)
@@ -138,8 +138,8 @@ module Fluent::Plugin
         @limit = limit
       end
 
-      def add(path)
-        (@current_paths[path] ||= FileCounter.new(0, nil, 0)).watcher_count += 1
+      def add(path, watcher)
+        (@current_paths[path] ||= FileCounter.new(0, nil, Set.new)).watchers << watcher
       end
 
       def include?(path)
@@ -150,11 +150,11 @@ module Fluent::Plugin
         @current_paths.size
       end
 
-      def delete(path)
+      def delete(path, watcher)
         counter = @current_paths[path]
         return unless counter
-        counter.watcher_count -= 1
-        @current_paths.delete(path) if counter.watcher_count <= 0
+        counter.watchers.delete(watcher)
+        @current_paths.delete(path) if counter.watchers.empty?
       end
 
       def update_reading_time(path)
@@ -183,6 +183,8 @@ module Fluent::Plugin
         return true if @limit == 0
 
         return false if @limit < 0
+        # Give every path at least one line. With more paths than the limit, the integer division
+        # leaves no allotment, and a path that has not started reading yet has no start time to compare.
         return false if @current_paths[path].number_lines_read < [@limit / size, 1].max
 
         # update_reading_time(path)

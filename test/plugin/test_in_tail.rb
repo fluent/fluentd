@@ -446,19 +446,22 @@ class TailInputTest < Test::Unit::TestCase
   sub_test_case "GroupWatcher" do
     test "path stays registered until the last watcher deletes it" do
       gw = Fluent::Plugin::TailInput::GroupWatcher.new(1, 10)
-      gw.add("#{@tmp_dir}/tail.log")
-      gw.add("#{@tmp_dir}/tail.log")
-      gw.delete("#{@tmp_dir}/tail.log")
+      first = Object.new
+      second = Object.new
+      gw.add("#{@tmp_dir}/tail.log", first)
+      gw.add("#{@tmp_dir}/tail.log", second)
+      gw.delete("#{@tmp_dir}/tail.log", first)
+      gw.delete("#{@tmp_dir}/tail.log", first)
       assert_true(gw.include?("#{@tmp_dir}/tail.log"))
       assert_equal(1, gw.size)
-      gw.delete("#{@tmp_dir}/tail.log")
+      gw.delete("#{@tmp_dir}/tail.log", second)
       assert_false(gw.include?("#{@tmp_dir}/tail.log"))
     end
 
     test "limit_lines_reached? allows a path that has not started reading when the limit is shared" do
       gw = Fluent::Plugin::TailInput::GroupWatcher.new(1, 1)
-      gw.add("#{@tmp_dir}/old.log")
-      gw.add("#{@tmp_dir}/new.log")
+      gw.add("#{@tmp_dir}/old.log", Object.new)
+      gw.add("#{@tmp_dir}/new.log", Object.new)
       assert_false(gw.limit_lines_reached?("#{@tmp_dir}/new.log"))
     end
   end

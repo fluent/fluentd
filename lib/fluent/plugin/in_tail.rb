@@ -504,7 +504,7 @@ module Fluent::Plugin
         event_loop_attach(watcher)
       end
 
-      tw.group_watcher = add_path_to_group_watcher(target_info.path)
+      tw.group_watcher = add_path_to_group_watcher(target_info.path, tw)
 
       tw
     rescue => e
@@ -649,7 +649,7 @@ module Fluent::Plugin
       tw.close if close_io
 
       # A watcher waiting for `rotate_wait` cannot read once its path leaves the group watcher.
-      tw.group_watcher&.delete(tw.path)
+      tw.group_watcher&.delete(tw.path, tw)
 
       if @pf && tw.unwatched && (@follow_inodes || !@tails[tw.path])
         target_info = TargetInfo.new(tw.path, ino)
