@@ -69,6 +69,16 @@ class IntailLineFeederTest < Test::Unit::TestCase
   # mode from the FileFeed of it.
   Watcher = Struct.new(:tag, :path, :file_feed)
 
+  # The watcher of a file which keeps its state in the deprecated
+  # TailWatcher::LineBufferTimerFlusher, which a plugin overriding
+  # TailInput#setup_watcher may build and pass to TailWatcher by itself.
+  LegacyWatcher = Struct.new(:tag, :path, :line_buffer_timer_flusher) do
+    # TailWatcher answers both of them with the object keeping the line buffer.
+    def file_feed
+      line_buffer_timer_flusher
+    end
+  end
+
   FILE_PATH = '/tmp/foo.bar.log'
 
   def setup
@@ -203,6 +213,27 @@ class IntailLineFeederTest < Test::Unit::TestCase
 
       assert_equal([tw], watchers)
     end
+
+    # The deadline to flush the buffered line starts at the beginning of the
+    # parsing, like TailWatcher::LineBufferTimerFlusher did, so a slow parser does
+    # not postpone the flush of the buffered line.
+    test 'starts the flush timer before the lines are parsed' do
+      parse_handler = ->(lines, tw) {
+        sleep 0.1
+        tw.file_feed.line_buffer = lines.join
+        Fluent::MultiEventStream.new
+      }
+      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new,
+                                                     parse_handler: parse_handler),
+                                       flush_interval: 0.01)
+
+      file_feed.feed_lines(["s test1\n"], tw)
+      file_feed.on_notify(tw)
+
+      assert_equal(['tail'], emitted_tags)
+      assert_equal({ 'message' => 's test1' }, emitted_records[0])
+      assert_nil file_feed.line_buffer
+    end
   end
 
   sub_test_case 'FileFeed#on_notify' do
@@ -304,6 +335,79 @@ class IntailLineFeederTest < Test::Unit::TestCase
       file_feed.flush_buffer("incomplete line\n", tw)
 
       assert_equal([], @router.emits)
+    end
+  end
+
+  # A plugin which overrides TailInput#setup_watcher may build the deprecated
+  # TailWatcher::LineBufferTimerFlusher and pass it to TailWatcher by itself.
+  # LineFeeder#feed_lines feeds the lines of such a watcher, keeping the line
+  # buffer and the timer of that flusher.
+  sub_test_case 'LineFeeder#feed_lines with the deprecated LineBufferTimerFlusher' do
+    def create_legacy_flusher_watcher(flush_interval:, path: FILE_PATH, &flush_method)
+      flusher = Fluent::Plugin::TailInput::TailWatcher::LineBufferTimerFlusher.new($log, flush_interval, &flush_method)
+      [flusher, LegacyWatcher.new('foo.bar.log', path, flusher)]
+    end
+
+    test 'parses and emits the lines and keeps the buffered line in the flusher' do
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      flusher, tw = create_legacy_flusher_watcher(flush_interval: 4) { |_tw, _buf| nil }
+
+      assert_true line_feeder.feed_lines(["s test1\n", "f test2\n", "s test3\n"], tw)
+
+      assert_equal(['tail'], emitted_tags)
+      assert_equal({ 'message' => "s test1\nf test2" }, emitted_records[0])
+      assert_equal("s test3\n", flusher.line_buffer)
+    end
+
+    test 'flushes the buffered line with the flush method of the flusher when the flush interval has passed' do
+      flushed = []
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      flusher, tw = create_legacy_flusher_watcher(flush_interval: 0) { |tw, buf| flushed << [tw.path, buf] }
+
+      line_feeder.feed_lines(["s test1\n", "f test2\n"], tw)
+      flusher.on_notify(tw)
+
+      assert_equal([[FILE_PATH, "s test1\nf test2\n"]], flushed)
+      assert_nil flusher.line_buffer
+    end
+
+    test 'does not start the timer of a multiline parser without a firstline' do
+      flushed = []
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: IncompleteUntilEndParser.new)
+      flusher, tw = create_legacy_flusher_watcher(flush_interval: 0) { |_tw, buf| flushed << buf }
+
+      line_feeder.feed_lines(["test1\n", "test2\n"], tw)
+      flusher.on_notify(tw)
+
+      assert_equal([], flushed)
+      assert_equal("test1\ntest2\n", flusher.line_buffer)
+    end
+
+    test 'starts the flush timer before the lines are parsed' do
+      flushed = []
+      parse_handler = ->(lines, tw) {
+        sleep 0.1
+        tw.line_buffer_timer_flusher.line_buffer = lines.join
+        Fluent::MultiEventStream.new
+      }
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new,
+                                  parse_handler: parse_handler)
+      flusher, tw = create_legacy_flusher_watcher(flush_interval: 0.01) { |_tw, buf| flushed << buf }
+
+      line_feeder.feed_lines(["s test1\n"], tw)
+      flusher.on_notify(tw)
+
+      assert_equal(["s test1\n"], flushed)
+    end
+
+    test 'emits the events when the watcher has no flusher' do
+      line_feeder = create_feeder(tag: 'tail')
+      tw = LegacyWatcher.new('foo.bar.log', FILE_PATH, nil)
+
+      assert_true line_feeder.feed_lines(['foo'], tw)
+
+      assert_equal(['tail'], emitted_tags)
+      assert_equal([{ 'message' => 'foo' }], emitted_records)
     end
   end
 

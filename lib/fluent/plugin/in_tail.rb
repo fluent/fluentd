@@ -722,17 +722,22 @@ module Fluent::Plugin
     # inherit TailInput and override line processing methods. TailInput is a
     # built-in plugin, not a public inheritance API, and these methods may be
     # removed in a future release.
-    #
-    # #receive_lines keeps the state of the file in the FileFeed of the watcher,
-    # which LineFeeder#new_file_feed builds for it, so a plugin which builds a
-    # watcher by itself must build a FileFeed for it too.
     def flush_buffer(tw, buf)
       @line_feeder.flush_buffer(tw, buf)
     end
 
+    # Feeds the lines read from a file through the FileFeed which #setup_watcher
+    # builds with LineFeeder#new_file_feed. A plugin which overrides
+    # #setup_watcher and passes the deprecated TailWatcher::LineBufferTimerFlusher
+    # to TailWatcher keeps working: the lines of such a watcher are fed through
+    # LineFeeder, which keeps using the line buffer and the timer of that flusher.
+    #
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
     def receive_lines(lines, tail_watcher)
-      tail_watcher.file_feed.feed_lines(lines, tail_watcher)
+      file_feed = tail_watcher.file_feed
+      return file_feed.feed_lines(lines, tail_watcher) if file_feed.respond_to?(:feed_lines)
+
+      @line_feeder.feed_lines(lines, tail_watcher)
     end
 
     def convert_line_to_event(line, es, tail_watcher)

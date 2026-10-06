@@ -57,6 +57,17 @@ module Fluent::Plugin
         FileFeed.new(self, path: path, flush_interval: timer_flush_interval, flush_handler: @flush_handler)
       end
 
+      # Feeds the lines read from a watcher which keeps the state of its file in
+      # the deprecated TailWatcher::LineBufferTimerFlusher, which a plugin
+      # overriding TailInput#setup_watcher may build and pass to TailWatcher by
+      # itself. TailInput#receive_lines calls this method for such a watcher,
+      # while FileFeed#feed_lines feeds a watcher built by #new_file_feed.
+      # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
+      def feed_lines(lines, tail_watcher)
+        reset_timer(tail_watcher)
+        emit(parse(lines, tail_watcher), tail_watcher)
+      end
+
       # Parses the lines read from the file of the watcher, and returns the events
       # of the complete records.
       #
@@ -107,8 +118,9 @@ module Fluent::Plugin
       # of the file: the line buffer of the multiline mode and the time when the
       # lines were fed to it.
       #
-      # It replaces the LineBufferTimerFlusher which TailWatcher kept for each
-      # file, and the plugins which built it by themselves can use this instead.
+      # It replaces the deprecated TailWatcher::LineBufferTimerFlusher which
+      # TailWatcher kept for each file. The plugins which build it by themselves
+      # are fed by LineFeeder#feed_lines instead.
       class FileFeed
         # The line which was read but is not a complete record yet. LineFeeder
         # reads and writes it through the FileFeed of the watcher, so the plugins
@@ -131,10 +143,14 @@ module Fluent::Plugin
         # of the complete records, keeping the line which is not a complete record
         # yet until the next line of the file is read.
         #
+        # The deadline to flush the buffered line starts before the lines are
+        # parsed, like TailWatcher::LineBufferTimerFlusher did, so a slow parser
+        # does not postpone it.
+        #
         # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
         def feed_lines(lines, tail_watcher)
-          es = @line_feeder.parse(lines, tail_watcher)
           reset_timer
+          es = @line_feeder.parse(lines, tail_watcher)
           @line_feeder.emit(es, tail_watcher)
         end
 
@@ -205,7 +221,8 @@ module Fluent::Plugin
       end
 
       def parse_multilines(lines, tail_watcher)
-        lb = tail_watcher.file_feed.line_buffer
+        file_feed = tail_watcher.file_feed
+        lb = file_feed.line_buffer
         es = Fluent::MultiEventStream.new
         if @parser.has_firstline?
           lines.each { |line|
@@ -242,6 +259,17 @@ module Fluent::Plugin
       end
 
       private
+
+      # Starts the deadline of the line buffered by the deprecated
+      # TailWatcher::LineBufferTimerFlusher at the beginning of the parsing, like
+      # TailInput#parse_multilines did before LineFeeder::FileFeed replaced it.
+      # A multiline parser without a firstline keeps buffering the lines until the
+      # record is completed, so the deadline is not started for it.
+      def reset_timer(tail_watcher)
+        return unless @multiline_mode && @parser.has_firstline?
+
+        tail_watcher.line_buffer_timer_flusher&.reset_timer
+      end
 
       def tag_for(tw)
         if @tag_prefix || @tag_suffix
