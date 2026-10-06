@@ -80,13 +80,20 @@ module TailInputSubclasses
     end
   end
 
-  class ParseMultilinesOverride < RecordingInput
+  # An override of #parse_multilines which calls the native implementation of
+  # TailInput, which starts the timer to flush the line buffered by the multiline
+  # mode.
+  module ParseMultilinesOverrideWithSuper
     def parse_multilines(lines, tail_watcher)
       # the native implementation appends the buffered line to the first line,
       # so keep copies to check the arguments it got
       @calls << [:parse_multilines, lines.map(&:dup), tail_watcher.line_buffer_timer_flusher.line_buffer]
       super
     end
+  end
+
+  class ParseMultilinesOverride < RecordingInput
+    include ParseMultilinesOverrideWithSuper
   end
 
   class PrivateParseSinglelineOverride < RecordingInput
@@ -152,12 +159,38 @@ module TailInputSubclasses
   end
 
   class LegacyFlusherParseMultilinesOverride < LegacyFlusherSetupWatcherOverride
+    include ParseMultilinesOverrideWithSuper
+  end
+
+  # An override of #parse_multilines which doesn't call the native implementation
+  # of TailInput, like the plugins which parse the multiline lines by themselves.
+  # It keeps the line buffer of the file, but doesn't start the timer to flush it,
+  # as the plugins which didn't call #reset_timer of the object keeping the line
+  # buffer didn't.
+  module ParseMultilinesOverrideWithoutSuper
     def parse_multilines(lines, tail_watcher)
-      # the native implementation appends the buffered line to the first line,
-      # so keep copies to check the arguments it got
-      @calls << [:parse_multilines, lines.map(&:dup), tail_watcher.line_buffer_timer_flusher.line_buffer]
-      super
+      @calls << [:parse_multilines, lines.map(&:dup)]
+      tail_watcher.line_buffer_timer_flusher.line_buffer = lines.join
+      Fluent::MultiEventStream.new
     end
+  end
+
+  # The plugins which override both of #flush_buffer and #parse_multilines, to
+  # check whether the timer of the file flushes the buffered line with #flush_buffer.
+  class FlushBufferAndParseMultilinesOverride < FlushBufferOverride
+    include ParseMultilinesOverrideWithSuper
+  end
+
+  class LegacyFlusherFlushBufferAndParseMultilinesOverride < LegacyFlusherFlushBufferOverride
+    include ParseMultilinesOverrideWithSuper
+  end
+
+  class FlushBufferAndParseMultilinesOverrideWithoutSuper < FlushBufferOverride
+    include ParseMultilinesOverrideWithoutSuper
+  end
+
+  class LegacyFlusherFlushBufferAndParseMultilinesOverrideWithoutSuper < LegacyFlusherFlushBufferOverride
+    include ParseMultilinesOverrideWithoutSuper
   end
 end
 
@@ -2178,8 +2211,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "receive_lines compatibility" do
-    # The watcher of a tailed file, which LineFeeder builds the tag of the events
-    # from and which keeps the state of the file with its FileFeed.
+    # Watcher used with a FileFeed.
     DummyWatcher = Struct.new("DummyWatcher", :tag, :file_feed)
 
     def create_dummy_watcher(plugin, tag = 'foo.bar.log')
@@ -2269,8 +2301,7 @@ class TailInputTest < Test::Unit::TestCase
   # Verify that overridden line processing methods remain on the call path.
   sub_test_case "line processing methods overridden by a subclass" do
     LineProcessingWatcher = Struct.new("LineProcessingWatcher", :tag, :path, :file_feed) do
-      # TailWatcher keeps this reader for compatibility with the plugins which
-      # used the object keeping the line buffer, and FileFeed answers it too.
+      # Keep the legacy reader for compatibility.
       def line_buffer_timer_flusher
         file_feed
       end
@@ -2281,8 +2312,7 @@ class TailInputTest < Test::Unit::TestCase
                     klass: TailInputSubclasses.const_get(name))
     end
 
-    # Builds the watcher of a tailed file which TailInput#receive_lines takes,
-    # with the FileFeed which LineFeeder builds for the file.
+    # Builds a watcher with a FileFeed.
     def create_line_processing_watcher(plugin, tag: 'foo.bar.log', path: nil, flush_interval: 4)
       file_feed = plugin.instance_variable_get(:@line_feeder).new_file_feed(path: path, flush_interval: flush_interval)
       LineProcessingWatcher.new(tag, path, file_feed)
@@ -2292,8 +2322,7 @@ class TailInputTest < Test::Unit::TestCase
       plugin.instance_variable_get(:@tails).values.first
     end
 
-    # The calls of #flush_buffer only, which the object keeping the line buffer
-    # of a file makes.
+    # Returns only #flush_buffer calls.
     def flushed_calls(plugin)
       plugin.calls.select { |call| call.first == :flush_buffer }
     end
@@ -2340,9 +2369,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal([{ 'message' => 'test1' }, { 'message' => 'test2' }], d.events.map { |e| e[2] })
     end
 
-    # The FileFeed of the watcher flushes the buffered line with #flush_buffer of
-    # TailInput, which a subclass can override, and TailWatcher#line_buffer_timer_flusher
-    # still returns the FileFeed of the file.
+    # FileFeed flushes through the overridable TailInput#flush_buffer.
     def test_flush_buffer_override_is_called_by_the_file_feed
       File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
       d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :FlushBufferOverride)
@@ -2472,10 +2499,7 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
-    # A plugin which overrides #setup_watcher and builds TailWatcher with the
-    # deprecated TailWatcher::LineBufferTimerFlusher keeps working: the lines are
-    # fed through LineFeeder, and that flusher keeps the incomplete multiline
-    # block of the file.
+    # A custom watcher using the deprecated LineBufferTimerFlusher still works.
     def test_setup_watcher_override_with_the_deprecated_line_buffer_timer_flusher
       File.binwrite("#{@tmp_dir}/tail.txt", "s test1\nf test2\ns test3\n")
       d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :LegacyFlusherFlushBufferOverride)
@@ -2496,9 +2520,7 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
-    # The timer of the deprecated TailWatcher::LineBufferTimerFlusher flushes the
-    # pending line buffer of the file with #flush_buffer of TailInput, which a
-    # subclass can override.
+    # The deprecated flusher uses the overridable TailInput#flush_buffer.
     def test_deprecated_line_buffer_timer_flusher_flushes_the_pending_line_buffer
       File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
       conf = PARSE_MULTILINE_CONFIG + config_element("", "", { "multiline_flush_interval" => "0" })
@@ -2517,8 +2539,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal([{ 'message1' => 'test1' }], d.events.map { |e| e[2] })
     end
 
-    # detach flushes the pending line buffer kept by the deprecated flusher and
-    # close does not flush it, like TailWatcher does for the FileFeed.
+    # The deprecated flusher has the same detach/close behavior as FileFeed.
     def test_detach_flushes_the_pending_line_buffer_of_the_deprecated_flusher_and_close_does_not
       File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
       d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :LegacyFlusherFlushBufferOverride)
@@ -2537,9 +2558,7 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
-    # An override of #parse_multilines of a plugin which keeps the deprecated
-    # TailWatcher::LineBufferTimerFlusher reads the buffered line of the file from
-    # the TailWatcher, as it did before LineFeeder::FileFeed replaced it.
+    # A legacy parse_multilines override still reads the buffer from TailWatcher.
     def test_parse_multilines_override_with_the_deprecated_line_buffer_timer_flusher
       File.binwrite("#{@tmp_dir}/tail.txt", "s test1\nf test2\n")
       d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :LegacyFlusherParseMultilinesOverride)
@@ -2553,8 +2572,78 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
-    # A plugin which builds TailWatcher with the FileFeed of LineFeeder by
-    # itself, like the plugins overriding #setup_watcher, must keep working.
+    # Calling super starts the FileFeed flush timer.
+    def test_parse_multilines_override_with_super_starts_the_flush_timer_of_the_file_feed
+      File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
+      conf = PARSE_MULTILINE_CONFIG + config_element("", "", { "multiline_flush_interval" => "0" })
+      d = create_subclass_driver(conf, :FlushBufferAndParseMultilinesOverride)
+      plugin = d.instance
+      d.run do
+        tw = first_watcher(plugin)
+        assert_equal([[:parse_multilines, ["s test1\n"], nil]], plugin.calls)
+        assert_equal("s test1\n", tw.line_buffer_timer_flusher.line_buffer)
+        assert_equal([], flushed_calls(plugin))
+
+        tw.on_notify
+
+        assert_equal([[:flush_buffer, "s test1\n"]], flushed_calls(plugin))
+        assert_nil tw.line_buffer_timer_flusher.line_buffer
+      end
+    end
+
+    # Skipping super does not start the FileFeed flush timer.
+    def test_parse_multilines_override_without_super_does_not_start_the_flush_timer_of_the_file_feed
+      File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
+      conf = PARSE_MULTILINE_CONFIG + config_element("", "", { "multiline_flush_interval" => "0" })
+      d = create_subclass_driver(conf, :FlushBufferAndParseMultilinesOverrideWithoutSuper)
+      plugin = d.instance
+      d.run do
+        tw = first_watcher(plugin)
+        assert_equal([[:parse_multilines, ["s test1\n"]]], plugin.calls)
+        assert_equal("s test1\n", tw.line_buffer_timer_flusher.line_buffer)
+
+        tw.on_notify
+
+        assert_equal([], flushed_calls(plugin))
+        assert_equal("s test1\n", tw.line_buffer_timer_flusher.line_buffer)
+      end
+    end
+
+    # The legacy flusher timer is started by native #parse_multilines.
+    def test_parse_multilines_override_with_super_starts_the_timer_of_the_deprecated_flusher
+      File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
+      conf = PARSE_MULTILINE_CONFIG + config_element("", "", { "multiline_flush_interval" => "0" })
+      d = create_subclass_driver(conf, :LegacyFlusherFlushBufferAndParseMultilinesOverride)
+      plugin = d.instance
+      d.run do
+        tw = first_watcher(plugin)
+        assert_equal("s test1\n", tw.line_buffer_timer_flusher.line_buffer)
+        assert_equal([], flushed_calls(plugin))
+
+        tw.on_notify
+
+        assert_equal([[:flush_buffer, "s test1\n"]], flushed_calls(plugin))
+        assert_nil tw.line_buffer_timer_flusher.line_buffer
+      end
+    end
+
+    def test_parse_multilines_override_without_super_does_not_start_the_timer_of_the_deprecated_flusher
+      File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
+      conf = PARSE_MULTILINE_CONFIG + config_element("", "", { "multiline_flush_interval" => "0" })
+      d = create_subclass_driver(conf, :LegacyFlusherFlushBufferAndParseMultilinesOverrideWithoutSuper)
+      plugin = d.instance
+      d.run do
+        tw = first_watcher(plugin)
+        assert_equal("s test1\n", tw.line_buffer_timer_flusher.line_buffer)
+
+        tw.on_notify
+
+        assert_equal([], flushed_calls(plugin))
+        assert_equal("s test1\n", tw.line_buffer_timer_flusher.line_buffer)
+      end
+    end
+
+    # A plugin can build a TailWatcher with a FileFeed itself.
     def test_tailwatcher_and_file_feed_signatures
       path = "#{@tmp_dir}/tail.txt"
       File.open(path, "w") { |f| f.write("") }
@@ -2567,8 +2656,7 @@ class TailInputTest < Test::Unit::TestCase
         )
         assert_match(/tail\.txt\z/, tw.tag)
         assert_equal file_feed, tw.file_feed
-        # The reader of the object which kept the line buffer before FileFeed
-        # replaced LineBufferTimerFlusher still returns it.
+        # The legacy reader still returns the FileFeed.
         assert_equal file_feed, tw.line_buffer_timer_flusher
 
         file_feed.line_buffer = "s incomplete\n"

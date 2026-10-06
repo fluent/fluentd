@@ -28,8 +28,15 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
   end
 
-  # A parser which behaves like parser_multiline without format_firstline. It
-  # completes a record only when the accumulated lines contain 'end'.
+  # A parser whose firstline? call is slow, for testing the flush deadline.
+  class SlowFirstlineParser < FirstlineParser
+    def firstline?(text)
+      sleep 0.1
+      super
+    end
+  end
+
+  # A parser without a firstline that completes records at 'end'.
   class IncompleteUntilEndParser
     def has_firstline?
       false
@@ -64,16 +71,12 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
   end
 
-  # The watcher of the file which the lines are fed with. LineFeeder reads the
-  # tag and the path of the file from it, and the line buffer of the multiline
-  # mode from the FileFeed of it.
+  # Watcher used with a FileFeed.
   Watcher = Struct.new(:tag, :path, :file_feed)
 
-  # The watcher of a file which keeps its state in the deprecated
-  # TailWatcher::LineBufferTimerFlusher, which a plugin overriding
-  # TailInput#setup_watcher may build and pass to TailWatcher by itself.
+  # Watcher used with the deprecated LineBufferTimerFlusher.
   LegacyWatcher = Struct.new(:tag, :path, :line_buffer_timer_flusher) do
-    # TailWatcher answers both of them with the object keeping the line buffer.
+    # TailWatcher exposes the legacy object as file_feed too.
     def file_feed
       line_buffer_timer_flusher
     end
@@ -111,8 +114,7 @@ class IntailLineFeederTest < Test::Unit::TestCase
     )
   end
 
-  # Builds a FileFeed of a file and the watcher of it, which are used together as
-  # TailInput does.
+  # Builds a FileFeed and its watcher.
   def create_file_feed(line_feeder, flush_interval: nil, path: FILE_PATH)
     file_feed = line_feeder.new_file_feed(path: path, flush_interval: flush_interval)
     [file_feed, Watcher.new('foo.bar.log', path, file_feed)]
@@ -215,16 +217,12 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     # The deadline to flush the buffered line starts at the beginning of the
-    # parsing, like TailWatcher::LineBufferTimerFlusher did, so a slow parser does
-    # not postpone the flush of the buffered line.
+    # parsing of LineFeeder#parse_multilines, like the deprecated
+    # LineBufferTimerFlusher did, so a slow parser does not postpone the flush of
+    # the buffered line.
     test 'starts the flush timer before the lines are parsed' do
-      parse_handler = ->(lines, tw) {
-        sleep 0.1
-        tw.file_feed.line_buffer = lines.join
-        Fluent::MultiEventStream.new
-      }
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new,
-                                                     parse_handler: parse_handler),
+      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true,
+                                                     parser: SlowFirstlineParser.new),
                                        flush_interval: 0.01)
 
       file_feed.feed_lines(["s test1\n"], tw)
@@ -233,6 +231,25 @@ class IntailLineFeederTest < Test::Unit::TestCase
       assert_equal(['tail'], emitted_tags)
       assert_equal({ 'message' => 's test1' }, emitted_records[0])
       assert_nil file_feed.line_buffer
+    end
+
+    # The plugins which override TailInput#parse_multilines without calling super
+    # don't start the deadline of the buffered line, like the plugins which didn't
+    # call #reset_timer of the deprecated LineBufferTimerFlusher didn't.
+    test "does not start the flush timer when the parse handler doesn't" do
+      parse_handler = ->(lines, tw) {
+        tw.file_feed.line_buffer = lines.join
+        Fluent::MultiEventStream.new
+      }
+      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new,
+                                                     parse_handler: parse_handler),
+                                       flush_interval: 0)
+
+      file_feed.feed_lines(["s test1\n"], tw)
+      file_feed.on_notify(tw)
+
+      assert_equal([], @router.emits)
+      assert_equal("s test1\n", file_feed.line_buffer)
     end
   end
 
@@ -383,21 +400,38 @@ class IntailLineFeederTest < Test::Unit::TestCase
       assert_equal("test1\ntest2\n", flusher.line_buffer)
     end
 
+    # The deadline of the buffered line starts at the beginning of the parsing of
+    # LineFeeder#parse_multilines, like TailInput#parse_multilines did before
+    # LineFeeder extracted it, so a slow parser does not postpone the flush.
     test 'starts the flush timer before the lines are parsed' do
       flushed = []
-      parse_handler = ->(lines, tw) {
-        sleep 0.1
-        tw.line_buffer_timer_flusher.line_buffer = lines.join
-        Fluent::MultiEventStream.new
-      }
-      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new,
-                                  parse_handler: parse_handler)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: SlowFirstlineParser.new)
       flusher, tw = create_legacy_flusher_watcher(flush_interval: 0.01) { |_tw, buf| flushed << buf }
 
       line_feeder.feed_lines(["s test1\n"], tw)
       flusher.on_notify(tw)
 
       assert_equal(["s test1\n"], flushed)
+    end
+
+    # The plugins which override TailInput#parse_multilines without calling super
+    # don't start the timer of the deprecated LineBufferTimerFlusher, like the
+    # plugins which didn't call #reset_timer of it didn't.
+    test "does not start the flush timer when the parse handler doesn't" do
+      flushed = []
+      parse_handler = ->(lines, tw) {
+        tw.line_buffer_timer_flusher.line_buffer = lines.join
+        Fluent::MultiEventStream.new
+      }
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new,
+                                  parse_handler: parse_handler)
+      flusher, tw = create_legacy_flusher_watcher(flush_interval: 0) { |_tw, buf| flushed << buf }
+
+      line_feeder.feed_lines(["s test1\n"], tw)
+      flusher.on_notify(tw)
+
+      assert_equal([], flushed)
+      assert_equal("s test1\n", flusher.line_buffer)
     end
 
     test 'emits the events when the watcher has no flusher' do

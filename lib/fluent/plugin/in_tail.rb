@@ -726,11 +726,8 @@ module Fluent::Plugin
       @line_feeder.flush_buffer(tw, buf)
     end
 
-    # Feeds the lines read from a file through the FileFeed which #setup_watcher
-    # builds with LineFeeder#new_file_feed. A plugin which overrides
-    # #setup_watcher and passes the deprecated TailWatcher::LineBufferTimerFlusher
-    # to TailWatcher keeps working: the lines of such a watcher are fed through
-    # LineFeeder, which keeps using the line buffer and the timer of that flusher.
+    # Feeds lines through the per-file feed, or through LineFeeder for watchers
+    # created by plugins using the deprecated LineBufferTimerFlusher.
     #
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
     def receive_lines(lines, tail_watcher)
@@ -748,6 +745,8 @@ module Fluent::Plugin
       @line_feeder.parse_singleline(lines, tail_watcher)
     end
 
+    # The native implementation starts the multiline flush timer before parsing;
+    # overrides that skip super must call #reset_timer when needed.
     def parse_multilines(lines, tail_watcher)
       @line_feeder.parse_multilines(lines, tail_watcher)
     end
