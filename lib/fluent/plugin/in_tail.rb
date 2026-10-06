@@ -441,19 +441,6 @@ module Fluent::Plugin
         "tailing paths: target = #{target_paths_str} | existing = #{existence_paths_str}"
       }
 
-      if !@follow_inodes
-        need_unwatch_in_stop_watchers = true
-      else
-        # When using @follow_inodes, need this to unwatch the rotated old inode when it disappears.
-        # After `update_watcher` detaches an old TailWatcher, the inode is lost from the `@tails`.
-        # So that inode can't be contained in `removed_hash`, and can't be unwatched by `stop_watchers`.
-        #
-        # This logic may work for `@follow_inodes false` too.
-        # Just limiting the case to suppress the impact to existing logics.
-        @pf&.unwatch_removed_targets(target_paths_hash)
-        need_unwatch_in_stop_watchers = false
-      end
-
       removed_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
 
@@ -479,10 +466,24 @@ module Fluent::Plugin
         end
       end
 
-      stop_watchers(removed_hash, unwatched: need_unwatch_in_stop_watchers) unless removed_hash.empty?
+      stop_watchers(removed_hash, unwatched: !@follow_inodes) unless removed_hash.empty?
+      unwatch_removed_inodes(target_paths_hash) if @follow_inodes
       start_watchers(added_hash) unless added_hash.empty?
       @metrics.tracked.set(@tails.size)
       @startup = false if @startup
+    end
+
+    # When using @follow_inodes, need this to unwatch the rotated old inode when it disappears.
+    # After `update_watcher` detaches an old TailWatcher, the inode is lost from the `@tails`.
+    # So that inode can't be contained in `removed_hash`, and can't be unwatched by `stop_watchers`.
+    #
+    # Inodes still read by a watcher waiting for `rotate_wait` are kept. Compaction only updates
+    # the entries that remain in the position file, so such a watcher would otherwise write its
+    # position into the line of another file.
+    def unwatch_removed_inodes(target_paths_hash)
+      return unless @pf
+      draining_hash = @tails_rotate_wait.to_h { |tw, v| [v[:ino], TargetInfo.new(tw.path, v[:ino])] }
+      @pf.unwatch_removed_targets(draining_hash.merge(target_paths_hash))
     end
 
     def setup_watcher(target_info, pe)
@@ -504,7 +505,7 @@ module Fluent::Plugin
         event_loop_attach(watcher)
       end
 
-      tw.group_watcher = add_path_to_group_watcher(target_info.path)
+      tw.group_watcher = add_path_to_group_watcher(target_info.path, tw)
 
       tw
     rescue => e
@@ -556,8 +557,6 @@ module Fluent::Plugin
 
     def stop_watchers(targets_info, immediate: false, unwatched: false, remove_watcher: true)
       targets_info.each_value { |target_info|
-        remove_path_from_group_watcher(target_info.path)
-
         if remove_watcher
           tw = @tails.delete(target_info.path)
         else
@@ -650,6 +649,9 @@ module Fluent::Plugin
 
       tw.close if close_io
 
+      # A watcher waiting for `rotate_wait` cannot read once its path leaves the group watcher.
+      tw.group_watcher&.delete(tw.path, tw)
+
       if @pf && tw.unwatched && (@follow_inodes || !@tails[tw.path])
         target_info = TargetInfo.new(tw.path, ino)
         @pf.unwatch(target_info)
@@ -668,6 +670,7 @@ module Fluent::Plugin
       if @open_on_every_update
         # Detach now because it's already closed, waiting it doesn't make sense.
         detach_watcher(tw, ino)
+        return
       end
 
       return if @tails_rotate_wait[tw]

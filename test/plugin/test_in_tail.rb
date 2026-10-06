@@ -443,6 +443,29 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "GroupWatcher" do
+    test "path stays registered until the last watcher deletes it" do
+      gw = Fluent::Plugin::TailInput::GroupWatcher.new(1, 10)
+      first = Object.new
+      second = Object.new
+      gw.add("#{@tmp_dir}/tail.log", first)
+      gw.add("#{@tmp_dir}/tail.log", second)
+      gw.delete("#{@tmp_dir}/tail.log", first)
+      gw.delete("#{@tmp_dir}/tail.log", first)
+      assert_true(gw.include?("#{@tmp_dir}/tail.log"))
+      assert_equal(1, gw.size)
+      gw.delete("#{@tmp_dir}/tail.log", second)
+      assert_false(gw.include?("#{@tmp_dir}/tail.log"))
+    end
+
+    test "limit_lines_reached? allows a path that has not started reading when the limit is shared" do
+      gw = Fluent::Plugin::TailInput::GroupWatcher.new(1, 1)
+      gw.add("#{@tmp_dir}/old.log", Object.new)
+      gw.add("#{@tmp_dir}/new.log", Object.new)
+      assert_false(gw.limit_lines_reached?("#{@tmp_dir}/new.log"))
+    end
+  end
+
   sub_test_case "singleline" do
     data(flat: SINGLE_LINE_CONFIG,
          parse: PARSE_SINGLE_LINE_CONFIG)
@@ -2900,6 +2923,141 @@ class TailInputTest < Test::Unit::TestCase
         sleep(1.0 + jitter)
         assert_equal(0, d.record_count - prev_count)
       end
+    end
+
+    test "watcher waiting rotate_wait keeps reading a group limited file until EOF" do
+      file = "test1.log"
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log$/"
+      rule = create_rule_directive({ "file" => "/test.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/*.log",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "limit_recently_modified" => "10s",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_stat_watcher" => "false",
+        }
+      ) + create_group_directive(pattern, "1s", rule)
+
+      # Large enough to need several reads, so the watcher is throttled before reaching EOF.
+      Fluent::FileWrapper.open("#{@tmp_dir}/#{file}", "wb") { |f| 32000.times { f.puts "initial" } }
+
+      d = create_driver(config, false)
+      d.run(timeout: 30) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/#{file}"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        File.utime(Time.now - 20, Time.now - 20, "#{@tmp_dir}/#{file}")
+        d.instance.refresh_watchers
+        assert_equal(1, d.instance.instance_variable_get(:@tails_rotate_wait).size)
+
+        waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+        assert_true(tw.eof?)
+      end
+      assert_equal(32000, d.events.size)
+    end
+
+    test "refresh keeps discovering files while a stopped watcher in the same group drains" do
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/*.log",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "limit_recently_modified" => "10s",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "0.5s",
+          "enable_stat_watcher" => "false",
+        }
+      ) + create_group_directive(pattern, "1s", rule)
+
+      Fluent::FileWrapper.open("#{@tmp_dir}/old.log", "wb") { |f| 40000.times { f.puts "old" } }
+
+      d = create_driver(config, false)
+      d.run(timeout: 40) do
+        old_tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/old.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+
+        File.utime(Time.now - 20, Time.now - 20, "#{@tmp_dir}/old.log")
+        Fluent::FileWrapper.open("#{@tmp_dir}/new.log", "wb") { |f| f.puts "new" }
+        waiting(10) { sleep 0.1 until d.events.any? { |e| e[2]["message"] == "new" } }
+
+        File.utime(Time.now - 20, Time.now - 20, "#{@tmp_dir}/new.log")
+        Fluent::FileWrapper.open("#{@tmp_dir}/later.log", "wb") { |f| f.puts "later" }
+        waiting(10) { sleep 0.1 until d.events.any? { |e| e[2]["message"] == "later" } }
+
+        waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+        assert_true(old_tw.eof?)
+        assert_false(old_tw.group_watcher.include?("#{@tmp_dir}/old.log"))
+      end
+      assert_equal([], d.logs.grep(/Stopping the timer/))
+    end
+
+    test "position of other files survives compaction while a stopped watcher drains" do
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/*.log",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "limit_recently_modified" => "10s",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_stat_watcher" => "false",
+        }
+      ) + create_group_directive(pattern, "1s", rule)
+
+      a_log_lines = 60000
+      Fluent::FileWrapper.open("#{@tmp_dir}/a.log", "wb") { |f| a_log_lines.times { f.puts "old" } }
+      Fluent::FileWrapper.open("#{@tmp_dir}/b.log", "wb") { |f| f.puts "new" }
+
+      d = create_driver(config, false)
+      d.run(timeout: 30) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/a.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        File.utime(Time.now - 20, Time.now - 20, "#{@tmp_dir}/a.log")
+        d.instance.refresh_watchers
+        d.instance.instance_variable_get(:@pf).try_compact
+
+        waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+      end
+
+      position_entries = {}
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "r") do |f|
+        f.readlines(chomp: true).each do |line|
+          values = line.split("\t")
+          position_entries[values[0]] = values[1].to_i(16)
+        end
+      end
+      assert_equal(
+        {
+          "#{@tmp_dir}/a.log" => "old\n".bytesize * a_log_lines,
+          "#{@tmp_dir}/b.log" => "new\n".bytesize,
+        },
+        position_entries,
+      )
     end
 
     test "lines collected with throttling" do
