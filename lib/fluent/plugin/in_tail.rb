@@ -28,6 +28,7 @@ require 'fluent/plugin/in_tail/group_watch'
 require 'fluent/plugin/in_tail/stat_watcher'
 require 'fluent/plugin/in_tail/io_handler'
 require 'fluent/plugin/in_tail/tail_watcher'
+require 'fluent/plugin/in_tail/line_feeder'
 require 'fluent/file_wrapper'
 
 module Fluent::Plugin
@@ -190,11 +191,6 @@ module Fluent::Plugin
       configure_encoding
 
       @multiline_mode = parser_config["@type"].include?("multiline")
-      @receive_handler = if @multiline_mode
-                           method(:parse_multilines)
-                         else
-                           method(:parse_singleline)
-                         end
       @file_perm = system_config.file_permission || Fluent::DEFAULT_FILE_PERMISSION
       @dir_perm = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
       # parser is already created by parser helper
@@ -269,6 +265,20 @@ module Fluent::Plugin
 
     def start
       super
+
+      @line_feeder = LineFeeder.new(
+        parser: @parser,
+        router_provider: method(:router),
+        log: log,
+        tag: @tag,
+        tag_prefix: @tag_prefix,
+        tag_suffix: @tag_suffix,
+        path_key: @path_key,
+        emit_unmatched_lines: @emit_unmatched_lines,
+        multiline_mode: @multiline_mode,
+        parse_handler: method(@multiline_mode ? :parse_multilines : :parse_singleline),
+        convert_handler: method(:convert_line_to_event),
+      )
 
       if @pos_file
         pos_file_dir = File.dirname(@pos_file)
@@ -698,123 +708,31 @@ module Fluent::Plugin
       end
     end
 
+    # Keep these methods as compatibility entry points for plugins which
+    # inherit TailInput and override line processing methods. TailInput is a
+    # built-in plugin, not a public inheritance API, and these methods may be
+    # removed in a future release.
     def flush_buffer(tw, buf)
-      buf.chomp!
-      @parser.parse(buf) { |time, record|
-        if time && record
-          tag = if @tag_prefix || @tag_suffix
-                  @tag_prefix + tw.tag + @tag_suffix
-                else
-                  @tag
-                end
-          record[@path_key] ||= tw.path unless @path_key.nil?
-          router.emit(tag, time, record)
-        else
-          if @emit_unmatched_lines
-            record = { 'unmatched_line' => buf }
-            record[@path_key] ||= tw.path unless @path_key.nil?
-            tag = if @tag_prefix || @tag_suffix
-                    @tag_prefix + tw.tag + @tag_suffix
-                  else
-                    @tag
-                  end
-            router.emit(tag, Fluent::EventTime.now, record)
-          end
-          log.warn "got incomplete line at shutdown from #{tw.path}: #{buf.inspect}"
-        end
-      }
+      @line_feeder.flush_buffer(tw, buf)
     end
 
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
     def receive_lines(lines, tail_watcher)
-      es = @receive_handler.call(lines, tail_watcher)
-      unless es.empty?
-        tag = if @tag_prefix || @tag_suffix
-                @tag_prefix + tail_watcher.tag + @tag_suffix
-              else
-                @tag
-              end
-        begin
-          router.emit_stream(tag, es)
-        rescue Fluent::Plugin::Buffer::BufferOverflowError
-          return false
-        rescue
-          # ignore non BufferQueueLimitError errors because in_tail can't recover. Engine shows logs and backtraces.
-          return true
-        end
-      end
-
-      return true
+      @line_feeder.feed_lines(lines, tail_watcher)
     end
 
     def convert_line_to_event(line, es, tail_watcher)
-      begin
-        line.chomp!  # remove \n
-        @parser.parse(line) { |time, record|
-          if time && record
-            record[@path_key] ||= tail_watcher.path unless @path_key.nil?
-            es.add(time, record)
-          else
-            if @emit_unmatched_lines
-              record = {'unmatched_line' => line}
-              record[@path_key] ||= tail_watcher.path unless @path_key.nil?
-              es.add(Fluent::EventTime.now, record)
-            end
-            log.warn { "pattern not matched: #{line.inspect}" }
-          end
-        }
-      rescue => e
-        log.warn 'invalid line found', file: tail_watcher.path, line: line, error: e.to_s
-        log.debug_backtrace(e.backtrace)
-      end
+      @line_feeder.convert_line_to_event(line, es, tail_watcher)
     end
 
     def parse_singleline(lines, tail_watcher)
-      es = Fluent::MultiEventStream.new
-      lines.each { |line|
-        convert_line_to_event(line, es, tail_watcher)
-      }
-      es
+      @line_feeder.parse_singleline(lines, tail_watcher)
     end
 
-    # No need to check if line_buffer_timer_flusher is nil, since line_buffer_timer_flusher should exist
     def parse_multilines(lines, tail_watcher)
-      lb = tail_watcher.line_buffer_timer_flusher.line_buffer
-      es = Fluent::MultiEventStream.new
-      if @parser.has_firstline?
-        tail_watcher.line_buffer_timer_flusher.reset_timer
-        lines.each { |line|
-          if @parser.firstline?(line)
-            if lb
-              convert_line_to_event(lb, es, tail_watcher)
-            end
-            lb = line
-          else
-            if lb.nil?
-              if @emit_unmatched_lines
-                convert_line_to_event(line, es, tail_watcher)
-              end
-              log.warn "got incomplete line before first line from #{tail_watcher.path}: #{line.inspect}"
-            else
-              lb << line
-            end
-          end
-        }
-      else
-        lb ||= ''
-        lines.each do |line|
-          lb << line
-          @parser.parse(lb) { |time, record|
-            if time && record
-              convert_line_to_event(lb, es, tail_watcher)
-              lb = ''
-            end
-          }
-        end
-      end
-      tail_watcher.line_buffer_timer_flusher.line_buffer = lb
-      es
+      @line_feeder.parse_multilines(lines, tail_watcher)
     end
+    # End of compatibility entry points.
 
     def statistics
       stats = super
