@@ -3465,6 +3465,44 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(lines + 1, d.events.size)
     end
 
+    test "a rotated file keeps being read under a group limit without the watch timer" do
+      omit "need inotify" unless Fluent.linux?
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log.*$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/tail.log*",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_watch_timer" => "false",
+        }
+      ) + create_group_directive(pattern, "1s", rule)
+
+      lines = 32000
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "initial" } }
+
+      d = create_driver(config, false)
+      d.run(timeout: 30) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/tail.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        # Only the stat watcher notices the rotation, and it watches the old path.
+        FileUtils.move("#{@tmp_dir}/tail.log", "#{@tmp_dir}/tail.log.1")
+        waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).size == 1 }
+
+        waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+      end
+      assert_equal(lines, d.events.size)
+    end
+
     test "lines collected with throttling" do
       file = "podname1_namespace12_container-123456.log"
       limit = 1000

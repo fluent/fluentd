@@ -690,6 +690,8 @@ module Fluent::Plugin
         # Should ensure to read all contents before closing it, with keeping throttling.
         start_time_to_wait = Fluent::Clock.now
         timer = timer_execute(:in_tail_close_watcher, 1, repeat: true) do
+          # Without the watch timer, nothing else notifies a watcher whose path has been rotated away.
+          tw.read_more unless @enable_watch_timer || tw.eof?
           elapsed = Fluent::Clock.now - start_time_to_wait
           if tw.eof? && elapsed >= @rotate_wait
             timer.detach
