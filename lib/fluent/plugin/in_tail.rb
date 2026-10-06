@@ -691,7 +691,14 @@ module Fluent::Plugin
         start_time_to_wait = Fluent::Clock.now
         timer = timer_execute(:in_tail_close_watcher, 1, repeat: true) do
           # Without the watch timer, nothing else notifies a watcher whose path has been rotated away.
-          tw.read_more unless @enable_watch_timer || tw.eof?
+          unless @enable_watch_timer || tw.eof?
+            begin
+              tw.read_more
+            rescue => e
+              log.error e.to_s
+              log.error_backtrace
+            end
+          end
           elapsed = Fluent::Clock.now - start_time_to_wait
           if tw.eof? && elapsed >= @rotate_wait
             timer.detach

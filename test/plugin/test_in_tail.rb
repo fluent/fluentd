@@ -3503,6 +3503,58 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(lines, d.events.size)
     end
 
+    test "a transient emit error does not stop draining a rotated file without the watch timer" do
+      omit "need inotify" unless Fluent.linux?
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log.*$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/tail.log*",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_watch_timer" => "false",
+          "multiline_flush_interval" => "1s",
+        },
+        [config_element("parse", "", { "@type" => "multiline", "format_firstline" => "/^s /", "format1" => "/^s (?<message>.*)/" })]
+      ) + create_group_directive(pattern, "3s", rule)
+
+      lines = 12000
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "s initial" }; f.puts "s last" }
+
+      d = create_driver(config, false)
+      raised = false
+      d.run(timeout: 40) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/tail.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        # The multiline flush fails once, as if the output buffer were full.
+        flusher = tw.line_buffer_timer_flusher
+        flush_method = flusher.instance_variable_get(:@flush_method)
+        flusher.instance_variable_set(:@flush_method, lambda { |watcher, buf|
+          unless raised
+            raised = true
+            raise Fluent::Plugin::Buffer::BufferOverflowError, "test"
+          end
+          flush_method.call(watcher, buf)
+        })
+
+        FileUtils.move("#{@tmp_dir}/tail.log", "#{@tmp_dir}/tail.log.1")
+        waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).size == 1 }
+        waiting(20) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+      end
+      assert_true(raised)
+      assert_equal([], d.logs.grep(/Stopping the timer/))
+      assert_equal(lines + 1, d.events.size)
+      assert_equal("last", d.events.last[2]["message"])
+    end
+
     test "lines collected with throttling" do
       file = "podname1_namespace12_container-123456.log"
       limit = 1000
