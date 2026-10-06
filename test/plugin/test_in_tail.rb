@@ -3420,6 +3420,51 @@ class TailInputTest < Test::Unit::TestCase
       )
     end
 
+    test "a group limited file updated while its stopped watcher drains is not read twice" do
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/*.log",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "limit_recently_modified" => "10s",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_stat_watcher" => "false",
+        }
+      ) + create_group_directive(pattern, "1s", rule)
+
+      lines = 32000
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "initial" } }
+
+      d = create_driver(config, false)
+      d.run(timeout: 30) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/tail.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        File.utime(Time.now - 20, Time.now - 20, "#{@tmp_dir}/tail.log")
+        d.instance.refresh_watchers
+
+        # The file becomes a target again while the stopped watcher is still draining it.
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "ab") { |f| f.puts "resumed" }
+        d.instance.refresh_watchers
+        assert_equal(0, d.instance.instance_variable_get(:@tails).size)
+
+        waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+        d.instance.refresh_watchers
+        assert_equal(1, d.instance.instance_variable_get(:@tails).size)
+      end
+      assert_equal(["resumed"], d.events.map { |e| e[2]["message"] }.reject { |m| m == "initial" })
+      assert_equal(lines + 1, d.events.size)
+    end
+
     test "lines collected with throttling" do
       file = "podname1_namespace12_container-123456.log"
       limit = 1000
