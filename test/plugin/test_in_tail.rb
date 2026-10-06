@@ -3027,7 +3027,8 @@ class TailInputTest < Test::Unit::TestCase
         }
       ) + create_group_directive(pattern, "1s", rule)
 
-      Fluent::FileWrapper.open("#{@tmp_dir}/a.log", "wb") { |f| 60000.times { f.puts "old" } }
+      a_log_lines = 60000
+      Fluent::FileWrapper.open("#{@tmp_dir}/a.log", "wb") { |f| a_log_lines.times { f.puts "old" } }
       Fluent::FileWrapper.open("#{@tmp_dir}/b.log", "wb") { |f| f.puts "new" }
 
       d = create_driver(config, false)
@@ -3050,7 +3051,13 @@ class TailInputTest < Test::Unit::TestCase
           position_entries[values[0]] = values[1].to_i(16)
         end
       end
-      assert_equal({ "#{@tmp_dir}/a.log" => 240000, "#{@tmp_dir}/b.log" => 4 }, position_entries)
+      assert_equal(
+        {
+          "#{@tmp_dir}/a.log" => "old\n".bytesize * a_log_lines,
+          "#{@tmp_dir}/b.log" => "new\n".bytesize,
+        },
+        position_entries,
+      )
     end
 
     test "lines collected with throttling" do
