@@ -3440,7 +3440,8 @@ class TailInputTest < Test::Unit::TestCase
         }
       ) + create_group_directive(pattern, "1s", rule)
 
-      lines = 32000
+      # Needs several reads of BYTES_TO_READ, so the group limit stops the watcher before EOF.
+      lines = Fluent::Plugin::TailInput::TailWatcher::IOHandler::BYTES_TO_READ * 4 / "initial\n".bytesize
       Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "initial" } }
 
       d = create_driver(config, false)
@@ -3485,7 +3486,8 @@ class TailInputTest < Test::Unit::TestCase
         }
       ) + create_group_directive(pattern, "1s", rule)
 
-      lines = 32000
+      # Needs several reads of BYTES_TO_READ, so the group limit stops the watcher before EOF.
+      lines = Fluent::Plugin::TailInput::TailWatcher::IOHandler::BYTES_TO_READ * 4 / "initial\n".bytesize
       Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "initial" } }
 
       d = create_driver(config, false)
@@ -3494,7 +3496,7 @@ class TailInputTest < Test::Unit::TestCase
         waiting(5) { sleep 0.1 until d.events.size > 0 }
         assert_false(tw.eof?)
 
-        # Only the stat watcher notices the rotation, and it watches the old path.
+        # Only the stat watcher notices the rotation, and it watches the old path, so the stat watcher never fires again.
         FileUtils.move("#{@tmp_dir}/tail.log", "#{@tmp_dir}/tail.log.1")
         waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).size == 1 }
 
@@ -3524,7 +3526,8 @@ class TailInputTest < Test::Unit::TestCase
         [config_element("parse", "", { "@type" => "multiline", "format_firstline" => "/^s /", "format1" => "/^s (?<message>.*)/" })]
       ) + create_group_directive(pattern, "3s", rule)
 
-      lines = 12000
+      # Needs two reads of BYTES_TO_READ, so the group limit stops the watcher before EOF.
+      lines = Fluent::Plugin::TailInput::TailWatcher::IOHandler::BYTES_TO_READ * 2 / "s initial\n".bytesize
       Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "s initial" }; f.puts "s last" }
 
       d = create_driver(config, false)
