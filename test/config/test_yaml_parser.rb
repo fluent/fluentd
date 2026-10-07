@@ -508,10 +508,10 @@ class YamlParserTest < Test::Unit::TestCase
             <<: !include fluent-common.yaml
     EOS
 
-    # TODO: Fix exception
-    assert_raise(TypeError) do
-      Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_merge_common_parameter_using_include.yaml")
-    end
+    config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_merge_common_parameter_using_include.yaml")
+    assert_equal(2, config.elements.size)
+    assert_equal('foobarbaz', config.elements[0]['common_param'])
+    assert_equal('foobarbaz', config.elements[1]['common_param'])
   end
 
   def test_unknown_anchor

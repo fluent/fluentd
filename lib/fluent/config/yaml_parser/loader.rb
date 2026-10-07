@@ -73,7 +73,12 @@ module Fluent
           end
           result = []
           Dir.glob(pattern).sort.each do |path|
-            result.concat(load(Pathname.new(path)))
+            loaded = load(Pathname.new(path))
+            if loaded.is_a?(Hash)
+              result.push(loaded)
+            else
+              result.concat(loaded)
+            end
           end
           result
         rescue SystemCallError => e
@@ -93,6 +98,9 @@ module Fluent
 
           def revive_hash(hash, o)
             super(hash, o).tap do |r|
+              if r[SHOVEL].is_a?(Array) && r[SHOVEL].all?(Hash)
+                r[SHOVEL] = r[SHOVEL].reduce({}) { |a, e| a.merge!(e) }
+              end
               if r[SHOVEL].is_a?(Hash)
                 h2 = {}
                 r.each do |k, v|
