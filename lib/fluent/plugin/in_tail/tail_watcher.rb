@@ -80,6 +80,10 @@ module Fluent::Plugin
         end
 
         @rotate_handler.on_notify(stat) if @rotate_handler
+        read_more
+      end
+
+      def read_more
         @line_buffer_timer_flusher.on_notify(self) if @line_buffer_timer_flusher
         @io_handler.on_notify if @io_handler
       end

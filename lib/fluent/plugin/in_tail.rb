@@ -454,6 +454,14 @@ module Fluent::Plugin
       removed_hash = existence_paths_hash.reject {|key, value| target_paths_hash.key?(key)}
       added_hash = target_paths_hash.reject {|key, value| existence_paths_hash.key?(key)}
 
+      if @follow_inodes
+        # A TailWatcher waiting for `rotate_wait` still reads its inode, so do not start a second one for it.
+        @tails_rotate_wait.each_value do |v|
+          target = added_hash.delete(v[:ino])
+          log.debug { "skip #{target.path} (inode: #{target.ino}) because a watcher waiting rotate_wait still reads it" } if target
+        end
+      end
+
       # If an existing TailWatcher already follows a target path with the different inode,
       # it means that the TailWatcher following the rotated file still exists. In this case,
       # `refresh_watcher` can't start the new TailWatcher for the new current file. So, we
@@ -603,14 +611,6 @@ module Fluent::Plugin
       if @follow_inodes && new_inode.nil?
         # nil inode means the file disappeared, so we only need to stop it.
         @tails.delete(tail_watcher.path)
-        # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632
-        # Because of this problem, log duplication can occur during `rotate_wait`.
-        # Need to set `rotate_wait 0` for a workaround.
-        # Duplication will occur if `refresh_watcher` is called during the `rotate_wait`.
-        # In that case, `refresh_watcher` will add the new TailWatcher to tail the same target,
-        # and it causes the log duplication.
-        # (Other `detach_watcher_after_rotate_wait` may have the same problem.
-        #  We need the mechanism not to add duplicated TailWatcher with detaching TailWatcher.)
         detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
         return
       end
@@ -690,6 +690,15 @@ module Fluent::Plugin
         # Should ensure to read all contents before closing it, with keeping throttling.
         start_time_to_wait = Fluent::Clock.now
         timer = timer_execute(:in_tail_close_watcher, 1, repeat: true) do
+          # Without the watch timer, nothing else notifies a watcher whose path has been rotated away.
+          unless @enable_watch_timer
+            begin
+              tw.read_more
+            rescue => e
+              log.error e.to_s
+              log.error_backtrace
+            end
+          end
           elapsed = Fluent::Clock.now - start_time_to_wait
           if tw.eof? && elapsed >= @rotate_wait
             timer.detach
