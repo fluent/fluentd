@@ -491,9 +491,14 @@ class YamlParserTest < Test::Unit::TestCase
     assert_equal(12345, config.elements[1]['common_param2'])
   end
 
-  def test_merge_common_parameter_using_include
+  data('single file' => 'fluent-common.yaml',
+       'glob' => 'fluent-common*.yaml')
+  def test_merge_common_parameter_using_include(include_path)
     write_config "#{TMP_DIR}/fluent-common.yaml", <<~EOS
       common_param: foobarbaz
+    EOS
+    write_config "#{TMP_DIR}/fluent-common2.yaml", <<~EOS
+      common_param: overridden
     EOS
 
     write_config "#{TMP_DIR}/test_merge_common_parameter_using_include.yaml", <<~EOS
@@ -501,11 +506,11 @@ class YamlParserTest < Test::Unit::TestCase
         - match:
             $tag: dummy_tag_1
             $type: dummy_type_1
-            <<: !include fluent-common.yaml
+            <<: !include #{include_path}
         - match:
             $tag: dummy_tag_2
             $type: dummy_type_2
-            <<: !include fluent-common.yaml
+            <<: !include #{include_path}
     EOS
 
     config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_merge_common_parameter_using_include.yaml")

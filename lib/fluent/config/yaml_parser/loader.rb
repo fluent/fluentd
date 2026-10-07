@@ -99,7 +99,7 @@ module Fluent
           def revive_hash(hash, o)
             super(hash, o).tap do |r|
               if r[SHOVEL].is_a?(Array) && r[SHOVEL].all?(Hash)
-                r[SHOVEL] = r[SHOVEL].reduce({}) { |a, e| a.merge!(e) }
+                r[SHOVEL] = r[SHOVEL].reverse_each.reduce({}) { |a, e| a.merge!(e) }
               end
               if r[SHOVEL].is_a?(Hash)
                 h2 = {}
