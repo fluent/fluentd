@@ -272,11 +272,9 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
   sub_test_case "receive_lines compatibility" do
     # Watcher used with a FileFeed.
     DummyWatcher = Struct.new("DummyWatcher", :tag, :file_feed)
-    # The file which the FileFeed reads. It is never read from the disk.
-    FILE_PATH = File.expand_path('foo.bar.log', __dir__)
 
     def create_dummy_watcher(plugin, tag = 'foo.bar.log')
-      file_feed = plugin.instance_variable_get(:@line_feeder).new_file_feed(path: FILE_PATH)
+      file_feed = plugin.instance_variable_get(:@line_feeder).new_file_feed
       DummyWatcher.new(tag, file_feed)
     end
 
@@ -375,7 +373,7 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
 
     # Builds a watcher with a FileFeed.
     def create_line_processing_watcher(plugin, tag: 'foo.bar.log', path: nil, flush_interval: 4)
-      file_feed = plugin.instance_variable_get(:@line_feeder).new_file_feed(path: path, flush_interval: flush_interval)
+      file_feed = plugin.instance_variable_get(:@line_feeder).new_file_feed(flush_interval: flush_interval)
       LineProcessingWatcher.new(tag, path, file_feed)
     end
 
@@ -711,7 +709,7 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
       d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :FlushBufferOverride)
       plugin = d.instance
       d.run do
-        file_feed = plugin.instance_variable_get(:@line_feeder).new_file_feed(path: path, flush_interval: 4)
+        file_feed = plugin.instance_variable_get(:@line_feeder).new_file_feed(flush_interval: 4)
         tw = Fluent::Plugin::TailInput::TailWatcher.new(
           create_target_info(path), nil, $log, true, false, nil, file_feed, nil, nil
         )

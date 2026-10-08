@@ -47,9 +47,9 @@ module Fluent::Plugin
 
       # Builds a per-file feed. The flush interval applies only to multiline
       # parsers with a firstline.
-      def new_file_feed(path:, flush_interval: nil)
+      def new_file_feed(flush_interval: nil)
         timer_flush_interval = (@multiline_mode && @parser.has_firstline?) ? flush_interval : nil
-        FileFeed.new(self, path: path, flush_interval: timer_flush_interval, flush_handler: @flush_handler)
+        FileFeed.new(self, flush_interval: timer_flush_interval, flush_handler: @flush_handler)
       end
 
       # Feeds a watcher that uses the deprecated LineBufferTimerFlusher.
@@ -102,16 +102,13 @@ module Fluent::Plugin
       class FileFeed
         attr_accessor :line_buffer
 
-        def initialize(line_feeder, path:, flush_interval:, flush_handler:)
+        def initialize(line_feeder, flush_interval:, flush_handler:)
           @line_feeder = line_feeder
-          @path = path
           @flush_interval = flush_interval
           @flush_handler = flush_handler
           @line_buffer = nil
           @start = nil
         end
-
-        attr_reader :path
 
         # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
         def feed_lines(lines, tail_watcher)

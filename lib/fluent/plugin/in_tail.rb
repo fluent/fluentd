@@ -506,7 +506,7 @@ module Fluent::Plugin
     end
 
     def setup_watcher(target_info, pe)
-      file_feed = @line_feeder.new_file_feed(path: target_info.path, flush_interval: @multiline_flush_interval)
+      file_feed = @line_feeder.new_file_feed(flush_interval: @multiline_flush_interval)
       read_from_head = !@startup || @read_from_head
       tw = TailWatcher.new(target_info, pe, log, read_from_head, @follow_inodes, method(:update_watcher), file_feed, method(:io_handler), @metrics)
 

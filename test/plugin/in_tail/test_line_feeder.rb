@@ -116,7 +116,7 @@ class IntailLineFeederTest < Test::Unit::TestCase
 
   # Builds a FileFeed and its watcher.
   def create_file_feed(line_feeder, flush_interval: nil, path: FILE_PATH)
-    file_feed = line_feeder.new_file_feed(path: path, flush_interval: flush_interval)
+    file_feed = line_feeder.new_file_feed(flush_interval: flush_interval)
     [file_feed, Watcher.new('foo.bar.log', path, file_feed)]
   end
 
