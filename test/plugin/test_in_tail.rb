@@ -3770,14 +3770,14 @@ class TailInputTest < Test::Unit::TestCase
         assert_false(tw.eof?)
 
         # The multiline flush fails once, as if the output buffer were full.
-        flusher = tw.line_buffer_timer_flusher
-        flush_method = flusher.instance_variable_get(:@flush_method)
-        flusher.instance_variable_set(:@flush_method, lambda { |watcher, buf|
+        file_feed = tw.file_feed
+        flush_handler = file_feed.instance_variable_get(:@flush_handler)
+        file_feed.instance_variable_set(:@flush_handler, lambda { |watcher, buf|
           unless raised
             raised = true
             raise Fluent::Plugin::Buffer::BufferOverflowError, "test"
           end
-          flush_method.call(watcher, buf)
+          flush_handler.call(watcher, buf)
         })
 
         FileUtils.move("#{@tmp_dir}/tail.log", "#{@tmp_dir}/tail.log.1")
