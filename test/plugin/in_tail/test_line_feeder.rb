@@ -82,7 +82,7 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
   end
 
-  FILE_PATH = '/tmp/foo.bar.log'
+  FILE_PATH = File.expand_path('foo.bar.log', __dir__)
 
   def setup
     Fluent::Test.setup
