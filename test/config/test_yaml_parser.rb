@@ -426,6 +426,35 @@ class YamlParserTest < Test::Unit::TestCase
         assert_equal("filter", config.elements[0].name) # included section
       end
 
+      def test_include_mapping_file_in_config_list
+        write_config "#{TMP_DIR}/both.yaml", <<~EOS
+        source:
+          $type: sample
+          tag: t1
+        match:
+          $tag: "**"
+          $type: stdout
+        EOS
+        write_config "#{TMP_DIR}/test_include_mapping_file_in_config_list.yaml", <<~EOS
+        config:
+          - !include both.yaml
+        EOS
+        config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_include_mapping_file_in_config_list.yaml")
+        assert_equal(["source", "match"], config.elements.map(&:name))
+      end
+
+      def test_include_system_section
+        write_config "#{TMP_DIR}/sys.yaml", <<~EOS
+        log_level: debug
+        EOS
+        write_config "#{TMP_DIR}/test_include_system_section.yaml", <<~EOS
+        system: !include sys.yaml
+        EOS
+        config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_include_system_section.yaml")
+        assert_equal("system", config.elements[0].name)
+        assert_equal("debug", config.elements[0]["log_level"])
+      end
+
       def test_include_normal_config_file
         write_config "#{TMP_DIR}/dummy.conf", <<~EOS
           <filter **>
@@ -437,8 +466,8 @@ class YamlParserTest < Test::Unit::TestCase
             - !include dummy.conf
         EOS
 
-        # TODO: it should raise Fluent::ConfigError instead of TypeError, or parse normal config file
-        assert_raise(TypeError) do
+        # TODO: it should raise Fluent::ConfigError instead of NoMethodError, or parse normal config file
+        assert_raise(NoMethodError) do
           Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_include_normal_config_file.yaml")
         end
       end

@@ -71,6 +71,9 @@ module Fluent
           else
             pattern = path
           end
+          # A single file keeps its own shape; only glob matches are aggregated.
+          return load(pattern) if File.file?(pattern)
+
           result = []
           Dir.glob(pattern).sort.each do |path|
             loaded = load(Pathname.new(path))
