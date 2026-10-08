@@ -3433,7 +3433,7 @@ class TailInputTest < Test::Unit::TestCase
           "format" => "none",
           "read_from_head" => "true",
           "follow_inodes" => "true",
-          "limit_recently_modified" => "10s",
+          "limit_recently_modified" => "60s",
           "rotate_wait" => "1s",
           "refresh_interval" => "1h",
           "enable_stat_watcher" => "false",
@@ -3450,7 +3450,7 @@ class TailInputTest < Test::Unit::TestCase
         waiting(5) { sleep 0.1 until d.events.size > 0 }
         assert_false(tw.eof?)
 
-        File.utime(Time.now - 20, Time.now - 20, "#{@tmp_dir}/tail.log")
+        File.utime(Time.now - 120, Time.now - 120, "#{@tmp_dir}/tail.log")
         d.instance.refresh_watchers
 
         # The file becomes a target again while the stopped watcher is still draining it.
