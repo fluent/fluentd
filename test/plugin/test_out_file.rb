@@ -799,12 +799,14 @@ class FileOutputTest < Test::Unit::TestCase
           es.add(t, {"a" => 1, "myid" => "1"})
           es.add(t, {"a" => 2, "myid" => "2"})
           d.feed(es)
-        end
 
-        assert File.symlink?("#{SYMLINK_PATH}/foo/tag_1.log"),
-               "missing symlink for myid=1"
-        assert File.symlink?("#{SYMLINK_PATH}/foo/tag_2.log"),
-               "missing symlink for myid=2"
+          ["1", "2"].each do |myid|
+            symlink_path = "#{SYMLINK_PATH}/foo/tag_#{myid}.log"
+            assert File.symlink?(symlink_path), "missing symlink for myid=#{myid}"
+            meta = d.instance.metadata('tag', t, {"myid" => myid})
+            assert_equal d.instance.buffer.instance_eval{ @stage[meta].path }, File.readlink(symlink_path)
+          end
+        end
       ensure
         FileUtils.rm_f("#{SYMLINK_PATH}/foo/tag_1.log")
         FileUtils.rm_f("#{SYMLINK_PATH}/foo/tag_2.log")
