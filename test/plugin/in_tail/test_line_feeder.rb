@@ -136,7 +136,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
          'prefix and suffix': { tag: 'pre.*.post', tag_prefix: 'pre.', tag_suffix: '.post', expected_tag: 'pre.foo.bar.log.post' },
          'extra * is ignored': { tag: 'pre.*.post*ignore', tag_prefix: 'pre.', tag_suffix: '.post', expected_tag: 'pre.foo.bar.log.post' })
     test 'emits events with the tag built for each watcher' do |data|
-      file_feed, tw = create_file_feed(create_feeder(tag: data[:tag], tag_prefix: data[:tag_prefix], tag_suffix: data[:tag_suffix]))
+      line_feeder = create_feeder(tag: data[:tag], tag_prefix: data[:tag_prefix], tag_suffix: data[:tag_suffix])
+      file_feed, tw = create_file_feed(line_feeder)
 
       assert_true file_feed.feed_lines(['foo', 'bar'], tw)
 
@@ -145,7 +146,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'adds the path_key field to records' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', path_key: 'path'))
+      line_feeder = create_feeder(tag: 'tail', path_key: 'path')
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.feed_lines(['foo'], tw)
 
@@ -153,7 +155,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'emits unmatched lines when the parser does not match' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', emit_unmatched_lines: true, parser: NeverMatchingParser.new))
+      line_feeder = create_feeder(tag: 'tail', emit_unmatched_lines: true, parser: NeverMatchingParser.new)
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.feed_lines(['foo'], tw)
 
@@ -161,7 +164,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'does not emit anything when the parser does not match' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', parser: NeverMatchingParser.new))
+      line_feeder = create_feeder(tag: 'tail', parser: NeverMatchingParser.new)
+      file_feed, tw = create_file_feed(line_feeder)
 
       assert_true file_feed.feed_lines(['foo'], tw)
 
@@ -170,20 +174,23 @@ class IntailLineFeederTest < Test::Unit::TestCase
 
     test 'returns false when the router raises BufferOverflowError' do
       @router.error_to_raise = Fluent::Plugin::Buffer::BufferOverflowError.new('buffer is full')
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail'))
+      line_feeder = create_feeder(tag: 'tail')
+      file_feed, tw = create_file_feed(line_feeder)
 
       assert_false file_feed.feed_lines(['foo'], tw)
     end
 
     test 'returns true when the router raises an error other than BufferOverflowError' do
       @router.error_to_raise = RuntimeError.new('unexpected error')
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail'))
+      line_feeder = create_feeder(tag: 'tail')
+      file_feed, tw = create_file_feed(line_feeder)
 
       assert_true file_feed.feed_lines(['foo'], tw)
     end
 
     test 'buffers multiline lines until the next firstline' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new))
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.feed_lines(["s test1\n", "f test2\n", "s test3\n"], tw)
 
@@ -193,7 +200,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'keeps the buffered line between the feeds of the file' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new))
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.feed_lines(["s test1\n", "f test2\n"], tw)
       file_feed.feed_lines(["f test3\n", "s test4\n"], tw)
@@ -209,7 +217,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
         watchers << tw
         Fluent::MultiEventStream.new
       }
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', parse_handler: parse_handler))
+      line_feeder = create_feeder(tag: 'tail', parse_handler: parse_handler)
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.feed_lines(['foo'], tw)
 
@@ -221,9 +230,9 @@ class IntailLineFeederTest < Test::Unit::TestCase
     # LineBufferTimerFlusher did, so a slow parser does not postpone the flush of
     # the buffered line.
     test 'starts the flush timer before the lines are parsed' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true,
-                                                     parser: SlowFirstlineParser.new),
-                                       flush_interval: 0.01)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true,
+                                  parser: SlowFirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: 0.01)
 
       file_feed.feed_lines(["s test1\n"], tw)
       file_feed.on_notify(tw)
@@ -241,9 +250,9 @@ class IntailLineFeederTest < Test::Unit::TestCase
         tw.file_feed.line_buffer = lines.join
         Fluent::MultiEventStream.new
       }
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new,
-                                                     parse_handler: parse_handler),
-                                       flush_interval: 0)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new,
+                                  parse_handler: parse_handler)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: 0)
 
       file_feed.feed_lines(["s test1\n"], tw)
       file_feed.on_notify(tw)
@@ -255,7 +264,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
 
   sub_test_case 'FileFeed#on_notify' do
     test 'flushes the buffered line when the flush interval has passed' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new), flush_interval: 0)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: 0)
       file_feed.feed_lines(["s test1\n", "f test2\n"], tw)
 
       assert_equal([], @router.emits)
@@ -268,7 +278,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'does not flush the buffered line before the flush interval' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new), flush_interval: 30)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: 30)
       file_feed.feed_lines(["s test1\n", "f test2\n"], tw)
 
       file_feed.on_notify(tw)
@@ -278,7 +289,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'does nothing when no line was fed' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new), flush_interval: 0)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: 0)
 
       file_feed.on_notify(tw)
 
@@ -286,7 +298,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'does not flush the buffered line when the flush interval is not set' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new), flush_interval: nil)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: nil)
       file_feed.feed_lines(["s test1\n", "f test2\n"], tw)
 
       file_feed.on_notify(tw)
@@ -296,7 +309,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'does not set the flush interval of a multiline parser without a firstline' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: IncompleteUntilEndParser.new), flush_interval: 0)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: IncompleteUntilEndParser.new)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: 0)
 
       file_feed.feed_lines(["test1\n", "test2\n"], tw)
       file_feed.on_notify(tw)
@@ -308,7 +322,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
 
   sub_test_case 'FileFeed#close' do
     test 'flushes the buffered line' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new))
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.feed_lines(["s test1\n", "f test2\n"], tw)
       file_feed.close(tw)
@@ -319,7 +334,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'does nothing when no line was buffered' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new))
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.close(tw)
 
@@ -329,7 +345,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
 
   sub_test_case 'FileFeed#flush_buffer' do
     test 'emits the buffered line' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', path_key: 'path'))
+      line_feeder = create_feeder(tag: 'tail', path_key: 'path')
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.flush_buffer("foo\n", tw)
 
@@ -338,7 +355,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'emits the buffered line as unmatched_line when the parser does not match' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', path_key: 'path', emit_unmatched_lines: true, parser: NeverMatchingParser.new))
+      line_feeder = create_feeder(tag: 'tail', path_key: 'path', emit_unmatched_lines: true, parser: NeverMatchingParser.new)
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.flush_buffer("incomplete line\n", tw)
 
@@ -347,7 +365,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
     end
 
     test 'does not emit anything when emit_unmatched_lines is disabled' do
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', parser: NeverMatchingParser.new))
+      line_feeder = create_feeder(tag: 'tail', parser: NeverMatchingParser.new)
+      file_feed, tw = create_file_feed(line_feeder)
 
       file_feed.flush_buffer("incomplete line\n", tw)
 
@@ -455,7 +474,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
         es.add(Fluent::EventTime.now, { 'custom' => lines.join('|') })
         es
       }
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', parse_handler: parse_handler))
+      line_feeder = create_feeder(tag: 'tail', parse_handler: parse_handler)
+      file_feed, tw = create_file_feed(line_feeder)
 
       assert_true file_feed.feed_lines(['foo', 'bar'], tw)
 
@@ -468,7 +488,8 @@ class IntailLineFeederTest < Test::Unit::TestCase
         converted << line
         es.add(Fluent::EventTime.now, { 'custom' => line })
       }
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', convert_handler: convert_handler))
+      line_feeder = create_feeder(tag: 'tail', convert_handler: convert_handler)
+      file_feed, tw = create_file_feed(line_feeder)
 
       assert_true file_feed.feed_lines(['foo', 'bar'], tw)
 
@@ -481,8 +502,9 @@ class IntailLineFeederTest < Test::Unit::TestCase
         tw.file_feed.line_buffer = lines.join
         Fluent::MultiEventStream.new
       }
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true,
-                                                     parser: FirstlineParser.new, parse_handler: parse_handler))
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true,
+                                  parser: FirstlineParser.new, parse_handler: parse_handler)
+      file_feed, tw = create_file_feed(line_feeder)
 
       assert_true file_feed.feed_lines(["s test1\n"], tw)
 
@@ -493,9 +515,9 @@ class IntailLineFeederTest < Test::Unit::TestCase
     test 'uses the injected flush_handler when the buffered line is flushed' do
       flushed = []
       flush_handler = ->(tw, buf) { flushed << [tw.path, buf] }
-      file_feed, tw = create_file_feed(create_feeder(tag: 'tail', multiline_mode: true,
-                                                     parser: FirstlineParser.new, flush_handler: flush_handler),
-                                       flush_interval: 0)
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true,
+                                  parser: FirstlineParser.new, flush_handler: flush_handler)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: 0)
 
       file_feed.feed_lines(["s test1\n", "f test2\n"], tw)
       file_feed.close(tw)
