@@ -443,6 +443,23 @@ class YamlParserTest < Test::Unit::TestCase
         assert_equal(["source", "match"], config.elements.map(&:name))
       end
 
+      def test_include_mapping_files_by_glob_in_config_list
+        write_config "#{TMP_DIR}/conf.d/app.yaml", <<~EOS
+        source:
+          $type: sample
+          tag: t1
+        match:
+          $tag: "**"
+          $type: stdout
+        EOS
+        write_config "#{TMP_DIR}/test_include_mapping_files_by_glob_in_config_list.yaml", <<~EOS
+        config:
+          - !include conf.d/*.yaml
+        EOS
+        config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_include_mapping_files_by_glob_in_config_list.yaml")
+        assert_equal(["source", "match"], config.elements.map(&:name))
+      end
+
       def test_include_system_section
         write_config "#{TMP_DIR}/sys.yaml", <<~EOS
         log_level: debug
