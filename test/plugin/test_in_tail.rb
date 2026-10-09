@@ -1031,6 +1031,52 @@ class TailInputTest < Test::Unit::TestCase
       assert_empty driver.instance.instance_variable_get(:@worker_deferred_unwatch)
     end
 
+    def test_oversized_worker_batch_does_not_block_other_files
+      tail_input = Fluent::Plugin::TailInput
+      original_byte_limit = tail_input.const_get(:WORKER_QUEUE_BYTES)
+      tail_input.send(:remove_const, :WORKER_QUEUE_BYTES)
+      tail_input.const_set(:WORKER_QUEUE_BYTES, 6)
+      large_path = "#{@tmp_dir}/tail-large.txt"
+      short_path = "#{@tmp_dir}/tail-short.txt"
+      [large_path, short_path].each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
+      config = config_element('ROOT', '', {
+        'path' => "#{@tmp_dir}/tail-*.txt",
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
+        'read_from_head' => true,
+        'format' => '/(?<message>.*)/',
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config, false)
+      large_started = Queue.new
+      continue_large = Queue.new
+      released = false
+
+      driver.run(expect_records: 2, timeout: 10) do
+        pool = driver.instance.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) do |batch|
+          if batch.lines.any? { |line| line.include?('oversized-record') }
+            large_started << true
+            continue_large.pop
+          end
+        end
+        Fluent::FileWrapper.open(large_path, 'ab') { |file| file.puts('oversized-record') }
+        Fluent::FileWrapper.open(short_path, 'ab') { |file| file.puts('x') }
+        waiting(5) { sleep 0.01 until large_started.size == 1 }
+        waiting(5) { sleep 0.01 until driver.events.any? { |event| event[2]['message'] == 'x' } }
+        continue_large << true
+        released = true
+      end
+
+      assert_equal %w[oversized-record x], driver.events.map { |event| event[2]['message'] }.sort
+    ensure
+      continue_large << true if continue_large && !released
+      tail_input.send(:remove_const, :WORKER_QUEUE_BYTES) if tail_input.const_defined?(:WORKER_QUEUE_BYTES, false)
+      tail_input.const_set(:WORKER_QUEUE_BYTES, original_byte_limit) if original_byte_limit
+    end
+
     def test_worker_queue_saturation_drains_rotated_file
       paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
       paths.each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
