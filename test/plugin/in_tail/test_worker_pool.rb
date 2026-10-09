@@ -108,18 +108,34 @@ class TailInputWorkerPoolTest < Test::Unit::TestCase
   end
 
   test 'different files run concurrently while each file stays reserved' do
-    entered = Queue.new
-    pool = create_pool(num_threads: 2) do |index, payload|
-      entered << [index, payload]
-      @release.pop
+    large_started = Queue.new
+    large_finished = Queue.new
+    short_completed = Queue.new
+    pool = create_pool(task_limit: 3, num_threads: 2) do |_, payload|
+      if payload == :large
+        large_started << true
+        @release.pop
+        large_finished << true
+      else
+        short_completed << payload
+      end
       payload
     end
-    assert_true pool.submit(:first, 'first', bytes: 1)
-    assert_true pool.submit(:second, 'second', bytes: 1)
-    entries = Timeout.timeout(5) { [entered.pop, entered.pop] }
-    assert_equal [0, 1], entries.map(&:first).sort
-    assert_equal ['first', 'second'], entries.map(&:last).sort
-    assert_false pool.submit(:first, 'duplicate', bytes: 1)
+    assert_true pool.submit(:large_file, :large, bytes: 1)
+    Timeout.timeout(5) { large_started.pop }
+    assert_true pool.submit(:short_file_a, :short_a, bytes: 1)
+    assert_true pool.submit(:short_file_b, :short_b, bytes: 1)
+    short_records = Timeout.timeout(5) { [short_completed.pop, short_completed.pop] }
+
+    assert_equal [:short_a, :short_b], short_records.sort
+    assert_true large_finished.empty?
+    assert_equal 3, pool.statistics[:tasks]
+    assert_false pool.submit(:large_file, :later_batch, bytes: 1)
+
+    @release << true
+    results = 3.times.map { result_from(pool) }
+    assert_equal [:large, :short_a, :short_b], results.map(&:value).sort_by(&:to_s)
+    results.each { |result| pool.acknowledge(result) }
   end
 
   test 'repeated start does not stop the running pool' do
