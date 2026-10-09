@@ -21,7 +21,7 @@ require 'fluent/plugin/in_tail/position_file'
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     class TailWatcher
-      def initialize(target_info, pe, log, read_from_head, follow_inodes, update_watcher, line_buffer_timer_flusher, io_handler_build, metrics)
+      def initialize(target_info, pe, log, read_from_head, follow_inodes, update_watcher, file_feed, io_handler_build, metrics)
         @path = target_info.path
         @ino = target_info.ino
         @pe = pe || MemoryPositionEntry.new
@@ -30,7 +30,7 @@ module Fluent::Plugin
         @update_watcher = update_watcher
         @log = log
         @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
-        @line_buffer_timer_flusher = line_buffer_timer_flusher
+        @file_feed = file_feed
         @io_handler = nil
         @io_handler_build = io_handler_build
         @metrics = metrics
@@ -39,10 +39,18 @@ module Fluent::Plugin
 
       attr_reader :path, :ino
       attr_reader :pe
-      attr_reader :line_buffer_timer_flusher
+      attr_reader :file_feed
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
       attr_reader :watchers
       attr_accessor :group_watcher
+
+      # The object which keeps the line buffer of the multiline mode of the file:
+      # the FileFeed built by LineFeeder#new_file_feed, or the deprecated
+      # LineBufferTimerFlusher which a plugin overriding TailInput#setup_watcher
+      # passes to keep working without changes.
+      def line_buffer_timer_flusher
+        @file_feed
+      end
 
       def tag
         @parsed_tag ||= @path.tr('/', '.').squeeze('.').gsub(/^\./, '')
@@ -57,7 +65,7 @@ module Fluent::Plugin
           @io_handler.ready_to_shutdown(shutdown_start_time)
           @io_handler.on_notify
         end
-        @line_buffer_timer_flusher&.close(self)
+        @file_feed&.close(self)
       end
 
       def close
@@ -84,7 +92,7 @@ module Fluent::Plugin
       end
 
       def read_more
-        @line_buffer_timer_flusher.on_notify(self) if @line_buffer_timer_flusher
+        @file_feed&.on_notify(self)
         @io_handler.on_notify if @io_handler
       end
 
@@ -209,6 +217,10 @@ module Fluent::Plugin
         end
       end
 
+      # Kept for compatibility with the plugins which build it by themselves and
+      # pass it to TailWatcher in the overridden TailInput#setup_watcher.
+      # LineFeeder#feed_lines feeds the lines of a watcher which keeps it, and
+      # LineFeeder::FileFeed built by LineFeeder#new_file_feed replaces it.
       class LineBufferTimerFlusher
         attr_accessor :line_buffer
 
