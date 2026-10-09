@@ -171,6 +171,10 @@ module Fluent::Plugin
           @eof
         end
 
+        def drained?
+          @eof && @lines.empty? && !@async_pending
+        end
+
         def pending?
           @async_pending
         end
@@ -355,6 +359,10 @@ module Fluent::Plugin
         end
 
         def eof?
+          true
+        end
+
+        def drained?
           true
         end
       end

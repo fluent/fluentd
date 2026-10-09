@@ -852,7 +852,7 @@ class TailInputTest < Test::Unit::TestCase
         end
 
         Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('old-file') }
-        waiting(5) { sleep 0.01; parse_started.size == 1 }
+        waiting(5) { sleep 0.01 until parse_started.size == 1 }
         FileUtils.move(path, "#{path}.1")
         Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('new-file') }
         continue_parse << true
@@ -873,6 +873,7 @@ class TailInputTest < Test::Unit::TestCase
       driver = create_driver(config)
       parse_started = Queue.new
       continue_parse = Queue.new
+      position_entry = nil
 
       driver.run(expect_records: 1, timeout: 10) do
         plugin = driver.instance
@@ -884,14 +885,20 @@ class TailInputTest < Test::Unit::TestCase
           end
         end
         Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('unwatch-record') }
-        waiting(5) { sleep 0.01; parse_started.size == 1 }
+        waiting(5) { sleep 0.01 until parse_started.size == 1 }
+        tail_watcher = plugin.instance_variable_get(:@tails)[path]
+        waiting(5) { sleep 0.01 until tail_watcher.pending? }
         target = Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+        assert_true tail_watcher.pending?
+        position_entry = plugin.instance_variable_get(:@pf)[target]
         plugin.send(:stop_watchers, { path => target }, immediate: true, unwatched: true)
+        assert_true plugin.instance_variable_get(:@worker_deferred_unwatch).key?(tail_watcher)
         1.times { continue_parse << true }
       end
 
       assert_equal ['unwatch-record'], driver.events.map { |event| event[2]['message'] }
       assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
+      assert_equal Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION, position_entry.read_pos
     end
 
     def test_worker_completion_handles_truncation_during_parse
@@ -915,9 +922,9 @@ class TailInputTest < Test::Unit::TestCase
             continue_parse.pop
           end
         end
-        waiting(5) { sleep 0.01; driver.events.size == 1 }
+        waiting(5) { sleep 0.01 until driver.events.size == 1 }
         Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('blocked-before-truncate') }
-        waiting(5) { sleep 0.01; parse_started.size == 1 }
+        waiting(5) { sleep 0.01 until parse_started.size == 1 }
         Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('after-truncate') }
         continue_parse << true
       end
@@ -928,9 +935,7 @@ class TailInputTest < Test::Unit::TestCase
 
     def test_worker_queue_saturation_reschedules_waiting_files
       paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
-      paths.each_with_index do |path, index|
-        Fluent::FileWrapper.open(path, 'wb') { |file| file.puts("file-#{index}") }
-      end
+      paths.each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
       config = config_element('ROOT', '', {
         'path' => "#{@tmp_dir}/tail-*.txt",
         'pos_file' => "#{@tmp_dir}/tail.pos",
@@ -953,10 +958,14 @@ class TailInputTest < Test::Unit::TestCase
             continue_parse.pop
           end
         end
-        waiting(5) { sleep 0.01; parse_started.size == 2 }
+        paths.each_with_index do |path, index|
+          Fluent::FileWrapper.open(path, 'ab') { |file| file.puts("file-#{index}") }
+        end
+        waiting(5) { sleep 0.01 until parse_started.size == 2 }
         waiting(5) do
-          sleep 0.01
-          pool.statistics[:tasks] == 4 && driver.instance.instance_variable_get(:@worker_waiting_watchers).any?
+          until pool.statistics[:tasks] == 4 && driver.instance.instance_variable_get(:@worker_waiting_watchers).any?
+            sleep 0.01
+          end
         end
         2.times { continue_parse << true }
       end
@@ -966,11 +975,61 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
     end
 
+    def test_worker_queue_saturation_drains_detached_waiting_file
+      paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
+      paths.each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
+      config = config_element('ROOT', '', {
+        'path' => "#{@tmp_dir}/tail-*.txt",
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
+        'read_from_head' => true,
+        'format' => '/(?<message>.*)/',
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config, false)
+      parse_started = Queue.new
+      continue_parse = Queue.new
+      position_entry = nil
+
+      driver.run(expect_records: paths.size, timeout: 10) do
+        plugin = driver.instance
+        pool = plugin.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) do |batch|
+          if batch.lines.any? { |line| line.match?(/file-[01]/) }
+            parse_started << true
+            continue_parse.pop
+          end
+        end
+        paths.each_with_index do |path, index|
+          Fluent::FileWrapper.open(path, 'ab') { |file| file.puts("file-#{index}") }
+        end
+        waiting(5) { sleep 0.01 until parse_started.size == 2 }
+        waiting(5) do
+          until pool.statistics[:tasks] == 4 && plugin.instance_variable_get(:@worker_waiting_watchers).any?
+            sleep 0.01
+          end
+        end
+
+        watcher = plugin.instance_variable_get(:@worker_waiting_watchers).first
+        target = Fluent::Plugin::TailInput::TargetInfo.new(watcher.path, watcher.ino)
+        position_entry = plugin.instance_variable_get(:@pf)[target]
+        plugin.send(:stop_watchers, { watcher.path => target }, immediate: true, unwatched: true)
+        assert_true plugin.instance_variable_get(:@worker_deferred_unwatch).key?(watcher)
+        assert_false watcher.eof?
+        2.times { continue_parse << true }
+      end
+
+      assert_equal (0...paths.size).map { |index| "file-#{index}" }, driver.events.map { |event| event[2]['message'] }.sort
+      assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
+      assert_equal Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION, position_entry.read_pos
+      assert_empty driver.instance.instance_variable_get(:@worker_deferred_unwatch)
+    end
+
     def test_worker_queue_saturation_drains_rotated_file
       paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
-      paths.each_with_index do |path, index|
-        Fluent::FileWrapper.open(path, 'wb') { |file| file.puts("file-#{index}") }
-      end
+      paths.each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
       config = config_element('ROOT', '', {
         'path' => "#{@tmp_dir}/tail-*.txt",
         'pos_file' => "#{@tmp_dir}/tail.pos",
@@ -995,10 +1054,14 @@ class TailInputTest < Test::Unit::TestCase
             continue_parse.pop
           end
         end
-        waiting(5) { sleep 0.01; parse_started.size == 2 }
+        paths.each_with_index do |path, index|
+          Fluent::FileWrapper.open(path, 'ab') { |file| file.puts("file-#{index}") }
+        end
+        waiting(5) { sleep 0.01 until parse_started.size == 2 }
         waiting(5) do
-          sleep 0.01
-          pool.statistics[:tasks] == 4 && driver.instance.instance_variable_get(:@worker_waiting_watchers).any?
+          until pool.statistics[:tasks] == 4 && driver.instance.instance_variable_get(:@worker_waiting_watchers).any?
+            sleep 0.01
+          end
         end
 
         FileUtils.move(paths.first, "#{paths.first}.1")
@@ -1032,7 +1095,7 @@ class TailInputTest < Test::Unit::TestCase
           continue_parse.pop
         end
         Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('shutdown-record') }
-        waiting(5) { sleep 0.01; parse_started.size == 1 }
+        waiting(5) { sleep 0.01 until parse_started.size == 1 }
 
         shutdown_thread = Thread.new { driver.instance_shutdown }
         sleep 0.1
@@ -1043,6 +1106,28 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal ['shutdown-record'], driver.events.map { |event| event[2]['message'] }
       assert_equal 0, pool.statistics[:tasks]
       assert_true pool.instance_variable_get(:@threads).none?(&:alive?)
+    end
+
+    def test_worker_threads_do_not_leak_across_plugin_restarts
+      path = "#{@tmp_dir}/tail.txt"
+      Fluent::FileWrapper.open(path, 'wb') {}
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'enable_stat_watcher' => false,
+      })
+
+      3.times do |index|
+        Fluent::FileWrapper.open(path, 'ab') { |file| file.puts("restart-#{index}") }
+        driver = create_driver(config)
+        driver.run(expect_records: 1, timeout: 5) {}
+
+        pool = driver.instance.instance_variable_get(:@worker_pool)
+        assert_equal ["restart-#{index}"], driver.events.map { |event| event[2]['message'] }
+        assert_true pool.instance_variable_get(:@threads).none?(&:alive?)
+      end
+
+      assert_empty Thread.list.select { |thread| thread.name&.start_with?('in_tail_worker_') }
     end
 
     def test_worker_parse_error_retries_synchronously
@@ -2413,6 +2498,61 @@ class TailInputTest < Test::Unit::TestCase
             unwatched_pe_pos: rotated_pe.read_pos,
           }
         )
+      end
+
+      d.instance_shutdown
+    end
+
+    def test_detach_worker_waiting_watcher_defers_close_and_position_unwatch
+      config = config_element("ROOT", "", {
+          "path" => "#{@tmp_dir}/not-created*",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "/(?<message>.*)/",
+          "num_threads" => 2,
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "enable_stat_watcher" => "false",
+        })
+      d = create_driver(config, false)
+      d.run(shutdown: false) do
+        plugin = d.instance
+        pf = plugin.instance_variable_get(:@pf)
+        ino = 0xffffffffffffff02
+        target_info = Fluent::Plugin::TailInput::TargetInfo.new("#{@tmp_dir}/rotated.txt", ino)
+        pe = pf[target_info]
+        pe.update(ino, 12)
+        metrics = plugin.instance_variable_get(:@metrics)
+        tw = Fluent::Plugin::TailInput::TailWatcher.new(
+          target_info, pe, $log, true, true, nil, nil, nil, metrics
+        )
+        tw.unwatched = true
+
+        closed = false
+        at_eof = false
+        io_handler = Object.new
+        io_handler.define_singleton_method(:pending?) { false }
+        io_handler.define_singleton_method(:eof?) { at_eof }
+        io_handler.define_singleton_method(:drained?) { at_eof }
+        io_handler.define_singleton_method(:ready_to_shutdown) { |_shutdown_start_time| }
+        io_handler.define_singleton_method(:on_notify) {}
+        io_handler.define_singleton_method(:close) { closed = true }
+        tw.instance_variable_set(:@io_handler, io_handler)
+        plugin.instance_variable_get(:@worker_waiting_watchers) << tw
+
+        plugin.detach_watcher(tw, ino)
+
+        assert_false closed
+        assert_equal 12, pe.read_pos
+        assert_false tw.eof?
+
+        at_eof = true
+        plugin.send(:process_worker_completions)
+
+        assert_true closed
+        assert_true tw.eof?
+        assert_equal Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION, pe.read_pos
+        assert_false pf.instance_variable_get(:@map).key?(ino)
       end
 
       d.instance_shutdown
