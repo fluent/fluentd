@@ -69,7 +69,7 @@ module Fluent::Plugin
       end
 
       def close
-        if @io_handler&.pending?
+        if @io_handler&.pending? || @close_pending
           @close_pending = true
           return
         end
@@ -80,8 +80,28 @@ module Fluent::Plugin
         end
       end
 
+      def defer_close
+        @close_pending = true
+      end
+
+      def close_if_ready
+        return false unless @close_pending && @io_handler&.drained?
+
+        @close_pending = false
+        close
+        true
+      end
+
       def eof?
         @io_handler.nil? || @io_handler.eof?
+      end
+
+      def drained?
+        @io_handler.nil? || @io_handler.drained?
+      end
+
+      def pending?
+        @io_handler&.pending? || false
       end
 
       def on_notify
@@ -106,8 +126,8 @@ module Fluent::Plugin
 
         should_notify = @io_handler.complete_async(success)
         if @detached
-          read_more if should_notify
-          close if @close_pending && @io_handler && @io_handler.eof? && !@io_handler.pending?
+          read_more if should_notify || success
+          close_if_ready
         else
           on_notify if should_notify
         end
