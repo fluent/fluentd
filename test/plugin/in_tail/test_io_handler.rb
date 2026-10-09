@@ -62,6 +62,68 @@ class IntailIOHandlerTest < Test::Unit::TestCase
     assert_equal text, returned_lines
   end
 
+  test 'an asynchronous receive commits position only after successful completion' do
+    text = "first\nsecond\n"
+    @file.write(text)
+    @file.close
+    watcher = create_watcher
+    position = 0
+    stub(watcher).pe do
+      pe = 'position_file'
+      stub(pe).read_pos { position }
+      stub(pe).update_pos { |value| position = value }
+      pe
+    end
+    returned_lines = nil
+    handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+      watcher, path: @file.path, read_lines_limit: 1, read_bytes_limit_per_second: -1,
+      log: $log, open_on_every_update: false, metrics: @metrics
+    ) do |lines, _tail_watcher|
+      returned_lines = lines.dup
+      Fluent::Plugin::TailInput::TailWatcher::IOHandler::ASYNC_PENDING
+    end
+
+    handler.on_notify
+    assert_true handler.pending?
+    assert_equal 0, position
+    assert_equal ["first\n", "second\n"], returned_lines
+    assert_true handler.complete_async(true)
+    assert_equal text.bytesize, position
+    assert_false handler.pending?
+  end
+
+  test 'a failed asynchronous receive keeps the batch and position for retry' do
+    text = "line\n"
+    @file.write(text)
+    @file.close
+    watcher = create_watcher
+    position = 0
+    stub(watcher).pe do
+      pe = 'position_file'
+      stub(pe).read_pos { position }
+      stub(pe).update_pos { |value| position = value }
+      pe
+    end
+    calls = 0
+    handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+      watcher, path: @file.path, read_lines_limit: 10, read_bytes_limit_per_second: -1,
+      log: $log, open_on_every_update: false, metrics: @metrics
+    ) do
+      calls += 1
+      calls == 1 ? Fluent::Plugin::TailInput::TailWatcher::IOHandler::ASYNC_PENDING : true
+    end
+
+    handler.on_notify
+    handler.on_notify
+    assert_true handler.complete_async(false)
+    assert_equal 0, position
+    assert_false handler.pending?
+    handler.on_notify
+
+    assert_equal 2, calls
+    assert_equal text.bytesize, position
+  end
+
   sub_test_case 'when open_on_every_update is true and read_pos returns always 0' do
     test 'open new IO and change pos to 0 and read it' do
       text = "this line is test\ntest line is test\n"

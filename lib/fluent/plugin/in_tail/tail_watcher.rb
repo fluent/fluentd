@@ -73,6 +73,11 @@ module Fluent::Plugin
       end
 
       def on_notify
+        if @io_handler&.pending?
+          @io_handler.on_notify
+          return
+        end
+
         begin
           stat = Fluent::FileWrapper.stat(@path)
         rescue Errno::ENOENT, Errno::EACCES
@@ -82,6 +87,14 @@ module Fluent::Plugin
 
         @rotate_handler.on_notify(stat) if @rotate_handler
         read_more
+      end
+
+      def complete_async(success)
+        return false unless @io_handler
+
+        should_notify = @io_handler.complete_async(success)
+        on_notify if should_notify
+        should_notify
       end
 
       def read_more
