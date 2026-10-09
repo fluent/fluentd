@@ -36,9 +36,15 @@ module Fluent::Plugin
         @io_handler_build = io_handler_build
         @metrics = metrics
         @watchers = []
+        @detached = false
+        @close_pending = false
       end
 
       attr_reader :path, :ino
+
+      def detached?
+        @detached
+      end
       attr_reader :pe
       attr_reader :file_feed
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
@@ -54,6 +60,7 @@ module Fluent::Plugin
       end
 
       def detach(shutdown_start_time = nil)
+        @detached = true
         if @io_handler
           @io_handler.ready_to_shutdown(shutdown_start_time)
           @io_handler.on_notify
@@ -62,6 +69,11 @@ module Fluent::Plugin
       end
 
       def close
+        if @io_handler&.pending?
+          @close_pending = true
+          return
+        end
+
         if @io_handler
           @io_handler.close
           @io_handler = nil
@@ -93,7 +105,12 @@ module Fluent::Plugin
         return false unless @io_handler
 
         should_notify = @io_handler.complete_async(success)
-        on_notify if should_notify
+        if @detached
+          read_more if should_notify
+          close if @close_pending && @io_handler && @io_handler.eof? && !@io_handler.pending?
+        else
+          on_notify if should_notify
+        end
         should_notify
       end
 

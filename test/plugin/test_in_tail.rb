@@ -170,6 +170,14 @@ class TailInputTest < Test::Unit::TestCase
     Fluent::Test::Driver::Input.new(klass).configure(config)
   end
 
+  def wrap_worker_pool_process(pool, &before_process)
+    original_process = pool.instance_variable_get(:@process)
+    pool.instance_variable_set(:@process, lambda do |index, payload|
+      before_process.call(payload)
+      original_process.call(index, payload)
+    end)
+  end
+
   sub_test_case "configure" do
     test "plain single line" do
       d = create_driver
@@ -182,6 +190,13 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(false, d.instance.ignore_repeated_permission_error)
       assert_nothing_raised do
         d.instance.have_read_capability?
+      end
+    end
+
+    test "num_threads must be positive" do
+      [0, -1].each do |num_threads|
+        conf = SINGLE_LINE_CONFIG + config_element('', '', { 'num_threads' => num_threads })
+        assert_raise(Fluent::ConfigError) { create_driver(conf) }
       end
     end
 
@@ -797,6 +812,264 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test2"}, events[1][2])
       assert_equal({"message" => "test3"}, events[2][2])
       assert_equal({"message" => "test4"}, events[3][2])
+    end
+
+    def test_emit_with_worker_threads
+      records = Array.new(2000) { |index| format('worker%04d %s', index, 'x' * 90) }
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") { |file| records.each { |record| file.puts(record) } }
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "num_threads" => 2, "read_lines_limit" => 100 })
+      driver = create_driver(config)
+
+      driver.run(expect_records: records.size, timeout: 5) {}
+
+      assert_equal records, driver.events.map { |event| event[2]["message"] }
+      assert_equal 2, driver.instance.instance_variable_get(:@worker_parsers).size
+      assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
+      assert_true driver.instance.instance_variable_get(:@tails).values.all?(&:eof?)
+    end
+
+    def test_worker_completion_detects_rotation_and_drains_both_files
+      path = "#{@tmp_dir}/tail.txt"
+      Fluent::FileWrapper.open(path, 'wb') {}
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'rotate_wait' => '1s',
+        'refresh_interval' => '1h',
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config)
+      parse_started = Queue.new
+      continue_parse = Queue.new
+
+      driver.run(expect_records: 2, timeout: 10) do
+        pool = driver.instance.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) do |batch|
+          if batch.lines.any? { |line| line.include?('old-file') }
+            parse_started << true
+            continue_parse.pop
+          end
+        end
+
+        Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('old-file') }
+        waiting(5) { sleep 0.01; parse_started.size == 1 }
+        FileUtils.move(path, "#{path}.1")
+        Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('new-file') }
+        continue_parse << true
+      end
+
+      assert_equal %w[new-file old-file], driver.events.map { |event| event[2]['message'] }.sort
+    end
+
+    def test_worker_completion_drains_file_during_unwatch
+      path = "#{@tmp_dir}/tail.txt"
+      Fluent::FileWrapper.open(path, 'wb') {}
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'enable_stat_watcher' => true,
+        'enable_watch_timer' => false,
+      })
+      driver = create_driver(config)
+      parse_started = Queue.new
+      continue_parse = Queue.new
+
+      driver.run(expect_records: 1, timeout: 10) do
+        plugin = driver.instance
+        pool = plugin.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) do |batch|
+          if batch.lines.any? { |line| line.include?('unwatch-record') }
+            parse_started << true
+            continue_parse.pop
+          end
+        end
+        Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('unwatch-record') }
+        waiting(5) { sleep 0.01; parse_started.size == 1 }
+        target = Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+        plugin.send(:stop_watchers, { path => target }, immediate: true, unwatched: true)
+        1.times { continue_parse << true }
+      end
+
+      assert_equal ['unwatch-record'], driver.events.map { |event| event[2]['message'] }
+      assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
+    end
+
+    def test_worker_completion_handles_truncation_during_parse
+      path = "#{@tmp_dir}/tail.txt"
+      Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('before-truncate') }
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'enable_watch_timer' => false,
+        'enable_stat_watcher' => true,
+      })
+      driver = create_driver(config)
+      parse_started = Queue.new
+      continue_parse = Queue.new
+
+      driver.run(expect_records: 3, timeout: 10) do
+        pool = driver.instance.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) do |batch|
+          if batch.lines.any? { |line| line.include?('blocked-before-truncate') }
+            parse_started << true
+            continue_parse.pop
+          end
+        end
+        waiting(5) { sleep 0.01; driver.events.size == 1 }
+        Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('blocked-before-truncate') }
+        waiting(5) { sleep 0.01; parse_started.size == 1 }
+        Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('after-truncate') }
+        continue_parse << true
+      end
+
+      assert_equal %w[before-truncate blocked-before-truncate after-truncate], driver.events.map { |event| event[2]['message'] }
+      assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
+    end
+
+    def test_worker_queue_saturation_reschedules_waiting_files
+      paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
+      paths.each_with_index do |path, index|
+        Fluent::FileWrapper.open(path, 'wb') { |file| file.puts("file-#{index}") }
+      end
+      config = config_element('ROOT', '', {
+        'path' => "#{@tmp_dir}/tail-*.txt",
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
+        'read_from_head' => true,
+        'format' => '/(?<message>.*)/',
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config, false)
+      parse_started = Queue.new
+      continue_parse = Queue.new
+
+      driver.run(expect_records: paths.size, timeout: 10) do
+        pool = driver.instance.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) do |batch|
+          if batch.lines.any? { |line| line.match?(/file-[01]/) }
+            parse_started << true
+            continue_parse.pop
+          end
+        end
+        waiting(5) { sleep 0.01; parse_started.size == 2 }
+        waiting(5) do
+          sleep 0.01
+          pool.statistics[:tasks] == 4 && driver.instance.instance_variable_get(:@worker_waiting_watchers).any?
+        end
+        2.times { continue_parse << true }
+      end
+
+      assert_equal paths.size, driver.events.size
+      assert_equal (0...paths.size).map { |index| "file-#{index}" }, driver.events.map { |event| event[2]['message'] }.sort
+      assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
+    end
+
+    def test_worker_queue_saturation_drains_rotated_file
+      paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
+      paths.each_with_index do |path, index|
+        Fluent::FileWrapper.open(path, 'wb') { |file| file.puts("file-#{index}") }
+      end
+      config = config_element('ROOT', '', {
+        'path' => "#{@tmp_dir}/tail-*.txt",
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
+        'read_from_head' => true,
+        'format' => '/(?<message>.*)/',
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'refresh_interval' => '0.05s',
+        'rotate_wait' => '0.1s',
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config, false)
+      parse_started = Queue.new
+      continue_parse = Queue.new
+
+      driver.run(expect_records: paths.size + 1, timeout: 10) do
+        pool = driver.instance.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) do |batch|
+          if batch.lines.any? { |line| line.match?(/file-[01]/) }
+            parse_started << true
+            continue_parse.pop
+          end
+        end
+        waiting(5) { sleep 0.01; parse_started.size == 2 }
+        waiting(5) do
+          sleep 0.01
+          pool.statistics[:tasks] == 4 && driver.instance.instance_variable_get(:@worker_waiting_watchers).any?
+        end
+
+        FileUtils.move(paths.first, "#{paths.first}.1")
+        Fluent::FileWrapper.open(paths.first, 'wb') { |file| file.puts('replacement-file') }
+        2.times { continue_parse << true }
+      end
+
+      messages = driver.events.map { |event| event[2]['message'] }.sort
+      assert_equal (0...paths.size).map { |index| "file-#{index}" } + ['replacement-file'], messages
+      assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
+      assert_empty driver.instance.instance_variable_get(:@worker_waiting_watchers)
+    end
+
+    def test_shutdown_drains_a_worker_batch_before_stopping
+      path = "#{@tmp_dir}/tail.txt"
+      Fluent::FileWrapper.open(path, 'wb') {}
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config)
+      parse_started = Queue.new
+      continue_parse = Queue.new
+      pool = nil
+
+      driver.run(shutdown: false, timeout: 5) do
+        pool = driver.instance.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) do |_batch|
+          parse_started << true
+          continue_parse.pop
+        end
+        Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('shutdown-record') }
+        waiting(5) { sleep 0.01; parse_started.size == 1 }
+
+        shutdown_thread = Thread.new { driver.instance_shutdown }
+        sleep 0.1
+        continue_parse << true
+        shutdown_thread.value
+      end
+
+      assert_equal ['shutdown-record'], driver.events.map { |event| event[2]['message'] }
+      assert_equal 0, pool.statistics[:tasks]
+      assert_true pool.instance_variable_get(:@threads).none?(&:alive?)
+    end
+
+    def test_worker_parse_error_retries_synchronously
+      path = "#{@tmp_dir}/tail.txt"
+      Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('retry-record') }
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'read_lines_limit' => 1,
+      })
+      driver = create_driver(config)
+
+      driver.run(expect_records: 1, timeout: 5) do
+        pool = driver.instance.instance_variable_get(:@worker_pool)
+        original_process = pool.instance_variable_get(:@process)
+        failed_once = false
+        pool.instance_variable_set(:@process, lambda do |index, payload|
+          unless failed_once
+            failed_once = true
+            raise 'controlled worker parse error'
+          end
+          original_process.call(index, payload)
+        end)
+      end
+
+      assert_equal ['retry-record'], driver.events.map { |event| event[2]['message'] }
+      assert_true driver.logs.any? { |line| line.include?('worker parsing failed; retrying synchronously') }
+      assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
     end
 
     data(flat: CONFIG_DISABLE_WATCH_TIMER + SINGLE_LINE_CONFIG,

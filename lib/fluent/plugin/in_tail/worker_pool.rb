@@ -199,10 +199,14 @@ module Fluent::Plugin
       end
 
       def compatible?(plugin)
-        @hooks.all? do |name, built_in|
-          plugin.singleton_class.instance_method(name) == built_in
+        incompatible_hooks(plugin).empty?
+      end
+
+      def incompatible_hooks(plugin)
+        @hooks.filter_map do |name, built_in|
+          name unless plugin.singleton_class.instance_method(name) == built_in
         rescue NameError
-          false
+          name
         end
       end
     end
