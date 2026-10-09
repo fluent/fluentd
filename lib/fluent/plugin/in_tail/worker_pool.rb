@@ -184,6 +184,29 @@ module Fluent::Plugin
       end
     end
 
+    # Captures the built-in hook implementations once and checks whether a
+    # TailInput instance resolves each hook to the same method body. A mismatch
+    # means worker execution must fall back to the synchronous compatibility
+    # path; this deliberately does not try to infer safety from method owners.
+    class WorkerCompatibility
+      HOOKS = %i[
+        receive_lines flush_buffer convert_line_to_event parse_singleline
+        parse_multilines setup_watcher io_handler build_line_feeder
+      ].freeze
+
+      def initialize(base_class)
+        @hooks = HOOKS.to_h { |name| [name, base_class.instance_method(name)] }.freeze
+      end
+
+      def compatible?(plugin)
+        @hooks.all? do |name, built_in|
+          plugin.singleton_class.instance_method(name) == built_in
+        rescue NameError
+          false
+        end
+      end
+    end
+
     class WorkerCompletionWatcher < Coolio::AsyncWatcher
       def initialize(&on_completion)
         super()

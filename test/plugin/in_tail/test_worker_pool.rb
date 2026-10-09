@@ -54,6 +54,32 @@ class TailInputWorkerPoolTest < Test::Unit::TestCase
     assert_raise(ArgumentError) { pool.acknowledge(result) }
   end
 
+  test 'worker compatibility requires every hook to resolve to the captured implementation' do
+    base = Class.new do
+      Fluent::Plugin::TailInput::WorkerCompatibility::HOOKS.each do |name|
+        define_method(name) {}
+      end
+      private :io_handler
+    end
+    compatibility = Fluent::Plugin::TailInput::WorkerCompatibility.new(base)
+    plugin = Class.new(base).new
+    assert_true compatibility.compatible?(plugin)
+
+    plugin_class = Class.new(base) { def receive_lines; end }
+    assert_false compatibility.compatible?(plugin_class.new)
+
+    private_override = Class.new(base) { private; def io_handler; end }
+    assert_false compatibility.compatible?(private_override.new)
+
+    prepended = Class.new(base)
+    prepended.prepend(Module.new { def parse_singleline; end })
+    assert_false compatibility.compatible?(prepended.new)
+
+    singleton_override = Class.new(base).new
+    def singleton_override.build_line_feeder; end
+    assert_false compatibility.compatible?(singleton_override)
+  end
+
   test 'byte capacity includes queued and completed batches' do
     pool = create_pool { |_, payload| @release.pop; payload }
     assert_true pool.submit(:first, 'first', bytes: 7)
