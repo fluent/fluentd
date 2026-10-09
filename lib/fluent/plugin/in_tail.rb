@@ -26,6 +26,7 @@ require 'fluent/capability'
 require 'fluent/plugin/in_tail/position_file'
 require 'fluent/plugin/in_tail/group_watch'
 require 'fluent/plugin/in_tail/stat_watcher'
+require 'fluent/plugin/in_tail/dir_watcher'
 require 'fluent/plugin/in_tail/io_handler'
 require 'fluent/plugin/in_tail/tail_watcher'
 require 'fluent/plugin/in_tail/line_feeder'
@@ -36,6 +37,7 @@ module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     include GroupWatch
     include Compatibility
+    include DirWatcher
 
     Fluent::Plugin.register_input('tail', self)
 
@@ -66,6 +68,15 @@ module Fluent::Plugin
       @metrics = nil
       @startup = true
       @capability = Fluent::Capability.new(:current_process)
+      @dir_watchers = {}
+      # The event loop schedules refreshes; shutdown detaches the pending timer
+      # from another thread. Protect only this shared scheduling state.
+      @refresh_request_mutex = Mutex.new
+      @refresh_timer = nil
+      # Directory watcher updates and shutdown detachment share this lock.
+      # Do not hold it while refreshing files: initial reads can take a long
+      # time, and shutdown must be able to signal the IO handlers promptly.
+      @dir_watchers_mutex = Mutex.new
     end
 
     desc 'The paths to read. Multiple paths can be specified, separated by comma.'
@@ -103,6 +114,8 @@ module Fluent::Plugin
     config_param :enable_watch_timer, :bool, default: true
     desc 'Enable the stat watcher based on inotify.'
     config_param :enable_stat_watcher, :bool, default: true
+    desc 'Watch the directories of the specified paths, to detect the files created after startup without waiting for refresh_interval.'
+    config_param :enable_dir_watcher, :bool, default: false
     desc 'The encoding of the input.'
     config_param :encoding, :string, default: nil
     desc "The original encoding of the input. If set, in_tail tries to encode string from this to 'encoding'. Must be set with 'encoding'. "
@@ -286,7 +299,8 @@ module Fluent::Plugin
       end
 
       refresh_watchers unless @skip_refresh_on_startup
-      timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
+      update_dir_watchers
+      timer_execute(:in_tail_refresh_watchers, @refresh_interval) { request_refresh_watchers(:refresh_interval) }
     end
 
     def stop
@@ -299,6 +313,12 @@ module Fluent::Plugin
 
     def shutdown
       @shutdown_start_time = Fluent::Clock.now
+      # The event loop is still running at this point, so the watchers added to
+      # detect new files must be detached before the position file is closed:
+      # a change noticed by them would ask for refreshing the watchers, and
+      # #refresh_watchers writes the position file.
+      detach_dir_watchers
+      detach_refresh_timer
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(existence_path, immediate: true, remove_watcher: false)
       @tails_rotate_wait.keys.each do |tw|
@@ -426,12 +446,65 @@ module Fluent::Plugin
       hash
     end
 
-    # in_tail with '*' path doesn't check rotation file equality at refresh phase.
-    # So you should not use '*' path when your logs will be rotated by another tool.
-    # It will cause log duplication after updated watch files.
-    # In such case, you should separate log directory and specify two paths in path parameter.
-    # e.g. path /path/to/dir/*,/path/to/rotated_logs/target_file
+    # Rotated files matching path can be discovered as new files and reread.
+    # follow_inodes avoids duplicate watchers for the same inode after rename,
+    # but not for a copytruncate archive, which has a different inode. Exclude
+    # archives from path to avoid rediscovering them. Directory-triggered
+    # refreshes can discover them sooner than periodic refreshes.
     def refresh_watchers
+      # The initial file refresh precedes directory watcher attachment and the
+      # periodic timer. Later refresh callbacks share the event loop thread.
+      # A callback already dispatched before shutdown may still reach here.
+      return if before_shutdown? || @shutdown_start_time
+
+      refresh_watchers_raw
+      # Watch newly created directories within the same refresh.
+      update_dir_watchers
+    end
+
+    # Ask for refreshing the watchers. Both the refresh_interval timer and the
+    # directory watchers request through this method, so that a burst of changes
+    # causes only one refresh.
+    #
+    # With `delay', the refresh is done by a one shot timer of that length
+    # instead of now, and the requests until then are merged into it.
+    def request_refresh_watchers(trigger, delay: nil)
+      log.debug { "in_tail: #{trigger} requested to refresh watchers" }
+      refresh_now = false
+      @refresh_request_mutex.synchronize do
+        # Detaching a watcher cannot cancel an already dispatched callback.
+        return if before_shutdown? || @shutdown_start_time
+
+        if @refresh_timer
+          log.debug { "in_tail: ignore the request by #{trigger}, because a refresh is already scheduled" }
+        elsif delay
+          @refresh_timer = TimerTrigger.new(delay, log, repeat: false) { trigger_refresh_watchers }
+          event_loop_attach(@refresh_timer)
+        else
+          # Do not hold the scheduling lock while reading files.
+          refresh_now = true
+        end
+      end
+      trigger_refresh_watchers if refresh_now
+    end
+
+    def trigger_refresh_watchers
+      # Detach any pending one shot timer before refreshing. This method may
+      # also be called directly for an immediate refresh.
+      detach_refresh_timer
+      refresh_watchers
+    end
+
+    def detach_refresh_timer
+      timer = nil
+      @refresh_request_mutex.synchronize do
+        timer = @refresh_timer
+        @refresh_timer = nil
+      end
+      event_loop_detach(timer) if timer
+    end
+
+    def refresh_watchers_raw
       target_paths_hash = expand_paths
       existence_paths_hash = existence_path
 
