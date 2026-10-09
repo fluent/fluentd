@@ -31,12 +31,6 @@ module Fluent::Plugin
     # delaying a refresh does not guarantee detection. Periodic refreshes
     # remain the fallback for missed changes.
     module DirWatcher
-      # Each watched directory costs one stat watcher (an inotify watch on
-      # Linux, a polling timer otherwise), and a pattern like `dir/**/*' can
-      # expand to a large number of directories. Watch at most this number of
-      # them and rely on refresh_interval for the rest.
-      MAX_DIR_WATCHERS = 100
-
       # Directory changes may arrive close together. Collect requests during
       # this interval and refresh once, without extending the pending timer.
       DIR_WATCH_DEBOUNCE_INTERVAL = 1
@@ -341,7 +335,7 @@ module Fluent::Plugin
       # Choose the directories to watch from the ones derived from each path.
       #
       # They are taken by turn instead of path by path: taking the first
-      # MAX_DIR_WATCHERS of a list built path by path would leave a path
+      # dir_watcher_limit of a list built path by path would leave a path
       # completely unwatched when an earlier path has a wildcard which matches a
       # large number of directories.
       def select_dir_watchers(dirs_by_path)
@@ -358,33 +352,51 @@ module Fluent::Plugin
         dirs.uniq
       end
 
+      # Take a circular window of the interleaved candidates. Advance only on
+      # periodic refreshes, not on directory events. Keep the window's starting
+      # directory when candidates change, or fall back to its previous index
+      # if that directory disappeared. Called under @dir_watchers_mutex.
+      def limit_dir_watchers(dirs, rotate:)
+        if dirs.size <= @dir_watcher_limit
+          @dir_watcher_offset = 0
+          @dir_watcher_start_dir = dirs.first
+          return dirs
+        end
+
+        offset = dirs.index(@dir_watcher_start_dir) || @dir_watcher_offset
+        offset += @dir_watcher_limit if rotate
+        @dir_watcher_offset = offset % dirs.size
+        @dir_watcher_start_dir = dirs[@dir_watcher_offset]
+        dirs.rotate(@dir_watcher_offset).first(@dir_watcher_limit)
+      end
+
       # Attach the stat watchers of the directories which are needed now and
       # detach the ones which are not needed anymore.
       #
       # Recompute the directories after refreshing the files, within the same
       # refresh, so newly created directories are watched from then on.
-      def update_dir_watchers
+      def update_dir_watchers(rotate: false)
         return unless @enable_dir_watcher
         # Do not add directory watchers once shutdown has begun.
         return if before_shutdown? || @shutdown_start_time
 
         dirs = expand_watch_dirs
-        if dirs.size > MAX_DIR_WATCHERS
-          # #select_dir_watchers prioritizes the first candidate of each path
-          # before taking the remaining candidates from large globs.
-          log.warn "Too many directories to watch: #{dirs.size}. Watching #{MAX_DIR_WATCHERS} of them, taking them from each path by turn, so new files may not be detected until refresh_interval (#{@refresh_interval}s) passes"
-          dirs = dirs.first(MAX_DIR_WATCHERS)
+        if dirs.size > @dir_watcher_limit
+          log.warn "Too many directories to watch: #{dirs.size}. Watching #{@dir_watcher_limit} of them, rotating at each periodic refresh, so new files may not be detected until refresh_interval (#{@refresh_interval}s) passes"
         end
 
         @dir_watchers_mutex.synchronize do
           # Shutdown may have detached the watchers during path expansion.
           return if before_shutdown? || @shutdown_start_time
 
-          dirs.each do |dir|
-            attach_dir_watcher(dir) unless @dir_watchers.key?(dir)
-          end
+          dirs = limit_dir_watchers(dirs, rotate: rotate)
+          # Release the old window before attaching the new one so rotation
+          # does not temporarily exceed the configured watcher limit.
           (@dir_watchers.keys - dirs).each do |dir|
             detach_dir_watcher(dir)
+          end
+          dirs.each do |dir|
+            attach_dir_watcher(dir) unless @dir_watchers.key?(dir)
           end
         end
       end

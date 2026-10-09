@@ -69,10 +69,13 @@ module Fluent::Plugin
       @startup = true
       @capability = Fluent::Capability.new(:current_process)
       @dir_watchers = {}
+      @dir_watcher_offset = 0
+      @dir_watcher_start_dir = nil
       # The event loop schedules refreshes; shutdown detaches the pending timer
       # from another thread. Protect only this shared scheduling state.
       @refresh_request_mutex = Mutex.new
       @refresh_timer = nil
+      @rotate_dir_watchers = false
       # Directory watcher updates and shutdown detachment share this lock.
       # Do not hold it while refreshing files: initial reads can take a long
       # time, and shutdown must be able to signal the IO handlers promptly.
@@ -116,6 +119,8 @@ module Fluent::Plugin
     config_param :enable_stat_watcher, :bool, default: true
     desc 'Watch the directories of the specified paths, to detect the files created after startup without waiting for refresh_interval.'
     config_param :enable_dir_watcher, :bool, default: false
+    desc 'Maximum number of directories watched at once. When exceeded, rotate the watched subset at each periodic refresh.'
+    config_param :dir_watcher_limit, :integer, default: 100
     desc 'The encoding of the input.'
     config_param :encoding, :string, default: nil
     desc "The original encoding of the input. If set, in_tail tries to encode string from this to 'encoding'. Must be set with 'encoding'. "
@@ -158,6 +163,10 @@ module Fluent::Plugin
       parser_config['unmatched_lines'] = conf['emit_unmatched_lines']
 
       super
+
+      if @dir_watcher_limit <= 0
+        raise Fluent::ConfigError, "dir_watcher_limit must be greater than zero"
+      end
 
       if !@enable_watch_timer && !@enable_stat_watcher
         raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
@@ -457,9 +466,14 @@ module Fluent::Plugin
       # A callback already dispatched before shutdown may still reach here.
       return if before_shutdown? || @shutdown_start_time
 
+      rotate = @refresh_request_mutex.synchronize do
+        requested = @rotate_dir_watchers
+        @rotate_dir_watchers = false
+        requested
+      end
       refresh_watchers_raw
       # Watch newly created directories within the same refresh.
-      update_dir_watchers
+      update_dir_watchers(rotate: rotate)
     end
 
     # Ask for refreshing the watchers. Both the refresh_interval timer and the
@@ -475,6 +489,9 @@ module Fluent::Plugin
         # Detaching a watcher cannot cancel an already dispatched callback.
         return if before_shutdown? || @shutdown_start_time
 
+        # Preserve a periodic rotation request even when it joins a pending
+        # directory-triggered refresh.
+        @rotate_dir_watchers = true if trigger == :refresh_interval
         if @refresh_timer
           log.debug { "in_tail: ignore the request by #{trigger}, because a refresh is already scheduled" }
         elsif delay

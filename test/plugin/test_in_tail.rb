@@ -3237,8 +3237,8 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
-    test 'watches at most MAX_DIR_WATCHERS directories' do
-      max = Fluent::Plugin::TailInput::MAX_DIR_WATCHERS
+    test 'watches at most dir_watcher_limit directories' do
+      max = 3
       (max + 1).times { |i| FileUtils.mkdir_p("#{@tmp_dir}/dir#{format('%03d', i)}") }
       config = config_element('', '', {
                                'tag' => 't1',
@@ -3246,6 +3246,7 @@ class TailInputTest < Test::Unit::TestCase
                                'path' => "#{@tmp_dir}/**/*.txt",
                                'refresh_interval' => 1000,
                                'enable_dir_watcher' => 'true',
+                               'dir_watcher_limit' => max,
                              })
       d = create_driver(config, false)
       d.run(shutdown: false) {}
@@ -3255,11 +3256,10 @@ class TailInputTest < Test::Unit::TestCase
       d.instance_shutdown if d&.instance
     end
 
-    # The directories of the first path may be more than MAX_DIR_WATCHERS, and
-    # taking them by turn keeps the directories of the other paths watched
-    # instead of leaving them all out.
+    # Interleave paths before limiting so a large glob does not consume the
+    # entire initial window. Later windows may also leave static paths out.
     test 'watches the directories of each path when a wildcard matches too many directories' do
-      max = Fluent::Plugin::TailInput::MAX_DIR_WATCHERS
+      max = 3
       max.times { |i|
         FileUtils.mkdir_p("#{@tmp_dir}/many/dir#{format('%03d', i)}")
       }
@@ -3271,6 +3271,7 @@ class TailInputTest < Test::Unit::TestCase
                                'path_delimiter' => '|',
                                'refresh_interval' => 1000,
                                'enable_dir_watcher' => 'true',
+                               'dir_watcher_limit' => max,
                              })
       d = create_driver(config, false)
       base = expanded_tmp_dir
@@ -3282,8 +3283,8 @@ class TailInputTest < Test::Unit::TestCase
       d.instance_shutdown if d&.instance
     end
 
-    test 'keeps a static directory also matched late by a large wildcard' do
-      max = Fluent::Plugin::TailInput::MAX_DIR_WATCHERS
+    test 'prioritizes a static directory also matched late by a large wildcard in the initial window' do
+      max = 3
       max.times { |i| FileUtils.mkdir_p("#{@tmp_dir}/dir#{format('%03d', i)}") }
       FileUtils.mkdir_p("#{@tmp_dir}/zz_static")
       config = config_element('', '', {
@@ -3294,6 +3295,118 @@ class TailInputTest < Test::Unit::TestCase
                              })
       plugin = create_driver(config, false).instance
       assert_includes(plugin.expand_watch_dirs.first(max), "#{expanded_tmp_dir}/zz_static")
+    end
+
+    test 'defaults dir_watcher_limit to 100 and allows a higher limit' do
+      plugin = create_driver(base_config + config_element('', '', { 'format' => 'none' }), false).instance
+      assert_equal(100, plugin.dir_watcher_limit)
+      plugin = create_driver(base_config + config_element('', '', {
+                               'format' => 'none', 'dir_watcher_limit' => 101,
+                             }), false).instance
+      assert_equal(101, plugin.dir_watcher_limit)
+    end
+
+    data('zero' => 0, 'negative' => -1)
+    test 'rejects a nonpositive dir_watcher_limit' do |limit|
+      assert_raise(Fluent::ConfigError) do
+        create_driver(base_config + config_element('', '', {
+                        'format' => 'none', 'dir_watcher_limit' => limit,
+                      }), false)
+      end
+    end
+
+    data('one slot' => [5, 1], 'partial last window' => [5, 2],
+         'overlapping windows' => [4, 3], 'exact windows' => [4, 2],
+         'below limit' => [2, 3], 'empty' => [0, 2])
+    test 'rotates through all candidates within the configured limit' do |(count, limit)|
+      plugin = create_driver(base_config + config_element('', '', {
+                               'format' => 'none', 'dir_watcher_limit' => limit,
+                             }), false).instance
+      candidates = Array.new(count) { |i| "dir#{i}" }
+      initial = plugin.limit_dir_watchers(candidates, rotate: false)
+      assert_equal(candidates.first(limit), initial)
+      seen = initial.dup
+      [count, 1].max.times do
+        selected = plugin.limit_dir_watchers(candidates, rotate: true)
+        assert_equal([limit, count].min, selected.size)
+        assert_equal(selected.uniq, selected)
+        assert_equal(selected, plugin.limit_dir_watchers(candidates, rotate: false))
+        seen.concat(selected)
+      end
+      assert_equal(candidates.sort, seen.uniq.sort)
+    end
+
+    test 'keeps the window anchor when candidates change and resets when all fit' do
+      plugin = create_driver(base_config + config_element('', '', {
+                               'format' => 'none', 'dir_watcher_limit' => 2,
+                             }), false).instance
+      assert_equal(%w[a b], plugin.limit_dir_watchers(%w[a b c d e], rotate: false))
+      assert_equal(%w[c d], plugin.limit_dir_watchers(%w[a b c d e], rotate: true))
+      assert_equal(%w[c d], plugin.limit_dir_watchers(%w[x a b c d e], rotate: false))
+      # A removed anchor falls back to the last starting index and wraps safely.
+      assert_equal(%w[d e], plugin.limit_dir_watchers(%w[x a b d e], rotate: false))
+      assert_equal(%w[x a], plugin.limit_dir_watchers(%w[x a], rotate: true))
+      assert_equal([], plugin.limit_dir_watchers([], rotate: true))
+      assert_equal(%w[a b], plugin.limit_dir_watchers(%w[a b c], rotate: false))
+    end
+
+    test 'retains a periodic rotation request merged into a directory refresh' do
+      plugin = create_driver(base_config + config_element('', '', { 'format' => 'none' }), false).instance
+      rotations = []
+      plugin.define_singleton_method(:event_loop_attach) { |watcher| watcher }
+      plugin.define_singleton_method(:refresh_watchers_raw) {}
+      plugin.define_singleton_method(:update_dir_watchers) { |rotate: false| rotations << rotate }
+      plugin.request_refresh_watchers(:directory, delay: 1000)
+      timer = plugin.instance_variable_get(:@refresh_timer)
+      plugin.request_refresh_watchers(:refresh_interval)
+      assert_same(timer, plugin.instance_variable_get(:@refresh_timer))
+      timer.on_timer
+      assert_equal([true], rotations)
+      plugin.request_refresh_watchers(:directory, delay: 1000)
+      plugin.instance_variable_get(:@refresh_timer).on_timer
+      assert_equal([true, false], rotations)
+      plugin.request_refresh_watchers(:refresh_interval)
+      assert_equal([true, false, true], rotations)
+    end
+
+    test 'periodic refresh rotates attached watchers and eventually covers all candidates' do
+      4.times { |i| FileUtils.mkdir_p("#{@tmp_dir}/dir#{i}") }
+      d = create_driver(config_element('', '', {
+                          'tag' => 't1', 'format' => 'none',
+                          'path' => "#{@tmp_dir}/*/*.txt",
+                          'enable_dir_watcher' => 'true', 'dir_watcher_limit' => 2,
+                          'refresh_interval' => 0.2,
+                        }), false)
+      observed = Queue.new
+      sizes = Queue.new
+      d.instance.define_singleton_method(:attach_dir_watcher) do |dir|
+        super(dir)
+        sizes << @dir_watchers.size
+      end
+      d.instance.define_singleton_method(:update_dir_watchers) do |rotate: false|
+        super(rotate: rotate)
+        observed << [rotate, @dir_watchers.dup]
+      end
+      candidates = d.instance.expand_watch_dirs
+      snapshots = []
+      d.run(shutdown: false) do
+        Timeout.timeout(10) do
+          snapshots << observed.pop until snapshots.count { |rotate, _| rotate } == 3
+        end
+      end
+      initial = snapshots.first[1]
+      assert_equal(candidates.first(2), initial.keys)
+      periodic = snapshots.select { |rotate, _| rotate }.map(&:last)
+      assert_equal(candidates.rotate(2).first(2), periodic.first.keys)
+      assert_equal(candidates.sort, (initial.keys + periodic.flat_map(&:keys)).uniq.sort)
+      assert(snapshots.all? { |_, watchers| watchers.size == 2 })
+      assert_operator(sizes.size, :>, 2)
+      assert(sizes.pop <= 2) until sizes.empty?
+      initial.each do |dir, watcher|
+        assert_false(watcher.attached?) unless periodic.last.key?(dir)
+      end
+    ensure
+      d.instance_shutdown if d&.instance
     end
   end
 
