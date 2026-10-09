@@ -17,6 +17,16 @@ module TailInputSubclasses
     end
   end
 
+  # A plugin which changes the parameters of TailInput after super, like the
+  # plugins which build their own tag from the path of the file.
+  class ConfigureAfterSuper < RecordingInput
+    def configure(conf)
+      super
+      @tag = 'adjusted'
+      @path_key = 'adjusted_path'
+    end
+  end
+
   class ReceiveLinesOverride < RecordingInput
     def receive_lines(lines, tail_watcher)
       @calls << [:receive_lines, lines]
@@ -742,6 +752,25 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
         assert_equal([[:flush_buffer, "s test1\n"]], plugin.calls)
         assert_nil tw.line_buffer_timer_flusher.line_buffer
       end
+    end
+  end
+
+  sub_test_case "line feeder configuration" do
+    # LineFeeder takes the parameters of TailInput, so it must be built after
+    # the configure of a plugin which inherits TailInput is done.
+    def test_tag_and_path_key_changed_after_configure_super
+      File.binwrite("#{@tmp_dir}/tail.txt", "test1\n")
+      conf = config_element("ROOT", "", {
+                             "tag" => "t1",
+                             "path" => "#{@tmp_dir}/tail.txt",
+                             "format" => "none",
+                             "read_from_head" => "true",
+                           })
+      d = create_driver(conf, false, klass: TailInputSubclasses::ConfigureAfterSuper)
+      d.run(expect_emits: 1) { }
+
+      assert_equal(['adjusted'], d.events.map { |e| e[0] })
+      assert_equal(["#{@tmp_dir}/tail.txt"], d.events.map { |e| e[2]['adjusted_path'] })
     end
   end
 end

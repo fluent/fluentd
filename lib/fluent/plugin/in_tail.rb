@@ -214,21 +214,6 @@ module Fluent::Plugin
       tracked_file_metrics = metrics_create(namespace: "fluentd", subsystem: "input", name: "files_tracked_count", help_text: "Number of tracked files", prefer_gauge: true)
 
       @metrics = MetricsInfo.new(opened_file_metrics, closed_file_metrics, rotated_file_metrics, throttling_metrics, tracked_file_metrics)
-
-      @line_feeder = LineFeeder.new(
-        parser: @parser,
-        router_provider: method(:router),
-        log: log,
-        tag: @tag,
-        tag_prefix: @tag_prefix,
-        tag_suffix: @tag_suffix,
-        path_key: @path_key,
-        emit_unmatched_lines: @emit_unmatched_lines,
-        multiline_mode: @multiline_mode,
-        parse_handler: method(@multiline_mode ? :parse_multilines : :parse_singleline),
-        convert_handler: method(:convert_line_to_event),
-        flush_handler: method(:flush_buffer),
-      )
     end
 
     def check_dir_permission
@@ -280,6 +265,8 @@ module Fluent::Plugin
 
     def start
       super
+
+      @line_feeder = build_line_feeder
 
       if @pos_file
         pos_file_dir = File.dirname(@pos_file)
@@ -505,7 +492,31 @@ module Fluent::Plugin
       @pf.unwatch_removed_targets(draining_hash.merge(target_paths_hash))
     end
 
+    # TailInput builds its LineFeeder in start, after the configure of a plugin
+    # which inherits TailInput is done, so that the parameters set by that
+    # plugin are used.
+    def build_line_feeder
+      LineFeeder.new(
+        parser: @parser,
+        router_provider: method(:router),
+        log: log,
+        tag: @tag,
+        tag_prefix: @tag_prefix,
+        tag_suffix: @tag_suffix,
+        path_key: @path_key,
+        emit_unmatched_lines: @emit_unmatched_lines,
+        multiline_mode: @multiline_mode,
+        parse_handler: method(@multiline_mode ? :parse_multilines : :parse_singleline),
+        convert_handler: method(:convert_line_to_event),
+        flush_handler: method(:flush_buffer),
+      )
+    end
+
     def setup_watcher(target_info, pe)
+      # A plugin may build a watcher before start. The LineFeeder of that
+      # moment has the same parameters, because the configure of every plugin
+      # is done before the watchers are built.
+      @line_feeder ||= build_line_feeder
       file_feed = @line_feeder.new_file_feed(flush_interval: @multiline_flush_interval)
       read_from_head = !@startup || @read_from_head
       tw = TailWatcher.new(target_info, pe, log, read_from_head, @follow_inodes, method(:update_watcher), file_feed, method(:io_handler), @metrics)
