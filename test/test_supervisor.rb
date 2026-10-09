@@ -688,6 +688,23 @@ class SupervisorTest < ::Test::Unit::TestCase
 
       assert_equal expected, se_config[:chumask]
     end
+
+    def test_parser_selection_options
+      params = {}
+      params['workers'] = 1
+      params['fluentd_conf_path'] = "fluentd.yml"
+      params['use_v1_config'] = true
+      params['config_file_type'] = :guess
+      params['conf_encoding'] = 'utf-8'
+      params['log_level'] = Fluent::Log::LEVEL_INFO
+      # params are passed through JSON when daemonized on Windows
+      params = JSON.parse(JSON.dump(params))
+      load_config_proc = Proc.new { Fluent::Supervisor.serverengine_config(params) }
+
+      se_config = load_config_proc.call
+      assert_equal true, se_config[:use_v1_config]
+      assert_equal :guess, se_config[:config_file_type]
+    end
   end
 
   data("default", [{}, "0"])
@@ -717,6 +734,78 @@ class SupervisorTest < ::Test::Unit::TestCase
     supervisor.configure(supervisor: true)
 
     supervisor.run_supervisor
+  end
+
+  data("default", [{}, :guess])
+  data("yaml", [{config_file_type: :yaml}, :yaml])
+  def test_config_file_type_should_be_passed_to_ServerEngine((cl_opt, expected_config_file_type))
+    proxy.mock(Fluent::Supervisor).serverengine_config(hash_including("config_file_type" => expected_config_file_type))
+    any_instance_of(ServerEngine::Daemon) { |daemon| mock(daemon).run.once }
+
+    supervisor = Fluent::Supervisor.new(cl_opt)
+    stub(Fluent::Config).build { config_element('ROOT') }
+    stub(supervisor).build_spawn_command { "dummy command line" }
+    supervisor.configure(supervisor: true)
+
+    supervisor.run_supervisor
+  end
+
+  sub_test_case "graceful_reload" do
+    def build_server(config_path, config_file_type)
+      se_config = Fluent::Supervisor.serverengine_config(
+        'workers' => 1,
+        'fluentd_conf_path' => config_path,
+        'use_v1_config' => true,
+        'config_file_type' => config_file_type,
+        'conf_encoding' => 'utf-8',
+        'log_level' => Fluent::Log::LEVEL_INFO,
+      )
+      server = DummyServer.new
+      stub(server).config { se_config }
+      server
+    end
+
+    data("classic" => "conf",
+         "yaml" => "yml")
+    test "reloads config file" do |ext|
+      config_path = "#{@tmp_dir}/fluentd.#{ext}"
+      if ext == "yml"
+        write_config("#{@tmp_dir}/output.yml", <<~EOF)
+          $tag: "**"
+        EOF
+        write_config(config_path, <<~EOF)
+          config:
+            - match:
+                $type: stdout
+                <<: !include output.yml
+        EOF
+      else
+        write_config(config_path, <<~EOF)
+          <match **>
+            @type stdout
+          </match>
+        EOF
+      end
+
+      create_debug_dummy_logger
+      server = build_server(config_path, :guess)
+
+      conf = nil
+      stub(Fluent::Engine).reload_config { |*args| conf = args[0] }
+
+      server.before_run
+      server.graceful_reload
+      server.after_run
+
+      assert_not_nil conf
+      match = conf.elements.find { |e| e.name == 'match' }
+      assert_not_nil match
+      assert_equal '**', match.arg
+      assert_equal 'stdout', match['@type']
+    ensure
+      server.socket_manager_server.close if server&.socket_manager_server
+      ENV.delete('SERVERENGINE_SOCKETMANAGER_PATH')
+    end
   end
 
   sub_test_case "init logger" do
