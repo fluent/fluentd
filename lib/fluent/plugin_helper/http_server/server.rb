@@ -52,7 +52,7 @@ module Fluent
                        end
           @uri = URI("#{scheme}://#{ip_literal}:#{@port}").to_s
           @router = Router.new(default_app)
-          @server_task = nil
+          @server_task_queue = ::Thread::Queue.new
           Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
 
           opts = if tls_context
@@ -73,17 +73,20 @@ module Fluent
 
           Async do |task|
             Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
-            @server_task = task.async do
-              Console.logger = Fluent::Log::ConsoleAdapter.wrap(@logger)
-              @server.run
-            end
-            if notify
-              notify.push(:ready)
-            end
+            begin
+              @server.endpoint.accept(&@server.method(:accept))
+              if notify
+                notify.push(:ready)
+              end
 
-            @server_task_queue = ::Thread::Queue.new
-            @server_task_queue.pop
-            @server_task&.stop
+              @server_task_queue.pop
+            rescue => e
+              @logger.error("Failed to run HTTP server listening #{@uri}: #{e.class}: #{e.message}")
+              raise unless notify
+              notify.push(e)
+            ensure
+              task.children&.each(&:stop)
+            end
           end
 
           @logger.debug('Finished HTTP server')
