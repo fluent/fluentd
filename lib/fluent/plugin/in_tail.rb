@@ -816,7 +816,7 @@ module Fluent::Plugin
       none regexp json csv tsv ltsv msgpack apache apache2 apache_error nginx syslog
     ].freeze
     WORKER_QUEUE_BYTES = 64 * 1024 * 1024
-    WorkerBatch = Struct.new(:watcher, :lines, :fallback_lines)
+    WorkerBatch = Struct.new(:watcher, :lines)
 
     private
 
@@ -866,7 +866,7 @@ module Fluent::Plugin
         thread_create: ->(title, &block) { Thread.new { Thread.current.name = title.to_s if Thread.current.respond_to?(:name=); block.call } },
         notify: @worker_completion_watcher.method(:signal)
       ) do |index, batch|
-        @worker_line_feeders[index].parse(batch.lines, batch.watcher)
+        @worker_line_feeders[index].parse(batch.lines.map(&:dup), batch.watcher)
       end
       @worker_pool.start
     rescue
@@ -892,12 +892,8 @@ module Fluent::Plugin
     def async_receive_lines(lines, watcher)
       return @line_feeder.feed_lines(lines, watcher) unless @worker_pool.statistics[:state] == :running
 
-      worker_lines = lines.map(&:dup)
-      fallback_lines = lines.map(&:dup)
       bytes = lines.sum(&:bytesize) * 3
-      return @line_feeder.feed_lines(lines, watcher) if bytes > WORKER_QUEUE_BYTES
-
-      batch = WorkerBatch.new(watcher, worker_lines, fallback_lines)
+      batch = WorkerBatch.new(watcher, lines)
       if @worker_pool.submit(watcher, batch, bytes: bytes)
         update_worker_metrics
         @worker_waiting_watchers.delete(watcher)
@@ -914,7 +910,7 @@ module Fluent::Plugin
         if result.error
           @worker_metrics[:parse_errors].inc
           log.warn 'worker parsing failed; retrying synchronously', path: batch.watcher.path, error: result.error
-          emitted = @line_feeder.feed_lines(batch.fallback_lines, batch.watcher)
+          emitted = @line_feeder.feed_lines(batch.lines, batch.watcher)
         else
           emitted = @line_feeder.emit(result.value, batch.watcher)
         end

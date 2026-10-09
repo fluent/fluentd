@@ -93,7 +93,31 @@ class TailInputWorkerPoolTest < Test::Unit::TestCase
     pool.acknowledge(first)
     pool.acknowledge(second)
     assert_equal 0, pool.statistics[:bytes]
-    assert_false pool.submit(:too_large, 'oversized', bytes: 11)
+    assert_true pool.submit(:too_large, 'oversized', bytes: 11)
+    @release << true
+    pool.acknowledge(result_from(pool))
+  end
+
+  test 'one oversized batch uses a separate reservation beside regular capacity' do
+    started = Queue.new
+    pool = create_pool(task_limit: 3, byte_limit: 10, num_threads: 2) do |_, payload|
+      started << payload
+      @release.pop
+      payload
+    end
+    assert_true pool.submit(:large, :oversized, bytes: 11)
+    assert_equal :oversized, Timeout.timeout(5) { started.pop }
+    assert_true pool.submit(:small, :regular, bytes: 10)
+    assert_equal :regular, Timeout.timeout(5) { started.pop }
+    assert_false pool.submit(:another_large, :oversized, bytes: 12)
+    assert_false pool.submit(:another_small, :regular, bytes: 1)
+    assert_equal({ tasks: 2, bytes: 21, state: :running }, pool.statistics)
+
+    2.times { @release << true }
+    results = 2.times.map { result_from(pool) }
+    assert_equal %i[oversized regular], results.map(&:value).sort
+    results.each { |result| pool.acknowledge(result) }
+    assert_equal({ tasks: 0, bytes: 0, state: :running }, pool.statistics)
   end
 
   test 'a failed task produces an error result and the worker handles the next file' do

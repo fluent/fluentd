@@ -41,6 +41,8 @@ module Fluent::Plugin
         @results = Queue.new
         @active = {}
         @bytes = 0
+        @regular_bytes = 0
+        @oversized_task = nil
         @threads = []
         @state = :new
         @failure = nil
@@ -75,11 +77,22 @@ module Fluent::Plugin
         @mutex.synchronize do
           return false unless @state == :running
           return false if @active.key?(key) || @active.size >= @task_limit
-          return false if @bytes + bytes > @byte_limit
+          # A single over-limit batch may use an extra reservation alongside the
+          # bounded regular budget so it does not force parsing on the event loop.
+          if bytes > @byte_limit
+            return false if @oversized_task
+          else
+            return false if @regular_bytes + bytes > @byte_limit
+          end
 
           task = Task.new(key, bytes, payload).freeze
           @active[key] = task
           @bytes += bytes
+          if bytes > @byte_limit
+            @oversized_task = task
+          else
+            @regular_bytes += bytes
+          end
           @jobs << task
           true
         end
@@ -100,6 +113,11 @@ module Fluent::Plugin
 
           @active.delete(task.key)
           @bytes -= task.bytes
+          if task.bytes > @byte_limit
+            @oversized_task = nil
+          else
+            @regular_bytes -= task.bytes
+          end
         end
       end
 
