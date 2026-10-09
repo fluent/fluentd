@@ -311,6 +311,7 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
 
       assert_nil driver.instance.instance_variable_get(:@worker_pool)
       assert_equal %w[one two], driver.events.map { |event| event[2]['message'] }
+      assert_true driver.logs.any? { |line| line.include?('overridden hook: parse_singleline') }
     end
 
     test 'worker parsers are recreated from the configured parser and joined to parser lifecycle' do
