@@ -272,11 +272,14 @@ module Fluent::Plugin
     def start
       super
 
-      @worker_compatible = worker_compatible?
+      incompatibility_reasons = worker_incompatibility_reasons
+      @worker_compatible = incompatibility_reasons.empty?
       @line_feeder = build_line_feeder
-      setup_worker_pool if @num_threads > 1 && @worker_compatible
-      if @num_threads > 1 && !@worker_compatible
-        log.warn "in_tail worker parsing is unavailable for this plugin or parser; using synchronous parsing"
+      if @num_threads > 1 && @worker_compatible
+        setup_worker_pool
+        log.info "in_tail worker parsing enabled with #{@num_threads} threads"
+      elsif @num_threads > 1
+        log.warn "in_tail worker parsing is unavailable; using synchronous parsing (#{incompatibility_reasons.join(', ')})"
       end
 
       if @pos_file
@@ -768,6 +771,13 @@ module Fluent::Plugin
           'tracked_file_count' => @metrics.tracked.get,
         })
       }
+      if @worker_pool
+        stats['input'].merge!(
+          'worker_pending_batch_count' => @worker_metrics[:pending_batches].get,
+          'worker_pending_bytes' => @worker_metrics[:pending_bytes].get,
+          'worker_parse_error_count' => @worker_metrics[:parse_errors].get,
+        )
+      end
       stats
     end
 
@@ -810,14 +820,15 @@ module Fluent::Plugin
 
     private
 
-    def worker_compatible?
-      return false unless WORKER_COMPATIBILITY.compatible?(self)
-      return false if @multiline_mode
-      return false if @open_on_every_update
-      return false unless WORKER_PARSER_TYPES.include?(@parser_configs.first[:@type])
-
+    def worker_incompatibility_reasons
+      reasons = WORKER_COMPATIBILITY.incompatible_hooks(self).map { |hook| "overridden hook: #{hook}" }
+      reasons << 'multiline parsing is enabled' if @multiline_mode
+      reasons << 'open_on_every_update is enabled' if @open_on_every_update
+      parser_type = @parser_configs.first[:@type]
+      reasons << "unsupported parser: #{parser_type}" unless WORKER_PARSER_TYPES.include?(parser_type)
       parser_usage = @parser_configs.first.usage
-      @parser.equal?(@_parsers[parser_usage])
+      reasons << 'the configured parser instance was replaced' unless @parser.equal?(@_parsers[parser_usage])
+      reasons
     end
 
     def create_worker_parsers(num_threads)
@@ -832,6 +843,16 @@ module Fluent::Plugin
     end
 
     def setup_worker_pool
+      @worker_metrics = {
+        pending_batches: metrics_create(namespace: 'fluentd', subsystem: 'input', name: 'worker_pending_batches',
+                                        help_text: 'Number of worker batches awaiting completion or acknowledgment',
+                                        prefer_gauge: true),
+        pending_bytes: metrics_create(namespace: 'fluentd', subsystem: 'input', name: 'worker_pending_bytes',
+                                       help_text: 'Estimated bytes accounted for by pending worker batches',
+                                       prefer_gauge: true),
+        parse_errors: metrics_create(namespace: 'fluentd', subsystem: 'input', name: 'worker_parse_errors_total',
+                                     help_text: 'Total number of worker parse errors'),
+      }
       @worker_parsers = create_worker_parsers(@num_threads)
       @worker_line_feeders = @worker_parsers.map { |parser| build_worker_line_feeder(parser) }
       @worker_waiting_watchers = []
@@ -878,6 +899,7 @@ module Fluent::Plugin
 
       batch = WorkerBatch.new(watcher, worker_lines, fallback_lines)
       if @worker_pool.submit(watcher, batch, bytes: bytes)
+        update_worker_metrics
         @worker_waiting_watchers.delete(watcher)
         TailWatcher::IOHandler::ASYNC_PENDING
       else
@@ -890,12 +912,14 @@ module Fluent::Plugin
       while (result = @worker_pool.next_result)
         batch = result.task.payload
         if result.error
+          @worker_metrics[:parse_errors].inc
           log.warn 'worker parsing failed; retrying synchronously', path: batch.watcher.path, error: result.error
           emitted = @line_feeder.feed_lines(batch.fallback_lines, batch.watcher)
         else
           emitted = @line_feeder.emit(result.value, batch.watcher)
         end
         @worker_pool.acknowledge(result)
+        update_worker_metrics
         batch.watcher.complete_async(emitted)
         finish_worker_deferred_close(batch.watcher)
       end
@@ -918,6 +942,12 @@ module Fluent::Plugin
 
       target_info = @worker_deferred_unwatch.delete(watcher)
       @pf.unwatch(target_info) if target_info && @pf
+    end
+
+    def update_worker_metrics
+      statistics = @worker_pool.statistics
+      @worker_metrics[:pending_batches].set(statistics[:tasks])
+      @worker_metrics[:pending_bytes].set(statistics[:bytes])
     end
 
     def shutdown_worker_pool

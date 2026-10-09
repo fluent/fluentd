@@ -826,6 +826,10 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal 2, driver.instance.instance_variable_get(:@worker_parsers).size
       assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
       assert_true driver.instance.instance_variable_get(:@tails).values.all?(&:eof?)
+      assert_true driver.logs.any? { |line| line.include?('worker parsing enabled with 2 threads') }
+      assert_equal 0, driver.instance.statistics['input']['worker_pending_batch_count']
+      assert_equal 0, driver.instance.statistics['input']['worker_pending_bytes']
+      assert_equal 0, driver.instance.statistics['input']['worker_parse_error_count']
     end
 
     def test_worker_completion_detects_rotation_and_drains_both_files
@@ -1155,6 +1159,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal ['retry-record'], driver.events.map { |event| event[2]['message'] }
       assert_true driver.logs.any? { |line| line.include?('worker parsing failed; retrying synchronously') }
       assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
+      assert_equal 1, driver.instance.statistics['input']['worker_parse_error_count']
     end
 
     data(flat: CONFIG_DISABLE_WATCH_TIMER + SINGLE_LINE_CONFIG,
