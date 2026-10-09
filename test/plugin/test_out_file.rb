@@ -779,6 +779,71 @@ class FileOutputTest < Test::Unit::TestCase
       end
     end
 
+    test 'symlink with placeholders and variable chunk keys creates a symlink per metadata (bulk input)' do
+      omit "Windows doesn't support symlink" if Fluent.windows?
+      conf = %[
+        path #{TMP_DIR}/${tag}/out_file_${myid}_%Y%m%d.log
+        symlink_path #{SYMLINK_PATH}/foo/${tag}_${myid}.log
+        <buffer tag,time,myid>
+        </buffer>
+      ]
+
+      d = create_driver(conf)
+      begin
+        d.run(default_tag: 'tag') do
+          # Bulk input: two events with different `myid` values but the SAME
+          # timekey arrive in one stream. Each metadata must get its own
+          # staged chunk and its own symlink (fluentd#5099).
+          es = Fluent::MultiEventStream.new
+          t = event_time("2011-01-02 13:14:15 UTC")
+          es.add(t, {"a" => 1, "myid" => "1"})
+          es.add(t, {"a" => 2, "myid" => "2"})
+          d.feed(es)
+
+          ["1", "2"].each do |myid|
+            symlink_path = "#{SYMLINK_PATH}/foo/tag_#{myid}.log"
+            assert File.symlink?(symlink_path), "missing symlink for myid=#{myid}"
+            meta = d.instance.metadata('tag', t, {"myid" => myid})
+            assert_equal d.instance.buffer.instance_eval{ @stage[meta].path }, File.readlink(symlink_path)
+          end
+        end
+      ensure
+        FileUtils.rm_f("#{SYMLINK_PATH}/foo/tag_1.log")
+        FileUtils.rm_f("#{SYMLINK_PATH}/foo/tag_2.log")
+      end
+    end
+
+    test 'symlink is not moved to a split chunk while an event stream is split into chunks' do
+      omit "Windows doesn't support symlink" if Fluent.windows?
+      conf = %[
+        path #{TMP_DIR}/${tag}/out_file_test
+        symlink_path #{SYMLINK_PATH}/split/${tag}
+        <buffer tag,time>
+          chunk_limit_size 1k
+        </buffer>
+      ]
+      symlink_path = "#{SYMLINK_PATH}/split/tag"
+
+      d = create_driver(conf)
+      begin
+        d.run(default_tag: 'tag') do
+          t = event_time("2011-01-02 13:14:15 UTC")
+          d.feed(Fluent::OneEventStream.new(t, {"a" => 1}))
+          meta = d.instance.metadata('tag', t, {})
+          staged_path = d.instance.buffer.instance_eval{ @stage[meta].path }
+          assert_equal staged_path, File.readlink(symlink_path)
+
+          es = Fluent::MultiEventStream.new
+          50.times { es.add(t, {"a" => "x" * 100}) }
+          d.feed(es)
+
+          assert_equal staged_path, File.readlink(symlink_path)
+        end
+      ensure
+        FileUtils.rm_rf("#{SYMLINK_PATH}/split")
+      end
+    end
+
     test 'relative symlink' do
       omit "Windows doesn't support symlinks" if Fluent.windows?
 
