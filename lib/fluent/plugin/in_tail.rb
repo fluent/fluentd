@@ -756,8 +756,9 @@ module Fluent::Plugin
       @line_feeder.parse_singleline(lines, tail_watcher)
     end
 
-    # The native implementation starts the multiline flush timer before parsing;
-    # overrides that skip super must call #reset_timer when needed.
+    # TailInput's default #parse_multilines path starts the flush timer before
+    # parsing. An override that skips super must call
+    # tail_watcher.line_buffer_timer_flusher.reset_timer when needed.
     def parse_multilines(lines, tail_watcher)
       @line_feeder.parse_multilines(lines, tail_watcher)
     end

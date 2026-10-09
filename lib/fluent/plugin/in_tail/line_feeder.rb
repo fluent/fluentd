@@ -20,11 +20,10 @@ require 'fluent/plugin/buffer'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
-    # LineFeeder parses lines read from tailed files into events and emits them.
-    # It owns the parser and the options used for parsing and emitting, keeping
-    # line processing separate from TailInput's lifecycle.
-    # TailInput passes its line processing methods as handlers so that existing
-    # TailInput subclasses can continue to override those methods.
+    # LineFeeder provides the built-in line parsing and emitting for TailInput.
+    # To preserve compatibility with TailInput subclasses, TailInput passes its
+    # line-processing methods as handlers. This keeps subclass overrides in the
+    # call path, and super reaches this built-in implementation.
     class LineFeeder
       def initialize(parser:, router_provider:, log:, tag:, tag_prefix:, tag_suffix:, path_key:, emit_unmatched_lines:, multiline_mode:, parse_handler: nil, convert_handler: nil, flush_handler: nil)
         @parser = parser
