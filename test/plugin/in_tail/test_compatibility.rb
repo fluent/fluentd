@@ -27,6 +27,15 @@ module TailInputSubclasses
     end
   end
 
+  class WorkerParserBuilder < RecordingInput
+    attr_reader :worker_parsers
+
+    def start
+      super
+      @worker_parsers = create_worker_parsers(2)
+    end
+  end
+
   class ReceiveLinesOverride < RecordingInput
     def receive_lines(lines, tail_watcher)
       @calls << [:receive_lines, lines]
@@ -277,6 +286,43 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
   def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true, klass: Fluent::Plugin::TailInput)
     config = use_common_conf ? common_config + conf : conf
     Fluent::Test::Driver::Input.new(klass).configure(config)
+  end
+
+  sub_test_case 'worker compatibility classification' do
+    test 'the built-in implementation is eligible' do
+      driver = create_driver
+      driver.run {}
+
+      assert_true driver.instance.instance_variable_get(:@worker_compatible)
+    end
+
+    test 'an inherited line-processing override uses the compatibility path' do
+      driver = create_driver(SINGLE_LINE_CONFIG, true, klass: TailInputSubclasses::ParseSinglelineOverrideWithSuper)
+      driver.run {}
+
+      assert_false driver.instance.instance_variable_get(:@worker_compatible)
+    end
+
+    test 'an inherited override stays synchronous when workers are requested' do
+      File.write("#{@tmp_dir}/tail.txt", "one\ntwo\n")
+      config = config_element('', '', { 'read_from_head' => true }) + SINGLE_LINE_CONFIG + config_element('', '', { 'num_threads' => 2 })
+      driver = create_driver(config, true, klass: TailInputSubclasses::ParseSinglelineOverrideWithSuper)
+      driver.run(expect_emits: 2, timeout: 5) {}
+
+      assert_nil driver.instance.instance_variable_get(:@worker_pool)
+      assert_equal %w[one two], driver.events.map { |event| event[2]['message'] }
+    end
+
+    test 'worker parsers are recreated from the configured parser and joined to parser lifecycle' do
+      driver = create_driver(SINGLE_LINE_CONFIG, true, klass: TailInputSubclasses::WorkerParserBuilder)
+      driver.run {}
+
+      plugin = driver.instance
+      assert_equal 2, plugin.worker_parsers.size
+      assert_not_same plugin.instance_variable_get(:@parser), plugin.worker_parsers[0]
+      assert_not_same plugin.worker_parsers[0], plugin.worker_parsers[1]
+      assert_true plugin.worker_parsers.all? { |parser| parser.class == plugin.instance_variable_get(:@parser).class }
+    end
   end
 
   sub_test_case "receive_lines compatibility" do

@@ -32,6 +32,8 @@ module Fluent::Plugin
       #
       # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
       def receive_lines(lines, tail_watcher)
+        return async_receive_lines(lines, tail_watcher) if @worker_pool
+
         file_feed = tail_watcher.file_feed
         return file_feed.feed_lines(lines, tail_watcher) if file_feed.respond_to?(:feed_lines)
 
