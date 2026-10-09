@@ -398,14 +398,16 @@ class HttpHelperTest < Test::Unit::TestCase
     end
 
     test 'raises an error when it fails to bind' do
+      io = StringIO.new
       on_driver do |driver|
         assert_raise(Errno::EADDRNOTAVAIL) do
-          driver.http_server_create_http_server(:http_server_helper_test, addr: '192.0.2.1', port: @port, logger: NULL_LOGGER) do |s|
+          driver.http_server_create_http_server(:http_server_helper_test, addr: '192.0.2.1', port: @port, logger: Logger.new(io)) do |s|
             s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
           end
         end
         assert_nothing_raised { driver.stop }
       end
+      assert_match(/ERROR -- : Failed to run HTTP server listening http:\/\/192\.0\.2\.1:#{@port}: Errno::EADDRNOTAVAIL/, io.string)
     end
 
     test 'raises an error when the port is already in use' do

@@ -81,6 +81,7 @@ module Fluent
 
               @server_task_queue.pop
             rescue => e
+              @logger.error("Failed to run HTTP server listening #{@uri}: #{e.class}: #{e.message}")
               raise unless notify
               notify.push(e)
             ensure
