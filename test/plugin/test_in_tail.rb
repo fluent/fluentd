@@ -2650,6 +2650,768 @@ class TailInputTest < Test::Unit::TestCase
     d.instance_shutdown
   end
 
+  sub_test_case 'dir_watcher' do
+    def dir_watchers(d)
+      d.instance.instance_variable_get(:@dir_watchers)
+    end
+
+    # The watched directories are the directories of the expanded path patterns
+    # as the file system names them, so the real path of @tmp_dir is compared
+    # instead of @tmp_dir itself.
+    def expanded_tmp_dir
+      File.realpath(@tmp_dir)
+    end
+
+    # libev's ev_stat compares second-resolution timestamps as well as other
+    # stat fields. Wait for a later second so the next directory change is
+    # detectable even if fields such as size and nlink stay unchanged, rather
+    # than relying on refresh_interval to make the test progress.
+    def wait_until_dir_stat_can_change(dir)
+      mtime = File.mtime(dir).to_i
+      sleep(0.05) while Process.clock_gettime(Process::CLOCK_REALTIME).to_i <= mtime
+    end
+
+    test 'expand_watch_dirs returns the directories which have to be watched' do
+      FileUtils.mkdir_p("#{@tmp_dir}/sub/deep")
+      FileUtils.touch("#{@tmp_dir}/tail.txt")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/tail.txt,#{@tmp_dir}/*.log,#{@tmp_dir}/sub/**/*.log",
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      # A static path, a pattern which matches nothing yet and a '**' pattern
+      # are handled without duplicating the same directory.
+      assert_equal([base, "#{base}/sub", "#{base}/sub/deep"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    test 'expand_watch_dirs returns the closest existing directory of a not yet created directory' do
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/not_yet_created/app.log",
+                             })
+      plugin = create_driver(config, false).instance
+      assert_equal([expanded_tmp_dir], plugin.expand_watch_dirs)
+    end
+
+    # The directory of a path directly in a root directory is that root
+    # directory, and its path gives no component to walk below it.
+    test 'expand_watch_dirs returns the root directory of a path directly in it' do
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => '/review.log',
+                             })
+      plugin = create_driver(config, false).instance
+      assert_equal([File.dirname(File.expand_path('/review.log'))], plugin.expand_watch_dirs)
+    end
+
+    # A pattern may have a wildcard before the directory of the files. The
+    # existing directories matching it have to be watched too, because the
+    # directory of the files is created inside one of them: watching only the
+    # part before the first wildcard doesn't notice it.
+    test 'expand_watch_dirs returns the directories of a not yet created directory after a wildcard' do
+      FileUtils.mkdir_p("#{@tmp_dir}/tenant")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*/logs/*.log",
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      # `tenant' is watched to notice the creation of `logs', and the directory
+      # of the pattern to notice a new directory matching `*'.
+      assert_equal([base, "#{base}/tenant"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    # A pattern may have a branch whose directory is not created while another
+    # branch has it. The branches have to be taken each on its own: whether
+    # another branch has that directory says nothing about this one, and the
+    # missing directory is created inside the parent which doesn't have it.
+    test 'expand_watch_dirs returns the directory of each branch whose directory is not created yet' do
+      FileUtils.mkdir_p("#{@tmp_dir}/one/logs")
+      FileUtils.mkdir_p("#{@tmp_dir}/two")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*/logs/*.log",
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      # `two' is watched to notice the creation of its own `logs', and the
+      # directory of the files of `one' is watched for the files themselves.
+      assert_equal([base, "#{base}/one/logs", "#{base}/two"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    test 'expand_watch_dirs returns the directories of each level of a multi level wildcard' do
+      FileUtils.mkdir_p("#{@tmp_dir}/tenant/level1")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*/*/app.log",
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      # The directory of the files is created inside a directory matching the
+      # second `*', which is created inside a directory matching the first one.
+      assert_equal([base, "#{base}/tenant", "#{base}/tenant/level1"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    # `**' stands for no directory or for directories at any depth, so the files
+    # may be created in any of the existing directories below it. Dir.glob takes
+    # `dir/**' as `dir/*', so the recursion has to be asked with `dir/**/'.
+    test 'expand_watch_dirs returns the existing directories of a ** pattern at every depth' do
+      FileUtils.mkdir_p("#{@tmp_dir}/deep/a/b")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/deep/**/*.log",
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      assert_equal(["#{base}/deep", "#{base}/deep/a", "#{base}/deep/a/b"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    # A directory matched by a wildcard may have glob characters in its own
+    # name. They are parts of that name, so taking them as wildcards again at
+    # the next level would look into another directory than the path has.
+    test 'expand_watch_dirs takes the glob characters of an existing directory name as parts of it' do
+      FileUtils.mkdir_p("#{@tmp_dir}/[x]/logs")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*/*/app.log",
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      assert_equal([base, "#{base}/[x]", "#{base}/[x]/logs"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    test 'expand_watch_dirs does not include regular files matched by a directory wildcard' do
+      FileUtils.mkdir_p("#{@tmp_dir}/tenant/logs")
+      FileUtils.touch("#{@tmp_dir}/not_a_directory")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*/logs/*.log",
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      assert_equal([base, "#{base}/tenant/logs"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    test 'expand_watch_dirs interprets escapes in components without wildcards' do
+      omit 'Backslashes are path separators on Windows' if Fluent.windows?
+      FileUtils.mkdir_p("#{@tmp_dir}/literal")
+      FileUtils.touch("#{@tmp_dir}/literal/app.log")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/\\literal/*.log",
+                             })
+      plugin = create_driver(config, false).instance
+      assert_equal(["#{@tmp_dir}/literal/app.log"], plugin.expand_paths_raw)
+      assert_equal(["#{expanded_tmp_dir}/literal"], plugin.expand_watch_dirs)
+    end
+
+    test 'dir_path_parts preserves a Windows UNC share as the root' do
+      omit 'UNC paths require Windows' unless Fluent.windows?
+      plugin = create_driver(base_config + SINGLE_LINE_CONFIG, false).instance
+      assert_equal(['//server/share/', ['logs']], plugin.dir_path_parts('//server/share/logs'))
+      assert_equal(['//server/share/', []], plugin.dir_path_parts('//server/share/'))
+    end
+
+    # The glob characters of a path are expanded by Dir.glob whenever the path
+    # is taken as a glob, whatever they are by the glob policy. The directories
+    # have to be derived the same way, or `/base/[a]/*.log' would be taken as
+    # the literal directory `/base/[a]' while #expand_paths_raw matches
+    # `/base/a/app.log'.
+    test 'expand_watch_dirs expands the glob characters which the glob policy does not take as wildcards' do
+      FileUtils.mkdir_p("#{@tmp_dir}/a")
+      FileUtils.touch("#{@tmp_dir}/a/app.log")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/[a]/*.log",
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      assert_equal(["#{@tmp_dir}/a/app.log"], plugin.expand_paths_raw)
+      assert_equal([base, "#{base}/a"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    # File.dirname cuts a path at the separator inside a brace group, so the
+    # directories of `/base/{a/app.log,b/app.log}' have to be derived from the
+    # paths the group stands for.
+    test 'expand_watch_dirs returns the directories of a brace pattern which contains a separator' do
+      FileUtils.mkdir_p("#{@tmp_dir}/a")
+      FileUtils.mkdir_p("#{@tmp_dir}/b")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/{a/app.log,b/app.log}",
+                               'glob_policy' => 'always',
+                               'path_delimiter' => '|',
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      assert_equal(["#{base}/a", "#{base}/b"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    test 'expand_watch_dirs returns the directories of nested brace groups' do
+      FileUtils.mkdir_p("#{@tmp_dir}/a/c")
+      FileUtils.mkdir_p("#{@tmp_dir}/b")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/{a/{c,d},b}/app.log",
+                               'glob_policy' => 'always',
+                               'path_delimiter' => '|',
+                             })
+      plugin = create_driver(config, false).instance
+      base = expanded_tmp_dir
+      # `d' is not created yet, so its parent is watched instead of it.
+      assert_equal(["#{base}/a", "#{base}/a/c", "#{base}/b"].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    test 'expand_watch_dirs watches time dependent parents in brace alternatives of different depths' do
+      Timecop.freeze do
+        year = Time.now.strftime('%Y')
+        FileUtils.mkdir_p("#{@tmp_dir}/a/b/#{year}")
+        FileUtils.mkdir_p("#{@tmp_dir}/c/#{year}")
+        config = config_element('', '', {
+                                 'tag' => 't1',
+                                 'format' => 'none',
+                                 'path' => "#{@tmp_dir}/{a/b,c}/%Y/app.log",
+                                 'glob_policy' => 'always',
+                                 'path_delimiter' => '|',
+                               })
+        plugin = create_driver(config, false).instance
+        base = expanded_tmp_dir
+        assert_equal(["#{base}/a/b", "#{base}/a/b/#{year}", "#{base}/c", "#{base}/c/#{year}"].sort,
+                     plugin.expand_watch_dirs.sort)
+      end
+    end
+
+    # Unix resolves the link before '..'; Windows normalizes 'alias/..' first.
+    # Both sides exist so a mismatch cannot hide behind an empty glob result.
+    data('glob' => true, 'literal' => false)
+    test 'expand_watch_dirs takes .. of a path after a symbolic link as file lookup does' do |glob|
+      FileUtils.mkdir_p("#{@tmp_dir}/actual/child")
+      FileUtils.mkdir_p("#{@tmp_dir}/actual/logs")
+      FileUtils.mkdir_p("#{@tmp_dir}/logs")
+      FileUtils.touch("#{@tmp_dir}/actual/logs/unix.log")
+      FileUtils.touch("#{@tmp_dir}/logs/windows.log")
+      # Use an absolute target rather than resolving @tmp_dir relative to alias.
+      File.symlink(File.expand_path("#{@tmp_dir}/actual/child"), "#{@tmp_dir}/alias")
+      name = Fluent.windows? ? 'windows.log' : 'unix.log'
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/alias/../logs/#{glob ? '*.log' : name}",
+                             })
+      plugin = create_driver(config, false).instance
+      directory = Fluent.windows? ? "#{@tmp_dir}/logs" : "#{@tmp_dir}/actual/logs"
+      # Do not resolve alias before the next component ('..') is looked up.
+      assert_equal(["#{expanded_tmp_dir}/alias"], plugin.existing_dirs(expanded_tmp_dir, 'alias', glob))
+      assert_equal(["#{@tmp_dir}/alias/../logs/#{name}"], plugin.expand_paths_raw)
+      assert_equal([expanded_tmp_dir, File.realpath(directory)].sort, plugin.expand_watch_dirs.sort)
+    end
+
+    test 'detects files after a directory symbolic link is replaced' do
+      FileUtils.mkdir_p("#{@tmp_dir}/first/logs")
+      FileUtils.mkdir_p("#{@tmp_dir}/second/logs")
+      File.symlink(File.expand_path("#{@tmp_dir}/first"), "#{@tmp_dir}/alias")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/alias/logs/*.log",
+                               'refresh_interval' => 1000,
+                               'read_from_head' => 'true',
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      base = expanded_tmp_dir
+      d.run(shutdown: false) do
+        assert_includes(dir_watchers(d).keys, base)
+        wait_until_dir_stat_can_change(@tmp_dir)
+        File.unlink("#{@tmp_dir}/alias")
+        File.symlink(File.expand_path("#{@tmp_dir}/second"), "#{@tmp_dir}/alias")
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?("#{base}/second/logs") }
+        wait_until_dir_stat_can_change("#{@tmp_dir}/second/logs")
+        File.open("#{@tmp_dir}/second/logs/app.log", 'w') { |f| f.puts 'hello' }
+        waiting(20, plugin: d.instance) { sleep 0.1 until d.events.size == 1 }
+      end
+      assert_equal(['hello'], d.events.map { |e| e[2]['message'] })
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    test 'does not watch directories by default' do
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*.txt",
+                               'refresh_interval' => 1000,
+                             })
+      d = create_driver(config, false)
+      d.run(shutdown: false) {}
+      assert_equal({}, dir_watchers(d))
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    test 'watches the directories when enable_dir_watcher is true' do
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*.txt",
+                               'refresh_interval' => 1000,
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      d.run(shutdown: false) {}
+      assert_equal([expanded_tmp_dir], dir_watchers(d).keys)
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    # refresh_interval is long enough to be never reached in this test, so the
+    # file is detected only when the change of the directory is noticed.
+    test 'detects a file created after startup of a wildcard path' do
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*.txt",
+                               'refresh_interval' => 1000,
+                               'read_from_head' => 'true',
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      d.run(shutdown: false) do
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?(expanded_tmp_dir) }
+        wait_until_dir_stat_can_change(@tmp_dir)
+        File.open("#{@tmp_dir}/tail.txt", 'w') { |f| f.puts 'hello' }
+        waiting(20, plugin: d.instance) { sleep 0.1 until d.events.size == 1 }
+      end
+      assert_equal([{ 'message' => 'hello' }], d.events.map { |e| e[2] })
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    test 'detects a file of a static path created after startup' do
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/tail.txt",
+                               'refresh_interval' => 1000,
+                               'read_from_head' => 'true',
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      d.run(shutdown: false) do
+        wait_until_dir_stat_can_change(@tmp_dir)
+        File.open("#{@tmp_dir}/tail.txt", 'w') { |f| f.puts 'hello' }
+        waiting(20, plugin: d.instance) { sleep 0.1 until d.events.size == 1 }
+      end
+      assert_equal([{ 'message' => 'hello' }], d.events.map { |e| e[2] })
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    # A file created after the first change has to be detected too: the one shot
+    # timer of the previous change must be armed again when it is triggered.
+    test 'detects the files created one after another' do
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*.txt",
+                               'refresh_interval' => 1000,
+                               'read_from_head' => 'true',
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      d.run(shutdown: false) do
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?(expanded_tmp_dir) }
+        wait_until_dir_stat_can_change(@tmp_dir)
+        File.open("#{@tmp_dir}/tail1.txt", 'w') { |f| f.puts 'first' }
+        waiting(20, plugin: d.instance) { sleep 0.1 until d.events.size == 1 }
+        wait_until_dir_stat_can_change(@tmp_dir)
+        File.open("#{@tmp_dir}/tail2.txt", 'w') { |f| f.puts 'second' }
+        waiting(20, plugin: d.instance) { sleep 0.1 until d.events.size == 2 }
+      end
+      assert_equal(%w[first second], d.events.map { |e| e[2]['message'] })
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    # Requests arriving while a refresh is pending must be merged.
+    test 'a burst of directory changes causes only one refresh' do
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*.txt",
+                               'refresh_interval' => 1000,
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      refreshed = Queue.new
+      d.run(shutdown: false) do
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?(expanded_tmp_dir) }
+        # Count the refreshes after the initial one of #start.
+        d.instance.define_singleton_method(:refresh_watchers) { refreshed << true }
+        3.times { |i| d.instance.on_dir_changed("#{@tmp_dir}/dir#{i}") }
+        waiting(20, plugin: d.instance) { sleep 0.1 until refreshed.size == 1 }
+        # The requests of the same burst are merged into the scheduled refresh.
+        sleep(Fluent::Plugin::TailInput::DIR_WATCH_DEBOUNCE_INTERVAL + 1)
+        assert_equal(1, refreshed.size)
+        # And the changes of the next burst are noticed again.
+        d.instance.on_dir_changed("#{@tmp_dir}/dir3")
+        waiting(20, plugin: d.instance) { sleep 0.1 until refreshed.size == 2 }
+      end
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    data('before_shutdown' => :before_shutdown, 'shutdown' => :shutdown)
+    test 'does not request or execute a refresh once shutdown begins' do |phase|
+      plugin = create_driver(config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*.txt",
+                             }), false).instance
+      attached = []
+      refreshed = []
+      plugin.define_singleton_method(:event_loop_attach) { |watcher| attached << watcher }
+      plugin.define_singleton_method(:refresh_watchers_raw) { refreshed << true }
+      plugin.request_refresh_watchers(:directory, delay: 1000)
+      timer = plugin.instance_variable_get(:@refresh_timer)
+      assert_equal(1, attached.size)
+
+      if phase == :before_shutdown
+        plugin.before_shutdown
+      else
+        plugin.instance_variable_set(:@shutdown_start_time, Fluent::Clock.now)
+      end
+      plugin.detach_refresh_timer
+      # A callback already dispatched before detach must not refresh or rearm.
+      timer.on_timer
+      plugin.on_dir_changed(@tmp_dir)
+      plugin.request_refresh_watchers(:refresh_interval)
+      plugin.refresh_watchers
+      assert_nil(plugin.instance_variable_get(:@refresh_timer))
+      assert_equal(1, attached.size)
+      assert_empty(refreshed)
+    end
+
+    data('before_shutdown' => :before_shutdown, 'shutdown' => :shutdown)
+    test 'does not reattach directories when shutdown occurs during path expansion' do |phase|
+      plugin = create_driver(config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*.txt",
+                               'enable_dir_watcher' => 'true',
+                             }), false).instance
+      expanding = Queue.new
+      resume = Queue.new
+      dirs = [expanded_tmp_dir]
+      plugin.define_singleton_method(:expand_watch_dirs) do
+        expanding << true
+        resume.pop
+        dirs
+      end
+      worker = Thread.new { plugin.update_dir_watchers }
+      Timeout.timeout(5) { expanding.pop }
+      if phase == :before_shutdown
+        plugin.before_shutdown
+      else
+        plugin.instance_variable_set(:@shutdown_start_time, Fluent::Clock.now)
+      end
+      plugin.detach_dir_watchers
+      resume << true
+      Timeout.timeout(5) { worker.value }
+      assert_empty(plugin.instance_variable_get(:@dir_watchers))
+    ensure
+      resume << true if resume
+      worker&.join(5)
+      worker&.kill if worker&.alive?
+      plugin&.detach_dir_watchers
+    end
+
+    test 'stops watching a removed directory and watches its parent instead' do
+      FileUtils.mkdir_p("#{@tmp_dir}/sub")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/sub/*.txt",
+                               'refresh_interval' => 1000,
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      base = expanded_tmp_dir
+      d.run(shutdown: false) do
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?("#{base}/sub") }
+        FileUtils.remove_entry_secure("#{@tmp_dir}/sub")
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).keys == [base] }
+      end
+      assert_equal([base], dir_watchers(d).keys)
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    # The directory of the files may be created after the directory matched by a
+    # wildcard of the path, and creating it changes nothing of the directories
+    # before the wildcard. refresh_interval is long enough to be never reached in
+    # this test, so the file is detected only when the directory matched by the
+    # wildcard is watched.
+    test 'detects a file created in a directory created after startup of a wildcard path' do
+      FileUtils.mkdir_p("#{@tmp_dir}/tenant")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*/logs/*.log",
+                               'refresh_interval' => 1000,
+                               'read_from_head' => 'true',
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      base = expanded_tmp_dir
+      d.run(shutdown: false) do
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?("#{base}/tenant") }
+        wait_until_dir_stat_can_change("#{@tmp_dir}/tenant")
+        FileUtils.mkdir_p("#{@tmp_dir}/tenant/logs")
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?("#{base}/tenant/logs") }
+        wait_until_dir_stat_can_change("#{@tmp_dir}/tenant/logs")
+        File.open("#{@tmp_dir}/tenant/logs/app.log", 'w') { |f| f.puts 'hello' }
+        waiting(20, plugin: d.instance) { sleep 0.1 until d.events.size == 1 }
+      end
+      assert_equal(['hello'], d.events.map { |e| e[2]['message'] })
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    # A branch of a wildcard whose directory is not created at startup has to be
+    # watched on its own: whether the other branches have the directory of the
+    # files says nothing about it, and creating it changes that branch only.
+    test 'detects a file of a branch whose directory was not created at startup' do
+      FileUtils.mkdir_p("#{@tmp_dir}/one/logs")
+      FileUtils.mkdir_p("#{@tmp_dir}/two")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/*/logs/*.log",
+                               'refresh_interval' => 1000,
+                               'read_from_head' => 'true',
+                               'enable_dir_watcher' => 'true',
+                             })
+      d = create_driver(config, false)
+      base = expanded_tmp_dir
+      d.run(shutdown: false) do
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?("#{base}/two") }
+        wait_until_dir_stat_can_change("#{@tmp_dir}/two")
+        FileUtils.mkdir_p("#{@tmp_dir}/two/logs")
+        waiting(20, plugin: d.instance) { sleep 0.1 until dir_watchers(d).key?("#{base}/two/logs") }
+        wait_until_dir_stat_can_change("#{@tmp_dir}/two/logs")
+        File.open("#{@tmp_dir}/two/logs/app.log", 'w') { |f| f.puts 'branch' }
+        waiting(20, plugin: d.instance) { sleep 0.1 until d.events.size == 1 }
+      end
+      assert_equal(['branch'], d.events.map { |e| e[2]['message'] })
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    # The directory named by a strftime directive names another directory when the
+    # time comes to the next period, and that directory is created above it.
+    test 'expand_watch_dirs watches the directories above a path whose directory depends on the current time' do
+      Timecop.freeze do
+        month = Time.now.strftime('%Y%m')
+        FileUtils.mkdir_p("#{@tmp_dir}/#{month}")
+        config = config_element('', '', {
+                                 'tag' => 't1',
+                                 'format' => 'none',
+                                 'path' => "#{@tmp_dir}/%Y%m/app.log",
+                               })
+        plugin = create_driver(config, false).instance
+        base = expanded_tmp_dir
+        assert_equal([base, "#{base}/#{month}"].sort, plugin.expand_watch_dirs.sort)
+      end
+    end
+
+    test 'watches at most dir_watcher_limit directories' do
+      max = 3
+      (max + 1).times { |i| FileUtils.mkdir_p("#{@tmp_dir}/dir#{format('%03d', i)}") }
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/**/*.txt",
+                               'refresh_interval' => 1000,
+                               'enable_dir_watcher' => 'true',
+                               'dir_watcher_limit' => max,
+                             })
+      d = create_driver(config, false)
+      d.run(shutdown: false) {}
+      assert_equal(max, dir_watchers(d).size)
+      assert(d.logs.any? { |log| log.include?('Too many directories to watch') }, d.logs.join)
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    # Interleave paths before limiting so a large glob does not consume the
+    # entire initial window. Later windows may also leave static paths out.
+    test 'watches the directories of each path when a wildcard matches too many directories' do
+      max = 3
+      max.times { |i|
+        FileUtils.mkdir_p("#{@tmp_dir}/many/dir#{format('%03d', i)}")
+      }
+      FileUtils.mkdir_p("#{@tmp_dir}/static")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/many/**/*.log|#{@tmp_dir}/static/app.log",
+                               'path_delimiter' => '|',
+                               'refresh_interval' => 1000,
+                               'enable_dir_watcher' => 'true',
+                               'dir_watcher_limit' => max,
+                             })
+      d = create_driver(config, false)
+      base = expanded_tmp_dir
+      d.run(shutdown: false) {}
+      watchers = dir_watchers(d)
+      assert_equal(max, watchers.size)
+      assert_includes(watchers.keys, "#{base}/static")
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    test 'prioritizes a static directory also matched late by a large wildcard in the initial window' do
+      max = 3
+      max.times { |i| FileUtils.mkdir_p("#{@tmp_dir}/dir#{format('%03d', i)}") }
+      FileUtils.mkdir_p("#{@tmp_dir}/zz_static")
+      config = config_element('', '', {
+                               'tag' => 't1',
+                               'format' => 'none',
+                               'path' => "#{@tmp_dir}/**/*.log|#{@tmp_dir}/zz_static/app.log",
+                               'path_delimiter' => '|',
+                             })
+      plugin = create_driver(config, false).instance
+      assert_includes(plugin.expand_watch_dirs.first(max), "#{expanded_tmp_dir}/zz_static")
+    end
+
+    test 'defaults dir_watcher_limit to 100 and allows a higher limit' do
+      plugin = create_driver(base_config + config_element('', '', { 'format' => 'none' }), false).instance
+      assert_equal(100, plugin.dir_watcher_limit)
+      plugin = create_driver(base_config + config_element('', '', {
+                               'format' => 'none', 'dir_watcher_limit' => 101,
+                             }), false).instance
+      assert_equal(101, plugin.dir_watcher_limit)
+    end
+
+    data('zero' => 0, 'negative' => -1)
+    test 'rejects a nonpositive dir_watcher_limit' do |limit|
+      assert_raise(Fluent::ConfigError) do
+        create_driver(base_config + config_element('', '', {
+                        'format' => 'none', 'dir_watcher_limit' => limit,
+                      }), false)
+      end
+    end
+
+    data('one slot' => [5, 1], 'partial last window' => [5, 2],
+         'overlapping windows' => [4, 3], 'exact windows' => [4, 2],
+         'below limit' => [2, 3], 'empty' => [0, 2])
+    test 'rotates through all candidates within the configured limit' do |(count, limit)|
+      plugin = create_driver(base_config + config_element('', '', {
+                               'format' => 'none', 'dir_watcher_limit' => limit,
+                             }), false).instance
+      candidates = Array.new(count) { |i| "dir#{i}" }
+      initial = plugin.limit_dir_watchers(candidates, rotate: false)
+      assert_equal(candidates.first(limit), initial)
+      seen = initial.dup
+      [count, 1].max.times do
+        selected = plugin.limit_dir_watchers(candidates, rotate: true)
+        assert_equal([limit, count].min, selected.size)
+        assert_equal(selected.uniq, selected)
+        assert_equal(selected, plugin.limit_dir_watchers(candidates, rotate: false))
+        seen.concat(selected)
+      end
+      assert_equal(candidates.sort, seen.uniq.sort)
+    end
+
+    test 'keeps the window anchor when candidates change and resets when all fit' do
+      plugin = create_driver(base_config + config_element('', '', {
+                               'format' => 'none', 'dir_watcher_limit' => 2,
+                             }), false).instance
+      assert_equal(%w[a b], plugin.limit_dir_watchers(%w[a b c d e], rotate: false))
+      assert_equal(%w[c d], plugin.limit_dir_watchers(%w[a b c d e], rotate: true))
+      assert_equal(%w[c d], plugin.limit_dir_watchers(%w[x a b c d e], rotate: false))
+      # A removed anchor falls back to the last starting index and wraps safely.
+      assert_equal(%w[d e], plugin.limit_dir_watchers(%w[x a b d e], rotate: false))
+      assert_equal(%w[x a], plugin.limit_dir_watchers(%w[x a], rotate: true))
+      assert_equal([], plugin.limit_dir_watchers([], rotate: true))
+      assert_equal(%w[a b], plugin.limit_dir_watchers(%w[a b c], rotate: false))
+    end
+
+    test 'retains a periodic rotation request merged into a directory refresh' do
+      plugin = create_driver(base_config + config_element('', '', { 'format' => 'none' }), false).instance
+      rotations = []
+      plugin.define_singleton_method(:event_loop_attach) { |watcher| watcher }
+      plugin.define_singleton_method(:refresh_watchers_raw) {}
+      plugin.define_singleton_method(:update_dir_watchers) { |rotate: false| rotations << rotate }
+      plugin.request_refresh_watchers(:directory, delay: 1000)
+      timer = plugin.instance_variable_get(:@refresh_timer)
+      plugin.request_refresh_watchers(:refresh_interval)
+      assert_same(timer, plugin.instance_variable_get(:@refresh_timer))
+      timer.on_timer
+      assert_equal([true], rotations)
+      plugin.request_refresh_watchers(:directory, delay: 1000)
+      plugin.instance_variable_get(:@refresh_timer).on_timer
+      assert_equal([true, false], rotations)
+      plugin.request_refresh_watchers(:refresh_interval)
+      assert_equal([true, false, true], rotations)
+    end
+
+    test 'periodic refresh rotates attached watchers and eventually covers all candidates' do
+      4.times { |i| FileUtils.mkdir_p("#{@tmp_dir}/dir#{i}") }
+      d = create_driver(config_element('', '', {
+                          'tag' => 't1', 'format' => 'none',
+                          'path' => "#{@tmp_dir}/*/*.txt",
+                          'enable_dir_watcher' => 'true', 'dir_watcher_limit' => 2,
+                          'refresh_interval' => 0.2,
+                        }), false)
+      observed = Queue.new
+      sizes = Queue.new
+      d.instance.define_singleton_method(:attach_dir_watcher) do |dir|
+        super(dir)
+        sizes << @dir_watchers.size
+      end
+      d.instance.define_singleton_method(:update_dir_watchers) do |rotate: false|
+        super(rotate: rotate)
+        observed << [rotate, @dir_watchers.dup]
+      end
+      candidates = d.instance.expand_watch_dirs
+      snapshots = []
+      d.run(shutdown: false) do
+        Timeout.timeout(10) do
+          snapshots << observed.pop until snapshots.count { |rotate, _| rotate } == 3
+        end
+      end
+      initial = snapshots.first[1]
+      assert_equal(candidates.first(2), initial.keys)
+      periodic = snapshots.select { |rotate, _| rotate }.map(&:last)
+      assert_equal(candidates.rotate(2).first(2), periodic.first.keys)
+      assert_equal(candidates.sort, (initial.keys + periodic.flat_map(&:keys)).uniq.sort)
+      assert(snapshots.all? { |_, watchers| watchers.size == 2 })
+      assert_operator(sizes.size, :>, 2)
+      assert(sizes.pop <= 2) until sizes.empty?
+      initial.each do |dir, watcher|
+        assert_false(watcher.attached?) unless periodic.last.key?(dir)
+      end
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+  end
+
   def test_ENOENT_error_after_setup_watcher
     path = "#{@tmp_dir}/tail.txt"
     FileUtils.touch(path)

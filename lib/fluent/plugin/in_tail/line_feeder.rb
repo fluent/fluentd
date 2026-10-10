@@ -51,7 +51,7 @@ module Fluent::Plugin
         FileFeed.new(self, flush_interval: timer_flush_interval, flush_handler: @flush_handler)
       end
 
-      # Feeds a watcher that uses the deprecated LineBufferTimerFlusher.
+      # Parses and emits a batch for FileFeed and legacy watchers.
       # The flush deadline is started by #parse_multilines for compatibility.
       # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
       def feed_lines(lines, tail_watcher)
@@ -111,8 +111,7 @@ module Fluent::Plugin
 
         # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
         def feed_lines(lines, tail_watcher)
-          es = @line_feeder.parse(lines, tail_watcher)
-          @line_feeder.emit(es, tail_watcher)
+          @line_feeder.feed_lines(lines, tail_watcher)
         end
 
         def on_notify(tail_watcher)
