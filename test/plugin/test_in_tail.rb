@@ -948,7 +948,8 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
     end
 
-    def test_worker_queue_saturation_reschedules_waiting_files
+    data(forward: :each, reverse: :reverse_each)
+    def test_worker_queue_saturation_reschedules_waiting_files(notification_order)
       paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
       paths.each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
       config = config_element('ROOT', '', {
@@ -967,14 +968,17 @@ class TailInputTest < Test::Unit::TestCase
 
       driver.run(expect_records: paths.size, timeout: 10) do
         pool = driver.instance.instance_variable_get(:@worker_pool)
-        wrap_worker_pool_process(pool) do |batch|
-          if batch.lines.any? { |line| line.match?(/file-[01]/) }
-            parse_started << true
-            continue_parse.pop
-          end
+        # Block whichever files arrive first so notification order cannot
+        # allow completed batches to free capacity before the queue fills.
+        wrap_worker_pool_process(pool) do |_batch|
+          parse_started << true
+          continue_parse.pop
         end
         paths.each_with_index do |path, index|
           Fluent::FileWrapper.open(path, 'ab') { |file| file.puts("file-#{index}") }
+        end
+        paths.public_send(notification_order) do |path|
+          driver.instance.instance_variable_get(:@tails)[path].on_notify
         end
         waiting(5) { sleep 0.01 until parse_started.size == 2 }
         waiting(5) do
@@ -982,7 +986,9 @@ class TailInputTest < Test::Unit::TestCase
             sleep 0.01
           end
         end
-        2.times { continue_parse << true }
+        continue_parse.close
+      ensure
+        continue_parse.close
       end
 
       assert_equal paths.size, driver.events.size
@@ -990,7 +996,8 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
     end
 
-    def test_worker_queue_saturation_drains_detached_waiting_file
+    data(forward: :each, reverse: :reverse_each)
+    def test_worker_queue_saturation_drains_detached_waiting_file(notification_order)
       paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
       paths.each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
       config = config_element('ROOT', '', {
@@ -1011,14 +1018,15 @@ class TailInputTest < Test::Unit::TestCase
       driver.run(expect_records: paths.size, timeout: 10) do
         plugin = driver.instance
         pool = plugin.instance_variable_get(:@worker_pool)
-        wrap_worker_pool_process(pool) do |batch|
-          if batch.lines.any? { |line| line.match?(/file-[01]/) }
-            parse_started << true
-            continue_parse.pop
-          end
+        wrap_worker_pool_process(pool) do |_batch|
+          parse_started << true
+          continue_parse.pop
         end
         paths.each_with_index do |path, index|
           Fluent::FileWrapper.open(path, 'ab') { |file| file.puts("file-#{index}") }
+        end
+        paths.public_send(notification_order) do |path|
+          plugin.instance_variable_get(:@tails)[path].on_notify
         end
         waiting(5) { sleep 0.01 until parse_started.size == 2 }
         waiting(5) do
@@ -1033,7 +1041,9 @@ class TailInputTest < Test::Unit::TestCase
         plugin.send(:stop_watchers, { watcher.path => target }, immediate: true, unwatched: true)
         assert_true plugin.instance_variable_get(:@worker_deferred_unwatch).key?(watcher)
         assert_false watcher.eof?
-        2.times { continue_parse << true }
+        continue_parse.close
+      ensure
+        continue_parse.close
       end
 
       assert_equal (0...paths.size).map { |index| "file-#{index}" }, driver.events.map { |event| event[2]['message'] }.sort
@@ -1088,7 +1098,8 @@ class TailInputTest < Test::Unit::TestCase
       tail_input.const_set(:WORKER_QUEUE_BYTES, original_byte_limit) if original_byte_limit
     end
 
-    def test_worker_queue_saturation_drains_rotated_file
+    data(forward: :each, reverse: :reverse_each)
+    def test_worker_queue_saturation_drains_rotated_file(notification_order)
       paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
       paths.each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
       config = config_element('ROOT', '', {
@@ -1109,14 +1120,15 @@ class TailInputTest < Test::Unit::TestCase
 
       driver.run(expect_records: paths.size + 1, timeout: 10) do
         pool = driver.instance.instance_variable_get(:@worker_pool)
-        wrap_worker_pool_process(pool) do |batch|
-          if batch.lines.any? { |line| line.match?(/file-[01]/) }
-            parse_started << true
-            continue_parse.pop
-          end
+        wrap_worker_pool_process(pool) do |_batch|
+          parse_started << true
+          continue_parse.pop
         end
         paths.each_with_index do |path, index|
           Fluent::FileWrapper.open(path, 'ab') { |file| file.puts("file-#{index}") }
+        end
+        paths.public_send(notification_order) do |path|
+          driver.instance.instance_variable_get(:@tails)[path].on_notify
         end
         waiting(5) { sleep 0.01 until parse_started.size == 2 }
         waiting(5) do
@@ -1127,7 +1139,9 @@ class TailInputTest < Test::Unit::TestCase
 
         FileUtils.move(paths.first, "#{paths.first}.1")
         Fluent::FileWrapper.open(paths.first, 'wb') { |file| file.puts('replacement-file') }
-        2.times { continue_parse << true }
+        continue_parse.close
+      ensure
+        continue_parse.close
       end
 
       messages = driver.events.map { |event| event[2]['message'] }.sort
