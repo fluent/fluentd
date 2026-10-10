@@ -810,6 +810,8 @@ module Fluent::Plugin
     end
   end
 
+  # Reopen TailInput to keep worker-mode setup and lifecycle helpers grouped
+  # separately from the synchronous file-watching implementation above.
   class TailInput
     WORKER_COMPATIBILITY = WorkerCompatibility.new(self)
     WORKER_PARSER_TYPES = %w[
