@@ -157,6 +157,30 @@ class TailInputWorkerPoolTest < Test::Unit::TestCase
     assert_false watcher.signal
   end
 
+  test 'completion watcher handles repeated wakeups and closes both endpoints' do
+    event_loop = Coolio::Loop.new
+    completions = 0
+    watcher = Fluent::Plugin::TailInput::WorkerCompletionWatcher.new do
+      completions += 1
+      event_loop.stop
+    end
+    @watchers << watcher
+    watcher.attach(event_loop)
+
+    3.times do
+      thread = Thread.new { watcher.signal }
+      Timeout.timeout(5) { event_loop.run }
+      thread.join
+    end
+    assert_equal 3, completions
+
+    watcher.close
+    assert_false watcher.attached?
+    assert_true watcher.instance_variable_get(:@reader).closed?
+    assert_true watcher.instance_variable_get(:@writer).closed?
+    assert_nothing_raised { watcher.close }
+  end
+
   test 'different files run concurrently while each file stays reserved' do
     large_started = Queue.new
     large_finished = Queue.new

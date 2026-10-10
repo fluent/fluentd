@@ -15,6 +15,8 @@
 #
 
 require 'cool.io'
+require 'socket'
+require 'fluent/env'
 require 'fluent/plugin/input'
 
 module Fluent::Plugin
@@ -229,9 +231,26 @@ module Fluent::Plugin
       end
     end
 
-    class WorkerCompletionWatcher < Coolio::AsyncWatcher
+    class WorkerCompletionWatcher < Coolio::IOWatcher
       def initialize(&on_completion)
-        super()
+        if Fluent.windows?
+          # Winsock select cannot monitor IO.pipe handles. Use connected
+          # loopback sockets, as libev does for its own Windows wakeups.
+          begin
+            listener = TCPServer.new('127.0.0.1', 0)
+            @writer = TCPSocket.new('127.0.0.1', listener.addr[1])
+            @reader = listener.accept
+          rescue
+            @reader&.close
+            @writer&.close
+            raise
+          ensure
+            listener&.close
+          end
+        else
+          @reader, @writer = IO.pipe
+        end
+        super(@reader)
         @on_completion = on_completion
       end
 
@@ -245,6 +264,13 @@ module Fluent::Plugin
 
       def on_signal
         @on_completion.call
+      end
+
+      def on_readable
+        @reader.read_nonblock(1)
+        on_signal
+      rescue IO::WaitReadable
+        # Ignore spurious readiness notifications.
       end
 
       def close
