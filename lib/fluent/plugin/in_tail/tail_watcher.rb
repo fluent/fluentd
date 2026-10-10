@@ -17,6 +17,7 @@
 require 'fluent/plugin/input'
 require 'fluent/file_wrapper'
 require 'fluent/plugin/in_tail/position_file'
+require 'fluent/plugin/in_tail/compatibility'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
@@ -35,22 +36,20 @@ module Fluent::Plugin
         @io_handler_build = io_handler_build
         @metrics = metrics
         @watchers = []
+        @detached = false
+        @close_pending = false
       end
 
       attr_reader :path, :ino
+
+      def detached?
+        @detached
+      end
       attr_reader :pe
       attr_reader :file_feed
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
       attr_reader :watchers
       attr_accessor :group_watcher
-
-      # The object which keeps the line buffer of the multiline mode of the file:
-      # the FileFeed built by LineFeeder#new_file_feed, or the deprecated
-      # LineBufferTimerFlusher which a plugin overriding TailInput#setup_watcher
-      # passes to keep working without changes.
-      def line_buffer_timer_flusher
-        @file_feed
-      end
 
       def tag
         @parsed_tag ||= @path.tr('/', '.').squeeze('.').gsub(/^\./, '')
@@ -61,6 +60,7 @@ module Fluent::Plugin
       end
 
       def detach(shutdown_start_time = nil)
+        @detached = true
         if @io_handler
           @io_handler.ready_to_shutdown(shutdown_start_time)
           @io_handler.on_notify
@@ -69,17 +69,47 @@ module Fluent::Plugin
       end
 
       def close
+        if @io_handler&.pending? || @close_pending
+          @close_pending = true
+          return
+        end
+
         if @io_handler
           @io_handler.close
           @io_handler = nil
         end
       end
 
+      def defer_close
+        @close_pending = true
+      end
+
+      def close_if_ready
+        return false unless @close_pending && @io_handler&.drained?
+
+        @close_pending = false
+        close
+        true
+      end
+
       def eof?
         @io_handler.nil? || @io_handler.eof?
       end
 
+      def drained?
+        @io_handler.nil? || @io_handler.drained?
+      end
+
+      def pending?
+        @io_handler&.pending? || false
+      end
+
       def on_notify
+        if @io_handler&.pending?
+          @io_handler.on_notify
+          return
+        end
+
         begin
           stat = Fluent::FileWrapper.stat(@path)
         rescue Errno::ENOENT, Errno::EACCES
@@ -89,6 +119,19 @@ module Fluent::Plugin
 
         @rotate_handler.on_notify(stat) if @rotate_handler
         read_more
+      end
+
+      def complete_async(success)
+        return false unless @io_handler
+
+        should_notify = @io_handler.complete_async(success)
+        if @detached
+          read_more if should_notify || success
+          close_if_ready
+        else
+          on_notify if should_notify
+        end
+        should_notify
       end
 
       def read_more
@@ -214,47 +257,6 @@ module Fluent::Plugin
         rescue
           @log.error $!.to_s
           @log.error_backtrace
-        end
-      end
-
-      # Kept for compatibility with the plugins which build it by themselves and
-      # pass it to TailWatcher in the overridden TailInput#setup_watcher.
-      # LineFeeder#feed_lines feeds the lines of a watcher which keeps it, and
-      # LineFeeder::FileFeed built by LineFeeder#new_file_feed replaces it.
-      class LineBufferTimerFlusher
-        attr_accessor :line_buffer
-
-        def initialize(log, flush_interval, &flush_method)
-          @log = log
-          @flush_interval = flush_interval
-          @flush_method = flush_method
-          @start = nil
-          @line_buffer = nil
-        end
-
-        def on_notify(tw)
-          unless @start && @flush_method
-            return
-          end
-
-          if Time.now - @start >= @flush_interval
-            @flush_method.call(tw, @line_buffer) if @line_buffer
-            @line_buffer = nil
-            @start = nil
-          end
-        end
-
-        def close(tw)
-          return unless @line_buffer
-
-          @flush_method.call(tw, @line_buffer)
-          @line_buffer = nil
-        end
-
-        def reset_timer
-          return unless @flush_interval
-
-          @start = Time.now
         end
       end
     end

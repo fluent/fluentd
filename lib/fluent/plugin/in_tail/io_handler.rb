@@ -108,6 +108,7 @@ module Fluent::Plugin
       class IOHandler
         BYTES_TO_READ = 64 * 1024
         SHUTDOWN_TIMEOUT = 5
+        ASYNC_PENDING = :async_pending
 
         attr_accessor :shutdown_timeout
 
@@ -131,6 +132,10 @@ module Fluent::Plugin
           @shutdown_mutex = Mutex.new
           @eof = false
           @metrics = metrics
+          @async_pending = false
+          @notify_pending = false
+          @pending_position = nil
+          @pending_read_more = false
 
           @log.info "following tail of #{@path}"
         end
@@ -166,6 +171,33 @@ module Fluent::Plugin
           @eof
         end
 
+        def drained?
+          @eof && @lines.empty? && !@async_pending
+        end
+
+        def pending?
+          @async_pending
+        end
+
+        # Completes a receive callback that returned ASYNC_PENDING. The caller
+        # must invoke TailWatcher#on_notify when this returns true.
+        def complete_async(success)
+          @notify_mutex.synchronize do
+            raise 'no asynchronous receive is pending' unless @async_pending
+
+            if success
+              @watcher.pe.update_pos(@pending_position)
+              @lines.clear
+            end
+            should_notify = (success && @pending_read_more) || @notify_pending
+            @async_pending = false
+            @notify_pending = false
+            @pending_position = nil
+            @pending_read_more = false
+            should_notify
+          end
+        end
+
         private
 
         def limit_bytes_per_second_reached?
@@ -195,6 +227,11 @@ module Fluent::Plugin
         end
 
         def handle_notify
+          if @async_pending
+            @notify_pending = true
+            return
+          end
+
           if limit_bytes_per_second_reached? || group_watcher&.limit_lines_reached?(@path)
             @metrics.throttled.inc
             return
@@ -247,7 +284,13 @@ module Fluent::Plugin
               if @lines.empty?
                 @watcher.pe.update_pos(io.pos - @fifo.reading_bytesize) if has_skipped_line
               else
-                if @receive_lines.call(@lines, @watcher)
+                received = @receive_lines.call(@lines, @watcher)
+                if received == ASYNC_PENDING
+                  @pending_position = io.pos - @fifo.reading_bytesize
+                  @pending_read_more = read_more
+                  @async_pending = true
+                  read_more = false
+                elsif received
                   @watcher.pe.update_pos(io.pos - @fifo.reading_bytesize)
                   @lines.clear
                 else
@@ -316,6 +359,10 @@ module Fluent::Plugin
         end
 
         def eof?
+          true
+        end
+
+        def drained?
           true
         end
       end
