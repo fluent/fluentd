@@ -60,6 +60,7 @@ module Fluent::Plugin
       @tails = {}
       @tails_rotate_wait = {}
       @pf_file = nil
+      @watcher_refresh_mutex = Mutex.new
       @pf = nil
       @ignore_list = []
       @shutdown_start_time = nil
@@ -299,6 +300,14 @@ module Fluent::Plugin
 
     def shutdown
       @shutdown_start_time = Fluent::Clock.now
+      # Initial reads run as part of a refresh. Signal their timeout before
+      # waiting for the refresh, so a large file cannot delay shutdown forever.
+      (@tails.values + @tails_rotate_wait.keys).uniq.each do |tw|
+        tw.ready_to_shutdown(@shutdown_start_time)
+      end
+      # A refresh may yield during file operations. Let it finish before
+      # detaching watchers or closing the position file.
+      @watcher_refresh_mutex.synchronize {}
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(existence_path, immediate: true, remove_watcher: false)
       @tails_rotate_wait.keys.each do |tw|
@@ -432,6 +441,14 @@ module Fluent::Plugin
     # In such case, you should separate log directory and specify two paths in path parameter.
     # e.g. path /path/to/dir/*,/path/to/rotated_logs/target_file
     def refresh_watchers
+      @watcher_refresh_mutex.synchronize do
+        return if before_shutdown? || @shutdown_start_time
+
+        refresh_watchers_raw
+      end
+    end
+
+    def refresh_watchers_raw
       target_paths_hash = expand_paths
       existence_paths_hash = existence_path
 
@@ -522,6 +539,7 @@ module Fluent::Plugin
       file_feed = @line_feeder.new_file_feed(flush_interval: @multiline_flush_interval)
       read_from_head = !@startup || @read_from_head
       tw = TailWatcher.new(target_info, pe, log, read_from_head, @follow_inodes, method(:update_watcher), file_feed, method(:io_handler), @metrics)
+      tw.ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
 
       if @enable_watch_timer
         tt = TimerTrigger.new(1, log) { tw.on_notify }
@@ -577,6 +595,7 @@ module Fluent::Plugin
       end
 
       @tails[path] = tw
+      tw.ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
       tw.on_notify
     end
 

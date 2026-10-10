@@ -2779,6 +2779,38 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  test 'shutdown waits for an ongoing refresh before closing the position file' do
+    plugin = create_driver(config_element('', '', {
+                             'tag' => 't1', 'format' => 'none',
+                             'path' => "#{@tmp_dir}/*.txt",
+                           }), false).instance
+    position_file = File.open("#{@tmp_dir}/refresh.pos", 'w')
+    plugin.instance_variable_set(:@pf_file, position_file)
+    expanding = Queue.new
+    resume = Queue.new
+    plugin.define_singleton_method(:refresh_watchers_raw) do
+      expanding << true
+      resume.pop
+      position_file.write('refreshed')
+    end
+    refresh = Thread.new { plugin.refresh_watchers }
+    Timeout.timeout(5) { expanding.pop }
+    shutdown = Thread.new { plugin.shutdown }
+    waiting(5) { sleep 0.01 until shutdown.status == 'sleep' }
+    assert_false(position_file.closed?)
+    resume << true
+    Timeout.timeout(5) { refresh.value; shutdown.value }
+    assert_true(position_file.closed?)
+    assert_equal('refreshed', File.read("#{@tmp_dir}/refresh.pos"))
+  ensure
+    resume << true if resume
+    [refresh, shutdown].compact.each do |thread|
+      thread.join(5)
+      thread.kill if thread.alive?
+    end
+    position_file.close if position_file && !position_file.closed?
+  end
+
   def test_shutdown_timeout
     Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|
       # Should be large enough to take too long time to consume
