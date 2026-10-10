@@ -889,8 +889,11 @@ class TailInputTest < Test::Unit::TestCase
           end
         end
         Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('unwatch-record') }
-        waiting(5) { sleep 0.01 until parse_started.size == 1 }
         tail_watcher = plugin.instance_variable_get(:@tails)[path]
+        # StatWatcher polls about every five seconds without inotify. Trigger
+        # only the initial read; completion must drain without a watch timer.
+        plugin.timer_execute(:test_worker_initial_read, 0.01, repeat: false) { tail_watcher.on_notify }
+        waiting(5) { sleep 0.01 until parse_started.size == 1 }
         waiting(5) { sleep 0.01 until tail_watcher.pending? }
         target = Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
         assert_true tail_watcher.pending?
@@ -898,6 +901,8 @@ class TailInputTest < Test::Unit::TestCase
         plugin.send(:stop_watchers, { path => target }, immediate: true, unwatched: true)
         assert_true plugin.instance_variable_get(:@worker_deferred_unwatch).key?(tail_watcher)
         1.times { continue_parse << true }
+      ensure
+        continue_parse.close
       end
 
       assert_equal ['unwatch-record'], driver.events.map { |event| event[2]['message'] }
@@ -928,9 +933,15 @@ class TailInputTest < Test::Unit::TestCase
         end
         waiting(5) { sleep 0.01 until driver.events.size == 1 }
         Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('blocked-before-truncate') }
+        tail_watcher = driver.instance.instance_variable_get(:@tails)[path]
+        # Avoid depending on the platform's stat polling interval. No further
+        # timer notification should be needed to detect truncation on completion.
+        driver.instance.timer_execute(:test_worker_initial_read, 0.01, repeat: false) { tail_watcher.on_notify }
         waiting(5) { sleep 0.01 until parse_started.size == 1 }
         Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('after-truncate') }
         continue_parse << true
+      ensure
+        continue_parse.close
       end
 
       assert_equal %w[before-truncate blocked-before-truncate after-truncate], driver.events.map { |event| event[2]['message'] }
