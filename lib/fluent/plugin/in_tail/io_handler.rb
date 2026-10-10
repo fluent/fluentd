@@ -302,6 +302,9 @@ module Fluent::Plugin
         def initialize
         end
 
+        def ready_to_shutdown(shutdown_start_time = nil)
+        end
+
         def io
         end
 
