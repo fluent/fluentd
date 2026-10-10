@@ -141,9 +141,11 @@ module Fluent::Plugin
             dirs.concat(missing)
           end
           parents = matched
-          return dirs if parents.empty?
+          break if parents.empty?
         end
-        dirs.concat(parents)
+        # Keep unresolved prefixes while walking: resolving a symbolic link
+        # before a later '..' can change Windows path lookup semantics.
+        dirs.concat(parents).filter_map { |dir| real_path(dir) }
       end
 
       # The existing directories matching one component of a path pattern inside
@@ -169,10 +171,9 @@ module Fluent::Plugin
         dirs.filter_map { |dir|
           next unless File.directory?(dir)
           if block_given? && File.symlink?(dir.chomp(File::SEPARATOR))
-            link_parent = real_path(File.dirname(dir.chomp(File::SEPARATOR)))
-            yield link_parent if link_parent
+            yield File.dirname(dir.chomp(File::SEPARATOR))
           end
-          real_path(dir)
+          dir
         }
       end
 
@@ -188,6 +189,9 @@ module Fluent::Plugin
       # canonical path for deduplication, or nil if resolution fails. Callers
       # check whether the path is a directory.
       def real_path(dir)
+        # Win32 normalizes '..' before following symbolic links. These are
+        # already matched directory names, not unexpanded glob patterns.
+        dir = File.expand_path(dir) if Fluent.windows?
         File.realpath(dir)
       rescue SystemCallError
         # A matched path may disappear or become inaccessible before resolution.
@@ -200,8 +204,8 @@ module Fluent::Plugin
       # gives `C:/' and [`base'].
       #
       # Resolve relative paths from the working directory, like #expand_paths_raw.
-      # Preserve `..' for file system resolution: after a symbolic link it
-      # refers to the target's parent, which File.expand_path would not preserve.
+      # Preserve `..' until lookup so the platform decides its meaning. On
+      # Unix it refers to a symbolic link target's parent, unlike expand_path.
       def dir_path_parts(dir_path)
         components = path_components(dir_path)
         if File::ALT_SEPARATOR && components[0, 2] == ['', ''] && components.size >= 4

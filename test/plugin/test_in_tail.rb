@@ -2895,27 +2895,29 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
-    # Dir.glob walks the file system, so `..' of a path means the parent of the
-    # directory named by the component before it, which may be a symbolic link.
-    # Cancelling `..' with that component before the file system is asked, as
-    # File.expand_path does, would watch the directories of another path.
-    test 'expand_watch_dirs takes .. of a path after a symbolic link as Dir.glob does' do
+    # Unix resolves the link before '..'; Windows normalizes 'alias/..' first.
+    # Both sides exist so a mismatch cannot hide behind an empty glob result.
+    data('glob' => true, 'literal' => false)
+    test 'expand_watch_dirs takes .. of a path after a symbolic link as file lookup does' do |glob|
       FileUtils.mkdir_p("#{@tmp_dir}/actual/child")
       FileUtils.mkdir_p("#{@tmp_dir}/actual/logs")
-      FileUtils.touch("#{@tmp_dir}/actual/logs/app.log")
-      # The target of a symbolic link is taken from the directory of the link,
-      # so it has to be an absolute path to be found here.
+      FileUtils.mkdir_p("#{@tmp_dir}/logs")
+      FileUtils.touch("#{@tmp_dir}/actual/logs/unix.log")
+      FileUtils.touch("#{@tmp_dir}/logs/windows.log")
+      # Use an absolute target rather than resolving @tmp_dir relative to alias.
       File.symlink(File.expand_path("#{@tmp_dir}/actual/child"), "#{@tmp_dir}/alias")
+      name = Fluent.windows? ? 'windows.log' : 'unix.log'
       config = config_element('', '', {
                                'tag' => 't1',
                                'format' => 'none',
-                               'path' => "#{@tmp_dir}/alias/../logs/*.log",
+                               'path' => "#{@tmp_dir}/alias/../logs/#{glob ? '*.log' : name}",
                              })
       plugin = create_driver(config, false).instance
-      # The file is matched through the symbolic link, and the directory to
-      # watch is the one that file is created in.
-      assert_equal(["#{@tmp_dir}/alias/../logs/app.log"], plugin.expand_paths_raw)
-      assert_equal([expanded_tmp_dir, File.realpath("#{@tmp_dir}/actual/logs")].sort, plugin.expand_watch_dirs.sort)
+      directory = Fluent.windows? ? "#{@tmp_dir}/logs" : "#{@tmp_dir}/actual/logs"
+      # Do not resolve alias before the next component ('..') is looked up.
+      assert_equal(["#{expanded_tmp_dir}/alias"], plugin.existing_dirs(expanded_tmp_dir, 'alias', glob))
+      assert_equal(["#{@tmp_dir}/alias/../logs/#{name}"], plugin.expand_paths_raw)
+      assert_equal([expanded_tmp_dir, File.realpath(directory)].sort, plugin.expand_watch_dirs.sort)
     end
 
     test 'detects files after a directory symbolic link is replaced' do
