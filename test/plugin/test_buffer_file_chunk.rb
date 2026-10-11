@@ -9,6 +9,25 @@ require 'time'
 require 'timecop'
 
 class BufferFileChunkTest < Test::Unit::TestCase
+
+  def with_windows_rename_failure
+    windows = Fluent.method(:windows?)
+    rename = File.method(:rename)
+    Fluent.define_singleton_method(:windows?) { true }
+    failed = false
+    File.define_singleton_method(:rename) do |from, to|
+      if failed
+        rename.call(from, to)
+      else
+        failed = true
+        raise Errno::EACCES, "injected"
+      end
+    end
+    yield
+  ensure
+    Fluent.define_singleton_method(:windows?, windows)
+    File.define_singleton_method(:rename, rename)
+  end
   include Fluent::Plugin::Compressable
 
   setup do
@@ -147,6 +166,47 @@ class BufferFileChunkTest < Test::Unit::TestCase
 
       assert_equal :unstaged, @c.state
       assert @c.empty?
+    end
+
+    test '#enqueued! marks an unstaged chunk as queued and renames its files' do
+      stage_path = @c.path
+      queue_path = gen_chunk_path('q', @c.unique_id)
+      assert_equal :unstaged, @c.state
+
+      @c.enqueued!
+
+      assert_equal :queued, @c.state
+      assert_equal queue_path, @c.path
+      assert !File.exist?(stage_path)
+      assert !File.exist?(stage_path + '.meta')
+      assert File.exist?(queue_path)
+      assert File.exist?(queue_path + '.meta')
+    end
+
+    test '#enqueued! marks a chunk as queued even if renaming its files fails' do
+      stage_path = @c.path
+      @c.define_singleton_method(:file_rename) { |*| raise Errno::EACCES, "injected" }
+
+      assert_raise(RuntimeError) { @c.enqueued! }
+
+      assert_equal :queued, @c.state
+      assert_equal stage_path, @c.path
+      assert File.exist?(stage_path)
+      assert File.exist?(stage_path + '.meta')
+    end
+
+    test '#enqueued! keeps the chunk readable when the rename fails on Windows' do
+      @c.append(["foo\n"])
+      @c.commit
+      stage_path = @c.path
+
+      with_windows_rename_failure do
+        assert_raise(RuntimeError) { @c.enqueued! }
+      end
+
+      assert_equal :queued, @c.state
+      assert_equal stage_path, @c.path
+      assert_equal "foo\n", @c.read
     end
 
     test 'can #append, #commit and #read it' do
