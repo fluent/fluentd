@@ -29,11 +29,13 @@ require 'fluent/plugin/in_tail/stat_watcher'
 require 'fluent/plugin/in_tail/io_handler'
 require 'fluent/plugin/in_tail/tail_watcher'
 require 'fluent/plugin/in_tail/line_feeder'
+require 'fluent/plugin/in_tail/compatibility'
 require 'fluent/file_wrapper'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     include GroupWatch
+    include Compatibility
 
     Fluent::Plugin.register_input('tail', self)
 
@@ -728,41 +730,6 @@ module Fluent::Plugin
         @tails_rotate_wait[tw] = { ino: ino, timer: timer }
       end
     end
-
-    # Keep these methods as compatibility entry points for plugins which
-    # inherit TailInput and override line processing methods. TailInput is a
-    # built-in plugin, not a public inheritance API, and these methods may be
-    # removed in a future release.
-    def flush_buffer(tw, buf)
-      @line_feeder.flush_buffer(tw, buf)
-    end
-
-    # Feeds lines through the per-file feed, or through LineFeeder for watchers
-    # created by plugins using the deprecated LineBufferTimerFlusher.
-    #
-    # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
-    def receive_lines(lines, tail_watcher)
-      file_feed = tail_watcher.file_feed
-      return file_feed.feed_lines(lines, tail_watcher) if file_feed.respond_to?(:feed_lines)
-
-      @line_feeder.feed_lines(lines, tail_watcher)
-    end
-
-    def convert_line_to_event(line, es, tail_watcher)
-      @line_feeder.convert_line_to_event(line, es, tail_watcher)
-    end
-
-    def parse_singleline(lines, tail_watcher)
-      @line_feeder.parse_singleline(lines, tail_watcher)
-    end
-
-    # TailInput's default #parse_multilines path starts the flush timer before
-    # parsing. An override that skips super must call
-    # tail_watcher.line_buffer_timer_flusher.reset_timer when needed.
-    def parse_multilines(lines, tail_watcher)
-      @line_feeder.parse_multilines(lines, tail_watcher)
-    end
-    # End of compatibility entry points.
 
     def statistics
       stats = super
