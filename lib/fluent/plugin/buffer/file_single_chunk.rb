@@ -93,8 +93,14 @@ module Fluent
         end
 
         def enqueued!
-          return unless self.staged?
+          return self unless self.writable?
 
+          super
+          rename_to_queued_path
+          self
+        end
+
+        def rename_to_queued_path
           new_chunk_path = self.class.generate_queued_chunk_path(@path, @unique_id)
 
           begin
@@ -114,9 +120,8 @@ module Fluent
           end
 
           @path = new_chunk_path
-
-          super
         end
+        private :rename_to_queued_path
 
         def close
           super
@@ -225,19 +230,27 @@ module Fluent
 
         def file_rename(file, old_path, new_path, callback = nil)
           pos = file.pos
+          setup = ->(f) {
+            f.set_encoding(Encoding::ASCII_8BIT)
+            f.sync = true
+            f.binmode
+            f.pos = pos
+            callback.call(f) if callback
+          }
           if Fluent.windows?
             file.close
-            File.rename(old_path, new_path)
-            file = File.open(new_path, 'rb', @permission)
+            renamed = false
+            begin
+              File.rename(old_path, new_path)
+              renamed = true
+            ensure
+              setup.call(File.open(renamed ? new_path : old_path, 'rb', @permission))
+            end
           else
             File.rename(old_path, new_path)
             file.reopen(new_path, 'rb')
+            setup.call(file)
           end
-          file.set_encoding(Encoding::ASCII_8BIT)
-          file.sync = true
-          file.binmode
-          file.pos = pos
-          callback.call(file) if callback
         end
 
         ESCAPE_REGEXP = /[^-_.a-zA-Z0-9]/n
