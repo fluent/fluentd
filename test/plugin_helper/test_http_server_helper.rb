@@ -294,6 +294,17 @@ class HttpHelperTest < Test::Unit::TestCase
           end
         end
 
+        test 'raises an error when it fails to bind' do
+          on_driver_transport({ 'insecure' => 'true' }) do |driver|
+            assert_raise(Errno::EADDRNOTAVAIL) do
+              driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '192.0.2.1', port: @port, logger: NULL_LOGGER) do |s|
+                s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
+              end
+            end
+            assert_nothing_raised { driver.stop }
+          end
+        end
+
         test 'with insecure in transport section' do
           on_driver_transport({ 'insecure' => 'true' }) do |driver|
             driver.http_server_create_https_server(:http_server_helper_test_tls, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
@@ -361,6 +372,37 @@ class HttpHelperTest < Test::Unit::TestCase
             assert_equal('hello get', resp.body)
           end
         end
+      end
+    end
+
+    test 'raises an error when it fails to bind' do
+      io = StringIO.new
+      on_driver do |driver|
+        assert_raise(Errno::EADDRNOTAVAIL) do
+          driver.http_server_create_http_server(:http_server_helper_test, addr: '192.0.2.1', port: @port, logger: Logger.new(io)) do |s|
+            s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
+          end
+        end
+        assert_nothing_raised { driver.stop }
+      end
+      assert_match(/ERROR -- : Failed to run HTTP server listening http:\/\/192\.0\.2\.1:#{@port}: Errno::EADDRNOTAVAIL/, io.string)
+    end
+
+    test 'raises an error when the port is already in use' do
+      omit 'SO_REUSEADDR allows binding a port in use on Windows' if Fluent.windows?
+
+      begin
+        server = TCPServer.new('127.0.0.1', @port)
+        on_driver do |driver|
+          assert_raise(Errno::EADDRINUSE) do
+            driver.http_server_create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: @port, logger: NULL_LOGGER) do |s|
+              s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
+            end
+          end
+          assert_nothing_raised { driver.stop }
+        end
+      ensure
+        server&.close
       end
     end
 

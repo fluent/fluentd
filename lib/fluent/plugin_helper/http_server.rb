@@ -121,7 +121,8 @@ module Fluent
       def _block_until_http_server_start
         que = Queue.new
         yield(que)
-        que.pop
+        result = que.pop
+        raise result if result.is_a?(Exception)
       end
     end
   end
