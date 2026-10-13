@@ -415,7 +415,7 @@ module Fluent
       input.configure(conf)
       input.event_emitter_apply_source_only if @source_only_mode.enabled?
       if @enable_input_metrics
-        @event_router.add_metric_callbacks(input.plugin_id, Proc.new {|es| input.metric_callback(es) })
+        input.event_emitter_router(conf['@label']).add_metric_callbacks(input.plugin_id, Proc.new {|es| input.metric_callback(es) })
       end
       @inputs << input
 
