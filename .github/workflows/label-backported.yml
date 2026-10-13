@@ -21,7 +21,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          for number in $(printf '%s\n' "$PR_BODY" | grep -oE 'Backport #[0-9]+' | grep -oE '[0-9]+' | sort -nu); do
+          for number in $(printf '%s\n' "$PR_BODY" |
+                            grep --only-matching --extended-regexp 'Backport #[0-9]+' |
+                            grep --only-matching --extended-regexp '[0-9]+' |
+                            sort --numeric-sort --unique); do
             echo "Add backported label to #$number"
-            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$number/labels" -f 'labels[]=backported' > /dev/null
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$number/labels" --raw-field 'labels[]=backported' > /dev/null
           done
