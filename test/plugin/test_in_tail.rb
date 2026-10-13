@@ -3420,6 +3420,144 @@ class TailInputTest < Test::Unit::TestCase
       )
     end
 
+    test "a group limited file updated while its stopped watcher drains is not read twice" do
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/*.log",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "limit_recently_modified" => "10s",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_stat_watcher" => "false",
+        }
+      ) + create_group_directive(pattern, "1s", rule)
+
+      # Needs several reads of BYTES_TO_READ, so the group limit stops the watcher before EOF.
+      lines = Fluent::Plugin::TailInput::TailWatcher::IOHandler::BYTES_TO_READ * 4 / "initial\n".bytesize
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "initial" } }
+
+      d = create_driver(config, false)
+      d.run(timeout: 30) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/tail.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        File.utime(Time.now - 20, Time.now - 20, "#{@tmp_dir}/tail.log")
+        d.instance.refresh_watchers
+
+        # The file becomes a target again while the stopped watcher is still draining it.
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "ab") { |f| f.puts "resumed" }
+        d.instance.refresh_watchers
+        assert_equal(0, d.instance.instance_variable_get(:@tails).size)
+
+        waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+        d.instance.refresh_watchers
+        assert_equal(1, d.instance.instance_variable_get(:@tails).size)
+      end
+      assert_equal(["resumed"], d.events.map { |e| e[2]["message"] }.reject { |m| m == "initial" })
+      assert_equal(lines + 1, d.events.size)
+    end
+
+    test "a rotated file keeps being read under a group limit without the watch timer" do
+      omit "need inotify" unless Fluent.linux?
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log.*$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/tail.log*",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_watch_timer" => "false",
+        }
+      ) + create_group_directive(pattern, "1s", rule)
+
+      # Needs several reads of BYTES_TO_READ, so the group limit stops the watcher before EOF.
+      lines = Fluent::Plugin::TailInput::TailWatcher::IOHandler::BYTES_TO_READ * 4 / "initial\n".bytesize
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "initial" } }
+
+      d = create_driver(config, false)
+      d.run(timeout: 30) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/tail.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        # Only the stat watcher notices the rotation, and it watches the old path, so the stat watcher never fires again.
+        FileUtils.move("#{@tmp_dir}/tail.log", "#{@tmp_dir}/tail.log.1")
+        waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).size == 1 }
+
+        waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+      end
+      assert_equal(lines, d.events.size)
+    end
+
+    test "a transient emit error does not stop draining a rotated file without the watch timer" do
+      omit "need inotify" unless Fluent.linux?
+      pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log.*$/"
+      rule = create_rule_directive({ "file" => "/.*/" }, 1)
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/tail.log*",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1h",
+          "enable_watch_timer" => "false",
+          "multiline_flush_interval" => "1s",
+        },
+        [config_element("parse", "", { "@type" => "multiline", "format_firstline" => "/^s /", "format1" => "/^s (?<message>.*)/" })]
+      ) + create_group_directive(pattern, "3s", rule)
+
+      # Needs two reads of BYTES_TO_READ, so the group limit stops the watcher before EOF.
+      lines = Fluent::Plugin::TailInput::TailWatcher::IOHandler::BYTES_TO_READ * 2 / "s initial\n".bytesize
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.log", "wb") { |f| lines.times { f.puts "s initial" }; f.puts "s last" }
+
+      d = create_driver(config, false)
+      raised = false
+      d.run(timeout: 40) do
+        tw = d.instance.instance_variable_get(:@tails)["#{@tmp_dir}/tail.log"]
+        waiting(5) { sleep 0.1 until d.events.size > 0 }
+        assert_false(tw.eof?)
+
+        # The multiline flush fails once, as if the output buffer were full.
+        flusher = tw.line_buffer_timer_flusher
+        flush_method = flusher.instance_variable_get(:@flush_method)
+        flusher.instance_variable_set(:@flush_method, lambda { |watcher, buf|
+          unless raised
+            raised = true
+            raise Fluent::Plugin::Buffer::BufferOverflowError, "test"
+          end
+          flush_method.call(watcher, buf)
+        })
+
+        FileUtils.move("#{@tmp_dir}/tail.log", "#{@tmp_dir}/tail.log.1")
+        waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).size == 1 }
+        waiting(20) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
+      end
+      assert_true(raised)
+      assert_equal([], d.logs.grep(/Stopping the timer/))
+      assert_equal(lines + 1, d.events.size)
+      assert_equal("last", d.events.last[2]["message"])
+    end
+
     test "lines collected with throttling" do
       file = "podname1_namespace12_container-123456.log"
       limit = 1000
@@ -3616,6 +3754,7 @@ class TailInputTest < Test::Unit::TestCase
 
       Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "file1 log1"}
 
+      tail_watcher_count_after_first_refresh = nil
       d.run(expect_records: 4, timeout: 10) do
         # Rotate (If the timing is bad, `TailWatcher::on_notify` might be called between mv and new-file-creation)
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "file1 log2"}
@@ -3628,11 +3767,16 @@ class TailInputTest < Test::Unit::TestCase
 
         # This reproduces the following situation:
         #     Rotation => update_watcher => refresh_watchers
+        # This does NOT add TailWatcher(path: "tail.txt1", inode: inode_0) because the old
+        # TailWatcher waiting `rotate_wait` still reads inode_0.
+        d.instance.refresh_watchers
+        tail_watcher_count_after_first_refresh = tail_watchers.size
+
+        # The old TailWatcher is detached and closed after `rotate_wait` (`4s`).
+        waiting(10) { sleep 0.1 until tail_watchers[0].instance_variable_get(:@io_handler).nil? }
+
         # This adds a new TailWatcher: TailWatcher(path: "tail.txt1", inode: inode_0)
         d.instance.refresh_watchers
-
-        # The old TailWatcher is detached here since `rotate_wait` is `4s`.
-        sleep 3
 
         # Append to the new current log file.
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "file2 log2"}
@@ -3652,6 +3796,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(
         {
           record_values: ["file1 log1", "file1 log2", "file2 log1", "file2 log2"],
+          tail_watcher_count_after_first_refresh: 2,
           tail_watcher_paths: ["#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt1"],
           tail_watcher_inodes: [inode_0, inode_1, inode_0],
           tail_watcher_io_handler_opened_statuses: [false, false, false],
@@ -3663,6 +3808,7 @@ class TailInputTest < Test::Unit::TestCase
         },
         {
           record_values: record_values,
+          tail_watcher_count_after_first_refresh: tail_watcher_count_after_first_refresh,
           tail_watcher_paths: tail_watchers.collect { |tw| tw.path },
           tail_watcher_inodes: tail_watchers.collect { |tw| tw.ino },
           tail_watcher_io_handler_opened_statuses: tail_watchers.collect { |tw| tw.instance_variable_get(:@io_handler)&.opened? || false },
@@ -3776,10 +3922,8 @@ class TailInputTest < Test::Unit::TestCase
           # In order to reproduce the same condition stably, ensure that `refresh_watchers` is not
           # called by a timer.
           "refresh_interval" => "1h",
-          # https://github.com/fluent/fluentd/pull/4237#issuecomment-1633358632
-          # Because of this problem, log duplication can occur during `rotate_wait`.
-          # Need to set `rotate_wait 0` for a workaround.
-          "rotate_wait" => "0s",
+          # In order to keep the first TailWatcher reading the rotated file until the end of the test.
+          "rotate_wait" => "10s",
         }
       )
       d = create_driver(config, false)
@@ -3808,9 +3952,10 @@ class TailInputTest < Test::Unit::TestCase
         sleep 2 # On Windows and macOS, StatWatcher doesn't work, so need enough interval for TimeTrigger.
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "file2 log1"}
 
-        # Add new TailWatchers
+        # Add a new TailWatcher
         #     tail.txt: TailWatcher(path: "tail.txt", inode: inode_1)
-        #     tail.txt: TailWatcher(path: "tail.txt1", inode: inode_0)
+        # TailWatcher(path: "tail.txt1", inode: inode_0) is not added because the first TailWatcher
+        # waiting `rotate_wait` still reads inode_0.
         # NOTE: If not discarding the first TailWatcher on notify, this makes it a orphan because
         # this overwrites the `@tails[tail.txt]` by adding TailWatcher(path: "tail.txt", inode: inode_1)
         d.instance.refresh_watchers
@@ -3854,11 +3999,6 @@ class TailInputTest < Test::Unit::TestCase
               inode: inode_1,
               io_handler_opened_status: false,
             },
-            {
-              path: "#{@tmp_dir}/tail.txt1",
-              inode: inode_0,
-              io_handler_opened_status: false,
-            },
           ],
           position_entries: [
             ["#{@tmp_dir}/tail.txt", "0000000000000021", inode_0],
@@ -3875,6 +4015,94 @@ class TailInputTest < Test::Unit::TestCase
             }
           }),
           position_entries: position_entries,
+        },
+      )
+    end
+
+    # https://github.com/fluent/fluentd/issues/4243
+    def test_no_duplication_when_appending_to_rotated_file_during_rotate_wait
+      config = config_element(
+        "ROOT",
+        "",
+        {
+          "path" => "#{@tmp_dir}/tail.txt*",
+          "pos_file" => "#{@tmp_dir}/tail.pos",
+          "tag" => "t1",
+          "format" => "none",
+          "read_from_head" => "true",
+          "follow_inodes" => "true",
+          # In order to keep the old watcher alive while `refresh_watchers` runs.
+          "rotate_wait" => "4s",
+          # In order to reproduce the same condition stably, ensure that `refresh_watchers` is not
+          # called by a timer.
+          "refresh_interval" => "1h",
+          # stat_watcher often calls `TailWatcher::on_notify` faster than creating a new log file,
+          # so disable it in order to reproduce the same condition stably.
+          "enable_stat_watcher" => "false",
+        }
+      )
+      d = create_driver(config, false)
+
+      tail_watchers = []
+      stub.proxy(d.instance).setup_watcher do |tw|
+        tail_watchers.append(tw)
+        tw
+      end
+
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "file1 log1"}
+
+      d.run(expect_records: 6, timeout: 15) do
+        # Rotate
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "file1 log2"}
+        FileUtils.move("#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt" + "1")
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "file2 log1"}
+
+        # `watch_timer` calls `TailWatcher::on_notify`, and then `update_watcher` updates the TailWatcher:
+        #     TailWatcher(path: "tail.txt", inode: inode_0) => TailWatcher(path: "tail.txt", inode: inode_1)
+        # The old TailWatcher keeps reading inode_0 during `rotate_wait`.
+        waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).size == 1 }
+
+        # `refresh_watchers` must not add another TailWatcher for inode_0 while the old one is
+        # still reading it. Otherwise the following append is collected twice.
+        d.instance.refresh_watchers
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt1", "ab") {|f| f.puts "file1 log3"}
+
+        # The old TailWatcher is detached and closed after `rotate_wait` (`4s`).
+        waiting(10) { sleep 0.1 until tail_watchers[0].instance_variable_get(:@io_handler).nil? }
+
+        # Now the rotated file is followed again from the recorded position.
+        #     TailWatcher(path: "tail.txt1", inode: inode_0)
+        d.instance.refresh_watchers
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt1", "ab") {|f| f.puts "file1 log4"}
+        Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "ab") {|f| f.puts "file2 log2"}
+      end
+
+      inode_0 = tail_watchers[0].ino
+      inode_1 = tail_watchers[1].ino
+      record_values = d.events.collect { |event| event[2]["message"] }.sort
+      position_entries = []
+      Fluent::FileWrapper.open("#{@tmp_dir}/tail.pos", "r") do |f|
+        f.readlines(chomp: true).each do |line|
+          values = line.split("\t")
+          position_entries.append([values[0], values[1], values[2].to_i(16)])
+        end
+      end
+
+      assert_equal(
+        {
+          record_values: ["file1 log1", "file1 log2", "file1 log3", "file1 log4", "file2 log1", "file2 log2"],
+          tail_watcher_paths: ["#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt", "#{@tmp_dir}/tail.txt1"],
+          tail_watcher_inodes: [inode_0, inode_1, inode_0],
+          position_entries: [
+            ["#{@tmp_dir}/tail.txt", "000000000000002c", inode_0],
+            ["#{@tmp_dir}/tail.txt", "0000000000000016", inode_1],
+          ],
+        },
+        {
+          record_values: record_values,
+          tail_watcher_paths: tail_watchers.collect { |tw| tw.path },
+          tail_watcher_inodes: tail_watchers.collect { |tw| tw.ino },
+          position_entries: position_entries
         },
       )
     end
