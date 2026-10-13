@@ -10,6 +10,124 @@ require 'timecop'
 require 'tmpdir'
 require 'securerandom'
 
+# TailInput subclasses used to verify compatibility with overridden line
+# processing methods.
+module TailInputSubclasses
+  class RecordingInput < Fluent::Plugin::TailInput
+    attr_reader :calls
+
+    def initialize
+      super
+      @calls = []
+    end
+  end
+
+  class ReceiveLinesOverride < RecordingInput
+    def receive_lines(lines, tail_watcher)
+      @calls << [:receive_lines, lines]
+      super
+    end
+  end
+
+  class ReceiveLinesWithoutSuper < RecordingInput
+    def receive_lines(lines, tail_watcher)
+      @calls << [:receive_lines, lines]
+      router.emit(tail_watcher.tag, Fluent::EventTime.now, { 'custom' => lines.join('|') })
+      true
+    end
+  end
+
+  # The first call simulates a full buffer, the following ones work normally.
+  class ReceiveLinesFailsOnce < RecordingInput
+    def receive_lines(lines, tail_watcher)
+      @calls << [:receive_lines, lines]
+      return false if @calls.size == 1
+      super
+    end
+  end
+
+  class FlushBufferOverride < RecordingInput
+    def flush_buffer(tw, buf)
+      # the native implementation chomps the buffer, keep a copy of it
+      @calls << [:flush_buffer, buf.dup]
+      super
+    end
+  end
+
+  class ConvertLineToEventOverride < RecordingInput
+    def convert_line_to_event(line, es, tail_watcher)
+      @calls << [:convert_line_to_event, line]
+      super
+    end
+  end
+
+  class ParseSinglelineOverride < RecordingInput
+    def parse_singleline(lines, tail_watcher)
+      @calls << [:parse_singleline, lines]
+      es = Fluent::MultiEventStream.new
+      lines.each { |line|
+        es.add(Fluent::EventTime.now, { 'custom' => line.chomp })
+      }
+      es
+    end
+  end
+
+  class ParseSinglelineOverrideWithSuper < RecordingInput
+    def parse_singleline(lines, tail_watcher)
+      # the native implementation chomps each line, keep copies of them
+      @calls << [:parse_singleline, lines.map(&:dup)]
+      super
+    end
+  end
+
+  class ParseMultilinesOverride < RecordingInput
+    def parse_multilines(lines, tail_watcher)
+      # the native implementation appends the buffered line to the first line,
+      # so keep copies to check the arguments it got
+      @calls << [:parse_multilines, lines.map(&:dup), tail_watcher.line_buffer_timer_flusher.line_buffer]
+      super
+    end
+  end
+
+  class PrivateParseSinglelineOverride < RecordingInput
+    private
+
+    def parse_singleline(lines, tail_watcher)
+      @calls << [:parse_singleline, lines]
+      super
+    end
+  end
+
+  module PrependReceiveLines
+    def receive_lines(lines, tail_watcher)
+      @calls << [:receive_lines, lines]
+      super
+    end
+  end
+
+  class PrependedInput < RecordingInput
+    prepend PrependReceiveLines
+  end
+
+  module IncludedConvertLineToEvent
+    def convert_line_to_event(line, es, tail_watcher)
+      @calls << [:convert_line_to_event, line]
+      super
+    end
+  end
+
+  class IncludedInput < RecordingInput
+    include IncludedConvertLineToEvent
+  end
+
+  class SetupWatcherOverride < RecordingInput
+    def setup_watcher(target_info, pe)
+      @calls << [:setup_watcher, target_info.path]
+      super
+    end
+  end
+end
+
 class TailInputTest < Test::Unit::TestCase
   include FlexMock::TestCase
 
@@ -165,9 +283,9 @@ class TailInputTest < Test::Unit::TestCase
     config_element("source", "", { "path" => "#{@tmp_dir}/#{path}" })
   end
 
-  def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true)
+  def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true, klass: Fluent::Plugin::TailInput)
     config = use_common_conf ? common_config + conf : conf
-    Fluent::Test::Driver::Input.new(Fluent::Plugin::TailInput).configure(config)
+    Fluent::Test::Driver::Input.new(klass).configure(config)
   end
 
   sub_test_case "configure" do
@@ -183,6 +301,19 @@ class TailInputTest < Test::Unit::TestCase
       assert_nothing_raised do
         d.instance.have_read_capability?
       end
+    end
+
+    data('without *': { tag: 'tail', tag_prefix: nil, tag_suffix: nil },
+         'only *': { tag: '*', tag_prefix: '', tag_suffix: '' },
+         'prefix': { tag: 'pre.*', tag_prefix: 'pre.', tag_suffix: '' },
+         'suffix': { tag: '*.post', tag_prefix: '', tag_suffix: '.post' },
+         'prefix and suffix': { tag: 'pre.*.post', tag_prefix: 'pre.', tag_suffix: '.post' },
+         'extra * is ignored': { tag: 'pre.*.post*ignore', tag_prefix: 'pre.', tag_suffix: '.post' })
+    test "tag with * is split into tag_prefix and tag_suffix" do |data|
+      conf = config_element("ROOT", "", { "tag" => data[:tag], "path" => "#{@tmp_dir}/tail.txt", "format" => "none" })
+      d = create_driver(conf, false)
+      assert_equal(data[:tag_prefix], d.instance.instance_variable_get(:@tag_prefix))
+      assert_equal(data[:tag_suffix], d.instance.instance_variable_get(:@tag_suffix))
     end
 
     data("empty" => config_element,
@@ -1355,11 +1486,12 @@ class TailInputTest < Test::Unit::TestCase
         # which doesn't implement it yields (nil, nil) even if
         # `emit_unmatched_lines` is enabled. in_tail must emit the buffered
         # line as `unmatched_line` in that case.
-        plugin.instance_variable_set(:@parser, NeverMatchingParser.new)
+        line_feeder = plugin.instance_variable_get(:@line_feeder)
+        line_feeder.instance_variable_set(:@parser, NeverMatchingParser.new)
         tw = Fluent::Plugin::TailInput::TailWatcher.new(
           create_target_info("#{@tmp_dir}/tail.txt"), nil, $log, true, false, nil, nil, nil, nil
         )
-        plugin.flush_buffer(tw, "incomplete line\n")
+        line_feeder.flush_buffer(tw, "incomplete line\n")
       end
 
       events = d.events
@@ -2012,7 +2144,7 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case "receive_lines" do
+  sub_test_case "receive_lines compatibility" do
     DummyWatcher = Struct.new("DummyWatcher", :tag)
 
     def test_tag
@@ -2091,6 +2223,234 @@ class TailInputTest < Test::Unit::TestCase
       plugin = d.instance
       mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    end
+  end
+
+  # Verify that overridden line processing methods remain on the call path.
+  sub_test_case "line processing methods overridden by a subclass" do
+    LineProcessingWatcher = Struct.new("LineProcessingWatcher", :tag, :path, :line_buffer_timer_flusher)
+
+    def create_subclass_driver(conf, name)
+      create_driver(conf + config_element("", "", { "read_from_head" => "true" }), true,
+                    klass: TailInputSubclasses.const_get(name))
+    end
+
+    def first_watcher(plugin)
+      plugin.instance_variable_get(:@tails).values.first
+    end
+
+    def test_receive_lines_with_super
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :ReceiveLinesOverride)
+      plugin = d.instance
+      d.run do
+        assert_true plugin.receive_lines(['foo', 'bar'], LineProcessingWatcher.new('foo.bar.log', nil, nil))
+      end
+      assert_equal([[:receive_lines, ['foo', 'bar']]], plugin.calls)
+      assert_equal(['t1', 't1'], d.events.map { |e| e[0] })
+      assert_equal([{ 'message' => 'foo' }, { 'message' => 'bar' }], d.events.map { |e| e[2] })
+    end
+
+    def test_receive_lines_without_super
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :ReceiveLinesWithoutSuper)
+      plugin = d.instance
+      d.run do
+        assert_true plugin.receive_lines(['foo', 'bar'], LineProcessingWatcher.new('foo.bar.log', nil, nil))
+      end
+      assert_equal([[:receive_lines, ['foo', 'bar']]], plugin.calls)
+      assert_equal([['foo.bar.log', { 'custom' => 'foo|bar' }]], d.events.map { |e| [e[0], e[2]] })
+    end
+
+    # IOHandler keeps the read position when receive_lines returns false, so
+    # the lines must be emitted once the buffer is not full anymore.
+    def test_receive_lines_returning_false_does_not_advance_the_position
+      File.binwrite("#{@tmp_dir}/tail.txt", "")
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :ReceiveLinesFailsOnce)
+      plugin = d.instance
+      d.run do
+        tw = first_watcher(plugin)
+        File.binwrite("#{@tmp_dir}/tail.txt", "test1\ntest2\n")
+
+        tw.on_notify
+        assert_equal 0, tw.pe.read_pos
+        assert_true d.events.empty?
+
+        tw.on_notify
+        assert_equal 12, tw.pe.read_pos
+      end
+      assert_equal 2, plugin.calls.size
+      assert_equal([{ 'message' => 'test1' }, { 'message' => 'test2' }], d.events.map { |e| e[2] })
+    end
+
+    def test_flush_buffer_override_is_called_by_the_line_buffer_timer_flusher
+      File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
+      d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :FlushBufferOverride)
+      plugin = d.instance
+      d.run do
+        tw = first_watcher(plugin)
+        refute_nil tw.line_buffer_timer_flusher
+        tw.line_buffer_timer_flusher.line_buffer = "s incomplete\n"
+        tw.line_buffer_timer_flusher.close(tw)
+      end
+      assert_equal([[:flush_buffer, "s incomplete\n"]], plugin.calls)
+      assert_equal([{ 'message1' => 'incomplete' }], d.events.map { |e| e[2] })
+    end
+
+    def test_convert_line_to_event_override
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :ConvertLineToEventOverride)
+      plugin = d.instance
+      d.run do
+        plugin.receive_lines(['foo', 'bar'], LineProcessingWatcher.new('foo.bar.log', nil, nil))
+      end
+      assert_equal([[:convert_line_to_event, 'foo'], [:convert_line_to_event, 'bar']], plugin.calls)
+      assert_equal([{ 'message' => 'foo' }, { 'message' => 'bar' }], d.events.map { |e| e[2] })
+    end
+
+    def test_parse_singleline_override
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :ParseSinglelineOverride)
+      plugin = d.instance
+      d.run do
+        plugin.receive_lines(['foo', 'bar'], LineProcessingWatcher.new('foo.bar.log', nil, nil))
+      end
+      assert_equal([[:parse_singleline, ['foo', 'bar']]], plugin.calls)
+      assert_equal([{ 'custom' => 'foo' }, { 'custom' => 'bar' }], d.events.map { |e| e[2] })
+    end
+
+    def test_parse_multilines_override_with_super
+      d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :ParseMultilinesOverride)
+      plugin = d.instance
+      d.run do
+        flusher = Fluent::Plugin::TailInput::TailWatcher::LineBufferTimerFlusher.new($log, 4, &plugin.method(:flush_buffer))
+        watcher = LineProcessingWatcher.new('foo.bar.log', "#{@tmp_dir}/tail.txt", flusher)
+        plugin.receive_lines(["s test1\n", "f test2\n"], watcher)
+        assert_equal([[:parse_multilines, ["s test1\n", "f test2\n"], nil]], plugin.calls)
+        assert_equal("s test1\nf test2\n", watcher.line_buffer_timer_flusher.line_buffer)
+        assert_true d.events.empty?
+      end
+    end
+
+    # #super comes back to the delegation to LineFeeder, so the native
+    # implementation parses the lines and the events are built as usual.
+    def test_parse_singleline_override_with_super
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :ParseSinglelineOverrideWithSuper)
+      plugin = d.instance
+      d.run do
+        assert_true plugin.receive_lines(['foo', 'bar'], LineProcessingWatcher.new('foo.bar.log', nil, nil))
+      end
+      assert_equal([[:parse_singleline, ['foo', 'bar']]], plugin.calls)
+      assert_equal(['t1', 't1'], d.events.map { |e| e[0] })
+      assert_equal([{ 'message' => 'foo' }, { 'message' => 'bar' }], d.events.map { |e| e[2] })
+    end
+
+    # LineFeeder converts a completed multiline block with the injected
+    # convert_handler, so an override of #convert_line_to_event is called in the
+    # multiline mode too. The native implementation chomps the buffered lines in
+    # place, thus the recorded buffer has no trailing newline.
+    def test_convert_line_to_event_override_with_super_in_multiline_mode
+      d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :ConvertLineToEventOverride)
+      plugin = d.instance
+      d.run do
+        flusher = Fluent::Plugin::TailInput::TailWatcher::LineBufferTimerFlusher.new($log, 4, &plugin.method(:flush_buffer))
+        watcher = LineProcessingWatcher.new('foo.bar.log', "#{@tmp_dir}/tail.txt", flusher)
+        plugin.receive_lines(["s test1\n", "f test2\n", "s test3\n"], watcher)
+        assert_equal([[:convert_line_to_event, "s test1\nf test2"]], plugin.calls)
+        assert_equal("s test3\n", watcher.line_buffer_timer_flusher.line_buffer)
+      end
+      assert_equal([{ 'message1' => 'test1', 'message2' => 'test2' }], d.events.map { |e| e[2] })
+    end
+
+    # #super comes back to the delegation to LineFeeder, so the block completed
+    # by the next firstline is emitted and the following lines stay buffered.
+    def test_parse_multilines_override_with_super_emits_completed_events
+      d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :ParseMultilinesOverride)
+      plugin = d.instance
+      d.run do
+        flusher = Fluent::Plugin::TailInput::TailWatcher::LineBufferTimerFlusher.new($log, 4, &plugin.method(:flush_buffer))
+        watcher = LineProcessingWatcher.new('foo.bar.log', "#{@tmp_dir}/tail.txt", flusher)
+        plugin.receive_lines(["s test1\n", "f test2\n", "s test3\n"], watcher)
+        assert_equal([[:parse_multilines, ["s test1\n", "f test2\n", "s test3\n"], nil]], plugin.calls)
+        assert_equal("s test3\n", watcher.line_buffer_timer_flusher.line_buffer)
+      end
+      assert_equal([{ 'message1' => 'test1', 'message2' => 'test2' }], d.events.map { |e| e[2] })
+    end
+
+    def test_private_parse_singleline_override
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :PrivateParseSinglelineOverride)
+      plugin = d.instance
+      d.run do
+        plugin.receive_lines(['foo'], LineProcessingWatcher.new('foo.bar.log', nil, nil))
+      end
+      assert_equal([[:parse_singleline, ['foo']]], plugin.calls)
+      assert_equal([{ 'message' => 'foo' }], d.events.map { |e| e[2] })
+    end
+
+    def test_prepended_receive_lines_override
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :PrependedInput)
+      plugin = d.instance
+      d.run do
+        plugin.receive_lines(['foo'], LineProcessingWatcher.new('foo.bar.log', nil, nil))
+      end
+      assert_equal([[:receive_lines, ['foo']]], plugin.calls)
+      assert_equal([{ 'message' => 'foo' }], d.events.map { |e| e[2] })
+    end
+
+    def test_included_convert_line_to_event_override
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :IncludedInput)
+      plugin = d.instance
+      d.run do
+        plugin.receive_lines(['foo'], LineProcessingWatcher.new('foo.bar.log', nil, nil))
+      end
+      assert_equal([[:convert_line_to_event, 'foo']], plugin.calls)
+      assert_equal([{ 'message' => 'foo' }], d.events.map { |e| e[2] })
+    end
+
+    def test_setup_watcher_override
+      File.open("#{@tmp_dir}/tail.txt", "w") { |f| f.write("test1\n") }
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :SetupWatcherOverride)
+      d.run do
+        assert_equal([[:setup_watcher, "#{@tmp_dir}/tail.txt"]], d.instance.calls)
+        assert_equal(1, d.instance.instance_variable_get(:@tails).size)
+      end
+    end
+
+    # A plugin which builds TailWatcher and LineBufferTimerFlusher by itself,
+    # like the plugins overriding #setup_watcher, must keep working.
+    def test_tailwatcher_and_line_buffer_timer_flusher_signatures
+      path = "#{@tmp_dir}/tail.txt"
+      File.open(path, "w") { |f| f.write("") }
+      d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :FlushBufferOverride)
+      plugin = d.instance
+      d.run do
+        flusher = Fluent::Plugin::TailInput::TailWatcher::LineBufferTimerFlusher.new($log, 4, &plugin.method(:flush_buffer))
+        tw = Fluent::Plugin::TailInput::TailWatcher.new(
+          create_target_info(path), nil, $log, true, false, nil, flusher, nil, nil
+        )
+        assert_match(/tail\.txt\z/, tw.tag)
+        assert_equal flusher, tw.line_buffer_timer_flusher
+
+        flusher.line_buffer = "s incomplete\n"
+        flusher.close(tw)
+      end
+      assert_equal([[:flush_buffer, "s incomplete\n"]], plugin.calls)
+    end
+
+    # detach flushes the pending line buffer and close only closes the io.
+    def test_detach_flushes_the_pending_line_buffer_and_close_does_not
+      File.binwrite("#{@tmp_dir}/tail.txt", "s test1\n")
+      d = create_subclass_driver(PARSE_MULTILINE_CONFIG, :FlushBufferOverride)
+      plugin = d.instance
+      d.run do
+        tw = first_watcher(plugin)
+        tw.on_notify
+        assert_equal("s test1\n", tw.line_buffer_timer_flusher.line_buffer)
+
+        tw.close
+        assert_equal([], plugin.calls)
+        assert_equal("s test1\n", tw.line_buffer_timer_flusher.line_buffer)
+
+        tw.detach
+        assert_equal([[:flush_buffer, "s test1\n"]], plugin.calls)
+        assert_nil tw.line_buffer_timer_flusher.line_buffer
+      end
     end
   end
 
