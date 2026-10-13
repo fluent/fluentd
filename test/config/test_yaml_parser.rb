@@ -426,6 +426,52 @@ class YamlParserTest < Test::Unit::TestCase
         assert_equal("filter", config.elements[0].name) # included section
       end
 
+      def test_include_mapping_file_in_config_list
+        write_config "#{TMP_DIR}/both.yaml", <<~EOS
+        source:
+          $type: sample
+          tag: t1
+        match:
+          $tag: "**"
+          $type: stdout
+        EOS
+        write_config "#{TMP_DIR}/test_include_mapping_file_in_config_list.yaml", <<~EOS
+        config:
+          - !include both.yaml
+        EOS
+        config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_include_mapping_file_in_config_list.yaml")
+        assert_equal(["source", "match"], config.elements.map(&:name))
+      end
+
+      def test_include_mapping_files_by_glob_in_config_list
+        write_config "#{TMP_DIR}/conf.d/app.yaml", <<~EOS
+        source:
+          $type: sample
+          tag: t1
+        match:
+          $tag: "**"
+          $type: stdout
+        EOS
+        write_config "#{TMP_DIR}/test_include_mapping_files_by_glob_in_config_list.yaml", <<~EOS
+        config:
+          - !include conf.d/*.yaml
+        EOS
+        config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_include_mapping_files_by_glob_in_config_list.yaml")
+        assert_equal(["source", "match"], config.elements.map(&:name))
+      end
+
+      def test_include_system_section
+        write_config "#{TMP_DIR}/sys.yaml", <<~EOS
+        log_level: debug
+        EOS
+        write_config "#{TMP_DIR}/test_include_system_section.yaml", <<~EOS
+        system: !include sys.yaml
+        EOS
+        config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_include_system_section.yaml")
+        assert_equal("system", config.elements[0].name)
+        assert_equal("debug", config.elements[0]["log_level"])
+      end
+
       def test_include_normal_config_file
         write_config "#{TMP_DIR}/dummy.conf", <<~EOS
           <filter **>
@@ -437,8 +483,8 @@ class YamlParserTest < Test::Unit::TestCase
             - !include dummy.conf
         EOS
 
-        # TODO: it should raise Fluent::ConfigError instead of TypeError, or parse normal config file
-        assert_raise(TypeError) do
+        # TODO: it should raise Fluent::ConfigError instead of NoMethodError, or parse normal config file
+        assert_raise(NoMethodError) do
           Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_include_normal_config_file.yaml")
         end
       end
@@ -491,9 +537,14 @@ class YamlParserTest < Test::Unit::TestCase
     assert_equal(12345, config.elements[1]['common_param2'])
   end
 
-  def test_merge_common_parameter_using_include
+  data('single file' => 'fluent-common.yaml',
+       'glob' => 'fluent-common*.yaml')
+  def test_merge_common_parameter_using_include(include_path)
     write_config "#{TMP_DIR}/fluent-common.yaml", <<~EOS
       common_param: foobarbaz
+    EOS
+    write_config "#{TMP_DIR}/fluent-common2.yaml", <<~EOS
+      common_param: overridden
     EOS
 
     write_config "#{TMP_DIR}/test_merge_common_parameter_using_include.yaml", <<~EOS
@@ -501,17 +552,17 @@ class YamlParserTest < Test::Unit::TestCase
         - match:
             $tag: dummy_tag_1
             $type: dummy_type_1
-            <<: !include fluent-common.yaml
+            <<: !include #{include_path}
         - match:
             $tag: dummy_tag_2
             $type: dummy_type_2
-            <<: !include fluent-common.yaml
+            <<: !include #{include_path}
     EOS
 
-    # TODO: Fix exception
-    assert_raise(TypeError) do
-      Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_merge_common_parameter_using_include.yaml")
-    end
+    config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_merge_common_parameter_using_include.yaml")
+    assert_equal(2, config.elements.size)
+    assert_equal('foobarbaz', config.elements[0]['common_param'])
+    assert_equal('foobarbaz', config.elements[1]['common_param'])
   end
 
   def test_unknown_anchor
