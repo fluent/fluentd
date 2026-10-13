@@ -17,6 +17,7 @@
 require 'fluent/plugin/input'
 require 'fluent/file_wrapper'
 require 'fluent/plugin/in_tail/position_file'
+require 'fluent/plugin/in_tail/compatibility'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
@@ -43,14 +44,6 @@ module Fluent::Plugin
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
       attr_reader :watchers
       attr_accessor :group_watcher
-
-      # The object which keeps the line buffer of the multiline mode of the file:
-      # the FileFeed built by LineFeeder#new_file_feed, or the deprecated
-      # LineBufferTimerFlusher which a plugin overriding TailInput#setup_watcher
-      # passes to keep working without changes.
-      def line_buffer_timer_flusher
-        @file_feed
-      end
 
       def tag
         @parsed_tag ||= @path.tr('/', '.').squeeze('.').gsub(/^\./, '')
@@ -214,47 +207,6 @@ module Fluent::Plugin
         rescue
           @log.error $!.to_s
           @log.error_backtrace
-        end
-      end
-
-      # Kept for compatibility with the plugins which build it by themselves and
-      # pass it to TailWatcher in the overridden TailInput#setup_watcher.
-      # LineFeeder#feed_lines feeds the lines of a watcher which keeps it, and
-      # LineFeeder::FileFeed built by LineFeeder#new_file_feed replaces it.
-      class LineBufferTimerFlusher
-        attr_accessor :line_buffer
-
-        def initialize(log, flush_interval, &flush_method)
-          @log = log
-          @flush_interval = flush_interval
-          @flush_method = flush_method
-          @start = nil
-          @line_buffer = nil
-        end
-
-        def on_notify(tw)
-          unless @start && @flush_method
-            return
-          end
-
-          if Time.now - @start >= @flush_interval
-            @flush_method.call(tw, @line_buffer) if @line_buffer
-            @line_buffer = nil
-            @start = nil
-          end
-        end
-
-        def close(tw)
-          return unless @line_buffer
-
-          @flush_method.call(tw, @line_buffer)
-          @line_buffer = nil
-        end
-
-        def reset_timer
-          return unless @flush_interval
-
-          @start = Time.now
         end
       end
     end
