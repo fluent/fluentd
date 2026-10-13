@@ -203,6 +203,44 @@ EOC
     end
   end
 
+  sub_test_case 'input metrics' do
+    setup do
+      @ra = RootAgent.new(log: $log, system_config: SystemConfig.new({'enable_input_metrics' => true}))
+      stub(Engine).root_agent { @ra }
+    end
+
+    test 'counts records and bytes emitted by an input with @label' do
+      conf = Config.parse(<<-EOC, "(test)", "(test_dir)", true)
+<source>
+  @type test_in
+  @id in_root
+</source>
+<source>
+  @type test_in
+  @id in_label
+  @label @test
+</source>
+<label @test>
+  <match **>
+    @type test_out
+  </match>
+</label>
+<match **>
+  @type test_out
+</match>
+EOC
+      stats = Fluent::SystemConfig.overwrite_system_config('enable_size_metrics' => true) do
+        @ra.configure(conf)
+        @ra.inputs.each { |input| input.router.emit('test', Engine.now, {'k' => 'v'}) }
+        @ra.inputs.to_h { |input| [input.plugin_id, input.statistics['input']] }
+      end
+
+      assert_equal({'in_root' => 1, 'in_label' => 1}, stats.transform_values { |s| s['emit_records'] })
+      assert_equal stats['in_root']['emit_size'], stats['in_label']['emit_size']
+      assert_operator stats['in_label']['emit_size'], :>, 0
+    end
+  end
+
   sub_test_case 'start/shutdown' do
     def setup_root_agent(conf)
       ra = RootAgent.new(log: $log)
