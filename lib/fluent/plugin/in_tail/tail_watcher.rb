@@ -62,10 +62,15 @@ module Fluent::Plugin
 
       def detach(shutdown_start_time = nil)
         if @io_handler
-          @io_handler.ready_to_shutdown(shutdown_start_time)
+          ready_to_shutdown(shutdown_start_time)
           @io_handler.on_notify
         end
         @file_feed&.close(self)
+      end
+
+      def ready_to_shutdown(shutdown_start_time)
+        @shutdown_start_time = shutdown_start_time
+        @io_handler.ready_to_shutdown(shutdown_start_time) if @io_handler
       end
 
       def close
@@ -178,7 +183,9 @@ module Fluent::Plugin
       end
 
       def io_handler
-        @io_handler_build.call(self, @path)
+        handler = @io_handler_build.call(self, @path)
+        handler.ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
+        handler
       end
 
       def swap_state(pe)
