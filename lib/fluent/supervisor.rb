@@ -373,6 +373,7 @@ module Fluent
           encoding: config[:conf_encoding],
           additional_config: config[:inline_config],
           use_v1_config: config[:use_v1_config],
+          type: config[:config_file_type],
         )
 
         Fluent::VariableStore.try_to_reset do
@@ -611,6 +612,8 @@ module Fluent
         fluentd_conf: params['fluentd_conf'],
         conf_encoding: params['conf_encoding'],
         inline_config: params['inline_config'],
+        use_v1_config: params['use_v1_config'],
+        config_file_type: params['config_file_type']&.to_sym,
         main_cmd: params['main_cmd'],
         signame: params['signame'],
         disable_shared_socket: params['disable_shared_socket'],
@@ -978,6 +981,7 @@ module Fluent
         'fluentd_conf_path' => @config_path,
         'fluentd_conf' => @conf.to_s,
         'use_v1_config' => @use_v1_config,
+        'config_file_type' => @config_file_type,
         'conf_encoding' => @conf_encoding,
         'signame' => @signame,
 
