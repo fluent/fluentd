@@ -114,7 +114,7 @@ class TailInputWorkerPoolTest < Test::Unit::TestCase
     assert_equal({ tasks: 2, bytes: 21, state: :running }, pool.statistics)
 
     2.times { @release << true }
-    results = 2.times.map { result_from(pool) }
+    results = Array.new(2) { result_from(pool) }
     assert_equal %i[oversized regular], results.map(&:value).sort
     results.each { |result| pool.acknowledge(result) }
     assert_equal({ tasks: 0, bytes: 0, state: :running }, pool.statistics)
@@ -207,7 +207,7 @@ class TailInputWorkerPoolTest < Test::Unit::TestCase
     assert_false pool.submit(:large_file, :later_batch, bytes: 1)
 
     @release << true
-    results = 3.times.map { result_from(pool) }
+    results = Array.new(3) { result_from(pool) }
     assert_equal [:large, :short_a, :short_b], results.map(&:value).sort_by(&:to_s)
     results.each { |result| pool.acknowledge(result) }
   end
