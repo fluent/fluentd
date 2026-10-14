@@ -61,7 +61,7 @@ module Fluent::Plugin
       @tails = {}
       @tails_rotate_wait = {}
       @pf_file = nil
-      @watcher_refresh_mutex = Monitor.new
+      @watcher_refresh_monitor = Monitor.new
       @pf = nil
       @ignore_list = []
       @shutdown_start_time = nil
@@ -308,7 +308,7 @@ module Fluent::Plugin
       end
       # A refresh or a rotation handling may yield during file operations. Let it
       # finish before detaching watchers or closing the position file.
-      @watcher_refresh_mutex.synchronize {}
+      @watcher_refresh_monitor.synchronize {}
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(existence_path, immediate: true, remove_watcher: false)
       @tails_rotate_wait.keys.each do |tw|
@@ -442,7 +442,7 @@ module Fluent::Plugin
     # In such case, you should separate log directory and specify two paths in path parameter.
     # e.g. path /path/to/dir/*,/path/to/rotated_logs/target_file
     def refresh_watchers
-      @watcher_refresh_mutex.synchronize do
+      @watcher_refresh_monitor.synchronize do
         return if before_shutdown? || @shutdown_start_time
 
         refresh_watchers_raw
@@ -638,7 +638,7 @@ module Fluent::Plugin
     end
 
     def update_watcher(tail_watcher, pe, new_inode)
-      @watcher_refresh_mutex.synchronize do
+      @watcher_refresh_monitor.synchronize do
         return if @shutdown_start_time
 
         update_watcher_raw(tail_watcher, pe, new_inode)
