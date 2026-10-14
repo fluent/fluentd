@@ -293,15 +293,8 @@ module Fluent::Plugin
     def start
       super
 
-      incompatibility_reasons = worker_incompatibility_reasons
-      @worker_compatible = incompatibility_reasons.empty?
       @line_feeder = build_line_feeder
-      if @num_threads > 1 && @worker_compatible
-        setup_worker_pool
-        log.info "in_tail worker parsing enabled with #{@num_threads} threads"
-      elsif @num_threads > 1
-        log.warn "in_tail worker parsing is unavailable; using synchronous parsing (#{incompatibility_reasons.join(', ')})"
-      end
+      configure_worker_mode if @num_threads > 1
 
       if @pos_file
         pos_file_dir = File.dirname(@pos_file)
@@ -696,6 +689,17 @@ module Fluent::Plugin
     WorkerBatch = Struct.new(:watcher, :lines)
 
     private
+
+    def configure_worker_mode
+      incompatibility_reasons = worker_incompatibility_reasons
+      @worker_compatible = incompatibility_reasons.empty?
+      if @worker_compatible
+        setup_worker_pool
+        log.info "in_tail worker parsing enabled with #{@num_threads} threads"
+      else
+        log.warn "in_tail worker parsing is unavailable; using synchronous parsing (#{incompatibility_reasons.join(', ')})"
+      end
+    end
 
     def worker_incompatibility_reasons
       reasons = WORKER_COMPATIBILITY.incompatible_hooks(self).map { |hook| "overridden hook: #{hook}" }
