@@ -20,6 +20,7 @@ require 'fluent/plugin/input'
 require 'fluent/config/error'
 require 'fluent/event'
 require 'fluent/plugin/buffer'
+require 'fluent/ext_monitor_require'
 require 'fluent/plugin/parser_multiline'
 require 'fluent/variable_store'
 require 'fluent/capability'
@@ -60,7 +61,7 @@ module Fluent::Plugin
       @tails = {}
       @tails_rotate_wait = {}
       @pf_file = nil
-      @watcher_refresh_mutex = Mutex.new
+      @watcher_refresh_monitor = Monitor.new
       @pf = nil
       @ignore_list = []
       @shutdown_start_time = nil
@@ -305,9 +306,9 @@ module Fluent::Plugin
       (@tails.values + @tails_rotate_wait.keys).uniq.each do |tw|
         tw.ready_to_shutdown(@shutdown_start_time)
       end
-      # A refresh may yield during file operations. Let it finish before
-      # detaching watchers or closing the position file.
-      @watcher_refresh_mutex.synchronize {}
+      # A refresh or a rotation handling may yield during file operations. Let it
+      # finish before detaching watchers or closing the position file.
+      @watcher_refresh_monitor.synchronize {}
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(existence_path, immediate: true, remove_watcher: false)
       @tails_rotate_wait.keys.each do |tw|
@@ -441,7 +442,7 @@ module Fluent::Plugin
     # In such case, you should separate log directory and specify two paths in path parameter.
     # e.g. path /path/to/dir/*,/path/to/rotated_logs/target_file
     def refresh_watchers
-      @watcher_refresh_mutex.synchronize do
+      @watcher_refresh_monitor.synchronize do
         return if before_shutdown? || @shutdown_start_time
 
         refresh_watchers_raw
@@ -636,8 +637,16 @@ module Fluent::Plugin
       end
     end
 
-    # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(tail_watcher, pe, new_inode)
+      @watcher_refresh_monitor.synchronize do
+        return if @shutdown_start_time
+
+        update_watcher_raw(tail_watcher, pe, new_inode)
+      end
+    end
+
+    # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
+    def update_watcher_raw(tail_watcher, pe, new_inode)
       # TODO we should use another callback for this.
       # To suppress impact to existing logics, limit the case to `@follow_inodes`.
       # We may not need `@follow_inodes` condition.
@@ -670,10 +679,12 @@ module Fluent::Plugin
         # In this case, only we have to do is detaching the current tail_watcher.
         if new_position_entry.read_inode == 0
           @tails[path] = setup_watcher(new_target_info, new_position_entry)
+          @tails[path].ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
           @tails[path].on_notify
         end
       else
         @tails[path] = setup_watcher(new_target_info, pe)
+        @tails[path].ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
         @tails[path].on_notify
       end
 
