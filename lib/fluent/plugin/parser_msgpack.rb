@@ -22,21 +22,22 @@ module Fluent
     class MessagePackParser < Parser
       Plugin.register_parser('msgpack', self)
 
-      def configure(conf)
-        super
-        @unpacker = Fluent::MessagePackFactory.engine_factory.unpacker
-      end
-
       def parser_type
         :binary
       end
 
       def parse(data, &block)
+        Fluent::MessagePackFactory.engine_factory.unpacker.feed_each(data) do |obj|
+          parse_unpacked_data(obj, &block)
+        end
+      end
+
+      def parse_partial_data(data, &block)
+        @unpacker ||= Fluent::MessagePackFactory.engine_factory.unpacker
         @unpacker.feed_each(data) do |obj|
           parse_unpacked_data(obj, &block)
         end
       end
-      alias parse_partial_data parse
 
       def parse_io(io, &block)
         u = Fluent::MessagePackFactory.engine_factory.unpacker(io)
