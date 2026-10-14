@@ -17,6 +17,7 @@
 require 'fluent/plugin/input'
 require 'fluent/event'
 require 'fluent/plugin/buffer'
+require 'fluent/clock'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
@@ -117,7 +118,7 @@ module Fluent::Plugin
         def on_notify(tail_watcher)
           return unless @start
 
-          if Time.now - @start >= @flush_interval
+          if Fluent::Clock.now - @start >= @flush_interval
             flush_buffer(@line_buffer, tail_watcher) if @line_buffer
             @line_buffer = nil
             @start = nil
@@ -140,7 +141,7 @@ module Fluent::Plugin
         def reset_timer
           return unless @flush_interval
 
-          @start = Time.now
+          @start = Fluent::Clock.now
         end
       end
 
