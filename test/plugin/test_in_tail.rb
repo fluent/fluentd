@@ -2811,6 +2811,117 @@ class TailInputTest < Test::Unit::TestCase
     position_file.close if position_file && !position_file.closed?
   end
 
+  sub_test_case 'rotation during shutdown' do
+    def start_and_rotate(follow_inodes)
+      path = "#{@tmp_dir}/tail.txt"
+      Fluent::FileWrapper.open(path, 'wb') { |f| f.puts 'old' }
+      d = create_driver(config_element('', '', {
+                          'tag' => 't1', 'format' => 'none', 'path' => path,
+                          'pos_file' => "#{@tmp_dir}/tail.pos",
+                          'follow_inodes' => follow_inodes.to_s,
+                          'enable_stat_watcher' => 'false',
+                        }), false)
+      yield d.instance
+      d.instance_start
+      FileUtils.move(path, "#{path}1")
+      Fluent::FileWrapper.open(path, 'wb') { |f| f.puts 'new' }
+      d
+    end
+
+    data('follow_inodes false' => false, 'follow_inodes true' => true)
+    test 'shutdown waits for an ongoing rotation before closing the position file' do |follow_inodes|
+      rotating = Queue.new
+      resume = Queue.new
+      d = start_and_rotate(follow_inodes) do |plugin|
+        plugin.define_singleton_method(:update_watcher_raw) do |*args|
+          rotating << true
+          resume.pop
+          super(*args)
+        end
+      end
+      Timeout.timeout(5) { rotating.pop }
+      position_file = d.instance.instance_variable_get(:@pf_file)
+      shutdown = Thread.new { d.instance.stop; d.instance.before_shutdown; d.instance.shutdown }
+      waiting(5) { sleep 0.01 until shutdown.status == 'sleep' || !shutdown.alive? }
+      assert_false(position_file.closed?)
+      resume << true
+      Timeout.timeout(5) { shutdown.value }
+      assert_true(position_file.closed?)
+      d.instance_shutdown
+      assert_equal([], d.logs.grep(/closed stream/))
+      assert_equal(['new'], d.events.map { |e| e[2]['message'] })
+    ensure
+      resume << true if resume
+      if shutdown
+        shutdown.join(5)
+        shutdown.kill if shutdown.alive?
+      end
+      d.instance_shutdown if d && !d.instance.terminated?
+    end
+
+    data('follow_inodes false' => false, 'follow_inodes true' => true)
+    test 'rotation detected after shutdown has started does not touch the position file' do |follow_inodes|
+      rotating = Queue.new
+      resume = Queue.new
+      d = start_and_rotate(follow_inodes) do |plugin|
+        plugin.define_singleton_method(:update_watcher) do |*args|
+          rotating << true
+          resume.pop
+          super(*args)
+        end
+      end
+      Timeout.timeout(5) { rotating.pop }
+      d.instance.stop
+      d.instance.before_shutdown
+      d.instance.shutdown
+      assert_true(d.instance.instance_variable_get(:@pf_file).closed?)
+      resume << true
+      d.instance_shutdown
+      assert_equal([], d.logs.grep(/closed stream/))
+      assert_equal([], d.events)
+    ensure
+      resume << true if resume
+      d.instance_shutdown if d && !d.instance.terminated?
+    end
+  end
+
+  sub_test_case 'rotation during refresh' do
+    data('follow_inodes false' => false, 'follow_inodes true' => true)
+    test 'refresh handles a rotation noticed by its own notification' do |follow_inodes|
+      path = "#{@tmp_dir}/tail.txt"
+      Fluent::FileWrapper.open(path, 'wb') { |f| f.puts 'old' }
+      d = create_driver(config_element('', '', {
+                          'tag' => 't1', 'format' => 'none', 'path' => path,
+                          'pos_file' => "#{@tmp_dir}/tail.pos",
+                          'follow_inodes' => follow_inodes.to_s,
+                          'enable_stat_watcher' => 'false',
+                          'skip_refresh_on_startup' => 'true',
+                        }), false)
+      plugin = d.instance
+      rotated = false
+      plugin.define_singleton_method(:setup_watcher) do |*args|
+        tw = super(*args)
+        unless rotated
+          rotated = true
+          tw.on_notify
+          FileUtils.move(path, "#{path}1")
+          Fluent::FileWrapper.open(path, 'wb') { |f| f.puts 'new' }
+        end
+        tw
+      end
+      d.instance_start
+      plugin.refresh_watchers
+      assert_equal([], d.logs.grep(/recursive locking/))
+      target_info = create_target_info(path)
+      assert_equal(target_info.ino, plugin.instance_variable_get(:@pf)[target_info].read_inode)
+      FileUtils.move(path, "#{path}2")
+      Fluent::FileWrapper.open(path, 'wb') { |f| f.puts 'newer' }
+      waiting(10) { sleep 0.1 until d.events.any? { |e| e[2]['message'] == 'newer' } }
+    ensure
+      d.instance_shutdown if d && !d.instance.terminated?
+    end
+  end
+
   def test_shutdown_timeout
     Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") do |f|
       # Should be large enough to take too long time to consume
