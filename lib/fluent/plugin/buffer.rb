@@ -21,6 +21,12 @@ require 'fluent/plugin_helper'
 require 'fluent/unique_id'
 require 'fluent/ext_monitor_require'
 
+# can be used to generate an unique metadata.seq
+$seq = 0
+def next_seq
+  $seq += 1
+end
+
 module Fluent
   module Plugin
     class Buffer < Base
@@ -79,7 +85,7 @@ module Fluent
 
         def dup_next
           m = dup
-          m.seq = seq + 1
+          m.seq = next_seq
           m
         end
 
