@@ -72,6 +72,15 @@ module Fluent
       desc 'If true, chunks are thrown away when unrecoverable error happens'
       config_param :disable_chunk_backup, :bool, default: false
 
+      # Set metadata.seq at resume to a unique value to ensure
+      # staged chunks have different metadata and are all resumed
+      @@global_seq = -1
+      def next_global_seq
+        synchronize do
+          @@global_seq += 1
+        end
+      end
+
       Metadata = Struct.new(:timekey, :tag, :variables, :seq) do
         def initialize(timekey, tag, variables)
           super(timekey, tag, variables, 0)

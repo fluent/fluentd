@@ -196,11 +196,13 @@ module Fluent
             if chunk_size_full?(chunk) || stage.key?(chunk.metadata)
               queue << chunk.enqueued!
             else
+              chunk.metadata.seq = next_global_seq
               stage[chunk.metadata] = chunk
             end
           when :queued
             queue << chunk
           end
+          log.info { "Restored buffer file: path=#{path}, state=#{chunk.state}, metadata=#{chunk.metadata}"}
         end
 
         queue.sort_by!(&:modified_at)
