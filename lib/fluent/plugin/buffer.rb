@@ -72,15 +72,12 @@ module Fluent
       desc 'If true, chunks are thrown away when unrecoverable error happens'
       config_param :disable_chunk_backup, :bool, default: false
 
-      # Set metadata.seq at resume to a unique value per tag to ensure
+      # Set metadata.seq at resume to a unique value to ensure
       # staged chunks have different metadata and are all resumed
-      @@global_seq = {}
-      def next_global_seq(tag)
+      @@global_seq = -1
+      def next_global_seq
         synchronize do
-          if !@@global_seq.key?(tag)
-            @@global_seq[tag] = -1
-          end
-          @@global_seq[tag] += 1
+          @@global_seq += 1
         end
       end
 

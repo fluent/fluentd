@@ -181,7 +181,7 @@ module Fluent
               chunk.metadata.seq = 0 # metadata.seq should be 0 for counting @queued_num
               queue << chunk.enqueued!
             else
-              chunk.metadata.seq = next_global_seq(chunk.metadata.tag)
+              chunk.metadata.seq = next_global_seq
               stage[chunk.metadata] = chunk
             end
           when :queued
