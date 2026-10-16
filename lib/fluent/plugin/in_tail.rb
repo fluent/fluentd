@@ -70,6 +70,7 @@ module Fluent::Plugin
       @metrics = nil
       @startup = true
       @capability = Fluent::Capability.new(:current_process)
+      initialize_dir_watchers
     end
 
     desc 'The paths to read. Multiple paths can be specified, separated by comma.'
@@ -105,8 +106,12 @@ module Fluent::Plugin
     config_param :emit_unmatched_lines, :bool, default: false
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
-    desc 'Enable the stat watcher based on inotify.'
+    desc 'Enable stat watchers for individual files, using inotify where available.'
     config_param :enable_stat_watcher, :bool, default: true
+    desc 'Watch directories to discover files before refresh_interval. May use inotify regardless of enable_stat_watcher.'
+    config_param :enable_dir_watcher, :bool, default: false
+    desc 'Maximum number of directories watched at once. When exceeded, rotate the watched subset at each periodic refresh.'
+    config_param :dir_watcher_limit, :integer, default: 100
     desc 'The encoding of the input.'
     config_param :encoding, :string, default: nil
     desc "The original encoding of the input. If set, in_tail tries to encode string from this to 'encoding'. Must be set with 'encoding'. "
@@ -150,8 +155,20 @@ module Fluent::Plugin
 
       super
 
+      if @dir_watcher_limit <= 0
+        raise Fluent::ConfigError, "dir_watcher_limit must be greater than zero"
+      end
+
       if !@enable_watch_timer && !@enable_stat_watcher
         raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
+      end
+
+      if @enable_dir_watcher && !@enable_stat_watcher
+        log.info(
+          'enable_stat_watcher is disabled for files,' +
+          ' but enable_dir_watcher still uses directory stat watchers' +
+          ' and may use inotify'
+        )
       end
 
       if @glob_policy == :always && @path_delimiter == ','
@@ -290,7 +307,8 @@ module Fluent::Plugin
       end
 
       refresh_watchers unless @skip_refresh_on_startup
-      timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
+      update_dir_watchers
+      timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers_on_timer))
     end
 
     def stop
@@ -311,6 +329,12 @@ module Fluent::Plugin
       # A refresh or a rotation handling may yield during file operations. Let it
       # finish before detaching watchers or closing the position file.
       @watcher_refresh_monitor.synchronize {}
+      # The event loop is still running at this point, so the watchers added to
+      # detect new files must be detached before the position file is closed:
+      # a change noticed by them would ask for refreshing the watchers, and
+      # #refresh_watchers writes the position file.
+      detach_dir_watchers
+      detach_refresh_timer
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(existence_path, immediate: true, remove_watcher: false)
       @tails_rotate_wait.keys.each do |tw|

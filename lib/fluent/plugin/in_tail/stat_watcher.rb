@@ -35,10 +35,10 @@ module Fluent::Plugin
     end
 
     class TimerTrigger < Coolio::TimerWatcher
-      def initialize(interval, log, &callback)
+      def initialize(interval, log, repeat: true, &callback)
         @log = log
         @callback = callback
-        super(interval, true)
+        super(interval, repeat)
       end
 
       def on_timer
