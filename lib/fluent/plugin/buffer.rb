@@ -74,10 +74,10 @@ module Fluent
 
       # Set metadata.seq at resume to a unique value to ensure
       # staged chunks have different metadata and are all resumed
-      @@global_seq = -1
+      @@global_seq = 0
       def next_global_seq
         synchronize do
-          @@global_seq += 1
+          @@global_seq -= 1
         end
       end
 
@@ -88,7 +88,12 @@ module Fluent
 
         def dup_next
           m = dup
-          m.seq = seq + 1
+          if seq < 0
+            # chunk was restored from a file buffer
+            m.seq = 0
+          else
+            m.seq = seq + 1
+          end
           m
         end
 
