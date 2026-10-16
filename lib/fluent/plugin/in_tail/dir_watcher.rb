@@ -174,10 +174,10 @@ module Fluent::Plugin
           return if before_shutdown? || @shutdown_start_time
 
           rotate = take_dir_watcher_rotation_request
-          refresh_watchers_raw
-          # Watch newly created directories within the same refresh, before
-          # shutdown can finish waiting for this refresh.
+          # Arm directory watchers before scanning so changes during initial
+          # reads cannot become part of a new watcher's baseline.
           update_dir_watchers(rotate: rotate)
+          refresh_watchers_raw
         end
       end
 
@@ -611,8 +611,8 @@ module Fluent::Plugin
       # Attach the stat watchers of the directories which are needed now and
       # detach the ones which are not needed anymore.
       #
-      # Recompute the directories after refreshing the files, within the same
-      # refresh, so newly created directories are watched from then on.
+      # Recompute and watch directories before discovering files, so changes
+      # during discovery or synchronous initial reads can request another refresh.
       def update_dir_watchers(rotate: false)
         return unless @enable_dir_watcher
         # Do not add directory watchers once shutdown has begun.

@@ -2984,17 +2984,66 @@ class TailInputTest < Test::Unit::TestCase
       d.instance_shutdown if d&.instance
     end
 
-    test 'watches the directories when enable_dir_watcher is true' do
+    data('initial refresh' => false, 'skip initial refresh' => true)
+    test 'watches the directories when enable_dir_watcher is true' do |skip_initial_refresh|
       config = config_element('', '', {
                                'tag' => 't1',
                                'format' => 'none',
                                'path' => "#{@tmp_dir}/*.txt",
                                'refresh_interval' => 1000,
                                'enable_dir_watcher' => 'true',
+                               'skip_refresh_on_startup' => skip_initial_refresh,
                              })
       d = create_driver(config, false)
       d.run(shutdown: false) {}
       assert_equal([expanded_tmp_dir], dir_watchers(d).keys)
+    ensure
+      d.instance_shutdown if d&.instance
+    end
+
+    data('startup' => false, 'rotated directory window' => true)
+    test 'detects a file created after the snapshot in a newly watched directory' do |rotate|
+      directories = %w[first second].map { |name| "#{@tmp_dir}/#{name}" }
+      directories.each { |dir| FileUtils.mkdir_p(dir) }
+      target_dir = directories[rotate ? 1 : 0]
+      path = "#{target_dir}/late.log"
+      config = config_element('', '', {
+                               'tag' => 't1', 'format' => 'none',
+                               'path' => directories.map { |dir| "#{dir}/*.log" }.join('|'),
+                               'path_delimiter' => '|', 'refresh_interval' => 1000,
+                               'read_from_head' => 'true',
+                               'enable_dir_watcher' => 'true', 'dir_watcher_limit' => 1,
+                             })
+      d = create_driver(config, false)
+      inject = !rotate
+      injected = false
+      after_snapshot = ->(paths) do
+        next unless inject && !injected
+        injected = true
+        assert_not_include(paths.keys, path)
+        # The new file must not become part of a watcher's initial baseline.
+        assert_equal([File.realpath(target_dir)], dir_watchers(d).keys)
+        wait_until_dir_stat_can_change(target_dir)
+        File.open(path, 'w') { |f| f.puts 'late' }
+      end
+      d.instance.define_singleton_method(:expand_paths) do
+        paths = super()
+        after_snapshot.call(paths)
+        paths
+      end
+
+      d.run(shutdown: false) do
+        if rotate
+          assert_equal([File.realpath(directories.first)], dir_watchers(d).keys)
+          inject = true
+          # Select the previously unwatched directory without waiting 1000s.
+          d.instance.refresh_watchers_on_timer
+        end
+        # No further file changes or periodic refreshes should be necessary.
+        waiting(20, plugin: d.instance) { sleep 0.1 until d.events.size == 1 }
+        assert(injected)
+      end
+      assert_equal(['late'], d.events.map { |e| e[2]['message'] })
     ensure
       d.instance_shutdown if d&.instance
     end
