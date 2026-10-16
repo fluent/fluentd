@@ -48,6 +48,11 @@ module Fluent
   class RootAgent < Agent
     ERROR_LABEL = "@ERROR".freeze # @ERROR is built-in error label
 
+    # Thread local key to detect an error which is raised while an error event is
+    # routed to @ERROR. @ERROR is the last resort route, so such an event must be
+    # dumped here instead of being routed back to @ERROR again and again.
+    ERROR_ROUTING_KEY = :fluentd_root_agent_routing_error_event
+
     class SourceOnlyMode
       DISABLED = 0
       NORMAL = 1
@@ -439,10 +444,13 @@ module Fluent
 
     def emit_error_event(tag, time, record, error)
       error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time}
-      if @error_collector
+      if @error_collector && !routing_error_event?
         # A record is not included in the logs because <@ERROR> handles it. This warn is for the notification
         log.warn "send an error event to @ERROR:", error_info
-        @error_collector.emit(tag, time, record)
+        route_error_event { @error_collector.emit(tag, time, record) }
+      elsif @error_collector
+        error_info[:record] = record
+        log.error "dump an error event because it failed in @ERROR. It is dropped to prevent an infinite loop:", error_info
       else
         error_info[:record] = record
         log.warn "dump an error event:", error_info
@@ -451,9 +459,13 @@ module Fluent
 
     def handle_emits_error(tag, es, error)
       error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag}
-      if @error_collector
+      if @error_collector && !routing_error_event?
         log.warn "send an error event stream to @ERROR:", error_info
-        @error_collector.emit_stream(tag, es)
+        route_error_event { @error_collector.emit_stream(tag, es) }
+      elsif @error_collector
+        # Records are not dumped here because an error event stream can be large.
+        error_info[:record_count] = es.size if es
+        log.error "dump an error event stream because it failed in @ERROR. It is dropped to prevent an infinite loop:", error_info
       else
         now = Time.now.to_i
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
@@ -463,6 +475,19 @@ module Fluent
         end
         raise error
       end
+    end
+
+    private
+
+    def routing_error_event?
+      !!Thread.current[ERROR_ROUTING_KEY]
+    end
+
+    def route_error_event
+      Thread.current[ERROR_ROUTING_KEY] = true
+      yield
+    ensure
+      Thread.current[ERROR_ROUTING_KEY] = false
     end
   end
 end
