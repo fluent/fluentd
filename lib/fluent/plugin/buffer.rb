@@ -21,12 +21,6 @@ require 'fluent/plugin_helper'
 require 'fluent/unique_id'
 require 'fluent/ext_monitor_require'
 
-# can be used to generate an unique metadata.seq
-$seq = 0
-def next_seq
-  $seq += 1
-end
-
 module Fluent
   module Plugin
     class Buffer < Base
@@ -77,6 +71,18 @@ module Fluent
 
       desc 'If true, chunks are thrown away when unrecoverable error happens'
       config_param :disable_chunk_backup, :bool, default: false
+
+      # Set metadata.seq at resume to a unique value per tag to ensure
+      # staged chunks have different metadata and are all resumed
+      @@global_seq = {}
+      def next_global_seq(tag)
+        synchronize do
+          if !@@global_seq.key?(tag)
+            @@global_seq[tag] = -1
+          end
+          @@global_seq[tag] += 1
+        end
+      end
 
       Metadata = Struct.new(:timekey, :tag, :variables, :seq) do
         def initialize(timekey, tag, variables)
