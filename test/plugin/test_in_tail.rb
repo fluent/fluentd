@@ -2897,6 +2897,49 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(["#{base}/a", "#{base}/a/c", "#{base}/b"].sort, plugin.expand_watch_dirs.sort)
     end
 
+    data('below limit' => 99, 'exact limit' => 100, 'over limit' => 101)
+    test 'warns about brace expansion only when paths are actually omitted' do |count|
+      d = create_driver(base_config + config_element('', '', { 'format' => 'none' }), false)
+      alternatives = Array.new(count) { |i| "dir#{i}" }
+      pattern = "/logs/{#{alternatives.join(',')}}/app.log"
+
+      assert_equal(alternatives.first(100).map { |dir| "/logs/#{dir}/app.log" }, d.instance.expand_brace_patterns(pattern))
+      warnings = d.logs.grep(/Too many paths expanded/)
+      assert_equal(count > 100 ? 1 : 0, warnings.size)
+      if count > 100
+        assert_match(/Only the first 100 paths are considered/, warnings.first)
+        assert_match(/remaining paths rely on refresh_interval/, warnings.first)
+      end
+    end
+
+    data('exact limit' => 10, 'over limit' => 11)
+    test 'bounds nested brace expansion including the overflow probe' do |inner_count|
+      d = create_driver(base_config + config_element('', '', { 'format' => 'none' }), false)
+      outer = Array.new(10) { |i| "a#{i}" }
+      inner = Array.new(inner_count) { |i| "b#{i}" }
+      pattern = "/logs/{#{outer.join(',')}}/{#{inner.join(',')}}/app.log"
+      expected = outer.product(inner).first(100).map { |a, b| "/logs/#{a}/#{b}/app.log" }
+      assert_equal(expected, d.instance.expand_brace_patterns(pattern))
+      assert_equal(inner_count > 10 ? 1 : 0, d.logs.grep(/Too many paths expanded/).size)
+    end
+
+    test 'warns once per configured brace pattern until expansion fits again' do
+      d = create_driver(base_config + config_element('', '', { 'format' => 'none' }), false)
+      alternatives = Array.new(101) { |i| "dir#{i}" }
+      pattern = "/logs/{#{alternatives.join(',')}}/app.log"
+      key = '/logs/%Y/configured-pattern'
+      2.times { d.instance.expand_brace_patterns(pattern, warning_key: key) }
+      d.instance.expand_brace_patterns("/next-year#{pattern}", warning_key: key)
+      assert_equal(1, d.logs.grep(/Too many paths expanded/).size)
+      assert_equal([key], d.instance.instance_variable_get(:@truncated_dir_patterns).keys)
+
+      d.instance.expand_brace_patterns(pattern, warning_key: 'another configured pattern')
+      assert_equal(2, d.logs.grep(/Too many paths expanded/).size)
+      d.instance.expand_brace_patterns('/logs/app.log', warning_key: key)
+      d.instance.expand_brace_patterns(pattern, warning_key: key)
+      assert_equal(3, d.logs.grep(/Too many paths expanded/).size)
+    end
+
     test 'expand_watch_dirs watches time dependent parents in brace alternatives of different depths' do
       Timecop.freeze do
         year = Time.now.strftime('%Y')
@@ -3050,7 +3093,8 @@ class TailInputTest < Test::Unit::TestCase
 
     # refresh_interval is long enough to be never reached in this test, so the
     # file is detected only when the change of the directory is noticed.
-    test 'detects a file created after startup of a wildcard path' do
+    data('file stat watchers enabled' => true, 'file stat watchers disabled' => false)
+    test 'detects a file created after startup of a wildcard path' do |file_stat|
       config = config_element('', '', {
                                'tag' => 't1',
                                'format' => 'none',
@@ -3058,6 +3102,7 @@ class TailInputTest < Test::Unit::TestCase
                                'refresh_interval' => 1000,
                                'read_from_head' => 'true',
                                'enable_dir_watcher' => 'true',
+                               'enable_stat_watcher' => file_stat,
                              })
       d = create_driver(config, false)
       d.run(shutdown: false) do
@@ -3367,6 +3412,37 @@ class TailInputTest < Test::Unit::TestCase
                              })
       plugin = create_driver(config, false).instance
       assert_includes(plugin.expand_watch_dirs.first(max), "#{expanded_tmp_dir}/zz_static")
+    end
+
+    test 'warns only when directory candidates cross the watcher limit' do
+      d = create_driver(base_config + config_element('', '', {
+                        'format' => 'none', 'enable_dir_watcher' => true, 'dir_watcher_limit' => 2,
+                      }), false)
+      candidates = %w[a b c]
+      d.instance.define_singleton_method(:expand_watch_dirs) { candidates.dup }
+      d.instance.define_singleton_method(:attach_dir_watcher) { |_dir| }
+      2.times { d.instance.update_dir_watchers }
+      candidates << 'd'
+      d.instance.update_dir_watchers
+      assert_equal(1, d.logs.grep(/Too many directories to watch/).size)
+
+      candidates.replace(%w[a b])
+      d.instance.update_dir_watchers
+      assert_equal(1, d.logs.grep(/Too many directories to watch/).size)
+      candidates << 'c'
+      d.instance.update_dir_watchers
+      assert_equal(2, d.logs.grep(/Too many directories to watch/).size)
+    end
+
+    data('both enabled' => [true, true], 'directories only' => [true, false],
+         'files only' => [false, true], 'both disabled' => [false, false])
+    test 'logs directory inotify information only when file stat watchers are disabled' do |(directories, files)|
+      d = create_driver(base_config + config_element('', '', {
+                        'format' => 'none', 'enable_dir_watcher' => directories, 'enable_stat_watcher' => files,
+                      }), false)
+      notifications = d.logs.grep(/enable_dir_watcher still uses directory stat watchers and may use inotify/)
+      assert_equal(directories && !files ? 1 : 0, notifications.size)
+      notifications.each { |notification| assert_match(/\[info\]/, notification) }
     end
 
     test 'defaults dir_watcher_limit to 100 and allows a higher limit' do

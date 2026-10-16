@@ -54,6 +54,8 @@ module Fluent::Plugin
         @dir_watchers = {}
         @dir_watcher_offset = 0
         @dir_watcher_start_dir = nil
+        @dir_watcher_limit_exceeded = false
+        @truncated_dir_patterns = {}
         # The event loop schedules refreshes; shutdown detaches the pending
         # timer from another thread. Protect only this scheduling state.
         @refresh_request_mutex = Mutex.new
@@ -339,7 +341,7 @@ module Fluent::Plugin
       # notice the creation of its own `logs'.
       def expand_watch_dirs_of_pattern(path, expanded, glob)
         # Expand braces before File.dirname; see #expand_brace_patterns.
-        patterns = glob ? expand_brace_patterns(expanded) : [expanded]
+        patterns = glob ? expand_brace_patterns(expanded, warning_key: path) : [expanded]
         configured_patterns = []
         if glob
           expand_brace_patterns_into(path, configured_patterns)
@@ -493,17 +495,33 @@ module Fluent::Plugin
       # can be nested, and a group may contain a separator. The directories of
       # `/base/{a/x.log,b/x.log}' are `/base/a' and `/base/b', which
       # File.dirname can't give because it cuts the path inside the group.
-      def expand_brace_patterns(pattern)
+      def expand_brace_patterns(pattern, warning_key: pattern)
         patterns = []
-        expand_brace_patterns_into(pattern, patterns)
-        if patterns.size >= MAX_DIR_PATTERNS
-          log.warn "Too many paths expanded from the braces of `#{pattern}'. Watching their directories is given up, so new files of them may not be detected until refresh_interval (#{@refresh_interval}s) passes"
+        # One extra result distinguishes truncation from an exact fit.
+        expand_brace_patterns_into(pattern, patterns, limit: MAX_DIR_PATTERNS + 1)
+        if patterns.size > MAX_DIR_PATTERNS
+          patterns.pop
+          if @truncated_dir_patterns[warning_key]
+            log.debug {
+              "Directory watch pattern expansion remains limited to #{MAX_DIR_PATTERNS}" +
+              " paths for `#{pattern}'"
+            }
+          else
+            log.warn(
+              "Too many paths expanded from the braces of `#{pattern}'." +
+              " Only the first #{MAX_DIR_PATTERNS} paths are considered for directory watching;" +
+              " remaining paths rely on refresh_interval (#{@refresh_interval}s)"
+            )
+          end
+          @truncated_dir_patterns[warning_key] = true
+        else
+          @truncated_dir_patterns.delete(warning_key)
         end
         patterns
       end
 
-      def expand_brace_patterns_into(pattern, patterns)
-        return if patterns.size >= MAX_DIR_PATTERNS
+      def expand_brace_patterns_into(pattern, patterns, limit: MAX_DIR_PATTERNS)
+        return if patterns.size >= limit
         start, stop = brace_group(pattern)
         unless start
           patterns << pattern
@@ -512,7 +530,7 @@ module Fluent::Plugin
         head = pattern[0...start]
         tail = pattern[(stop + 1)..]
         split_brace_alternatives(pattern[(start + 1)...stop]).each { |alternative|
-          expand_brace_patterns_into(head + alternative + tail, patterns)
+          expand_brace_patterns_into(head + alternative + tail, patterns, limit: limit)
         }
       end
 
@@ -619,13 +637,26 @@ module Fluent::Plugin
         return if before_shutdown? || @shutdown_start_time
 
         dirs = expand_watch_dirs
-        if dirs.size > @dir_watcher_limit
-          log.warn "Too many directories to watch: #{dirs.size}. Watching #{@dir_watcher_limit} of them, rotating at each periodic refresh, so new files may not be detected until refresh_interval (#{@refresh_interval}s) passes"
-        end
-
         @dir_watchers_mutex.synchronize do
           # Shutdown may have detached the watchers during path expansion.
           return if before_shutdown? || @shutdown_start_time
+
+          over_limit = dirs.size > @dir_watcher_limit
+          if over_limit
+            if @dir_watcher_limit_exceeded
+              log.debug {
+                "Directory watcher limit remains exceeded: #{dirs.size} candidates," +
+                " watching #{@dir_watcher_limit}"
+              }
+            else
+              log.warn(
+                "Too many directories to watch: #{dirs.size}." +
+                " Watching #{@dir_watcher_limit} of them, rotating at each periodic refresh," +
+                " so new files may not be detected until refresh_interval (#{@refresh_interval}s) passes"
+              )
+            end
+          end
+          @dir_watcher_limit_exceeded = over_limit
 
           dirs = limit_dir_watchers(dirs, rotate: rotate)
           # Release the old window before attaching the new one so rotation

@@ -106,9 +106,9 @@ module Fluent::Plugin
     config_param :emit_unmatched_lines, :bool, default: false
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
-    desc 'Enable the stat watcher based on inotify.'
+    desc 'Enable stat watchers for individual files, using inotify where available.'
     config_param :enable_stat_watcher, :bool, default: true
-    desc 'Watch the directories of the specified paths, to detect the files created after startup without waiting for refresh_interval.'
+    desc 'Watch directories to discover files before refresh_interval. May use inotify regardless of enable_stat_watcher.'
     config_param :enable_dir_watcher, :bool, default: false
     desc 'Maximum number of directories watched at once. When exceeded, rotate the watched subset at each periodic refresh.'
     config_param :dir_watcher_limit, :integer, default: 100
@@ -161,6 +161,14 @@ module Fluent::Plugin
 
       if !@enable_watch_timer && !@enable_stat_watcher
         raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
+      end
+
+      if @enable_dir_watcher && !@enable_stat_watcher
+        log.info(
+          'enable_stat_watcher is disabled for files,' +
+          ' but enable_dir_watcher still uses directory stat watchers' +
+          ' and may use inotify'
+        )
       end
 
       if @glob_policy == :always && @path_delimiter == ','
