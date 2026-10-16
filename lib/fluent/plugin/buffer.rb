@@ -91,7 +91,7 @@ module Fluent
 
         def dup_next
           m = dup
-          m.seq = next_seq
+          m.seq = seq + 1
           m
         end
 
