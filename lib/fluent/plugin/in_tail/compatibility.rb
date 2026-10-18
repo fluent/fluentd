@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin/input'
+require 'fluent/clock'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
@@ -83,7 +84,7 @@ module Fluent::Plugin
             return
           end
 
-          if Time.now - @start >= @flush_interval
+          if Fluent::Clock.now - @start >= @flush_interval
             @flush_method.call(tw, @line_buffer) if @line_buffer
             @line_buffer = nil
             @start = nil
@@ -100,7 +101,7 @@ module Fluent::Plugin
         def reset_timer
           return unless @flush_interval
 
-          @start = Time.now
+          @start = Fluent::Clock.now
         end
       end
     end

@@ -1,5 +1,6 @@
 require_relative '../../helper'
 
+require 'timecop'
 require 'fluent/plugin/in_tail'
 require 'fluent/plugin/parser_none'
 
@@ -273,6 +274,19 @@ class IntailLineFeederTest < Test::Unit::TestCase
       file_feed.on_notify(tw)
 
       assert_equal(['tail'], emitted_tags)
+      assert_equal({ 'message' => "s test1\nf test2" }, emitted_records[0])
+      assert_nil file_feed.line_buffer
+    end
+
+    test 'flushes the buffered line even if the wall clock goes backward' do
+      line_feeder = create_feeder(tag: 'tail', multiline_mode: true, parser: FirstlineParser.new)
+      file_feed, tw = create_file_feed(line_feeder, flush_interval: 0)
+      file_feed.feed_lines(["s test1\n", "f test2\n"], tw)
+
+      Timecop.travel(Time.now - 3600) do
+        file_feed.on_notify(tw)
+      end
+
       assert_equal({ 'message' => "s test1\nf test2" }, emitted_records[0])
       assert_nil file_feed.line_buffer
     end
