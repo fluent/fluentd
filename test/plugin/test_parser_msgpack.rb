@@ -124,4 +124,42 @@ class MessagePackParserTest < ::Test::Unit::TestCase
       assert_equal(data[:expected], parsed_records)
     end
   end
+
+  sub_test_case "data left over from a previous call" do
+    test "parse does not carry truncated data into the next call" do
+      parser = create_driver("").instance
+      parsed_records = []
+      parser.parse("\x81\xA3ba") { |_time, record| parsed_records.append(record) }
+      parser.parse("\x81\xA3bar\xA3bar") { |_time, record| parsed_records.append(record) }
+      assert_equal([{"bar" => "bar"}], parsed_records)
+    end
+
+    test "parse does not carry objects left by an exception in the block into the next call" do
+      parser = create_driver("").instance
+      assert_raise(RuntimeError) do
+        parser.parse("\x81\xA4from\xA1A\x81\xA4from\xA1B") { |_time, _record| raise "error in block" }
+      end
+      parsed_records = []
+      parser.parse("\x81\xA4from\xA1C") { |_time, record| parsed_records.append(record) }
+      assert_equal([{"from" => "C"}], parsed_records)
+    end
+
+    test "parse_partial_data continues decoding data split across calls" do
+      parser = create_driver("").instance
+      parsed_records = []
+      parser.parse_partial_data("\x81\xA3ba") { |_time, record| parsed_records.append(record) }
+      parser.parse_partial_data("r\xA3bar") { |_time, record| parsed_records.append(record) }
+      assert_equal([{"bar" => "bar"}], parsed_records)
+    end
+  end
+
+  test "parse decodes Fluent::EventTime extension type" do
+    event_time = Fluent::EventTime.new(1700000000, 123)
+    input = Fluent::MessagePackFactory.msgpack_packer.write({"message" => "foo", "time" => event_time}).to_s
+    parsed_records = []
+    create_driver("").instance.parse(input) { |_time, record| parsed_records.append(record) }
+    assert_equal(1, parsed_records.size)
+    assert_equal("foo", parsed_records[0]["message"])
+    assert_equal_event_time(event_time, parsed_records[0]["time"])
+  end
 end
