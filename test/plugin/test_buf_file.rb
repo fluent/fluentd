@@ -1719,7 +1719,7 @@ class FileBufferTest < Test::Unit::TestCase
           wait { output.num_errors == errors + 1 }
           proceed_to_next_retry(output)
           wait { output.num_errors == errors + 2 }
-          wait { Dir.empty?(@buf_dir) }
+          wait { output.retry.nil? }
           Dir.glob(File.join(evacuate_dir(plugin_id), "*.log")).size
         end
 

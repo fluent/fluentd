@@ -539,6 +539,7 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [], evacuated
       assert_equal [], p.queue
       assert{ qchunks.all?{ |c| c.purged } }
+      assert{ $log.out.logs.none? { |l| l.include?("evacuate_limit_size is reached") } }
     end
 
     test '#clear_queue! bounds the total evacuated size to evacuate_limit_size' do
@@ -558,7 +559,7 @@ class BufferTest < Test::Unit::TestCase
       assert{ qchunks.all?{ |c| c.purged } }
     end
 
-    test '#clear_queue! stops evacuating at the first chunk which does not fit in evacuate_limit_size' do
+    test '#clear_queue! skips the chunks which do not fit in evacuate_limit_size' do
       p = create_buffer({'evacuate_limit_size' => 150})
       evacuated = []
       p.define_singleton_method(:evacuate_chunk) { |chunk| evacuated << chunk.bytesize }
@@ -567,12 +568,12 @@ class BufferTest < Test::Unit::TestCase
 
       p.clear_queue!
 
-      assert_equal [100], evacuated
+      assert_equal [100, 3], evacuated
       assert_equal [], p.queue
       assert{ qchunks.all?{ |c| c.purged } }
-      skipped_ids = qchunks.drop(1).map { |c| p.dump_unique_id_hex(c.unique_id) }
-      skipped_logs = $log.out.logs.select { |l| l.include?("evacuate_limit_size is reached. chunk is purged without being evacuated.") }
-      assert_equal skipped_ids, skipped_logs.map { |l| l[/chunk_id="(\h+)"/, 1] }
+      skipped_logs = $log.out.logs.select { |l| l.include?("evacuate_limit_size is reached") }
+      assert_equal 1, skipped_logs.size
+      assert{ skipped_logs.first.include?("chunks=1 bytesize=100") }
     end
 
     test '#clear_queue! counts already evacuated files toward evacuate_limit_size' do
@@ -588,6 +589,53 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [100], evacuated
       assert_equal [], p.queue
       assert{ qchunks.all?{ |c| c.purged } }
+    end
+
+    test '#clear_queue! purges all chunks even if it fails to get the size of the evacuated files' do
+      p = create_buffer({'evacuate_limit_size' => 200})
+      evacuated = []
+      p.define_singleton_method(:evacuate_chunk) { |chunk| evacuated << chunk.bytesize }
+      p.define_singleton_method(:evacuate_dir) { raise Encoding::CompatibilityError, "incompatible character encodings" }
+      p.start
+      qchunks = p.queue.dup
+
+      p.clear_queue!
+
+      assert_equal [100, 100], evacuated
+      assert_equal [], p.queue
+      assert{ qchunks.all?{ |c| c.purged } }
+      assert{ $log.out.logs.any? { |l| l.include?("failed to get the size of the evacuated chunk files") } }
+    end
+
+    test 'raises ConfigError if evacuate_limit_size is negative' do
+      assert_raise(Fluent::ConfigError) do
+        create_buffer({'evacuate_limit_size' => -1})
+      end
+    end
+
+    data(
+      'without @id' => [{}, true],
+      'with @id' => [{'@id' => 'test_output'}, false],
+    )
+    test 'warns that evacuate_limit_size needs @id to count the files evacuated before restart' do |(owner_conf, warned)|
+      buffer_conf = config_element('buffer', '', {'evacuate_limit_size' => '1g'})
+      owner = FluentPluginBufferTest::DummyOutputPlugin.new
+      owner.configure(config_element('ROOT', '', owner_conf, [buffer_conf]))
+      p = FluentPluginBufferTest::DummyPlugin.new
+      p.owner = owner
+      p.configure(buffer_conf)
+
+      assert_equal warned, $log.out.logs.any? { |l| l.include?("unless @id is configured") }
+    end
+
+    data(
+      'smaller than chunk_limit_size' => ['1m', true],
+      'larger than chunk_limit_size' => ['1g', false],
+    )
+    test 'warns if evacuate_limit_size is smaller than chunk_limit_size' do |(limit, warned)|
+      create_buffer({'evacuate_limit_size' => limit, 'chunk_limit_size' => '8m'})
+
+      assert_equal warned, $log.out.logs.any? { |l| l.include?("smaller than chunk_limit_size") }
     end
 
     test '#write returns immediately if argument data is empty array' do

@@ -72,7 +72,7 @@ module Fluent
       desc 'If true, chunks are thrown away when unrecoverable error happens'
       config_param :disable_chunk_backup, :bool, default: false
 
-      desc 'The size limit of the evacuated chunk files in the evacuation directory. When the retry limit is reached, queued chunks are evacuated in order until this limit, and the rest are purged without being evacuated. Set 0 to disable evacuation. nil (default) means no limit.'
+      desc 'The size limit of the evacuated chunk files in the evacuation directory. When the retry limit is reached, queued chunks which fit in the remaining size are evacuated, and the others are purged without being evacuated. Set 0 to disable evacuation. nil (default) means no limit.'
       config_param :evacuate_limit_size, :size, default: nil
 
       Metadata = Struct.new(:timekey, :tag, :variables, :seq) do
@@ -229,6 +229,17 @@ module Fluent
 
         unless @queue_limit_length.nil?
           @total_limit_size = @chunk_limit_size * @queue_limit_length
+        end
+        if @evacuate_limit_size
+          raise Fluent::ConfigError, "evacuate_limit_size must be 0 or larger" if @evacuate_limit_size < 0
+          if @evacuate_limit_size > 0
+            unless owner.plugin_id_configured?
+              log.warn "evacuate_limit_size does not count the chunk files evacuated before restart unless @id is configured"
+            end
+            if @evacuate_limit_size < @chunk_limit_size
+              log.warn "evacuate_limit_size is smaller than chunk_limit_size, so full chunks are never evacuated", evacuate_limit_size: @evacuate_limit_size, chunk_limit_size: @chunk_limit_size
+            end
+          end
         end
         @stage_length_metrics = metrics_create(namespace: "fluentd", subsystem: "buffer", name: "stage_length",
                                                help_text: 'Length of stage buffers', prefer_gauge: true)
@@ -645,26 +656,25 @@ module Fluent
       def clear_queue!
         log.on_trace { log.trace "clearing queue", instance: self.object_id }
 
-        if @evacuate_limit_size.nil?
-          evacuate_budget = nil
-        elsif @evacuate_limit_size > 0
-          evacuate_budget = @evacuate_limit_size - evacuated_bytesize
-        else
-          evacuate_budget = 0
-        end
+        evacuate_budget = nil
+        skipped_num = 0
+        skipped_bytesize = 0
 
         synchronize do
           until @queue.empty?
             begin
               q = @queue.shift
-              if evacuate_budget.nil?
+              if @evacuate_limit_size.nil?
                 evacuate_chunk(q)
-              elsif evacuate_budget > 0 && q.bytesize <= evacuate_budget
-                evacuate_chunk(q)
-                evacuate_budget -= q.bytesize
-              else
-                evacuate_budget = 0
-                log.warn "evacuate_limit_size is reached. chunk is purged without being evacuated.", chunk_id: dump_unique_id_hex(q.unique_id), evacuate_limit_size: @evacuate_limit_size
+              elsif @evacuate_limit_size > 0
+                evacuate_budget ||= @evacuate_limit_size - evacuated_bytesize
+                if q.bytesize <= evacuate_budget
+                  evacuate_chunk(q)
+                  evacuate_budget -= q.bytesize
+                else
+                  skipped_num += 1
+                  skipped_bytesize += q.bytesize
+                end
               end
               log.trace("purging a chunk in queue"){ {id: dump_unique_id_hex(q.unique_id), bytesize: q.bytesize, size: q.size} }
               q.purge
@@ -674,6 +684,10 @@ module Fluent
             end
           end
           @queue_size_metrics.set(0)
+        end
+
+        if skipped_num > 0
+          log.warn "evacuate_limit_size is reached. some chunks are purged without being evacuated.", evacuate_limit_size: @evacuate_limit_size, chunks: skipped_num, bytesize: skipped_bytesize
         end
       end
 
@@ -694,13 +708,6 @@ module Fluent
         #       Once the issue is recovered, we can put back the chunk files, and restart Fluentd to
         #       load them.
         #       This feature enables it.
-      end
-
-      def evacuated_bytesize
-        dir = evacuate_dir
-        Dir.children(dir).sum { |name| File.size?(File.join(dir, name)).to_i }
-      rescue SystemCallError
-        0
       end
 
       def chunk_size_over?(chunk)
@@ -1033,6 +1040,15 @@ module Fluent
 
       def evacuate_dir
         File.join(backup_base_dir, 'buffer', safe_owner_id)
+      end
+
+      def evacuated_bytesize
+        dir = evacuate_dir
+        return 0 unless Dir.exist?(dir)
+        Dir.children(dir).sum { |name| File.size?(File.join(dir, name)).to_i }
+      rescue => e
+        log.warn "failed to get the size of the evacuated chunk files", dir: dir, error: e
+        0
       end
     end
   end
