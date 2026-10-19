@@ -234,7 +234,7 @@ module Fluent
           raise ArgumentError, "The chunk must be FileChunk, but it was #{chunk.class}."
         end
 
-        backup_dir = File.join(backup_base_dir, 'buffer', safe_owner_id)
+        backup_dir = evacuate_dir
         FileUtils.mkdir_p(backup_dir, mode: system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION) unless Dir.exist?(backup_dir)
 
         FileUtils.copy([chunk.path, chunk.meta_path], backup_dir)

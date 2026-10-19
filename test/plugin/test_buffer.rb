@@ -558,6 +558,38 @@ class BufferTest < Test::Unit::TestCase
       assert{ qchunks.all?{ |c| c.purged } }
     end
 
+    test '#clear_queue! stops evacuating at the first chunk which does not fit in evacuate_limit_size' do
+      p = create_buffer({'evacuate_limit_size' => 150})
+      evacuated = []
+      p.define_singleton_method(:evacuate_chunk) { |chunk| evacuated << chunk.bytesize }
+      p.start
+      qchunks = p.queue.dup
+
+      p.clear_queue!
+
+      assert_equal [100], evacuated
+      assert_equal [], p.queue
+      assert{ qchunks.all?{ |c| c.purged } }
+      skipped_ids = qchunks.drop(1).map { |c| p.dump_unique_id_hex(c.unique_id) }
+      skipped_logs = $log.out.logs.select { |l| l.include?("evacuate_limit_size is reached. chunk is purged without being evacuated.") }
+      assert_equal skipped_ids, skipped_logs.map { |l| l[/chunk_id="(\h+)"/, 1] }
+    end
+
+    test '#clear_queue! counts already evacuated files toward evacuate_limit_size' do
+      p = create_buffer({'evacuate_limit_size' => 200})
+      evacuated = []
+      p.define_singleton_method(:evacuate_chunk) { |chunk| evacuated << chunk.bytesize }
+      p.define_singleton_method(:evacuated_bytesize) { 100 }
+      p.start
+      qchunks = p.queue.dup
+
+      p.clear_queue!
+
+      assert_equal [100], evacuated
+      assert_equal [], p.queue
+      assert{ qchunks.all?{ |c| c.purged } }
+    end
+
     test '#write returns immediately if argument data is empty array' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3], @p.stage.keys

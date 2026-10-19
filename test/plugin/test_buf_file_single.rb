@@ -1219,5 +1219,39 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
       assert_equal(expected_records, actual_records)
     end
+
+    test 'evacuate_limit_size bounds the evacuated files over repeated retry limits' do
+      plugin_id = "test_output"
+      tag = "test.1"
+      buffer_conf = {
+        "path" => @buf_dir,
+        "flush_mode" => "interval",
+        "flush_interval" => "1s",
+        "retry_type" => "periodic",
+        "retry_max_times" => 1,
+        "retry_randomize" => false,
+        "evacuate_limit_size" => 300,
+      }
+
+      configure_output(plugin_id, "tag", buffer_conf) do |output|
+        start_plugin(output)
+
+        reach_retry_limit = lambda do
+          errors = output.num_errors
+          emit_events(output, tag, dummy_event_stream)
+          wait { output.num_errors == errors + 1 }
+          proceed_to_next_retry(output)
+          wait { output.num_errors == errors + 2 }
+          wait { Dir.empty?(@buf_dir) }
+          Dir.children(evacuate_dir(plugin_id)).size
+        end
+
+        assert_equal [1, 2, 2, 2], Array.new(4) { reach_retry_limit.call }
+        assert_equal 2, output.log.out.logs.count { |l| l.include?("evacuate_limit_size is reached") }
+
+        FileUtils.rm(Dir.glob(File.join(evacuate_dir(plugin_id), "*")))
+        assert_equal 1, reach_retry_limit.call
+      end
+    end
   end
 end
