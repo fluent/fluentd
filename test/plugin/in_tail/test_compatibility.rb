@@ -29,11 +29,6 @@ module TailInputSubclasses
 
   class WorkerParserBuilder < RecordingInput
     attr_reader :worker_parsers
-
-    def start
-      super
-      @worker_parsers = create_worker_parsers(2)
-    end
   end
 
   class ReceiveLinesOverride < RecordingInput
@@ -290,17 +285,19 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
 
   sub_test_case 'worker compatibility classification' do
     test 'the built-in implementation is eligible' do
-      driver = create_driver
+      config = SINGLE_LINE_CONFIG + config_element('', '', { 'num_threads' => 2 })
+      driver = create_driver(config)
       driver.run {}
 
-      assert_true driver.instance.instance_variable_get(:@worker_compatible)
+      assert_true Fluent::Plugin::TailInput::WORKER_COMPATIBILITY.compatible?(driver.instance)
     end
 
     test 'an inherited line-processing override uses the compatibility path' do
-      driver = create_driver(SINGLE_LINE_CONFIG, true, klass: TailInputSubclasses::ParseSinglelineOverrideWithSuper)
+      config = SINGLE_LINE_CONFIG + config_element('', '', { 'num_threads' => 2 })
+      driver = create_driver(config, true, klass: TailInputSubclasses::ParseSinglelineOverrideWithSuper)
       driver.run {}
 
-      assert_false driver.instance.instance_variable_get(:@worker_compatible)
+      assert_false Fluent::Plugin::TailInput::WORKER_COMPATIBILITY.compatible?(driver.instance)
     end
 
     test 'an inherited override stays synchronous when workers are requested' do
@@ -315,7 +312,8 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
     end
 
     test 'worker parsers are recreated from the configured parser and joined to parser lifecycle' do
-      driver = create_driver(SINGLE_LINE_CONFIG, true, klass: TailInputSubclasses::WorkerParserBuilder)
+      config = SINGLE_LINE_CONFIG + config_element('', '', { 'num_threads' => 2 })
+      driver = create_driver(config, true, klass: TailInputSubclasses::WorkerParserBuilder)
       driver.run {}
 
       plugin = driver.instance

@@ -346,6 +346,7 @@ module Fluent::Plugin
         detach_watcher(tw, @tails_rotate_wait[tw][:ino], false)
       end
       shutdown_worker_pool
+      @pf_file.close if @pf_file && !@worker_pool
 
       super
     end
@@ -356,7 +357,6 @@ module Fluent::Plugin
       # close file handles after all threads stopped (in #close of thread plugin helper)
       # It may be because we need to wait IOHandler.ready_to_shutdown()
       close_watcher_handles
-      @pf_file.close if @pf_file
     end
 
     def have_read_capability?
