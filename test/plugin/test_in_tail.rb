@@ -2671,25 +2671,28 @@ class TailInputTest < Test::Unit::TestCase
       deadline = File.mtime(dir).to_i + 1
       # Linux filesystem timestamps use the coarse realtime clock, which can
       # still be in the previous second just after CLOCK_REALTIME rolls over.
-      if Process.const_defined?(:CLOCK_REALTIME_COARSE)
+      if Fluent.linux? && Process.const_defined?(:CLOCK_REALTIME_COARSE)
         clock = Process::CLOCK_REALTIME_COARSE
       else
         clock = Process::CLOCK_REALTIME
-        deadline += 0.1 # Avoid the boundary when no coarse clock is available.
+        deadline += 0.1 # Avoid the boundary when the clock may not match file system timestamps.
       end
       sleep(0.05) while Process.clock_gettime(clock) < deadline
     end
 
-    data('coarse clock' => true, 'realtime fallback' => false)
-    test 'waits for the filesystem clock to pass the directory timestamp second' do |coarse|
+    data('coarse clock' => [true, true, true],
+         'realtime fallback' => [true, false, false],
+         'coarse clock defined on another platform' => [false, true, false])
+    test 'waits for the filesystem clock to pass the directory timestamp second' do |(linux, coarse_defined, coarse)|
       omit 'Coarse realtime clock is unavailable' if coarse && !Process.const_defined?(:CLOCK_REALTIME_COARSE)
-      stub(Process).const_defined?(:CLOCK_REALTIME_COARSE).returns(coarse)
+      stub(Fluent).linux?.returns(linux)
+      stub(Process).const_defined?(:CLOCK_REALTIME_COARSE).returns(coarse_defined)
       stub(File).mtime(@tmp_dir).returns(Time.at(100))
       clock = coarse ? Process::CLOCK_REALTIME_COARSE : Process::CLOCK_REALTIME
-      ticks = [100.999, 101.0, 101.1]
+      ticks = [100.999, 101.0, 101.05, 101.1]
       stub(Process).clock_gettime(clock) { ticks.shift || raise('Clock sequence exhausted') }
       sleeper = mock(self).sleep(0.05)
-      coarse ? sleeper.once : sleeper.twice
+      coarse ? sleeper.once : sleeper.times(3)
       assert_nothing_raised { wait_until_dir_stat_can_change(@tmp_dir) }
     end
 
