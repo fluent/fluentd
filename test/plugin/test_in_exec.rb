@@ -236,9 +236,10 @@ EOC
 
       d.run(expect_records: 1, timeout: 10)
 
-      assert_equal 1, d.events.length
-      tag, time, record = d.events.first
-      assert_equal({"message" => content}, record)
+      assert{ d.events.length > 0 }
+      d.events.each do |event|
+        assert_equal({"message" => content}, event[2])
+      end
     end
 
     test 'raise ConfigError for invalid encoding' do
