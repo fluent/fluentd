@@ -1,14 +1,49 @@
 # v1.20
 
-## Release v1.20.0 - TBD
+## Release v1.20.0 - 2026/10/23
 
-### Bug fix
+### Enhancement
 
-* http_server helper: Fix IPv6 bind address support in URI construction
+* Replace Yajl with built-in JSON for simple cases https://github.com/fluent/fluentd/pull/5090
+* out_forward: add `send_keepalive_packet` option to enable TCP keepalive (SO_KEEPALIVE) https://github.com/fluent/fluentd/pull/5262
+* in_exec: add `command_timeout` option to limit child process execution time https://github.com/fluent/fluentd/pull/5320
+* Replace Yajl with JSON for handling JSON stream https://github.com/fluent/fluentd/pull/5383
+  * When an input stream ends in the middle of a JSON document, Fluentd now logs a warning and discards the incomplete tail instead of raising `ParseError`.
+* system_config: add `umask` option to `<system>` directive https://github.com/fluent/fluentd/pull/5390
+* parser_syslog: accept a space after RFC3164 priority https://github.com/fluent/fluentd/pull/5449
+* in_tail: add opt-in `enable_dir_watcher` and `dir_watcher_limit` to discover new files earlier by watching directories https://github.com/fluent/fluentd/pull/5528
+* in_forward: accept metadata on encapsulated timestamps sent by Fluent Bit v5.0.5 or later https://github.com/fluent/fluentd/pull/5411
+* Enable Ruby JIT by default https://github.com/fluent/fluentd/pull/5464
+  * The system configuration `enable_jit` now defaults to `true`.
+  * JIT increases memory usage of each worker process. Set `enable_jit false` in the `<system>` section to restore the previous behavior.
+  * This has no effect on Windows because YJIT is not supported there.
+* fluent-plugin-generate: add .gitignore file https://github.com/fluent/fluentd/pull/5370
+* Performance improvements
+  * https://github.com/fluent/fluentd/pull/5281
+  * https://github.com/fluent/fluentd/pull/5288
+  * https://github.com/fluent/fluentd/pull/5289
+  * https://github.com/fluent/fluentd/pull/5344
+  * https://github.com/fluent/fluentd/pull/5353
+  * https://github.com/fluent/fluentd/pull/5354
+  * https://github.com/fluent/fluentd/pull/5357
+  * https://github.com/fluent/fluentd/pull/5287
+
+### Bug Fix
+
+* http_server helper: Fix IPv6 bind address support in URI construction (https://github.com/fluent/fluentd/pull/5239)
   * Fixed `URI::InvalidURIError` when binding to IPv6 addresses (e.g., `::`, `::1`)
   * IPv6 addresses are now properly bracketed in URIs per RFC 3986 (e.g., `http://[::]:24231`)
   * Handles pre-bracketed addresses correctly to avoid double-bracketing
   * Affects all plugins using http_server helper with IPv6 bind addresses
+* out_file: create symlinks for all chunks sharing the latest timekey https://github.com/fluent/fluentd/pull/5476
+* time: fix TimeFormatter returning nil for the Unix epoch https://github.com/fluent/fluentd/pull/5420
+
+### Misc
+
+* Drop Ruby 3.2 support https://github.com/fluent/fluentd/pull/5465
+* out_http: remove the Net::HTTP extra_chain_cert monkey patch https://github.com/fluent/fluentd/pull/5484
+* gem: add aarch64-mingw-ucrt gem https://github.com/fluent/fluentd/pull/5400
+* gem: add json gem (>= 2.21) as runtime dependency and remove Refinements workaround https://github.com/fluent/fluentd/pull/5429
 
 # v1.19
 
