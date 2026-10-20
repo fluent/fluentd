@@ -237,7 +237,7 @@ module Fluent
             @evacuate_limit_size = nil
           elsif @evacuate_limit_size > 0
             unless owner.plugin_id_configured?
-              log.warn "evacuate_limit_size should be used with @id, because the evacuation directory without @id can change when the configuration is changed"
+              log.warn "evacuate_limit_size should be used with @id, because the evacuation directory without @id can change when the configuration is changed or reloaded"
             end
             if @evacuate_limit_size < @chunk_limit_size
               log.warn "evacuate_limit_size is smaller than chunk_limit_size, so full chunks may not be evacuated", evacuate_limit_size: @evacuate_limit_size, chunk_limit_size: @chunk_limit_size
