@@ -72,7 +72,7 @@ module Fluent
       desc 'If true, chunks are thrown away when unrecoverable error happens'
       config_param :disable_chunk_backup, :bool, default: false
 
-      desc 'The size limit of the evacuated chunk files in the evacuation directory. When the retry limit is reached, queued chunks which fit in the remaining size are evacuated, and the others are purged without being evacuated. Set 0 to disable evacuation. nil (default) means no limit.'
+      desc 'The approximate size limit of the evacuated chunk files in the evacuation directory. When the retry limit is reached, queued chunks that fit within the remaining capacity are evacuated, and the others are purged without being evacuated. The total size may exceed this limit due to chunk metadata or concurrent evacuation by multiple workers. Set to 0 to disable evacuation. nil (the default) means no limit.'
       config_param :evacuate_limit_size, :size, default: nil
 
       Metadata = Struct.new(:timekey, :tag, :variables, :seq) do
