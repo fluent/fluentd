@@ -197,7 +197,7 @@ module Fluent
             if chunk_size_full?(chunk) || stage.key?(chunk.metadata)
               queue << chunk.enqueued!
             else
-              chunk.metadata.seq = seq +=1
+              chunk.metadata.seq = seq += 1
               stage[chunk.metadata] = chunk
             end
           when :queued
