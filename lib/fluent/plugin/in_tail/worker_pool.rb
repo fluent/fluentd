@@ -148,6 +148,11 @@ module Fluent::Plugin
         true
       end
 
+      def kill
+        @threads.each(&:kill)
+        @threads.each(&:join)
+      end
+
       private
 
       def run(index)
@@ -232,7 +237,8 @@ module Fluent::Plugin
     end
 
     class WorkerCompletionWatcher < Coolio::IOWatcher
-      def initialize(&on_completion)
+      def initialize(log: nil, &on_completion)
+        @log = log
         if Fluent.windows?
           # Winsock select cannot monitor IO.pipe handles. Use connected
           # loopback sockets, as libev does for its own Windows wakeups.
@@ -267,10 +273,19 @@ module Fluent::Plugin
       end
 
       def on_readable
-        @reader.read_nonblock(1)
+        notified = false
+        begin
+          loop do
+            @reader.read_nonblock(4096)
+            notified = true
+          end
+        rescue IO::WaitReadable
+          return unless notified
+        end
         on_signal
-      rescue IO::WaitReadable
-        # Ignore spurious readiness notifications.
+      rescue => error
+        @log&.error 'unexpected error while processing in_tail worker completions', error: error
+        @log&.error_backtrace
       end
 
       def close

@@ -342,8 +342,9 @@ module Fluent::Plugin
       detach_refresh_timer
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(existence_path, immediate: true, remove_watcher: false)
-      @tails_rotate_wait.keys.each do |tw|
-        detach_watcher(tw, @tails_rotate_wait[tw][:ino], false)
+      @tails_rotate_wait.dup.each do |tw, rotation|
+        event_loop_detach(rotation[:timer]) if @worker_pool
+        detach_watcher(tw, rotation[:ino], false)
       end
       shutdown_worker_pool
       @pf_file.close if @pf_file && !@worker_pool
@@ -357,6 +358,7 @@ module Fluent::Plugin
       # close file handles after all threads stopped (in #close of thread plugin helper)
       # It may be because we need to wait IOHandler.ready_to_shutdown()
       close_watcher_handles
+      @pf_file.close if @pf_file && !@pf_file.closed?
     end
 
     def have_read_capability?
@@ -478,6 +480,11 @@ module Fluent::Plugin
     end
 
     def close_watcher_handles
+      if @worker_pool
+        close_worker_watcher_handles
+        return
+      end
+
       @tails.keys.each do |path|
         tw = @tails.delete(path)
         if tw
@@ -486,13 +493,6 @@ module Fluent::Plugin
       end
       @tails_rotate_wait.keys.each do |tw|
         tw.close
-      end
-      @worker_deferred_unwatch&.each do |tw, target_info|
-        tw.close_if_ready
-        if tw.drained?
-          @pf.unwatch(target_info) if @pf
-          @worker_deferred_unwatch.delete(tw)
-        end
       end
     end
 
@@ -551,9 +551,6 @@ module Fluent::Plugin
     end
 
     def detach_watcher(tw, ino, close_io = true)
-      defer_worker_completion = tw.pending? || @worker_waiting_watchers&.include?(tw)
-      deferred_unwatch = @pf && tw.unwatched && (@follow_inodes || !@tails[tw.path]) && defer_worker_completion
-      tw.defer_close if close_io && defer_worker_completion
       if @follow_inodes && tw.ino != ino
         log.warn("detach_watcher could be detaching an unexpected tail_watcher with a different ino.",
                   path: tw.path, actual_ino_in_tw: tw.ino, expect_ino_to_close: ino)
@@ -563,6 +560,12 @@ module Fluent::Plugin
       end
       tw.detach(@shutdown_start_time)
 
+      # The final read in detach may itself submit a worker batch.
+      defer_worker_completion = tw.pending? || @worker_waiting_watchers&.include?(tw)
+      if close_io && defer_worker_completion
+        tw.defer_close
+        @worker_detached_watchers << tw unless @worker_detached_watchers.include?(tw)
+      end
       tw.close if close_io
 
       # A watcher waiting for `rotate_wait` cannot read once its path leaves the group watcher.
@@ -570,7 +573,7 @@ module Fluent::Plugin
 
       if @pf && tw.unwatched && (@follow_inodes || !@tails[tw.path])
         target_info = TargetInfo.new(tw.path, ino)
-        if deferred_unwatch
+        if defer_worker_completion
           @worker_deferred_unwatch[tw] = target_info
         else
           @pf.unwatch(target_info)
@@ -738,7 +741,10 @@ module Fluent::Plugin
       @worker_line_feeders = @worker_parsers.map { |parser| build_worker_line_feeder(parser) }
       @worker_waiting_watchers = []
       @worker_deferred_unwatch = {}
-      @worker_completion_watcher = WorkerCompletionWatcher.new { process_worker_completions }
+      @worker_detached_watchers = []
+      @worker_completion_mutex = Mutex.new
+      @worker_completions_stopped = false
+      @worker_completion_watcher = WorkerCompletionWatcher.new(log: log) { process_worker_completions }
       event_loop_attach(@worker_completion_watcher)
       @worker_pool = WorkerPool.new(
         num_threads: @num_threads,
@@ -786,36 +792,73 @@ module Fluent::Plugin
     end
 
     def process_worker_completions
-      while (result = @worker_pool.next_result)
-        batch = result.task.payload
-        if result.error
-          @worker_metrics[:parse_errors].inc
-          log.warn 'worker parsing failed; retrying synchronously', path: batch.watcher.path, error: result.error
-          emitted = @line_feeder.feed_lines(batch.lines, batch.watcher)
-        else
-          emitted = @line_feeder.emit(result.value, batch.watcher)
-        end
-        @worker_pool.acknowledge(result)
-        update_worker_metrics
-        batch.watcher.complete_async(emitted)
-        finish_worker_deferred_close(batch.watcher)
+      @worker_completion_mutex.synchronize do
+        drain_worker_completions(resume: true) unless @worker_completions_stopped
       end
+    end
+
+    def drain_worker_completions(resume:)
+      while (result = @worker_pool.next_result)
+        begin
+          complete_worker_result(result, resume: resume)
+        rescue => error
+          log.error 'unexpected error while completing in_tail worker batch', error: error
+          log.error_backtrace
+        end
+      end
+
+      return unless resume
 
       waiting = @worker_waiting_watchers
       @worker_waiting_watchers = []
       waiting.each do |watcher|
-        if watcher.detached?
-          watcher.read_more
+        begin
+          watcher.detached? ? watcher.read_more : watcher.on_notify
+        rescue => error
+          log.error 'unexpected error while retrying in_tail worker batch', error: error
+          log.error_backtrace
+        ensure
           finish_worker_deferred_close(watcher)
+        end
+      end
+    end
+
+    def complete_worker_result(result, resume:)
+      batch = result.task.payload
+      emitted = false
+      begin
+        if result.error
+          @worker_metrics[:parse_errors].inc
+          if resume
+            log.warn 'worker parsing failed; retrying synchronously', path: batch.watcher.path, error: result.error
+            emitted = @line_feeder.feed_lines(batch.lines, batch.watcher)
+          else
+            log.warn 'worker parsing failed during shutdown; leaving position unchanged', path: batch.watcher.path, error: result.error
+          end
         else
-          watcher.on_notify
+          emitted = @line_feeder.emit(result.value, batch.watcher)
+        end
+      ensure
+        begin
+          @worker_pool.acknowledge(result)
+          update_worker_metrics
+        ensure
+          begin
+            batch.watcher.complete_async(emitted, resume: resume)
+          ensure
+            finish_worker_deferred_close(batch.watcher)
+          end
         end
       end
     end
 
     def finish_worker_deferred_close(watcher)
-      watcher.close_if_ready
-      return unless watcher.drained?
+      return if watcher.pending? || @worker_waiting_watchers.include?(watcher)
+
+      # Match synchronous detach on failed emit or a throttled final read:
+      # close the handle, leaving uncommitted data for a future watch.
+      watcher.close_if_ready(force: watcher.detached?)
+      @worker_detached_watchers.delete(watcher)
 
       target_info = @worker_deferred_unwatch.delete(watcher)
       @pf.unwatch(target_info) if target_info && @pf
@@ -827,21 +870,47 @@ module Fluent::Plugin
       @worker_metrics[:pending_bytes].set(statistics[:bytes])
     end
 
+    def close_worker_watcher_handles
+      watchers = (@tails.values + @tails_rotate_wait.keys + @worker_detached_watchers + @worker_deferred_unwatch.keys).uniq
+      watchers.each(&:force_close)
+      @tails.clear
+      @worker_detached_watchers.clear
+      @worker_deferred_unwatch.each_value do |target_info|
+        @pf.unwatch(target_info) if @pf
+      end
+      @worker_deferred_unwatch.clear
+    end
+
     def shutdown_worker_pool
       return unless @worker_pool
 
       deadline = Fluent::Clock.now + TailWatcher::IOHandler::SHUTDOWN_TIMEOUT
-      watchers = (@tails.values + @tails_rotate_wait.keys + @worker_deferred_unwatch.keys).uniq
-      while @worker_pool.statistics[:tasks].positive? || watchers.any? { |watcher| !watcher.drained? }
+      while worker_work_pending?
         break if Fluent::Clock.now >= deadline
         sleep 0.01
       end
-      if @worker_pool.statistics[:tasks].positive? || watchers.any? { |watcher| !watcher.drained? }
+      if worker_work_pending?
         log.warn 'in_tail worker pool did not drain before shutdown timeout'
       end
-      @worker_pool.stop
+      event_loop_detach(@worker_completion_watcher)
+      # Detach alone does not wait for a callback already running. Serialize
+      # the handover so every result is handled before output shutdown starts.
+      @worker_completion_mutex.synchronize do
+        @worker_completions_stopped = true
+        @worker_pool.stop
+      end
       unless @worker_pool.join(timeout: TailWatcher::IOHandler::SHUTDOWN_TIMEOUT)
         log.warn 'in_tail worker threads did not stop before timeout'
+        @worker_pool.kill
+      end
+      @worker_completion_mutex.synchronize do
+        drain_worker_completions(resume: false)
+      end
+    end
+
+    def worker_work_pending?
+      @worker_completion_mutex.synchronize do
+        @worker_pool.statistics[:tasks].positive? || !@worker_waiting_watchers.empty?
       end
     end
   end

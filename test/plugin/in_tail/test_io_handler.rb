@@ -92,6 +92,129 @@ class IntailIOHandlerTest < Test::Unit::TestCase
     assert_false handler.pending?
   end
 
+  test 'a batch rejected by a full queue resumes reading after asynchronous retry' do
+    text = Array.new(2000) { |index| "#{index} #{'x' * 100}\n" }.join
+    @file.write(text)
+    @file.close
+    watcher = create_watcher
+    calls = 0
+    received = []
+    handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+      watcher, path: @file.path, read_lines_limit: 1, read_bytes_limit_per_second: -1,
+      log: $log, open_on_every_update: false, metrics: @metrics
+    ) do |lines, _tail_watcher|
+      calls += 1
+      if calls == 1
+        false
+      else
+        received.concat(lines)
+        Fluent::Plugin::TailInput::TailWatcher::IOHandler::ASYNC_PENDING
+      end
+    end
+
+    handler.on_notify
+    assert_false handler.pending?
+    handler.on_notify
+    assert_true handler.pending?
+    assert_true handler.complete_async(true)
+
+    until handler.drained?
+      handler.on_notify
+      handler.complete_async(true) if handler.pending?
+    end
+    assert_equal text.lines, received
+    assert_equal text.bytesize, watcher.pe.read_pos
+  ensure
+    handler&.close
+  end
+
+  test 'synchronous retry preserves the existing per-notification read behavior' do
+    text = "#{'x' * 1000}\n" * 200
+    @file.write(text)
+    @file.close
+    watcher = create_watcher
+    calls = 0
+    handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+      watcher, path: @file.path, read_lines_limit: 1, read_bytes_limit_per_second: -1,
+      log: $log, open_on_every_update: false, metrics: @metrics
+    ) do
+      calls += 1
+      calls > 1
+    end
+
+    handler.on_notify
+    assert_equal 0, watcher.pe.read_pos
+    handler.on_notify
+    assert_operator watcher.pe.read_pos, :>, 0
+    assert_operator watcher.pe.read_pos, :<, text.bytesize
+    assert_equal 2, calls
+  ensure
+    handler&.close
+  end
+
+  test 'a failed asynchronous position write clears pending state and retains the batch' do
+    @file.write("line\n")
+    @file.close
+    watcher = create_watcher
+    position_entry = watcher.pe
+    writes = 0
+    original_update = position_entry.method(:update_pos)
+    position_entry.define_singleton_method(:update_pos) do |position|
+      writes += 1
+      raise Errno::ENOSPC if writes == 1
+      original_update.call(position)
+    end
+    batches = []
+    handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+      watcher, path: @file.path, read_lines_limit: 1, read_bytes_limit_per_second: -1,
+      log: $log, open_on_every_update: false, metrics: @metrics
+    ) do |lines, _tail_watcher|
+      batches << lines.dup
+      Fluent::Plugin::TailInput::TailWatcher::IOHandler::ASYNC_PENDING
+    end
+
+    handler.on_notify
+    assert_nothing_raised { handler.complete_async(true) }
+    assert_false handler.pending?
+    assert_equal 0, position_entry.read_pos
+    handler.on_notify
+    assert_true handler.pending?
+    handler.complete_async(true)
+    assert_false handler.pending?
+    assert_equal 5, position_entry.read_pos
+    assert_equal [["line\n"], ["line\n"]], batches
+  ensure
+    handler&.close
+  end
+
+  test 'a final force-close releases a file even while its batch is pending' do
+    @file.write("line\n")
+    @file.close
+    watcher = create_watcher
+    handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+      watcher, path: @file.path, read_lines_limit: 1, read_bytes_limit_per_second: -1,
+      log: $log, open_on_every_update: false, metrics: @metrics
+    ) do
+      Fluent::Plugin::TailInput::TailWatcher::IOHandler::ASYNC_PENDING
+    end
+    watcher.instance_variable_set(:@io_handler, handler)
+    handler.on_notify
+    watcher.close
+    assert_true handler.opened?
+
+    watcher.force_close
+    assert_false handler.opened?
+    assert_false watcher.pending?
+  ensure
+    handler&.close
+  end
+
+  test 'a null handler is drained without pending work' do
+    handler = Fluent::Plugin::TailInput::TailWatcher::NullIOHandler.new
+    assert_true handler.drained?
+    assert_false handler.pending?
+  end
+
   test 'a failed asynchronous receive keeps the batch and position for retry' do
     text = "line\n"
     @file.write(text)

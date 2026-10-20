@@ -185,16 +185,23 @@ module Fluent::Plugin
           @notify_mutex.synchronize do
             raise 'no asynchronous receive is pending' unless @async_pending
 
-            if success
-              @watcher.pe.update_pos(@pending_position)
-              @lines.clear
+            begin
+              if success
+                @watcher.pe.update_pos(@pending_position)
+                @lines.clear
+              end
+              should_notify = (success && @pending_read_more) || @notify_pending
+              @pending_read_more = false if success
+              should_notify
+            rescue => error
+              @log.error error.to_s
+              @log.error_backtrace
+              @notify_pending
+            ensure
+              @async_pending = false
+              @notify_pending = false
+              @pending_position = nil
             end
-            should_notify = (success && @pending_read_more) || @notify_pending
-            @async_pending = false
-            @notify_pending = false
-            @pending_position = nil
-            @pending_read_more = false
-            should_notify
           end
         end
 
@@ -287,13 +294,16 @@ module Fluent::Plugin
                 received = @receive_lines.call(@lines, @watcher)
                 if received == ASYNC_PENDING
                   @pending_position = io.pos - @fifo.reading_bytesize
-                  @pending_read_more = read_more
+                  @pending_read_more ||= read_more
                   @async_pending = true
                   read_more = false
                 elsif received
                   @watcher.pe.update_pos(io.pos - @fifo.reading_bytesize)
                   @lines.clear
+                  @pending_read_more = false
                 else
+                  # A rejected worker submission must retain the continuation for retry.
+                  @pending_read_more ||= read_more
                   read_more = false
                 end
               end
@@ -367,6 +377,10 @@ module Fluent::Plugin
 
         def drained?
           true
+        end
+
+        def pending?
+          false
         end
       end
     end

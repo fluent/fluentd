@@ -148,6 +148,56 @@ class TailInputWorkerPoolTest < Test::Unit::TestCase
     assert_equal 0, pool.statistics[:tasks]
   end
 
+  test 'killing a blocked worker publishes failures for active and queued tasks' do
+    started = Queue.new
+    pool = create_pool do |_, payload|
+      started << true
+      @release.pop
+      payload
+    end
+    assert_true pool.submit(:active, 'active', bytes: 1)
+    Timeout.timeout(5) { started.pop }
+    assert_true pool.submit(:queued, 'queued', bytes: 1)
+    pool.stop
+    pool.kill
+
+    results = Array.new(2) { result_from(pool) }
+    assert_equal %i[active queued], results.map { |result| result.task.key }.sort
+    results.each do |result|
+      assert_kind_of Fluent::Plugin::TailInput::WorkerPool::WorkerStopped, result.error
+      pool.acknowledge(result)
+    end
+    assert_true pool.join(timeout: 0)
+    assert_equal 0, pool.statistics[:tasks]
+  end
+
+  test 'completion notifications are drained before invoking the callback' do
+    completions = 0
+    watcher = Fluent::Plugin::TailInput::WorkerCompletionWatcher.new { completions += 1 }
+    @watchers << watcher
+    100.times { watcher.signal }
+
+    watcher.on_readable
+    assert_equal 1, completions
+    watcher.on_readable
+    assert_equal 1, completions
+  end
+
+  test 'a completion callback error is logged without escaping the watcher' do
+    completions = 0
+    watcher = Fluent::Plugin::TailInput::WorkerCompletionWatcher.new(log: $log) do
+      completions += 1
+      raise Errno::ENOSPC if completions == 1
+    end
+    @watchers << watcher
+
+    watcher.signal
+    assert_nothing_raised { watcher.on_readable }
+    watcher.signal
+    watcher.on_readable
+    assert_equal 2, completions
+  end
+
   test 'completion notifications never block when the pipe is full' do
     watcher = Fluent::Plugin::TailInput::WorkerCompletionWatcher.new {}
     @watchers << watcher

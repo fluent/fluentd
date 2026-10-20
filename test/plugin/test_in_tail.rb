@@ -910,6 +910,94 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION, position_entry.read_pos
     end
 
+    def test_worker_batch_submitted_by_detach_keeps_its_position_entry_until_completion
+      paths = %w[tail-a.txt tail-b.txt].map { |name| "#{@tmp_dir}/#{name}" }
+      paths.each { |path| File.binwrite(path, '') }
+      config = SINGLE_LINE_CONFIG + config_element('', '', {
+        'path' => "#{@tmp_dir}/tail-*.txt",
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
+        'num_threads' => 2,
+        'read_from_head' => true,
+        'follow_inodes' => true,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config, false)
+      started = Queue.new
+      release = Queue.new
+      driver.run(expect_records: 1, timeout: 5) do
+        plugin = driver.instance
+        tails = plugin.instance_variable_get(:@tails)
+        tails.each_value do |watcher|
+          watcher.watchers.each { |trigger| plugin.event_loop_detach(trigger) }
+        end
+        first, second = paths.map { |path| tails[path] }
+        second.pe.update_pos(130)
+        pool = plugin.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) { started << true; release.pop }
+        File.binwrite(paths.first, "detached-batch\n")
+        assert_false first.pending?
+        first.unwatched = true
+        tails.delete(first.path)
+        plugin.detach_watcher(first, first.ino)
+        waiting(5) { sleep 0.01 until started.size == 1 }
+
+        assert_true plugin.instance_variable_get(:@worker_deferred_unwatch).key?(first)
+        pf = plugin.instance_variable_get(:@pf)
+        pf.try_compact
+        release.close
+        waiting(5) do
+          sleep 0.01 until plugin.instance_variable_get(:@worker_deferred_unwatch).empty?
+        end
+        pf.try_compact
+        entries = File.binread("#{@tmp_dir}/tail.pos").lines.map { |line| line.split("\t") }
+        assert_equal [paths.last], entries.map(&:first)
+        assert_equal 130, entries.first[1].to_i(16)
+      ensure
+        release.close
+      end
+    end
+
+    def test_worker_position_write_error_does_not_stop_completion_processing
+      paths = %w[tail-a.txt tail-b.txt].map { |name| "#{@tmp_dir}/#{name}" }
+      paths.each { |path| File.binwrite(path, '') }
+      config = SINGLE_LINE_CONFIG + config_element('', '', {
+        'path' => "#{@tmp_dir}/tail-*.txt",
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
+        'num_threads' => 2,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config, false)
+      driver.run(expect_records: 3, timeout: 5) do
+        plugin = driver.instance
+        watchers = paths.map { |path| plugin.instance_variable_get(:@tails)[path] }
+        watchers.each do |watcher|
+          watcher.watchers.each { |trigger| plugin.event_loop_detach(trigger) }
+        end
+        pe = watchers.first.pe
+        original_update = pe.method(:update_pos)
+        failed = false
+        pe.define_singleton_method(:update_pos) do |position|
+          unless failed
+            failed = true
+            raise Errno::ENOSPC, 'controlled position write failure'
+          end
+          original_update.call(position)
+        end
+        paths.each { |path| File.binwrite(path, "line\n") }
+        watchers.each(&:on_notify)
+        pool = plugin.instance_variable_get(:@worker_pool)
+        waiting(5) { sleep 0.01 until driver.events.size == 2 && pool.statistics[:tasks].zero? && !watchers.first.pending? }
+        assert_equal 0, watchers.first.pe.read_pos
+        assert_equal 5, watchers.last.pe.read_pos
+        watchers.first.on_notify
+        waiting(5) { sleep 0.01 until watchers.first.pe.read_pos == 5 }
+      end
+      assert_equal ['line', 'line', 'line'], driver.events.map { |event| event[2]['message'] }
+      assert_true driver.logs.any? { |line| line.include?('controlled position write failure') }
+    end
+
     def test_worker_completion_handles_truncation_during_parse
       path = "#{@tmp_dir}/tail.txt"
       Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('before-truncate') }
@@ -951,6 +1039,9 @@ class TailInputTest < Test::Unit::TestCase
     data(forward: :each, reverse: :reverse_each)
     def test_worker_queue_saturation_reschedules_waiting_files(notification_order)
       paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
+      records = paths.each_index.map do |index|
+        Array.new(200) { |line| "file-#{index}-#{line} #{'x' * 1000}" }
+      end
       paths.each { |path| Fluent::FileWrapper.open(path, 'wb') {} }
       config = config_element('ROOT', '', {
         'path' => "#{@tmp_dir}/tail-*.txt",
@@ -966,7 +1057,11 @@ class TailInputTest < Test::Unit::TestCase
       parse_started = Queue.new
       continue_parse = Queue.new
 
-      driver.run(expect_records: paths.size, timeout: 10) do
+      driver.run(expect_records: records.flatten.size, timeout: 10) do
+        plugin = driver.instance
+        plugin.instance_variable_get(:@tails).each_value do |watcher|
+          watcher.watchers.each { |trigger| plugin.event_loop_detach(trigger) }
+        end
         pool = driver.instance.instance_variable_get(:@worker_pool)
         # Block whichever files arrive first so notification order cannot
         # allow completed batches to free capacity before the queue fills.
@@ -975,7 +1070,7 @@ class TailInputTest < Test::Unit::TestCase
           continue_parse.pop
         end
         paths.each_with_index do |path, index|
-          Fluent::FileWrapper.open(path, 'ab') { |file| file.puts("file-#{index}") }
+          Fluent::FileWrapper.open(path, 'ab') { |file| file.puts(records[index]) }
         end
         paths.public_send(notification_order) do |path|
           driver.instance.instance_variable_get(:@tails)[path].on_notify
@@ -991,8 +1086,7 @@ class TailInputTest < Test::Unit::TestCase
         continue_parse.close
       end
 
-      assert_equal paths.size, driver.events.size
-      assert_equal (0...paths.size).map { |index| "file-#{index}" }, driver.events.map { |event| event[2]['message'] }.sort
+      assert_equal records.flatten.sort, driver.events.map { |event| event[2]['message'] }.sort
       assert_equal 0, driver.instance.instance_variable_get(:@worker_pool).statistics[:tasks]
     end
 
@@ -1181,6 +1275,186 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal ['shutdown-record'], driver.events.map { |event| event[2]['message'] }
       assert_equal 0, pool.statistics[:tasks]
       assert_true pool.instance_variable_get(:@threads).none?(&:alive?)
+    end
+
+    def test_worker_shutdown_does_not_wait_for_a_throttled_backlog_to_reach_eof
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, '')
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'read_bytes_limit_per_second' => 65536,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config)
+      driver.run(shutdown: false) do
+        plugin = driver.instance
+        watcher = plugin.instance_variable_get(:@tails)[path]
+        File.binwrite(path, "#{'x' * 1000}\n" * 1200)
+        watcher.on_notify
+        waiting(5) { sleep 0.01 until driver.events.any? }
+        assert_false watcher.eof?
+        handler = watcher.instance_variable_get(:@io_handler)
+
+        started = Fluent::Clock.now
+        driver.instance_shutdown
+        assert_operator Fluent::Clock.now - started, :<, Fluent::Plugin::TailInput::TailWatcher::IOHandler::SHUTDOWN_TIMEOUT
+        assert_false handler.opened?
+        assert_true plugin.instance_variable_get(:@pf_file).closed?
+        assert_empty driver.logs.grep(/worker pool did not drain/)
+      end
+    ensure
+      driver&.instance_shutdown unless driver&.instance&.terminated?
+    end
+
+    data(completes_during_join: true, blocked_until_killed: false)
+    def test_worker_shutdown_handles_results_published_during_join(finish_parse)
+      io_handler_class = Fluent::Plugin::TailInput::TailWatcher::IOHandler
+      original_timeout = io_handler_class::SHUTDOWN_TIMEOUT
+      io_handler_class.send(:remove_const, :SHUTDOWN_TIMEOUT)
+      io_handler_class.const_set(:SHUTDOWN_TIMEOUT, 0.05)
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, '')
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config)
+      started = Queue.new
+      release = Queue.new
+
+      driver.run(shutdown: false) do
+        plugin = driver.instance
+        pool = plugin.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) { started << true; release.pop }
+        watcher = plugin.instance_variable_get(:@tails)[path]
+        File.binwrite(path, "last-batch\n")
+        watcher.on_notify
+        waiting(5) { sleep 0.01 until started.size == 1 }
+        handler = watcher.instance_variable_get(:@io_handler)
+        rotation_timer = plugin.timer_execute(:test_rotation_during_shutdown, 60, repeat: false) {}
+        plugin.instance_variable_get(:@tails).delete(path)
+        plugin.instance_variable_get(:@tails_rotate_wait)[watcher] = { ino: watcher.ino, timer: rotation_timer }
+        original_stop = pool.method(:stop)
+        rotation_timer_attached_at_stop = nil
+        pool.define_singleton_method(:stop) do
+          rotation_timer_attached_at_stop = rotation_timer.attached?
+          original_stop.call
+        end
+        plugin.event_loop_detach(plugin.instance_variable_get(:@worker_completion_watcher))
+        if finish_parse
+          original_join = pool.method(:join)
+          pool.define_singleton_method(:join) do |timeout: nil|
+            release << true
+            original_join.call(timeout: 5)
+          end
+        end
+
+        plugin.stop
+        plugin.before_shutdown
+        plugin.shutdown
+        assert_equal(finish_parse ? ['last-batch'] : [], driver.events.map { |event| event[2]['message'] })
+        assert_equal(finish_parse ? 11 : 0, watcher.pe.read_pos)
+        assert_equal 0, pool.statistics[:tasks]
+        assert_false rotation_timer_attached_at_stop
+        assert_false handler.pending?
+        assert_true pool.instance_variable_get(:@threads).none?(&:alive?)
+
+        driver.instance_shutdown
+        assert_false handler.opened?
+        assert_true plugin.instance_variable_get(:@pf_file).closed?
+      end
+    ensure
+      release&.close
+      driver&.instance_shutdown unless driver&.instance&.terminated?
+      if original_timeout
+        io_handler_class.send(:remove_const, :SHUTDOWN_TIMEOUT)
+        io_handler_class.const_set(:SHUTDOWN_TIMEOUT, original_timeout)
+      end
+    end
+
+    def test_worker_shutdown_waits_for_a_completion_after_pool_acknowledgment
+      io_handler_class = Fluent::Plugin::TailInput::TailWatcher::IOHandler
+      original_timeout = io_handler_class::SHUTDOWN_TIMEOUT
+      io_handler_class.send(:remove_const, :SHUTDOWN_TIMEOUT)
+      io_handler_class.const_set(:SHUTDOWN_TIMEOUT, 0.05)
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, '')
+      config = SINGLE_LINE_CONFIG + config_element('', '', {
+        'num_threads' => 2,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config)
+      acknowledged = Queue.new
+      release = Queue.new
+      shutdown_thread = nil
+      driver.run(shutdown: false) do
+        plugin = driver.instance
+        pool = plugin.instance_variable_get(:@worker_pool)
+        original_acknowledge = pool.method(:acknowledge)
+        pool.define_singleton_method(:acknowledge) do |result|
+          original_acknowledge.call(result)
+          acknowledged << true
+          release.pop
+        end
+        watcher = plugin.instance_variable_get(:@tails)[path]
+        File.binwrite(path, "line\n")
+        watcher.on_notify
+        waiting(5) { sleep 0.01 until acknowledged.size == 1 }
+        assert_equal 0, pool.statistics[:tasks]
+
+        shutdown_thread = Thread.new { driver.instance_shutdown }
+        assert_nil shutdown_thread.join(0.2)
+        release.close
+        assert_not_nil shutdown_thread.join(5)
+        assert_equal 5, watcher.pe.read_pos
+        assert_false watcher.pending?
+        assert_true plugin.instance_variable_get(:@pf_file).closed?
+      end
+    ensure
+      release&.close
+      shutdown_thread&.join(5)
+      driver&.instance_shutdown unless driver&.instance&.terminated?
+      if original_timeout
+        io_handler_class.send(:remove_const, :SHUTDOWN_TIMEOUT)
+        io_handler_class.const_set(:SHUTDOWN_TIMEOUT, original_timeout)
+      end
+    end
+
+    def test_worker_detached_emit_failure_closes_the_file_without_a_position_file
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, '')
+      config = SINGLE_LINE_CONFIG + config_element('', '', {
+        'path' => path,
+        'tag' => 't1',
+        'num_threads' => 2,
+        'enable_stat_watcher' => false,
+      })
+      driver = create_driver(config, false)
+      started = Queue.new
+      release = Queue.new
+      driver.run(shutdown: false) do
+        plugin = driver.instance
+        pool = plugin.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) { started << true; release.pop }
+        plugin.instance_variable_get(:@line_feeder).define_singleton_method(:emit) { |_events, _watcher| false }
+        watcher = plugin.instance_variable_get(:@tails)[path]
+        File.binwrite(path, "blocked-emit\n")
+        watcher.on_notify
+        waiting(5) { sleep 0.01 until started.size == 1 }
+        handler = watcher.instance_variable_get(:@io_handler)
+        plugin.instance_variable_get(:@tails).delete(path)
+        plugin.detach_watcher(watcher, watcher.ino)
+        release.close
+
+        waiting(5) { sleep 0.01 until pool.statistics[:tasks].zero? && !handler.opened? }
+        assert_false handler.pending?
+        assert_equal 0, watcher.pe.read_pos
+        assert_empty plugin.instance_variable_get(:@worker_detached_watchers)
+        assert_empty driver.events
+      end
+    ensure
+      release&.close
+      driver&.instance_shutdown unless driver&.instance&.terminated?
     end
 
     def test_worker_threads_do_not_leak_across_plugin_restarts
