@@ -161,6 +161,7 @@ module Fluent
         stage = {}
         queue = []
         exist_broken_file = false
+        seq = -1
 
         patterns = [@path]
         patterns.unshift @additional_resume_path if @additional_resume_path
@@ -196,7 +197,7 @@ module Fluent
             if chunk_size_full?(chunk) || stage.key?(chunk.metadata)
               queue << chunk.enqueued!
             else
-              chunk.metadata.seq = next_global_seq
+              chunk.metadata.seq = seq +=1
               stage[chunk.metadata] = chunk
             end
           when :queued
