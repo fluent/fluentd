@@ -232,12 +232,15 @@ module Fluent
         end
         if @evacuate_limit_size
           raise Fluent::ConfigError, "evacuate_limit_size must be 0 or larger" if @evacuate_limit_size < 0
-          if @evacuate_limit_size > 0
+          if !persistent?
+            log.warn "evacuate_limit_size is ignored because this buffer does not evacuate chunks"
+            @evacuate_limit_size = nil
+          elsif @evacuate_limit_size > 0
             unless owner.plugin_id_configured?
-              log.warn "evacuate_limit_size does not count the chunk files evacuated before restart unless @id is configured"
+              log.warn "evacuate_limit_size should be used with @id, because the evacuation directory without @id can change when the configuration is changed"
             end
             if @evacuate_limit_size < @chunk_limit_size
-              log.warn "evacuate_limit_size is smaller than chunk_limit_size, so full chunks are never evacuated", evacuate_limit_size: @evacuate_limit_size, chunk_limit_size: @chunk_limit_size
+              log.warn "evacuate_limit_size is smaller than chunk_limit_size, so full chunks may not be evacuated", evacuate_limit_size: @evacuate_limit_size, chunk_limit_size: @chunk_limit_size
             end
           end
         end
@@ -667,7 +670,7 @@ module Fluent
               if @evacuate_limit_size.nil?
                 evacuate_chunk(q)
               elsif @evacuate_limit_size > 0
-                evacuate_budget ||= @evacuate_limit_size - evacuated_bytesize
+                evacuate_budget ||= remaining_evacuate_size
                 if q.bytesize <= evacuate_budget
                   evacuate_chunk(q)
                   evacuate_budget -= q.bytesize
@@ -687,7 +690,7 @@ module Fluent
         end
 
         if skipped_num > 0
-          log.warn "evacuate_limit_size is reached. some chunks are purged without being evacuated.", evacuate_limit_size: @evacuate_limit_size, chunks: skipped_num, bytesize: skipped_bytesize
+          log.warn "some chunks are purged without being evacuated to stay within evacuate_limit_size.", evacuate_limit_size: @evacuate_limit_size, chunks: skipped_num, bytesize: skipped_bytesize
         end
       end
 
@@ -1044,10 +1047,15 @@ module Fluent
 
       def evacuated_bytesize
         dir = evacuate_dir
-        return 0 unless Dir.exist?(dir)
-        Dir.children(dir).sum { |name| File.size?(File.join(dir, name)).to_i }
+        Dir.children(dir, encoding: dir.encoding).sum { |name| File.size?(File.join(dir, name)).to_i }
+      rescue Errno::ENOENT
+        0
+      end
+
+      def remaining_evacuate_size
+        @evacuate_limit_size - evacuated_bytesize
       rescue => e
-        log.warn "failed to get the size of the evacuated chunk files", dir: dir, error: e
+        log.warn "failed to get the size of the evacuated chunk files. queued chunks are purged without being evacuated.", error: e
         0
       end
     end

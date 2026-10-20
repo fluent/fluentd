@@ -1240,6 +1240,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
           errors = output.num_errors
           emit_events(output, tag, dummy_event_stream)
           wait { output.num_errors == errors + 1 }
+          wait { output.retry }
           proceed_to_next_retry(output)
           wait { output.num_errors == errors + 2 }
           wait { output.retry.nil? }
@@ -1247,7 +1248,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
         end
 
         assert_equal [1, 2, 2, 2], Array.new(4) { reach_retry_limit.call }
-        assert_equal 2, output.log.out.logs.count { |l| l.include?("evacuate_limit_size is reached") }
+        assert_equal 2, output.log.out.logs.count { |l| l.include?("to stay within evacuate_limit_size") }
 
         FileUtils.rm(Dir.glob(File.join(evacuate_dir(plugin_id), "*")))
         assert_equal 1, reach_retry_limit.call
