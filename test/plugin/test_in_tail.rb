@@ -958,6 +958,81 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
+    data(rotate_wait: false, deferred_unwatch: true)
+    def test_follow_inodes_refresh_preserves_worker_draining_position_entries(immediate_unwatch)
+      paths = %w[tail-a.txt tail-b.txt].map { |name| "#{@tmp_dir}/#{name}" }
+      File.binwrite(paths.first, "a1\n")
+      File.binwrite(paths.last, "#{'b' * 129}\n")
+      config = SINGLE_LINE_CONFIG + config_element('', '', {
+        'path' => "#{@tmp_dir}/tail-*.txt",
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
+        'num_threads' => 2,
+        'read_from_head' => true,
+        'follow_inodes' => true,
+        'enable_stat_watcher' => false,
+        'refresh_interval' => '1h',
+        'rotate_wait' => '1h',
+      })
+      driver = create_driver(config, false)
+      started = Queue.new
+      release = Queue.new
+      driver.run(expect_records: 3, timeout: 5) do
+        plugin = driver.instance
+        waiting(5) { sleep 0.01 until driver.events.size == 2 }
+        plugin.send(:process_worker_completions)
+        tails = plugin.instance_variable_get(:@tails)
+        tails.each_value do |watcher|
+          watcher.watchers.each { |trigger| plugin.event_loop_detach(trigger) }
+        end
+        first = tails[paths.first]
+        pool = plugin.instance_variable_get(:@worker_pool)
+        wrap_worker_pool_process(pool) { started << true; release.pop }
+        File.open(paths.first, 'ab') { |file| file.puts('late-record') }
+        File.rename(paths.first, "#{@tmp_dir}/rotated.log")
+
+        if immediate_unwatch
+          tails.delete(first.path)
+          first.unwatched = true
+          plugin.detach_watcher(first, first.ino, false)
+          assert_true plugin.instance_variable_get(:@worker_deferred_unwatch).key?(first)
+          assert_not_include plugin.instance_variable_get(:@worker_detached_watchers), first
+        else
+          plugin.refresh_watchers
+          rotation = plugin.instance_variable_get(:@tails_rotate_wait).fetch(first)
+          plugin.event_loop_detach(rotation[:timer])
+          rotation[:timer].on_timer
+          assert_include plugin.instance_variable_get(:@worker_detached_watchers), first
+          assert_empty plugin.instance_variable_get(:@worker_deferred_unwatch)
+        end
+        waiting(5) { sleep 0.01 until started.size == 1 }
+        assert_true first.pending?
+        assert_false plugin.instance_variable_get(:@tails_rotate_wait).key?(first)
+
+        pf = plugin.instance_variable_get(:@pf)
+        plugin.refresh_watchers
+        pf.try_compact
+        entries = File.binread("#{@tmp_dir}/tail.pos").lines.map { |line| line.split("\t") }
+        assert_equal paths.sort, entries.map(&:first).sort
+
+        release.close
+        waiting(5) { sleep 0.01 until pool.statistics[:tasks].zero? && !first.pending? }
+        plugin.send(:process_worker_completions)
+        entries = File.binread("#{@tmp_dir}/tail.pos").lines.map { |line| line.split("\t") }
+        assert_equal 130, entries.find { |entry| entry.first == paths.last }[1].to_i(16)
+
+        plugin.refresh_watchers
+        pf.try_compact
+        entries = File.binread("#{@tmp_dir}/tail.pos").lines.map { |line| line.split("\t") }
+        assert_equal [paths.last], entries.map(&:first)
+        assert_equal 130, entries.first[1].to_i(16)
+      ensure
+        release.close
+        first.force_close if first && !first.pending?
+      end
+      assert_equal ['a1', 'b' * 129, 'late-record'].sort, driver.events.map { |event| event[2]['message'] }.sort
+    end
+
     def test_worker_position_write_error_does_not_stop_completion_processing
       paths = %w[tail-a.txt tail-b.txt].map { |name| "#{@tmp_dir}/#{name}" }
       paths.each { |path| File.binwrite(path, '') }
