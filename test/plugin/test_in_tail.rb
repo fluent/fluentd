@@ -1556,7 +1556,7 @@ class TailInputTest < Test::Unit::TestCase
 
     def test_worker_parse_error_retries_synchronously
       path = "#{@tmp_dir}/tail.txt"
-      Fluent::FileWrapper.open(path, 'wb') { |file| file.puts('retry-record') }
+      Fluent::FileWrapper.open(path, 'wb') {}
       config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
         'num_threads' => 2,
         'read_lines_limit' => 1,
@@ -1574,6 +1574,8 @@ class TailInputTest < Test::Unit::TestCase
           end
           original_process.call(index, payload)
         end)
+        Fluent::FileWrapper.open(path, 'ab') { |file| file.puts('retry-record') }
+        driver.instance.instance_variable_get(:@tails)[path].on_notify
       end
 
       assert_equal ['retry-record'], driver.events.map { |event| event[2]['message'] }
