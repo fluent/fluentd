@@ -272,8 +272,8 @@ EOS
       TCPSocket.open('127.0.0.1', port) do |s|
         tests.each {|test|
           s.send(test['msg'], 0)
-        }
-      end
+        end
+      }
     end
 
     assert(d.events.size > 0)
@@ -448,8 +448,8 @@ EOS
         TCPSocket.open('127.0.0.1', port) do |s|
           tests.each {|test|
             s.send(test['msg'], 0)
-          }
-        end
+          end
+        }
       end
 
       assert(d.events.size > 0)
@@ -474,7 +474,7 @@ EOS
       # valid message
       {'msg' => '<6>Sep 10 00:00:00 localhost logger: xxx', 'expected' => {'host'=>'localhost', 'ident'=>'logger', 'message'=>'xxx'}},
       # missing priority
-      {'msg' => 'hello world', 'expected' => {'unmatched_line' => 'hello world'}},
+      {'msg' => 'hello world', 'expected' => {'unmatched_line' => 'hello world', 'unmatched_reason' => 'failed to parse message'}},
       # timestamp parsing failure
       {'msg' => '<6>ZZZ 99 99:99:99 localhost logger: xxx', 'expected' => {'unmatched_line' => '<6>ZZZ 99 99:99:99 localhost logger: xxx'}},
     ]
@@ -544,6 +544,48 @@ EOS
 
     assert_equal tests.size, d.events.size
     compare_unmatched_lines_test_result(d.events, tests, {address: address})
+  end
+
+  def test_emit_unmatched_lines_includes_reason_for_invalid_syslog_message
+    # with_priority false -> in_syslog's own SYSLOG_REGEXP runs first;
+    # '<ab> ...' has no numeric PRI, so it takes the invalid-syslog path.
+    d = create_driver([
+      ipv4_config,
+      'emit_unmatched_lines true',
+      '<parse>',
+      ' with_priority false',
+      '</parse>',
+    ].join("\n"))
+    msg = '<ab> Apr 25 16:43:29 host app: message'
+    d.run(expect_emits: 1) do
+      u = UDPSocket.new
+      u.do_not_reverse_lookup = false
+      u.connect('127.0.0.1', @port)
+      u.send(msg, 0)
+    end
+    assert_equal(1, d.events.size)
+    assert_equal('syslog.unmatched', d.events[0][0])
+    assert_equal(msg, d.events[0][2]['unmatched_line'])
+    assert_equal('invalid syslog message', d.events[0][2]['unmatched_reason'])
+  end
+
+  def test_emit_unmatched_lines_includes_reason_for_invalid_input
+    # The syslog parser raises TimeParseError for an unparseable
+    # timestamp, so this takes the exception-rescue path in
+    # message_handler (path 3), not the parse-failure path.
+    d = create_driver([ipv4_config, 'emit_unmatched_lines true'].join("\n"))
+    msg = '<6>ZZZ 99 99:99:99 localhost logger: xxx'
+    d.run(expect_emits: 1) do
+      u = UDPSocket.new
+      u.do_not_reverse_lookup = false
+      u.connect('127.0.0.1', @port)
+      u.send(msg, 0)
+    end
+    assert_equal(1, d.events.size)
+    assert_equal('syslog.unmatched', d.events[0][0])
+    assert_equal(msg, d.events[0][2]['unmatched_line'])
+    assert_match(/\Ainvalid input \(/, d.events[0][2]['unmatched_reason'])
+    assert_match(/TimeParseError/, d.events[0][2]['unmatched_reason'])
   end
 
   def test_send_keepalive_packet_is_disabled_by_default
