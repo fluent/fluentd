@@ -272,8 +272,8 @@ EOS
       TCPSocket.open('127.0.0.1', port) do |s|
         tests.each {|test|
           s.send(test['msg'], 0)
-        end
-      }
+        }
+      end
     end
 
     assert(d.events.size > 0)
@@ -448,8 +448,8 @@ EOS
         TCPSocket.open('127.0.0.1', port) do |s|
           tests.each {|test|
             s.send(test['msg'], 0)
-          end
-        }
+          }
+        end
       end
 
       assert(d.events.size > 0)
