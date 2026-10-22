@@ -112,10 +112,8 @@ module Fluent
     end
 
     def self.now
-      # This method is called many time. so call Process.clock_gettime directly instead of Fluent::Clock.real_now
-      now = Process.clock_gettime(Process::CLOCK_REALTIME, :nanosecond)
-      sec, nsec = now.divmod(1_000_000_000)
-      Fluent::EventTime.new(sec, nsec)
+      time = Time.now
+      Fluent::EventTime.new(time.to_i, time.nsec)
     end
 
     def self.parse(*args)
