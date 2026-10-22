@@ -239,6 +239,9 @@ module Fluent::Plugin
             return
           end
 
+          # A notification may arrive while a rejected batch is waiting for capacity.
+          @pending_read_more = true unless @lines.empty?
+
           if limit_bytes_per_second_reached? || group_watcher&.limit_lines_reached?(@path)
             @metrics.throttled.inc
             return

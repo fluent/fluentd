@@ -1114,6 +1114,8 @@ class TailInputTest < Test::Unit::TestCase
     data(forward: :each, reverse: :reverse_each)
     def test_worker_queue_saturation_reschedules_waiting_files(notification_order)
       paths = %w[tail-a.txt tail-b.txt tail-c.txt tail-d.txt tail-e.txt tail-f.txt].map { |name| "#{@tmp_dir}/#{name}" }
+      notification_paths = paths.public_send(notification_order).to_a
+      parked_path = notification_paths.last
       records = paths.each_index.map do |index|
         Array.new(200) { |line| "file-#{index}-#{line} #{'x' * 1000}" }
       end
@@ -1125,7 +1127,7 @@ class TailInputTest < Test::Unit::TestCase
         'read_from_head' => true,
         'format' => '/(?<message>.*)/',
         'num_threads' => 2,
-        'read_lines_limit' => 1,
+        'read_lines_limit' => 50,
         'enable_stat_watcher' => false,
       })
       driver = create_driver(config, false)
@@ -1145,9 +1147,10 @@ class TailInputTest < Test::Unit::TestCase
           continue_parse.pop
         end
         paths.each_with_index do |path, index|
-          Fluent::FileWrapper.open(path, 'ab') { |file| file.puts(records[index]) }
+          lines = path == parked_path ? records[index].first(26) : records[index]
+          Fluent::FileWrapper.open(path, 'ab') { |file| file.puts(lines) }
         end
-        paths.public_send(notification_order) do |path|
+        notification_paths.each do |path|
           driver.instance.instance_variable_get(:@tails)[path].on_notify
         end
         waiting(5) { sleep 0.01 until parse_started.size == 2 }
@@ -1156,7 +1159,13 @@ class TailInputTest < Test::Unit::TestCase
             sleep 0.01
           end
         end
+        watcher = plugin.instance_variable_get(:@tails)[parked_path]
+        assert_include plugin.instance_variable_get(:@worker_waiting_watchers), watcher
+        assert_true watcher.eof?
+        Fluent::FileWrapper.open(parked_path, 'ab') { |file| file.puts(records[paths.index(parked_path)].drop(26)) }
+        watcher.on_notify
         continue_parse.close
+        waiting(5) { sleep 0.01 until driver.events.size == records.flatten.size }
       ensure
         continue_parse.close
       end

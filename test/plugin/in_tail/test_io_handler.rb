@@ -128,6 +128,45 @@ class IntailIOHandlerTest < Test::Unit::TestCase
     handler&.close
   end
 
+  test 'a notification while an EOF batch is parked resumes reads after completion' do
+    @file.write("first\n")
+    @file.close
+    watcher = create_watcher
+    calls = 0
+    received = []
+    handler = Fluent::Plugin::TailInput::TailWatcher::IOHandler.new(
+      watcher, path: @file.path, read_lines_limit: 100, read_bytes_limit_per_second: -1,
+      log: $log, open_on_every_update: false, metrics: @metrics
+    ) do |lines, _tail_watcher|
+      calls += 1
+      if calls <= 2
+        false
+      else
+        received.concat(lines)
+        Fluent::Plugin::TailInput::TailWatcher::IOHandler::ASYNC_PENDING
+      end
+    end
+
+    handler.on_notify
+    assert_true handler.eof?
+    assert_false handler.pending?
+    File.open(@file.path, 'ab') { |file| file.puts('last') }
+    handler.on_notify
+    assert_false handler.pending?
+    handler.on_notify
+    assert_true handler.pending?
+    assert_true handler.complete_async(true)
+
+    handler.on_notify
+    assert_true handler.pending?
+    assert_false handler.complete_async(true)
+    assert_true handler.drained?
+    assert_equal ["first\n", "last\n"], received
+    assert_equal 11, watcher.pe.read_pos
+  ensure
+    handler&.close
+  end
+
   test 'synchronous retry preserves the existing per-notification read behavior' do
     text = "#{'x' * 1000}\n" * 200
     @file.write(text)
