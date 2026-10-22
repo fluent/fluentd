@@ -1063,7 +1063,7 @@ class TailInputTest < Test::Unit::TestCase
         paths.each { |path| File.binwrite(path, "line\n") }
         watchers.each(&:on_notify)
         pool = plugin.instance_variable_get(:@worker_pool)
-        waiting(5) { sleep 0.01 until driver.events.size == 2 && pool.statistics[:tasks].zero? && !watchers.first.pending? }
+        waiting(5) { sleep 0.01 until driver.events.size == 2 && pool.statistics[:tasks].zero? && watchers.none?(&:pending?) }
         assert_equal 0, watchers.first.pe.read_pos
         assert_equal 5, watchers.last.pe.read_pos
         watchers.first.on_notify
