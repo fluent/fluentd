@@ -36,9 +36,15 @@ module Fluent::Plugin
         @io_handler_build = io_handler_build
         @metrics = metrics
         @watchers = []
+        @detached = false
+        @close_pending = false
       end
 
       attr_reader :path, :ino
+
+      def detached?
+        @detached
+      end
       attr_reader :pe
       attr_reader :file_feed
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
@@ -54,6 +60,7 @@ module Fluent::Plugin
       end
 
       def detach(shutdown_start_time = nil)
+        @detached = true
         if @io_handler
           ready_to_shutdown(shutdown_start_time)
           @io_handler.on_notify
@@ -67,17 +74,52 @@ module Fluent::Plugin
       end
 
       def close
+        if @io_handler&.pending? || @close_pending
+          @close_pending = true
+          return
+        end
+
+        force_close
+      end
+
+      def force_close
+        @close_pending = false
         if @io_handler
           @io_handler.close
           @io_handler = nil
         end
       end
 
+      def defer_close
+        @close_pending = true
+      end
+
+      def close_if_ready(force: false)
+        return false unless @close_pending && @io_handler && !@io_handler.pending?
+        return false unless force || @io_handler.drained?
+
+        force_close
+        true
+      end
+
       def eof?
         @io_handler.nil? || @io_handler.eof?
       end
 
+      def drained?
+        @io_handler.nil? || @io_handler.drained?
+      end
+
+      def pending?
+        @io_handler&.pending? || false
+      end
+
       def on_notify
+        if @io_handler&.pending?
+          @io_handler.on_notify
+          return
+        end
+
         begin
           stat = Fluent::FileWrapper.stat(@path)
         rescue Errno::ENOENT, Errno::EACCES
@@ -87,6 +129,19 @@ module Fluent::Plugin
 
         @rotate_handler.on_notify(stat) if @rotate_handler
         read_more
+      end
+
+      def complete_async(success, resume: true)
+        return false unless @io_handler
+
+        should_notify = @io_handler.complete_async(success)
+        if @detached
+          read_more if resume && (should_notify || success)
+          close_if_ready
+        else
+          on_notify if resume && should_notify
+        end
+        should_notify
       end
 
       def read_more

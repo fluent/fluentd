@@ -237,12 +237,18 @@ module Fluent::Plugin
       # After `update_watcher` detaches an old TailWatcher, the inode is lost from the `@tails`.
       # So that inode can't be contained in `removed_hash`, and can't be unwatched by `stop_watchers`.
       #
-      # Inodes still read by a watcher waiting for `rotate_wait` are kept. Compaction only updates
-      # the entries that remain in the position file, so such a watcher would otherwise write its
-      # position into the line of another file.
+      # Keep inodes still read by watchers waiting for rotate_wait or worker completion.
+      # Compaction only updates entries remaining in the position file, so removing one
+      # early would let its watcher write into another file's line.
       def unwatch_removed_inodes(target_paths_hash)
         return unless @pf
         draining_hash = @tails_rotate_wait.to_h { |tw, v| [v[:ino], TargetInfo.new(tw.path, v[:ino])] }
+        @worker_detached_watchers&.each do |tw|
+          draining_hash[tw.ino] = TargetInfo.new(tw.path, tw.ino)
+        end
+        @worker_deferred_unwatch&.each_value do |target|
+          draining_hash[target.ino] = target
+        end
         @pf.unwatch_removed_targets(draining_hash.merge(target_paths_hash))
       end
 
