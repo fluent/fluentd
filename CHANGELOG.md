@@ -12,6 +12,9 @@
 * system_config: add `umask` option to `<system>` directive https://github.com/fluent/fluentd/pull/5390
 * parser_syslog: accept a space after RFC3164 priority https://github.com/fluent/fluentd/pull/5449
 * in_tail: add opt-in `enable_dir_watcher` and `dir_watcher_limit` to discover new files earlier by watching directories https://github.com/fluent/fluentd/pull/5528
+* in_tail: add opt-in worker-thread parsing via `num_threads` to offload parsing from the event loop https://github.com/fluent/fluentd/pull/5529
+  * The default `num_threads 1` keeps the previous synchronous behavior.
+  * In worker mode, `monitor_agent` also reports `worker_pending_batch_count`, `worker_pending_bytes` and `worker_parse_error_count`.
 * buffer: add `evacuate_limit_size` to keep evacuated chunks from filling the disk https://github.com/fluent/fluentd/pull/5473
   * This option sets an approximate limit on the total size of the chunk files evacuated when the retry limit is reached, including the ones evacuated before. Chunks that do not fit are purged without being evacuated.
   * The default `nil` keeps the previous behavior. Set `0` to disable evacuation.
