@@ -4,6 +4,7 @@
 
 |  Version  |     Supported      |
 |-----------|--------------------|
+| 1.20.x    | :white_check_mark: |
 | 1.19.x    | :white_check_mark: |
 | 1.18.x    | :x:                |
 | 1.17.x    | :x:                |
