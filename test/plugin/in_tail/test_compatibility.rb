@@ -466,11 +466,12 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
     # the lines must be emitted once the buffer is not full anymore.
     def test_receive_lines_returning_false_does_not_advance_the_position
       File.binwrite("#{@tmp_dir}/tail.txt", "")
-      config = SINGLE_LINE_CONFIG + config_element('', '', { 'enable_stat_watcher' => 'false' })
-      d = create_subclass_driver(config, :ReceiveLinesFailsOnce)
+      d = create_subclass_driver(SINGLE_LINE_CONFIG, :ReceiveLinesFailsOnce)
       plugin = d.instance
       d.run do
         tw = first_watcher(plugin)
+        # Only explicit notifications should drive this test, without stat or timer callbacks.
+        tw.watchers.each { |trigger| plugin.event_loop_detach(trigger) }
         File.binwrite("#{@tmp_dir}/tail.txt", "test1\ntest2\n")
 
         tw.on_notify
