@@ -470,6 +470,8 @@ class TailInputCompatibilityTest < Test::Unit::TestCase
       plugin = d.instance
       d.run do
         tw = first_watcher(plugin)
+        # Only explicit notifications should drive this test, without stat or timer callbacks.
+        tw.watchers.each { |trigger| plugin.event_loop_detach(trigger) }
         File.binwrite("#{@tmp_dir}/tail.txt", "test1\ntest2\n")
 
         tw.on_notify
