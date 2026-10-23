@@ -667,7 +667,7 @@ class TailInputTest < Test::Unit::TestCase
             require 'fluent/config/types'
             limit_bytes_value = Fluent::Config.size_value(limit_bytes)
             io_handler.instance_variable_set(:@number_bytes_read, limit_bytes_value)
-            if Fluent.linux?
+            if Fluent.linux? || Fluent.windows?
               mock.proxy(io_handler).handle_notify.at_least(5)
             else
               mock.proxy(io_handler).handle_notify.twice
@@ -683,7 +683,7 @@ class TailInputTest < Test::Unit::TestCase
 
           # We should not do shutdown here due to hard timeout.
           d.run do
-            if Fluent.linux?
+            if Fluent.linux? || Fluent.windows?
               # Other platforms receive no stat notification while appending, so it
               # would just consume the throttling window and make this test flaky.
               start_time = Fluent::Clock.now
@@ -1621,7 +1621,7 @@ class TailInputTest < Test::Unit::TestCase
 
     # https://github.com/fluent/fluentd/pull/3541#discussion_r740197711
     def test_watch_wildcard_path_without_watch_timer
-      omit "need inotify" unless Fluent.linux?
+      omit "need file change notifications" unless Fluent.linux? || Fluent.windows?
 
       config = config_element("ROOT", "", {
                                 "path" => "#{@tmp_dir}/tail*.txt",
@@ -3426,9 +3426,6 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_tail_path_with_multiline_with_multiple_paths
-      if ENV["APPVEYOR"] && Fluent.windows?
-        omit "This testcase is unstable on AppVeyor."
-      end
       files = ["#{@tmp_dir}/tail1.txt", "#{@tmp_dir}/tail2.txt"]
       files.each { |file| Fluent::FileWrapper.open(file, "wb") { |f| } }
 
@@ -4974,7 +4971,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     test "a rotated file keeps being read under a group limit without the watch timer" do
-      omit "need inotify" unless Fluent.linux?
+      omit "need file change notifications" unless Fluent.linux? || Fluent.windows?
       pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log.*$/"
       rule = create_rule_directive({ "file" => "/.*/" }, 1)
       config = config_element(
@@ -5013,7 +5010,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     test "a transient emit error does not stop draining a rotated file without the watch timer" do
-      omit "need inotify" unless Fluent.linux?
+      omit "need file change notifications" unless Fluent.linux? || Fluent.windows?
       pattern = "/^#{@tmp_dir}\/(?<file>.+)\.log.*$/"
       rule = create_rule_directive({ "file" => "/.*/" }, 1)
       config = config_element(
@@ -5456,7 +5453,7 @@ class TailInputTest < Test::Unit::TestCase
         # (stat_watcher notifies faster than a new file is created)
         # Overall, this is a rotation operation, but from the TailWatcher, it appears as if the file
         # was resurrected once it disappeared.
-        sleep 2 # On Windows and macOS, StatWatcher doesn't work, so need enough interval for TimeTrigger.
+        sleep 2 # Allow TimeTrigger to detect the rotation on platforms without file change notifications.
         Fluent::FileWrapper.open("#{@tmp_dir}/tail.txt", "wb") {|f| f.puts "file2 log1"}
 
         # Add a new TailWatcher
