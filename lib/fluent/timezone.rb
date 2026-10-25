@@ -29,8 +29,8 @@ end
 
 module Fluent
   class Timezone
-    # [+-]HH:MM, [+-]HHMM, [+-]HH
-    NUMERIC_PATTERN = %r{\A[+-]\d\d(:?\d\d)?\z}
+    # [+-]HH:MM, [+-]HHMM, [+-]HH, with HH in 00..23 and MM in 00..59
+    NUMERIC_PATTERN = %r{\A[+-](?:[01]\d|2[0-3])(?::?[0-5]\d)?\z}
 
     # Region/Zone, Region/Zone/Zone
     NAME_PATTERN = %r{\A[^/]+/[^/]+(/[^/]+)?\z}
@@ -45,6 +45,10 @@ module Fluent
     #   3. [+-]HH            (e.g. "+09")
     #   4. Region/Zone       (e.g. "Asia/Tokyo")
     #   5. Region/Zone/Zone  (e.g. "America/Argentina/Buenos_Aires")
+    #
+    # In the numeric forms, HH is 00..23 and MM is 00..59: that is exactly the
+    # range of offsets Time can apply, so a value outside it is either a
+    # different offset carried into the hours or one that fails when formatted.
     #
     # In the 4th and 5th cases, it is checked whether the specified
     # timezone exists in the timezone database.
