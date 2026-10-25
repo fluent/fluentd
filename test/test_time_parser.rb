@@ -359,4 +359,34 @@ class TimeParserTest < ::Test::Unit::TestCase
 
     assert_equal([expected, expected + 1], [time1, time2])
   end
+
+  # A float timestamp's fraction is nanoseconds: at most 9 digits, and always below
+  # 1_000_000_000 like every other EventTime producer.
+  def test_parse_float_keeps_nine_digits_of_the_fraction
+    parser = Fluent::NumericTimeParser.new(:float)
+
+    assert_equal_event_time(Fluent::EventTime.new(1700000000, 123456789), parser.parse('1700000000.123456789'))
+    assert_equal_event_time(Fluent::EventTime.new(1700000000, 123456789), parser.parse('1700000000.1234567890'))
+    assert_equal_event_time(Fluent::EventTime.new(1700000000, 999999999), parser.parse('1700000000.9999999999'))
+    assert_equal_event_time(Fluent::EventTime.new(0, 0), parser.parse('0.0000000001'))
+
+    (1..20).each do |n|
+      time = parser.parse("1700000000.#{'9' * n}")
+      assert_true time.nsec < 1_000_000_000, "nsec #{time.nsec} is out of range with #{n} digits of fraction"
+    end
+  end
+
+  # EventTime carries a non-negative nsec, so a negative float timestamp floors to the
+  # second below and keeps the remainder -- the same decomposition Time#to_i / Time#nsec
+  # gives, which is what the string based parser and #to_r both rely on.
+  def test_parse_float_applies_floor_to_negative_values
+    parser = Fluent::NumericTimeParser.new(:float)
+
+    ['-1234', '-1234.0', '-1234.5', '-1234.2', '-0.5', '-0.000000001', '-1700000000.123456789'].each do |value|
+      time = parser.parse(value)
+      expected = Time.at(Rational(value))
+      assert_equal [expected.to_i, expected.nsec], [time.sec, time.nsec], "#{value} decomposes into a wrong sec/nsec pair"
+      assert_equal Rational(value), time.to_r, "#{value} is not reproduced by its sec/nsec pair"
+    end
+  end
 end
