@@ -1,5 +1,13 @@
 # v1.20
 
+## Release v1.20.1 - 2026/10/26
+
+### Bug Fix
+
+* gem: remove yajl-ruby from runtime dependencies for Ruby 4.1 https://github.com/fluent/fluentd/pull/5574
+  * Plugins that `require 'yajl'` need to declare yajl-ruby in their own gemspec.
+  * If you see `LoadError: cannot load such file -- yajl`, add yajl-ruby to your Gemfile. This works only on Ruby 4.0 or earlier.
+
 ## Release v1.20.0 - 2026/10/23
 
 ### Enhancement
