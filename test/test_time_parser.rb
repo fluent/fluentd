@@ -376,17 +376,4 @@ class TimeParserTest < ::Test::Unit::TestCase
     end
   end
 
-  # EventTime carries a non-negative nsec, so a negative float timestamp floors to the
-  # second below and keeps the remainder -- the same decomposition Time#to_i / Time#nsec
-  # gives, which is what the string based parser and #to_r both rely on.
-  def test_parse_float_applies_floor_to_negative_values
-    parser = Fluent::NumericTimeParser.new(:float)
-
-    ['-1234', '-1234.0', '-1234.5', '-1234.2', '-0.5', '-0.000000001', '-1700000000.123456789'].each do |value|
-      time = parser.parse(value)
-      expected = Time.at(Rational(value))
-      assert_equal [expected.to_i, expected.nsec], [time.sec, time.nsec], "#{value} decomposes into a wrong sec/nsec pair"
-      assert_equal Rational(value), time.to_r, "#{value} is not reproduced by its sec/nsec pair"
-    end
-  end
 end

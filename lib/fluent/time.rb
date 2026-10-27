@@ -347,15 +347,7 @@ module Fluent
         sec_s, nsec_s, _ = value.to_s.split('.', 3) # throw away second-dot and later
         nsec_s = nsec_s && nsec_s[0, 9] || '0' # nanoseconds: 9 digits at most
         nsec_s += '0' * (9 - nsec_s.size) if nsec_s.size < 9
-        sec = sec_s.to_i
-        nsec = nsec_s.to_i
-        if nsec > 0 && sec_s.start_with?('-')
-          # EventTime holds a non-negative nsec, so a negative value floors to the
-          # second below and carries the remainder, like Time#to_i and Time#nsec.
-          sec -= 1
-          nsec = 1_000_000_000 - nsec
-        end
-        time = Fluent::EventTime.new(sec, nsec)
+        time = Fluent::EventTime.new(sec_s.to_i, nsec_s.to_i)
       rescue => e
         raise TimeParseError, "invalid time format: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
       end
