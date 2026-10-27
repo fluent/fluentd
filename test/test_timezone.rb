@@ -19,8 +19,6 @@ require 'fluent/timezone'
 
 class TimezoneTest < ::Test::Unit::TestCase
   # [+-]HH, [+-]HHMM and [+-]HH:MM with HH in 00..23 and MM in 00..59.
-  # These are exactly the offsets that Time#localtime accepts: the largest of
-  # them, +/-23:59, is 86340, one second inside the +-86400 boundary.
   VALID = [
     '+00', '-00', '+09', '-09', '+23', '-23',
     '+09:00', '-05:30', '+00:01', '+23:59', '-23:59', '+14:00', '-12:00',

@@ -46,9 +46,9 @@ module Fluent
     #   4. Region/Zone       (e.g. "Asia/Tokyo")
     #   5. Region/Zone/Zone  (e.g. "America/Argentina/Buenos_Aires")
     #
-    # In the numeric forms, HH is 00..23 and MM is 00..59: that is exactly the
-    # range of offsets Time can apply, so a value outside it is either a
-    # different offset carried into the hours or one that fails when formatted.
+    # In the numeric forms, HH must be 00..23 and MM must be 00..59.
+    # Time.zone_offset does not check these ranges. It reads "+09:60" as
+    # "+10:00", and Time#localtime rejects offsets of 24 hours or more.
     #
     # In the 4th and 5th cases, it is checked whether the specified
     # timezone exists in the timezone database.
