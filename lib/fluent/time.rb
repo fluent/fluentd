@@ -345,7 +345,7 @@ module Fluent
 
       begin
         sec_s, nsec_s, _ = value.to_s.split('.', 3) # throw away second-dot and later
-        nsec_s = nsec_s && nsec_s[0..9] || '0'
+        nsec_s = nsec_s && nsec_s[0, 9] || '0' # nanoseconds: 9 digits at most
         nsec_s += '0' * (9 - nsec_s.size) if nsec_s.size < 9
         time = Fluent::EventTime.new(sec_s.to_i, nsec_s.to_i)
       rescue => e

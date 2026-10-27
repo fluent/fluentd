@@ -359,4 +359,21 @@ class TimeParserTest < ::Test::Unit::TestCase
 
     assert_equal([expected, expected + 1], [time1, time2])
   end
+
+  # A float timestamp's fraction is nanoseconds: at most 9 digits, and always below
+  # 1_000_000_000 like every other EventTime producer.
+  def test_parse_float_keeps_nine_digits_of_the_fraction
+    parser = Fluent::NumericTimeParser.new(:float)
+
+    assert_equal_event_time(Fluent::EventTime.new(1700000000, 123456789), parser.parse('1700000000.123456789'))
+    assert_equal_event_time(Fluent::EventTime.new(1700000000, 123456789), parser.parse('1700000000.1234567890'))
+    assert_equal_event_time(Fluent::EventTime.new(1700000000, 999999999), parser.parse('1700000000.9999999999'))
+    assert_equal_event_time(Fluent::EventTime.new(0, 0), parser.parse('0.0000000001'))
+
+    (1..20).each do |n|
+      time = parser.parse("1700000000.#{'9' * n}")
+      assert_true time.nsec < 1_000_000_000, "nsec #{time.nsec} is out of range with #{n} digits of fraction"
+    end
+  end
+
 end
