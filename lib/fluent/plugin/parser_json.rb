@@ -67,16 +67,18 @@ module Fluent
         parsed_json = @load_proc.call(text)
 
         if parsed_json.is_a?(Hash)
-          time, record = parse_one_record(parsed_json)
-          yield time, record
+          time = parse_time(parsed_json)
+          time, parsed_json = convert_values(time, parsed_json) if @execute_convert_values
+          yield time, parsed_json
         elsif parsed_json.is_a?(Array)
           parsed_json.each do |record|
             unless record.is_a?(Hash)
               yield nil, nil
               next
             end
-            time, parsed_record = parse_one_record(record)
-            yield time, parsed_record
+            time = parse_time(record)
+            time, record = convert_values(time, record) if @execute_convert_values
+            yield time, record
           end
         else
           yield nil, nil
@@ -84,11 +86,6 @@ module Fluent
 
       rescue @error_class, EncodingError # EncodingError is for oj 3.x or later
         yield nil, nil
-      end
-
-      def parse_one_record(record)
-        time = parse_time(record)
-        convert_values(time, record)
       end
 
       def parser_type

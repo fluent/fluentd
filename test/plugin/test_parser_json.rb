@@ -197,6 +197,37 @@ class JsonParserTest < ::Test::Unit::TestCase
     end
   end
 
+  sub_test_case "convert_values" do
+    def test_parse_applies_types
+      @parser.configure('types' => 'size:string')
+      results = []
+      @parser.instance.parse('{"time":1362020400,"size":777}') { |time, record|
+        results << [time.to_i, record]
+      }
+      assert_equal([[event_time('2013-02-28 12:00:00 +0900').to_i, {'size' => '777'}]], results)
+    end
+
+    data('no conversion' => [{}, 0],
+         'types' => [{'types' => 'k:string'}, 2],
+         'null_empty_string' => [{'null_empty_string' => 'true'}, 2],
+         'null_value_pattern' => [{'null_value_pattern' => '^-$'}, 2])
+    def test_parse_calls_convert_values_only_with_conversion((conf, expected))
+      klass = Class.new(Fluent::Plugin::JSONParser) do
+        attr_reader :convert_count
+
+        def convert_values(time, record)
+          @convert_count = @convert_count.to_i + 1
+          super
+        end
+      end
+      parser = Fluent::Test::Driver::Parser.new(klass)
+      parser.configure(conf)
+      parser.instance.parse('{"k":"v"}') { |time, record| }
+      parser.instance.parse('[{"k":"v"}]') { |time, record| }
+      assert_equal(expected, parser.instance.convert_count.to_i)
+    end
+  end
+
   def test_yajl_parse_io_with_buffer_smaller_than_input
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
     parser.configure(
