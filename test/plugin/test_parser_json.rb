@@ -200,10 +200,11 @@ class JsonParserTest < ::Test::Unit::TestCase
   sub_test_case "convert_values" do
     def test_parse_applies_types
       @parser.configure('types' => 'size:string')
+      results = []
       @parser.instance.parse('{"time":1362020400,"size":777}') { |time, record|
-        assert_equal(event_time('2013-02-28 12:00:00 +0900').to_i, time)
-        assert_equal({'size' => '777'}, record)
+        results << [time.to_i, record]
       }
+      assert_equal([[event_time('2013-02-28 12:00:00 +0900').to_i, {'size' => '777'}]], results)
     end
 
     data('no conversion' => [{}, 0],
