@@ -251,6 +251,24 @@ class ParserTest < ::Test::Unit::TestCase
         assert_equal_event_time event_time("2026-10-26 12:00:00 -0200"), c.call("2026-10-26 12:00:00")
       end
     end
+
+    test 'parses a time format that starts with a signed numeric token' do
+      # A time format may start with a sign and digits, e.g. a literal "+0000".
+      # Such a format is not a timezone and must not be rejected.
+      @i.configure(config_element('parse', '', types_conf('date', 'time:+0000 %Y-%m-%d %H:%M:%S')))
+      c = @i.type_converters['date']
+      with_timezone("UTC+02") do # -0200
+        assert_equal_event_time event_time("2026-10-26 12:00:00 -0200"), c.call("+0000 2026-10-26 12:00:00")
+      end
+    end
+
+    test 'does not raise for an empty time definition' do
+      # `time:` has neither a timezone nor a format. The numeric check used to
+      # raise NoMethodError on nil during configure.
+      assert_nothing_raised do
+        @i.configure(config_element('parse', '', types_conf('date', 'time:')))
+      end
+    end
   end
 
   sub_test_case 'example parser without any configurations' do
