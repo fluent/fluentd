@@ -557,5 +557,30 @@ class InjectHelperTest < Test::Unit::TestCase
         assert_equal("2014-09-27T09:00:00+09:00", record['t'])
       end
     end
+
+    # An offset outside HH 00..23 / MM 00..59 resolves to nil, which TimeFormatter
+    # reads as "no timezone", so these used to format every record in the host
+    # timezone with nothing in the log to point at the typo.
+    def test_timezone_out_of_range
+      assert_raise Fluent::ConfigError.new("Unsupported timezone '+09:60'") do
+        @d.configure(config_inject_section("time_key" => "t", "time_type" => "string", "timezone" => "+09:60"))
+      end
+    end
+
+    def test_timezone_of_24_hours
+      # On master this configured and then raised ArgumentError per record.
+      assert_raise Fluent::ConfigError.new("Unsupported timezone '+24:00'") do
+        @d.configure(config_inject_section("time_key" => "t", "time_type" => "string", "timezone" => "+24:00"))
+      end
+    end
+
+    def test_timezone_within_the_range_is_still_accepted
+      with_timezone("UTC-01") do
+        @d.configure(config_inject_section("time_key" => "t", "time_type" => "string", "time_format" => "%Y-%m-%dT%H:%M:%S%z", "timezone" => "+10:00"))
+        @d.start
+        record = @d.inject_values_to_record('tag', @time, {})
+        assert_equal("2014-09-27T10:00:00+1000", record['t'])
+      end
+    end
   end
 end

@@ -104,6 +104,11 @@ module Fluent
         super
 
         if @inject_config
+          # An unsupported timezone resolves to nil, and TimeFormatter reads
+          # that as "no timezone was given", so this is the only place where
+          # such a typo in the configuration can be reported.
+          Fluent::Timezone.validate!(@inject_config.timezone) if @inject_config.timezone
+
           @_inject_hostname_key = @inject_config.hostname_key
           if @_inject_hostname_key
             if self.respond_to?(:buffer_config)
