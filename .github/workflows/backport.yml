@@ -33,7 +33,7 @@ jobs:
           # fetch all history for all branches to execute cherry-pick
           fetch-depth: 0
       - name: Set up Ruby
-        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true
