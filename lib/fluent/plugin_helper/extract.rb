@@ -78,6 +78,11 @@ module Fluent
         super
 
         if @extract_config
+          # An unsupported timezone resolves to nil, and TimeParser reads that
+          # as "no timezone was given", so without this the event time of every
+          # record would silently move to the host timezone.
+          Fluent::Timezone.validate!(@extract_config.timezone) if @extract_config.timezone
+
           @_extract_tag_key = @extract_config.tag_key
           @_extract_keep_tag_key = @extract_config.keep_tag_key
           @_extract_time_key = @extract_config.time_key

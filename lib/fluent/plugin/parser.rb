@@ -248,6 +248,12 @@ module Fluent
                              time_type = 'string' # estimate
                              timezone, time_format = option.split(':', 2)
                              unless Fluent::Timezone.validate(timezone)
+                               # Treat a signed numeric token as a timezone. Re-reading the
+                               # whole option as the time format would silently produce nil
+                               # values instead of failing here.
+                               if /\A[+-]\d+\z/.match?(timezone)
+                                 raise Fluent::ConfigError, "Unsupported timezone '#{timezone}' for key:'#{field_name}'"
+                               end
                                timezone, time_format = nil, option
                              end
                              if Fluent::TimeMixin::TIME_TYPES.include?(time_format)

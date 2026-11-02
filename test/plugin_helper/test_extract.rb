@@ -190,5 +190,25 @@ class ExtractHelperTest < Test::Unit::TestCase
       end
       assert_equal_event_time(event_time("2016-09-06 13:27:01 +0900"), t)
     end
+
+    # An offset that does not resolve is read by TimeParser as "no timezone",
+    # which used to move the event time to the host timezone silently.
+    test 'raises ConfigError for a timezone out of the numeric offset range' do
+      c = config_extract_section("time_key" => "t", "time_type" => "string", "time_format" => "%H:%M:%S, %m/%d/%Y", "timezone" => "+0960")
+      assert_raise Fluent::ConfigError.new("Unsupported timezone '+0960'") do
+        @d.configure(c)
+      end
+    end
+
+    test 'returns EventTime object, parsed as configured time_format in a named timezone' do
+      t = with_timezone("UTC-02") do
+        c = config_extract_section("time_key" => "t", "time_type" => "string", "time_format" => "%H:%M:%S, %m/%d/%Y", "timezone" => "Asia/Tokyo")
+        @d.configure(c)
+        @d.start
+        @d.after_start
+        @d.extract_time_from_record({"t" => "13:27:01, 09/06/2016", "message" => "yay!"})
+      end
+      assert_equal_event_time(event_time("2016-09-06 13:27:01 +0900"), t)
+    end
   end
 end
