@@ -293,7 +293,7 @@ module Fluent
         if @with_priority
           if text.start_with?('<'.freeze)
             i = text.index('>'.freeze, 1)
-            if i < 2
+            if i.nil? || i < 2
               yield nil, nil
               return
             end
@@ -424,12 +424,16 @@ module Fluent
         if @with_priority
           if text.start_with?('<'.freeze)
             i = text.index('>'.freeze, 1)
-            if i < 2
+            if i.nil? || i < 2
               yield nil, nil
               return
             end
             pri = text.slice(1, i - 1).to_i
             i = text.index(SPLIT_CHAR, i)
+            unless i
+              yield nil, nil
+              return
+            end
             cursor = i + 1
           else
             yield nil, nil
@@ -440,6 +444,10 @@ module Fluent
         # timestamp part
         if @skip_space_count_rfc5424
           i = text.index(SPLIT_CHAR, cursor)
+          unless i
+            yield nil, nil
+            return
+          end
           time_str = text.slice(cursor, i - cursor)
           cursor = i + 1
         else
@@ -451,6 +459,10 @@ module Fluent
               i += 1
             end
             i = text.index(SPLIT_CHAR, i + 1)
+            unless i
+              yield nil, nil
+              return
+            end
           end
 
           time_str = sq ? text.slice(cursor, i - cursor).squeeze(SPLIT_CHAR) : text.slice(cursor, i - cursor)
