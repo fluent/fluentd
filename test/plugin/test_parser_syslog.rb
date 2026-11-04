@@ -15,6 +15,25 @@ class SyslogParserTest < ::Test::Unit::TestCase
     }
   end
 
+  def assert_input_rejected(text, expectation)
+    case expectation
+    when :raises
+      assert_raise(Fluent::TimeParser::TimeParseError) do
+        @parser.instance.parse(text) { |time, record| }
+      end
+    when :rejects
+      result = :not_yielded
+      assert_nothing_raised do
+        @parser.instance.parse(text) do |time, record|
+          result = [time, record]
+        end
+      end
+      assert_equal([nil, nil], result)
+    else
+      flunk("unknown expectation: #{expectation.inspect}")
+    end
+  end
+
   data('regexp' => 'regexp', 'string' => 'string')
   def test_parse(param)
     @parser.configure({'parser_type' => param})
@@ -90,6 +109,42 @@ class SyslogParserTest < ::Test::Unit::TestCase
     time, record = result
     assert_equal(event_time('2020-02-28 12:00:00', format: '%Y-%m-%d %H:%M:%S'), time)
     assert_equal(@expected.merge('pri' => 6), record)
+  end
+
+  data(
+    'rfc3164/unterminated priority' => ['rfc3164', '<14 Apr 25 16:43:29 host app: message'],
+    'rfc5424/unterminated priority' => ['rfc5424', '<14 1 2026-04-25T16:43:29Z host app 123 ID - message'],
+    'rfc5424/priority only' => ['rfc5424', '<14>'],
+    'rfc5424/version only' => ['rfc5424', '<14>1'],
+    'rfc5424/timestamp only' => ['rfc5424', '<14>1 2026-04-25T16:43:29Z'],
+    'auto/version only' => ['auto', '<14>1'],
+    'auto/timestamp only' => ['auto', '<14>1 2026-04-25T16:43:29Z'],
+  )
+  def test_truncated_priority_or_timestamp_is_rejected_without_raising(data)
+    message_format, text = data
+    @parser.configure(
+      'parser_engine' => 'string',
+      'message_format' => message_format,
+      'with_priority' => true,
+    )
+
+    assert_input_rejected(text, :rejects)
+  end
+
+  data(
+    'rfc5424' => ['rfc5424', 'time_format'],
+    'auto' => ['auto', 'rfc5424_time_format'],
+  )
+  def test_truncated_rfc5424_timestamp_with_space_containing_time_format_is_rejected_without_raising(data)
+    message_format, time_format_key = data
+    @parser.configure(
+      'parser_engine' => 'string',
+      'message_format' => message_format,
+      'with_priority' => true,
+      time_format_key => '%b %d %H:%M:%S',
+    )
+
+    assert_input_rejected('<14>1 Apr 25', :rejects)
   end
 
   def test_parse_rfc5424_with_space_containing_time_format
