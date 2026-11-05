@@ -235,6 +235,56 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
+    'regexp/colon' => ['regexp', 'app]: message', 'message'],
+    'string/colon' => ['string', 'app]: message', 'message'],
+    'regexp/colonless' => ['regexp', 'app] message', 'message'],
+    'string/colonless' => ['string', 'app] message', 'message'],
+    'regexp/colon/bracket in message' => ['regexp', 'app]: message [x]', 'message [x]'],
+    'string/colon/bracket in message' => ['string', 'app]: message [x]', 'message [x]'],
+    'regexp/colonless/bracket in message' => ['regexp', 'app] message [x]', 'message [x]'],
+    'string/colonless/bracket in message' => ['string', 'app] message [x]', 'message [x]'],
+  )
+  def test_parse_rfc3164_ident_with_right_bracket_but_without_left_bracket(data)
+    parser_engine, ident_and_message, message = data
+    @parser.configure('parser_engine' => parser_engine, 'with_priority' => true)
+
+    result = nil
+    @parser.instance.parse("<14>Apr 25 16:43:29 host #{ident_and_message}") do |time, record|
+      result = [time, record]
+    end
+    assert_equal([event_time('Apr 25 16:43:29', format: '%b %d %H:%M:%S'),
+                  {'host' => 'host', 'pri' => 14, 'ident' => 'app]', 'message' => message}],
+                 result)
+  end
+
+  data(
+    'rfc5424/nil structured data' => ['rfc5424', '-', nil],
+    'auto/nil structured data' => ['auto', '-', nil],
+    'rfc5424/structured data' => ['rfc5424', '[x@1 a="b"]', nil],
+    'auto/structured data' => ['auto', '[x@1 a="b"]', nil],
+    'rfc5424/nil structured data with message' => ['rfc5424', '-', 'msg'],
+    'rfc5424/structured data with message' => ['rfc5424', '[x@1 a="b"]', 'msg'],
+  )
+  def test_string_parser_parses_non_ascii_rfc5424_header(data)
+    message_format, extradata, message = data
+    @parser.configure(
+      'parser_engine' => 'string',
+      'message_format' => message_format,
+      'with_priority' => true,
+    )
+    text = "<14>1 2026-04-25T16:43:29Z ホスト app 123 ID #{extradata}"
+    text += " #{message}" if message
+    expected = {'host' => 'ホスト', 'ident' => 'app', 'pid' => '123', 'msgid' => 'ID', 'pri' => 14, 'extradata' => extradata}
+    expected['message'] = message if message
+
+    result = nil
+    @parser.instance.parse(text) do |time, record|
+      result = [time, record]
+    end
+    assert_equal([event_time('2026-04-25T16:43:29Z', format: '%Y-%m-%dT%H:%M:%S%z'), expected], result)
+  end
+
+  data(
     'two boundary spaces' => [nil, '<14>  Apr 25 16:43:2 host app: message'],
     'subsecond format without subsecond' => ['%b %d %H:%M:%S.%N', '<14> Apr 25 16:43:29 host app: message'],
     'subsecond format truncated second' => ['%b %d %H:%M:%S.%N', '<14>  Apr 25 16:43:2 host app: message'],
