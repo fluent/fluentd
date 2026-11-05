@@ -522,6 +522,7 @@ module Fluent
         else
           start = cursor
           i = text.index('] '.freeze, cursor)
+          i = text.index('] '.freeze, i + 1) while i && text[i - 1] == '\\'.freeze # skip escaped ']' (RFC 5424 6.3.3)
           extradata = if i
                         diff = i + 1 - start # calculate ']' position
                         cursor += diff
