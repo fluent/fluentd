@@ -773,6 +773,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       'string/escaped backslash at end of value' => ['string', '[x@1 a="b\\\\"]', 'msg'],
       'regexp/escaped backslash before right bracket' => ['regexp', '[x@1 a="b\\\\] c"]', 'msg'],
       'string/escaped backslash before right bracket' => ['string', '[x@1 a="b\\\\] c"]', 'msg'],
+      'string/invalid byte in message' => ['string', '[x@1 a="b\] c"]', "m\xFFsg"],
     )
     def test_parse_with_rfc5424_structured_data_includes_escaped_right_bracket(data)
       parser_engine, extradata, message = data
