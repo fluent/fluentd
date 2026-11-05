@@ -335,6 +335,29 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
+    'regexp/rfc5424/timestamp only' => ['regexp', 'rfc5424', true, {}, '<14>1 2026-04-25T16:43:29Z'],
+    'string/rfc5424/timestamp only' => ['string', 'rfc5424', true, {}, '<14>1 2026-04-25T16:43:29Z'],
+    'regexp/auto/timestamp only' => ['regexp', 'auto', true, {}, '<14>1 2026-04-25T16:43:29Z'],
+    'string/auto/timestamp only' => ['string', 'auto', true, {}, '<14>1 2026-04-25T16:43:29Z'],
+    'regexp/rfc5424/truncated time with spaces' => ['regexp', 'rfc5424', true, {'time_format' => '%b %d %H:%M:%S'}, '<14>1 Apr 25'],
+    'string/rfc5424/truncated time with spaces' => ['string', 'rfc5424', true, {'time_format' => '%b %d %H:%M:%S'}, '<14>1 Apr 25'],
+    'regexp/rfc5424/empty' => ['regexp', 'rfc5424', false, {}, ''],
+    'string/rfc5424/empty' => ['string', 'rfc5424', false, {}, ''],
+    'regexp/rfc5424/no space' => ['regexp', 'rfc5424', false, {}, 'hello'],
+    'string/rfc5424/no space' => ['string', 'rfc5424', false, {}, 'hello'],
+  )
+  def test_truncated_rfc5424_timestamp_is_rejected_without_raising(data)
+    parser_engine, message_format, with_priority, time_config, text = data
+    @parser.configure({
+      'parser_engine' => parser_engine,
+      'message_format' => message_format,
+      'with_priority' => with_priority,
+    }.merge(time_config))
+
+    assert_input_rejected(text, :rejects)
+  end
+
+  data(
     'regexp/subsecond/parser priority' => ['regexp', '%b %d %H:%M:%S.%L', 'Apr 25', true],
     'string/subsecond/parser priority' => ['string', '%b %d %H:%M:%S.%L', 'Apr 25', true],
     'regexp/subsecond/input priority' => ['regexp', '%b %d %H:%M:%S.%L', 'Apr 25', false],
