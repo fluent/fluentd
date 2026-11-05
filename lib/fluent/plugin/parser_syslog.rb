@@ -239,6 +239,10 @@ module Fluent
           end
 
           i = text.index(SPLIT_CHAR, i + 1)
+          unless i
+            yield nil, nil
+            return
+          end
         }
 
         time_str = sq ? text.slice(idx, i - idx).squeeze(SPLIT_CHAR) : text.slice(idx, i - idx)
