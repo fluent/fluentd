@@ -74,13 +74,14 @@ module Fluent
         end
 
         def on_read(data)
+          search_pos = [@buffer.length - @delimiter.length + 1, 0].max
           @buffer << data
           pos = 0
 
-          while i = @buffer.index(@delimiter, pos)
+          while i = @buffer.index(@delimiter, search_pos)
             msg = @buffer[pos...i]
             @callback.call(msg, @addr)
-            pos = i + @delimiter.length
+            pos = search_pos = i + @delimiter.length
           end
           @buffer.slice!(0, pos) if pos > 0
         rescue => e
