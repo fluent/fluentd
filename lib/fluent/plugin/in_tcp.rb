@@ -120,12 +120,13 @@ module Fluent::Plugin
             next
           end
 
-          conn.buffer << data
           buf = conn.buffer
+          search_pos = [buf.length - del_size + 1, 0].max
+          buf << data
           pos = 0
-          while i = buf.index(@delimiter, pos)
+          while i = buf.index(@delimiter, search_pos)
             msg = buf[pos...i]
-            pos = i + del_size
+            pos = search_pos = i + del_size
 
             if discard_till_next_delimiter
               discard_till_next_delimiter = false
@@ -169,13 +170,14 @@ module Fluent::Plugin
             next
           end
 
-          conn.buffer << data
           buf = conn.buffer
+          search_pos = [buf.length - del_size + 1, 0].max
+          buf << data
           pos = 0
           es = Fluent::MultiEventStream.new
-          while i = buf.index(@delimiter, pos)
+          while i = buf.index(@delimiter, search_pos)
             msg = buf[pos...i]
-            pos = i + del_size
+            pos = search_pos = i + del_size
 
             if discard_till_next_delimiter
               discard_till_next_delimiter = false
