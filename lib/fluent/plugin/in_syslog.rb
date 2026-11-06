@@ -27,7 +27,7 @@ module Fluent::Plugin
     helpers :parser, :compat_parameters, :server
 
     DEFAULT_PARSER = 'syslog'
-    SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
+    SYSLOG_REGEXP = /\A\<([0-9]+)\>(.*)/
 
     FACILITY_MAP = {
       0   => 'kern',
