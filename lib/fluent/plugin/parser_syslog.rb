@@ -524,6 +524,21 @@ module Fluent
         else
           start = cursor
           i = text.index('] '.freeze, cursor)
+          if i && text[i - 1] == '\\'.freeze # skip escaped ']' (RFC 5424 6.3.3)
+            offset = i
+            previous = '\\'.freeze
+            candidate = false
+            i = nil
+            text.slice(offset, text.length).each_char do |char|
+              if candidate && char == SPLIT_CHAR
+                i = offset - 1
+                break
+              end
+              candidate = char == ']'.freeze && previous != '\\'.freeze
+              previous = char
+              offset += 1
+            end
+          end
           extradata = if i
                         diff = i + 1 - start # calculate ']' position
                         cursor += diff

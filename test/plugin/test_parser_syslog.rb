@@ -835,6 +835,40 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
+    data(
+      'regexp/with message' => ['regexp', '[x@1 a="b\] c"]', 'msg'],
+      'string/with message' => ['string', '[x@1 a="b\] c"]', 'msg'],
+      'regexp/without message' => ['regexp', '[x@1 a="b\] c"]', nil],
+      'string/without message' => ['string', '[x@1 a="b\] c"]', nil],
+      'regexp/multiple structured data' => ['regexp', '[x@1 a="b\] c"][y@1 d="e"]', 'msg'],
+      'string/multiple structured data' => ['string', '[x@1 a="b\] c"][y@1 d="e"]', 'msg'],
+      'regexp/escaped backslash at end of value' => ['regexp', '[x@1 a="b\\\\"]', 'msg'],
+      'string/escaped backslash at end of value' => ['string', '[x@1 a="b\\\\"]', 'msg'],
+      'regexp/escaped backslash before right bracket' => ['regexp', '[x@1 a="b\\\\] c"]', 'msg'],
+      'string/escaped backslash before right bracket' => ['string', '[x@1 a="b\\\\] c"]', 'msg'],
+      'string/invalid byte in message' => ['string', '[x@1 a="b\] c"]', "m\xFFsg"],
+    )
+    def test_parse_with_rfc5424_structured_data_includes_escaped_right_bracket(data)
+      parser_engine, extradata, message = data
+      @parser.configure(
+                        'message_format' => 'rfc5424',
+                        'with_priority' => true,
+                        'parser_engine' => parser_engine
+                        )
+      text = "<14>1 2026-04-25T16:43:29.123Z host app 123 ID #{extradata}"
+      text += " #{message}" if message
+
+      result = nil
+      @parser.instance.parse(text) do |time, record|
+        result = [time, record]
+      end
+      # string parser removes backslashes from extradata
+      extradata = extradata.delete('\\') if parser_engine == 'string'
+      expected = {'host' => 'host', 'ident' => 'app', 'pid' => '123', 'msgid' => 'ID', 'pri' => 14, 'extradata' => extradata}
+      expected['message'] = message if message
+      assert_equal([event_time('2026-04-25T16:43:29.123Z', format: '%Y-%m-%dT%H:%M:%S.%L%z'), expected], result)
+    end
+
     data('regexp' => 'regexp', 'string' => 'string')
     def test_parse_with_rfc5424_empty_message(param)
       @parser.configure(
