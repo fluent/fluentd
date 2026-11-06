@@ -604,6 +604,25 @@ EOS
     end
   end
 
+  sub_test_case 'empty delimiter' do
+    test 'is rejected for tcp with traditional frame' do
+      assert_raise(Fluent::ConfigError.new("'delimiter' parameter must not be empty")) do
+        create_driver(ipv4_config + %[
+          delimiter ""
+          <transport tcp>
+          </transport>
+        ])
+      end
+    end
+
+    data('udp' => '',
+         'octet_count' => "<transport tcp>\n</transport>\nframe_type octet_count")
+    test 'is accepted when the delimiter is not used' do |conf|
+      d = create_driver(ipv4_config + %[delimiter ""\n] + conf)
+      assert_equal "", d.instance.delimiter
+    end
+  end
+
   sub_test_case 'message_length_limit for tcp' do
     LIMIT = 1024
     NORMAL_MESSAGE = '<6>Sep 10 00:00:00 localhost logger: hello'

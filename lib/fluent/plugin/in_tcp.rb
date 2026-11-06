@@ -66,6 +66,7 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "<parse> section is required."
       end
       super
+      raise Fluent::ConfigError, "'delimiter' parameter must not be empty" if @delimiter.empty?
       @_event_loop_blocking_timeout = @blocking_timeout
       @source_hostname_key ||= @source_host_key if @source_host_key
 
