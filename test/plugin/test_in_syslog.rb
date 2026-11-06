@@ -197,6 +197,27 @@ EOS
     assert_equal(messages[2], d.events[2][2]['unmatched_line'])
   end
 
+  def test_priority_on_a_later_line_is_unmatched_when_input_parses_priority
+    d = create_driver([
+      ipv4_config,
+      'emit_unmatched_lines true',
+      '<parse>',
+      '  @type none',
+      '</parse>',
+    ].join("\n"))
+
+    message = "first line\n<14>second line"
+    d.run(expect_emits: 1) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', @port)
+      u.send(message, 0)
+    end
+
+    assert_equal(1, d.events.size)
+    assert_equal('syslog.unmatched', d.events[0][0])
+    assert_equal(message, d.events[0][2]['unmatched_line'])
+  end
+
   def test_msg_size
     d = create_driver
     tests = create_test_case
