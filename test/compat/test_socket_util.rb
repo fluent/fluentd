@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/plugin/socket_util'
+require 'fluent/compat/socket_util'
 
 class SocketUtilTcpHandlerTest < ::Test::Unit::TestCase
   def setup
@@ -20,7 +20,7 @@ class SocketUtilTcpHandlerTest < ::Test::Unit::TestCase
        "partial delimiter in a message" => ["\r\n", ["a\r", "b\r", "\n"], ["a\rb"]])
   test "on_read splits data by the delimiter" do |(delimiter, reads, expected)|
     messages = []
-    handler = Fluent::SocketUtil::TcpHandler.new(@io, $log, delimiter, ->(msg, _addr) { messages << msg })
+    handler = Fluent::Compat::SocketUtil::TcpHandler.new(@io, $log, delimiter, ->(msg, _addr) { messages << msg })
     reads.each { |data| handler.on_read(data.b) }
     assert_equal(expected, messages)
   end
