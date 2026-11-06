@@ -285,8 +285,9 @@ module Fluent::Plugin
 
     private
 
-    def emit_unmatched(data, sock)
+    def emit_unmatched(data, sock, reason = nil)
       record = {"unmatched_line" => data}
+      record["unmatched_reason"] = reason if reason
       record[@source_address_key] = sock.remote_addr if @source_address_key
       record[@source_hostname_key] = sock.remote_host if @source_hostname_key
       emit("#{@tag}.unmatched", Fluent::EventTime.now, record)
@@ -299,7 +300,7 @@ module Fluent::Plugin
         m = SYSLOG_REGEXP.match(data)
         unless m
           if @emit_unmatched_lines
-            emit_unmatched(data, sock)
+            emit_unmatched(data, sock, 'invalid syslog message')
           end
           log.warn "invalid syslog message: #{data.dump}"
           return
@@ -311,7 +312,7 @@ module Fluent::Plugin
       @parser.parse(text) do |time, record|
         unless time && record
           if @emit_unmatched_lines
-            emit_unmatched(data, sock)
+            emit_unmatched(data, sock, 'failed to parse message')
           end
           log.warn "failed to parse message", data: data
           return
@@ -331,7 +332,7 @@ module Fluent::Plugin
       end
     rescue => e
       if @emit_unmatched_lines
-        emit_unmatched(data, sock)
+        emit_unmatched(data, sock, "invalid input (#{e.class}: #{e.message})")
       end
       log.error "invalid input", data: data, error: e
       log.error_backtrace
