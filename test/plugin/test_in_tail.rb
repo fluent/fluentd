@@ -836,13 +836,16 @@ class TailInputTest < Test::Unit::TestCase
       path = "#{@tmp_dir}/tail.txt"
       Fluent::FileWrapper.open(path, 'wb') {}
       config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'path' => path,
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
         'num_threads' => 2,
         'read_lines_limit' => 1,
         'rotate_wait' => '1s',
         'refresh_interval' => '1h',
         'enable_stat_watcher' => false,
       })
-      driver = create_driver(config)
+      driver = create_driver(config, false)
       parse_started = Queue.new
       continue_parse = Queue.new
 
@@ -869,12 +872,16 @@ class TailInputTest < Test::Unit::TestCase
       path = "#{@tmp_dir}/tail.txt"
       Fluent::FileWrapper.open(path, 'wb') {}
       config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element('', '', {
+        'path' => path,
+        'pos_file' => "#{@tmp_dir}/tail.pos",
+        'tag' => 't1',
         'num_threads' => 2,
         'read_lines_limit' => 1,
+        'refresh_interval' => '1h',
         'enable_stat_watcher' => true,
         'enable_watch_timer' => false,
       })
-      driver = create_driver(config)
+      driver = create_driver(config, false)
       parse_started = Queue.new
       continue_parse = Queue.new
       position_entry = nil
