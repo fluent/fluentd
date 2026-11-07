@@ -302,6 +302,25 @@ class TcpInputTest < Test::Unit::TestCase
 
       assert_equal(["hello", "world"], d.events.collect { |event| event[2]["message"] })
     end
+
+    test "do not emit an empty event stream for a read without a complete message" do |data|
+      d = create_driver(base_config + %!
+        <parse>
+          @type none
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 1, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send("hel", 0)
+          sleep 1
+          sock.send("lo\n", 0)
+        end
+      end
+
+      assert_equal(["hello"], d.events.collect { |event| event[2]["message"] })
+      assert_equal(1, d.emit_count)
+    end
   end
 
   sub_test_case "message_length_limit" do
