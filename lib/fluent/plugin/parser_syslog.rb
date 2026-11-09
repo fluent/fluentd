@@ -341,8 +341,7 @@ module Fluent
                 text.slice(cursor, text.bytesize)
               else
                 if text[i - 1] == ':'.freeze
-                  if text[i - 2] == ']'.freeze
-                    left_braket_pos = text.index('['.freeze, cursor)
+                  if text[i - 2] == ']'.freeze && (left_braket_pos = text.index('['.freeze, cursor)) && left_braket_pos < i
                     record['ident'] = text.slice(cursor, left_braket_pos - cursor)
                     record['pid'] = text.slice(left_braket_pos + 1, i - left_braket_pos - 3) # remove '[' / ']:'
                   else
@@ -351,8 +350,7 @@ module Fluent
                   text.slice(i + 1, text.bytesize)
                 else
                   if @support_colonless_ident
-                    if text[i - 1] == ']'.freeze
-                      left_braket_pos = text.index('['.freeze, cursor)
+                    if text[i - 1] == ']'.freeze && (left_braket_pos = text.index('['.freeze, cursor)) && left_braket_pos < i
                       record['ident'] = text.slice(cursor, left_braket_pos - cursor)
                       record['pid'] = text.slice(left_braket_pos + 1, i - left_braket_pos - 2) # remove '[' / ']'
                     else
@@ -499,7 +497,7 @@ module Fluent
                         cursor += diff
                         text.slice(start, diff)
                       else  # No message part case
-                        cursor = text.bytesize
+                        cursor = text.length
                         text.slice(start, cursor)
                       end
           extradata.tr!("\\".freeze, ''.freeze)
@@ -507,7 +505,7 @@ module Fluent
         end
 
         # message part
-        if cursor != text.bytesize
+        if cursor != text.length
           msg = text.slice(cursor + 1, text.bytesize)
           msg.chomp!
           record['message'] = msg
