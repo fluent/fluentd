@@ -365,12 +365,55 @@ class TcpInputTest < Test::Unit::TestCase
       assert_equal(
         {
           # Asserting that '[warn]: pattern not matched message="world!\"}"' warning does not occur.
-          logs: ['[info]: The buffer size exceeds \'message_length_limit\', cleared: limit=12 size=17 head="{\"message\":\"hello"' + "\n"],
+          logs: ['[info]: The buffer size exceeds \'message_length_limit\', cleared: limit=12 size=17' + "\n"],
           records: [{"k" => "v"}],
         },
         {
           logs: logs[1..],
           records: actual_records,
+        }
+      )
+    end
+
+  end
+
+  sub_test_case "head of the data in logs" do
+    dropped = "The received data is larger than 'message_length_limit'"
+    cleared = "The buffer size exceeds 'message_length_limit'"
+    single_emit = "<extract>\ntag_key tag\n</extract>\n"
+    data(
+      "dropped (batch_emit)" => ["\xff" * 13 + ";", dropped, ""],
+      "dropped (single_emit)" => ["\xff" * 13 + ";", dropped, single_emit],
+      "cleared (batch_emit)" => ["\xff" * 13, cleared, ""],
+      "cleared (single_emit)" => ["\xff" * 13, cleared, single_emit],
+    )
+    test "log the head as an escaped string only at debug level" do |data|
+      payload, message, extract = data
+      d = create_driver(base_config + %!
+        @log_level debug
+        message_length_limit 12
+        delimiter ";"
+        <parse>
+          @type none
+        </parse>
+        #{extract}
+      !)
+      d.run(timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send(payload.b, 0)
+          waiting(10) { sleep 0.1 until d.logs.any? { |log| log.include?("[info]: #{message}") } }
+        end
+      end
+
+      head = ("\xff" * 13).b.dump
+      assert_equal(
+        {
+          debug: 1,
+          info_with_head: 0,
+        },
+        {
+          debug: d.logs.count { |log| log.include?("[debug]: #{message}: head=#{head.dump}") },
+          info_with_head: d.logs.count { |log| log.include?("[info]:") && log.include?("head=") },
         }
       )
     end
