@@ -550,6 +550,23 @@ EOS
     end
   end
 
+  def test_non_ascii_delimiter_with_tcp
+    port = unused_port(protocol: :tcp)
+    d = create_driver(ipv4_config(port) + %[
+      delimiter "§"
+      <transport tcp>
+      </transport>
+    ])
+
+    d.run(expect_emits: 2, timeout: 10) do
+      TCPSocket.open('127.0.0.1', port) do |s|
+        s.write("<6>Sep 10 00:00:00 localhost logger: hello§<6>Sep 10 00:00:00 localhost logger: world§")
+      end
+    end
+
+    assert_equal(["hello", "world"], d.events.collect { |event| event[2]["message"] })
+  end
+
   sub_test_case 'message_length_limit for tcp' do
     LIMIT = 1024
     NORMAL_MESSAGE = '<6>Sep 10 00:00:00 localhost logger: hello'

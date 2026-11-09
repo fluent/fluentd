@@ -112,7 +112,9 @@ module Fluent::Plugin
       super
 
       log.info "listening tcp socket", bind: @bind, port: @port
-      del_size = @delimiter.length
+      # The received data is binary (ASCII-8BIT), so match the delimiter as bytes.
+      delimiter = @delimiter.b
+      del_size = delimiter.bytesize
       discard_till_next_delimiter = false
       if @_extract_enabled && @_extract_tag_key
         server_create(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key, send_keepalive_packet: @send_keepalive_packet) do |data, conn|
@@ -124,7 +126,7 @@ module Fluent::Plugin
           conn.buffer << data
           buf = conn.buffer
           pos = 0
-          while i = buf.index(@delimiter, pos)
+          while i = buf.index(delimiter, pos)
             msg = buf[pos...i]
             pos = i + del_size
 
@@ -174,7 +176,7 @@ module Fluent::Plugin
           buf = conn.buffer
           pos = 0
           es = Fluent::MultiEventStream.new
-          while i = buf.index(@delimiter, pos)
+          while i = buf.index(delimiter, pos)
             msg = buf[pos...i]
             pos = i + del_size
 
