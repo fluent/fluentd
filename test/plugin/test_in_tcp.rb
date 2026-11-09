@@ -375,6 +375,46 @@ class TcpInputTest < Test::Unit::TestCase
       )
     end
 
+    test "log the clear only once for one long message" do |data|
+      message_length_limit = 12
+      d = create_driver(base_config + %!
+        message_length_limit #{message_length_limit}
+        delimiter ";"
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 1, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send("a" * (message_length_limit + 1), 0)
+          waiting(10) { sleep 0.1 until d.logs.any? { |log| log.include?("cleared:") } }
+          2.times do
+            sock.send("a" * (message_length_limit + 1), 0)
+            sleep 1 # To make the server read data and clear the buffer each time.
+          end
+          sock.send(';{"k":"v"};', 0)
+        end
+      end
+
+      logs = d.logs.collect do |log|
+        log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
+      end
+      actual_records = d.events.collect do |event|
+        event[2]
+      end
+
+      assert_equal(
+        {
+          logs: ['[info]: The buffer size exceeds \'message_length_limit\', cleared: limit=12 size=13' + "\n"],
+          records: [{"k" => "v"}],
+        },
+        {
+          logs: logs[1..],
+          records: actual_records,
+        }
+      )
+    end
   end
 
   sub_test_case "head of the data in logs" do
