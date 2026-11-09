@@ -182,6 +182,42 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data(
+    'regexp/rfc5424' => ['regexp', 'rfc5424', "first line\n<14>1 2026-04-25T16:43:29Z host app 123 ID - second line"],
+    'string/rfc5424' => ['string', 'rfc5424', "first line\n<14>1 2026-04-25T16:43:29Z host app 123 ID - second line"],
+    'regexp/rfc3164' => ['regexp', 'rfc3164', "first line\n<14>Apr 25 16:43:29 host app: second line"],
+    'string/rfc3164' => ['string', 'rfc3164', "first line\n<14>Apr 25 16:43:29 host app: second line"],
+    'regexp/auto' => ['regexp', 'auto', "first line\n<14>1 2026-04-25T16:43:29Z host app 123 ID - second line"],
+    'string/auto' => ['string', 'auto', "first line\n<14>1 2026-04-25T16:43:29Z host app 123 ID - second line"],
+  )
+  def test_priority_on_a_later_line_is_rejected(data)
+    parser_engine, message_format, text = data
+    @parser.configure(
+      'parser_engine' => parser_engine,
+      'message_format' => message_format,
+      'with_priority' => true,
+    )
+
+    assert_input_rejected(text, :rejects)
+  end
+
+  data('regexp' => 'regexp', 'string' => 'string')
+  def test_auto_detects_rfc3164_when_a_later_line_looks_like_rfc5424(parser_engine)
+    @parser.configure(
+      'parser_engine' => parser_engine,
+      'message_format' => 'auto',
+      'with_priority' => true,
+    )
+
+    text = "<13>Apr 25 16:43:29 web01 nginx: request failed:\n<14>1 2026-04-25T16:43:29Z host app 123 ID - second line"
+    time = record = nil
+    @parser.instance.parse(text) do |t, r|
+      time, record = t, r
+    end
+    assert_equal(event_time('Apr 25 16:43:29', format: '%b %d %H:%M:%S'), time)
+    assert_equal([13, 'web01', 'nginx'], record.values_at('pri', 'host', 'ident'))
+  end
+
+  data(
     'rfc5424' => ['rfc5424', 'time_format'],
     'auto' => ['auto', 'rfc5424_time_format'],
   )
