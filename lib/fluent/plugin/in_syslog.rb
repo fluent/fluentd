@@ -185,8 +185,9 @@ module Fluent::Plugin
     def start_tcp_server(tls: false)
       octet_count_frame = @frame_type == :octet_count
 
-      delimiter = octet_count_frame ? " " : @delimiter
-      delimiter_size = delimiter.size
+      # The received data is binary (ASCII-8BIT), so match the delimiter as bytes.
+      delimiter = octet_count_frame ? " " : @delimiter.b
+      delimiter_size = delimiter.bytesize
       server_create_connection(
         tls ? :in_syslog_tls_server : :in_syslog_tcp_server, @port,
         bind: @bind,
