@@ -243,7 +243,7 @@ module Fluent::Plugin
             # the limit with its length header.)
             if !close_connection && !buffer.index(delimiter) && buffer.bytesize > @message_length_limit
               log.info "The buffer size exceeds 'message_length_limit', closing connection:", limit: @message_length_limit, size: buffer.bytesize
-              log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buffer[...32] }
+              log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buffer[...32].dump }
               close_connection = true
             end
 
@@ -264,7 +264,7 @@ module Fluent::Plugin
 
               if msg.bytesize > @message_length_limit
                 log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize
-                log.on_debug { log.debug "The received data is larger than 'message_length_limit':", head: msg[...32] }
+                log.on_debug { log.debug "The received data is larger than 'message_length_limit':", head: msg[...32].dump }
                 next
               end
 
@@ -277,7 +277,7 @@ module Fluent::Plugin
             # keep storing useless data until the next delimiter comes.
             if buffer.bytesize > @message_length_limit
               log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buffer.bytesize
-              log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buffer[...32] }
+              log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buffer[...32].dump }
               buffer.clear
               # We should discard the subsequent data until the next delimiter comes.
               discard_till_next_delimiter = true
