@@ -22,6 +22,8 @@ module Fluent::Plugin
 
     helpers :server, :parser, :extract, :compat_parameters
 
+    MAX_LOGGED_MESSAGE_LENGTH = 16 * 1024
+
     desc 'Tag of output events.'
     config_param :tag, :string
     desc 'The port to listen to.'
@@ -138,7 +140,7 @@ module Fluent::Plugin
 
             @parser.parse(msg) do |time, record|
               unless time && record
-                log.on_warn { log.warn "pattern not matched", message: msg }
+                log.on_warn { warn_pattern_not_matched(msg) }
                 next
               end
 
@@ -188,7 +190,7 @@ module Fluent::Plugin
 
             @parser.parse(msg) do |time, record|
               unless time && record
-                log.on_warn { log.warn "pattern not matched", message: msg }
+                log.on_warn { warn_pattern_not_matched(msg) }
                 next
               end
 
@@ -214,6 +216,14 @@ module Fluent::Plugin
     end
 
     private
+
+    def warn_pattern_not_matched(msg)
+      if msg.length > MAX_LOGGED_MESSAGE_LENGTH
+        log.warn "pattern not matched", message: msg[...MAX_LOGGED_MESSAGE_LENGTH], size: msg.bytesize
+      else
+        log.warn "pattern not matched", message: msg
+      end
+    end
 
     def check_client(conn)
       if @nodes

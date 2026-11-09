@@ -331,4 +331,70 @@ class TcpInputTest < Test::Unit::TestCase
       )
     end
   end
+
+  sub_test_case "pattern not matched" do
+    data("batch_emit", { extract: "" }, keep: true)
+    data("single_emit", { extract: "<extract>\ntag_key tag\n</extract>\n" }, keep: true)
+    test "log the whole message when it is short" do |data|
+      d = create_driver(base_config + %!
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 1, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send("hello\n", 0)
+          sock.send('{"k":"v"}' + "\n", 0)
+        end
+      end
+
+      logs = d.logs.collect do |log|
+        log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
+      end
+      assert_equal(['[warn]: pattern not matched message="hello"' + "\n"], logs[1..])
+    end
+
+    test "log the whole message when its length is the limit" do |data|
+      max = Fluent::Plugin::TcpInput::MAX_LOGGED_MESSAGE_LENGTH
+      d = create_driver(base_config + %!
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 1, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send("a" * max + "\n", 0)
+          sock.send('{"k":"v"}' + "\n", 0)
+        end
+      end
+
+      logs = d.logs.collect do |log|
+        log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
+      end
+      assert_equal(["[warn]: pattern not matched message=\"#{"a" * max}\"\n"], logs[1..])
+    end
+
+    test "log only the head of the message when it is long" do |data|
+      max = Fluent::Plugin::TcpInput::MAX_LOGGED_MESSAGE_LENGTH
+      d = create_driver(base_config + %!
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 1, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send("a" * (max + 1) + "\n", 0)
+          sock.send('{"k":"v"}' + "\n", 0)
+        end
+      end
+
+      logs = d.logs.collect do |log|
+        log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
+      end
+      assert_equal(["[warn]: pattern not matched message=\"#{"a" * max}\" size=#{max + 1}\n"], logs[1..])
+    end
+  end
 end
