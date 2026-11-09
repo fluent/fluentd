@@ -150,6 +150,9 @@ module Fluent::Plugin
       if @send_keepalive_packet && protocol == :udp
         raise Fluent::ConfigError, "send_keepalive_packet is available for tcp/tls"
       end
+      if protocol != :udp && @frame_type == :traditional && @delimiter.empty?
+        raise Fluent::ConfigError, "'delimiter' parameter must not be empty"
+      end
     end
 
     def multi_workers_ready?

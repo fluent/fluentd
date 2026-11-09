@@ -67,6 +67,12 @@ class TcpInputTest < Test::Unit::TestCase
     }
   end
 
+  test 'configure with an empty delimiter' do
+    assert_raise(Fluent::ConfigError.new("'delimiter' parameter must not be empty")) {
+      create_driver(ipv4_config + 'delimiter ""')
+    }
+  end
+
   test_case_data = {
     'none' => {
       'format' => 'none',
