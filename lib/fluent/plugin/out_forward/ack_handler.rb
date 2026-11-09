@@ -128,8 +128,8 @@ module Fluent::Plugin
           # Note: exclusion mechanism about `collect_response()` may need to be considered.
           @log.debug "could not find the ack info. this ack may be processed by another thread."
           return nil, Result::FAILED
-        elsif raw_data.empty?
-          # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
+        elsif raw_data.nil? || raw_data.empty?
+          # A nil or empty response means the remote host closed the connection.
           # If this happens we assume the data wasn't delivered and retry it.
           @log.warn 'destination node closed the connection. regard it as unavailable.', host: info.node.host, port: info.node.port
           # info.node.disable!
