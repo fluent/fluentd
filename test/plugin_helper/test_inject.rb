@@ -232,7 +232,7 @@ class InjectHelperTest < Test::Unit::TestCase
     end
 
     test 'injects time as formatted string in localtime if timezone not specified' do
-      local_timezone = Time.now.strftime('%z')
+      local_timezone = Time.local(2016, 6, 21, 8, 10, 11).strftime('%z')
       time_in_unix = Time.parse("2016-06-21 08:10:11 #{local_timezone}").to_i
       time_subsecond = 320_101_224
       time = Fluent::EventTime.new(time_in_unix, time_subsecond)
@@ -245,7 +245,7 @@ class InjectHelperTest < Test::Unit::TestCase
     end
 
     test 'injects time as formatted string with nanosecond in localtime if timezone not specified' do
-      local_timezone = Time.now.strftime('%z')
+      local_timezone = Time.local(2016, 6, 21, 8, 10, 11).strftime('%z')
       time_in_unix = Time.parse("2016-06-21 08:10:11 #{local_timezone}").to_i
       time_subsecond = 320_101_224
       time = Fluent::EventTime.new(time_in_unix, time_subsecond)
@@ -258,7 +258,7 @@ class InjectHelperTest < Test::Unit::TestCase
     end
 
     test 'injects time as formatted string with millisecond in localtime if timezone not specified' do
-      local_timezone = Time.now.strftime('%z')
+      local_timezone = Time.local(2016, 6, 21, 8, 10, 11).strftime('%z')
       time_in_unix = Time.parse("2016-06-21 08:10:11 #{local_timezone}").to_i
       time_subsecond = 320_101_224
       time = Fluent::EventTime.new(time_in_unix, time_subsecond)
