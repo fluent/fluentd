@@ -140,7 +140,7 @@ module Fluent
               if i = key.index(']')
                 index_value = key[0..i - 1]
                 raise Fluent::ConfigError, "missing array index in '[]'. Invalid syntax: #{param}" if index_value == ']'
-                result << Integer(index_value)
+                result << parse_array_index(index_value, param)
                 key = key[i + 1..-1]
                 in_bracket = false
               else
@@ -157,6 +157,12 @@ module Fluent
           end
 
           result
+        end
+
+        def self.parse_array_index(index_value, param)
+          Integer(index_value)
+        rescue ArgumentError
+          raise Fluent::ConfigError, "array index must be an integer: '#{index_value}'. Invalid syntax: #{param}"
         end
 
         def self.parse_bracket_notation(param)
@@ -180,7 +186,7 @@ module Fluent
                 if i = param.index(']')
                   index_value = param[0..i - 1]
                   raise Fluent::ConfigError, "missing array index in '[]'. Invalid syntax: #{param}" if index_value == ']'
-                  result << Integer(index_value)
+                  result << parse_array_index(index_value, orig_param)
                   param = param[i + 1..-1]
                   in_bracket = false
                 else
