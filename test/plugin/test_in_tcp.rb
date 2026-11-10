@@ -260,6 +260,31 @@ class TcpInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "delimiter" do
+    data("batch_emit", { extract: "" }, keep: true)
+    data("single_emit", { extract: "<extract>\ntag_key tag\n</extract>\n" }, keep: true)
+    test "split by a non-ASCII delimiter" do |data|
+      d = create_driver(base_config + %!
+        delimiter "§"
+        <parse>
+          @type none
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 2, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          # Split the 2-byte delimiter across reads.
+          payload = "hello§world§".b
+          sock.send(payload[0, 6], 0)
+          sleep 1
+          sock.send(payload[6..], 0)
+        end
+      end
+
+      assert_equal(["hello", "world"], d.events.collect { |event| event[2]["message"] })
+    end
+  end
+
   sub_test_case "message_length_limit" do
     data("batch_emit", { extract: "" }, keep: true)
     data("single_emit", { extract: "<extract>\ntag_key tag\n</extract>\n" }, keep: true)
