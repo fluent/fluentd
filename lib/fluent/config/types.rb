@@ -28,14 +28,14 @@ module Fluent
       return nil if str.nil?
 
       case str.to_s
-      when /([0-9]+)k/i
-        $~[1].to_i * 1024
-      when /([0-9]+)m/i
-        $~[1].to_i * (1024 ** 2)
-      when /([0-9]+)g/i
-        $~[1].to_i * (1024 ** 3)
-      when /([0-9]+)t/i
-        $~[1].to_i * (1024 ** 4)
+      when /([0-9]+(?:\.[0-9]+)?)k/i
+        unit_value($~[1], 1024).to_i
+      when /([0-9]+(?:\.[0-9]+)?)m/i
+        unit_value($~[1], 1024 ** 2).to_i
+      when /([0-9]+(?:\.[0-9]+)?)g/i
+        unit_value($~[1], 1024 ** 3).to_i
+      when /([0-9]+(?:\.[0-9]+)?)t/i
+        unit_value($~[1], 1024 ** 4).to_i
       else
         INTEGER_TYPE.call(str, opts, name)
       end
@@ -45,18 +45,29 @@ module Fluent
       return nil if str.nil?
 
       case str.to_s
-      when /([0-9]+)s/
-        $~[1].to_i
-      when /([0-9]+)m/
-        $~[1].to_i * 60
-      when /([0-9]+)h/
-        $~[1].to_i * 60 * 60
-      when /([0-9]+)d/
-        $~[1].to_i * 24 * 60 * 60
+      when /([0-9]+(?:\.[0-9]+)?)s/
+        unit_value($~[1], 1)
+      when /([0-9]+(?:\.[0-9]+)?)m/
+        unit_value($~[1], 60)
+      when /([0-9]+(?:\.[0-9]+)?)h/
+        unit_value($~[1], 60 * 60)
+      when /([0-9]+(?:\.[0-9]+)?)d/
+        unit_value($~[1], 24 * 60 * 60)
       else
         FLOAT_TYPE.call(str, opts, name)
       end
     end
+
+    # "10" stays an Integer, "1.5" becomes a Float, so values without a
+    # fractional part keep the same type as before.
+    def self.unit_value(number, multiplier)
+      if number.include?('.')
+        number.to_f * multiplier
+      else
+        number.to_i * multiplier
+      end
+    end
+    private_class_method :unit_value
 
     def self.bool_value(str, opts = {}, name = nil)
       return nil if str.nil?

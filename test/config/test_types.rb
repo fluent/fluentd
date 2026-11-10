@@ -13,6 +13,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "4G" => [4294967296, "4G"],
          "5t" => [5497558138880, "5t"],
          "5T" => [5497558138880, "5T"],
+         "1.5k" => [1536, "1.5k"],
+         "0.5m" => [524288, "0.5m"],
+         "2.5G" => [2684354560, "2.5G"],
          "6"  => [6, "6"])
     test 'normal case' do |(expected, val)|
       assert_equal(expected, Config.size_value(val))
@@ -53,7 +56,11 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "10sec" => [10, "10sec"],
          "2m" => [120, "2m"],
          "3h" => [10800, "3h"],
-         "4d" => [345600, "4d"])
+         "4d" => [345600, "4d"],
+         "0.5s" => [0.5, "0.5s"],
+         "1.5m" => [90.0, "1.5m"],
+         "0.25h" => [900.0, "0.25h"],
+         "1.5d" => [129600.0, "1.5d"])
     test 'normal case' do |(expected, val)|
       assert_equal(expected, Config.time_value(val))
       assert_equal(expected, Config.time_value(val, { strict: true }))
