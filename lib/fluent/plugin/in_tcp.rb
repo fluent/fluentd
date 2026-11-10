@@ -204,7 +204,7 @@ module Fluent::Plugin
               es.add(time, record)
             end
           end
-          router.emit_stream(@tag, es)
+          router.emit_stream(@tag, es) unless es.empty?
           buf.slice!(0, pos) if pos > 0
           # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
           # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
