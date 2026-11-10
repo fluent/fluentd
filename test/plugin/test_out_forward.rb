@@ -1519,4 +1519,79 @@ EOL
       instance.__send__(:ack_check, 0)
     end
   end
+
+  sub_test_case 'a node disabled outside the heartbeat' do
+    def create_standby_driver(primary_host: TARGET_HOST, conf: '')
+      @d = create_driver(%[
+        heartbeat_type transport
+        recover_wait 0
+        #{conf}
+        <server>
+          name primary
+          host #{primary_host}
+          port #{@target_port}
+        </server>
+        <server>
+          name standby
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+          standby true
+        </server>
+      ])
+      @instance = @d.instance
+      @primary = @instance.nodes.find { |n| n.name == 'primary' }
+      @standby = @instance.nodes.find { |n| n.name == 'standby' }
+      @instance.nodes.each { |n| stub(n).send_heartbeat { false } }
+    end
+
+    def run_heartbeat_timer
+      @instance.__send__(:on_heartbeat_timer)
+    end
+
+    def selected_node
+      _, node = @instance.__send__(:service_discovery_select_service) { |n| n }
+      node
+    end
+
+    test 'the heartbeat timer switches to the standby node' do
+      create_standby_driver
+      @primary.disable!
+      run_heartbeat_timer
+
+      assert_equal @standby, selected_node
+    end
+
+    test 'rebuilds the weight array only once 
+    while the availability stays the same' do
+      create_standby_driver
+      mock.proxy(@instance.instance_variable_get(:@load_balancer)).rebalance(anything).once
+
+      @primary.disable!
+      2.times { run_heartbeat_timer }
+    end
+
+    test 'the heartbeat timer switches to the standby node again after the primary recovers' do
+      create_standby_driver
+      @primary.disable!
+      run_heartbeat_timer
+      stub(@primary).send_heartbeat { @primary.heartbeat }
+      run_heartbeat_timer
+      assert_equal @primary, selected_node
+
+      stub(@primary).send_heartbeat { false }
+      @primary.disable!
+      run_heartbeat_timer
+
+      assert_equal @standby, selected_node
+    end
+
+    test 'the heartbeat timer switches to the standby node for a primary disabled at startup' do
+      create_standby_driver(primary_host: 'unexisting.yaaaaaaaaaaaaaay.host.example.com', conf: 'ignore_network_errors_at_startup true')
+      assert_false @primary.available?
+
+      run_heartbeat_timer
+
+      assert_equal @standby, selected_node
+    end
+  end
 end

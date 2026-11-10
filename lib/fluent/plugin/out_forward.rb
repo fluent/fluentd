@@ -231,10 +231,11 @@ module Fluent::Plugin
         socket_cache: socket_cache,
       )
 
+      @load_balancer = LoadBalancer.new(log)
       service_discovery_configure(
         :out_forward_service_discovery_watcher,
         static_default_service_directive: 'server',
-        load_balancer: LoadBalancer.new(log),
+        load_balancer: @load_balancer,
         custom_build_method: method(:build_node),
       )
 
@@ -480,7 +481,8 @@ module Fluent::Plugin
 
     def on_heartbeat_timer
       need_rebuild = false
-      service_discovery_services.each do |n|
+      services = service_discovery_services
+      services.each do |n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
@@ -494,7 +496,7 @@ module Fluent::Plugin
         need_rebuild = n.tick || need_rebuild
       end
 
-      if need_rebuild
+      if need_rebuild || @load_balancer.availability_changed?(services)
         service_discovery_rebalance
       end
     end
