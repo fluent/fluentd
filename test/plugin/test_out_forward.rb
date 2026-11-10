@@ -1561,7 +1561,8 @@ EOL
       assert_equal @standby, selected_node
     end
 
-    test 'the heartbeat timer rebuilds the weight array once for a change' do
+    test 'rebuilds the weight array only once 
+    while the availability stays the same' do
       create_standby_driver
       mock.proxy(@instance.instance_variable_get(:@load_balancer)).rebalance(anything).once
 
