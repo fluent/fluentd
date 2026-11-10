@@ -1520,6 +1520,64 @@ EOL
     end
   end
 
+  sub_test_case 'ack_check starts retry when a failed ACK leaves the node available (#5619)' do
+    def create_ack_driver(heartbeat_type)
+      create_driver(%[
+        send_timeout 51
+        heartbeat_type #{heartbeat_type}
+        require_ack_response true
+        <server>
+          name test
+          host #{TARGET_HOST}
+          port #{@target_port}
+        </server>
+      ])
+    end
+
+    def stub_failed_ack(instance, node)
+      sock = 'sock'
+      fake_ack_handler = Object.new
+      fake_ack_handler.instance_variable_set(:@yielded, false)
+      fake_ack_handler.define_singleton_method(:collect_response) do |_interval, &block|
+        next if @yielded
+        @yielded = true
+        block.call('chunk-id', node, sock, Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED)
+      end
+      instance.instance_variable_set(:@ack_handler, fake_ack_handler)
+      sock
+    end
+
+    test 'starts retry on rollback when heartbeat_type is none' do
+      @d = d = create_ack_driver('none')
+      instance = d.instance
+      node = instance.nodes.first
+      sock = stub_failed_ack(instance, node)
+
+      cm = instance.instance_variable_get(:@connection_manager)
+      stub(cm).discard(sock)
+
+      assert_true node.available?
+      mock(instance).rollback_write('chunk-id', update_retry: true).once
+      instance.__send__(:ack_check, 0)
+      assert_true node.available?
+    end
+
+    test 'keeps update_retry false when disable! makes the node unavailable' do
+      @d = d = create_ack_driver('transport')
+      instance = d.instance
+      node = instance.nodes.first
+      sock = stub_failed_ack(instance, node)
+
+      cm = instance.instance_variable_get(:@connection_manager)
+      stub(cm).discard(sock)
+
+      assert_true node.available?
+      mock(instance).rollback_write('chunk-id', update_retry: false).once
+      instance.__send__(:ack_check, 0)
+      assert_false node.available?
+    end
+  end
+
   sub_test_case 'a node disabled outside the heartbeat' do
     def create_standby_driver(primary_host: TARGET_HOST, conf: '')
       @d = create_driver(%[

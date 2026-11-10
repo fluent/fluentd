@@ -546,7 +546,14 @@ module Fluent::Plugin
           # could later be read against a chunk sent on the reused socket (#4057).
           @connection_manager.discard(sock)
           node&.disable!
-          rollback_write(chunk_id, update_retry: false) if chunk_id
+          # rollback_write(..., update_retry: false) is used so a later write
+          # failure (after disable!) starts the retry state, instead of
+          # counting a retry here and again when NoNodesAvailable is raised.
+          # NoneHeartbeatNode#available? stays true after disable!, so that
+          # later write never fails this way and retry_timeout / secondary
+          # would never apply. Start the retry here in that case (#5619).
+          update_retry = node.nil? || node.available?
+          rollback_write(chunk_id, update_retry: update_retry) if chunk_id
         when AckHandler::Result::CHUNKID_UNMATCHED
           # The ack read from this socket belongs to a different chunk than the
           # one tracked for it: the keepalive connection's ack stream is out of
