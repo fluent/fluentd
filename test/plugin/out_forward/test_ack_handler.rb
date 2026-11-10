@@ -10,6 +10,7 @@ class AckHandlerTest < Test::Unit::TestCase
     'chunk_id is matched' => [MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') }), Fluent::Plugin::ForwardOutput::AckHandler::Result::SUCCESS],
     'chunk_id is not matched' => [MessagePack.pack({ 'ack' => 'unmatched' }), Fluent::Plugin::ForwardOutput::AckHandler::Result::CHUNKID_UNMATCHED],
     'chunk_id is empty' => ['', Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED],
+    'connection is closed with nil EOF' => [nil, Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED],
   )
   test 'returns chunk_id, node, sock and result status' do |args|
     receved, state = args
