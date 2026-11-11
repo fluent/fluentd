@@ -87,12 +87,24 @@ module Fluent
       @source_only_mode = SourceOnlyMode.new(system_config.with_source_only, start_in_parallel)
       @source_only_buffer_agent = nil
       @enable_input_metrics = system_config.enable_input_metrics
+      @shutdown_started = false
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
     end
 
     attr_reader :inputs
     attr_reader :labels
+
+    # Labels answer the RootAgent they belong to; a RootAgent is its own.
+    def root_agent
+      self
+    end
+
+    # true once #shutdown of the whole configuration has begun, e.g. for the
+    # old configuration during a graceful reload.
+    def shutdown_started?
+      @shutdown_started
+    end
 
     def source_only_router
       raise "[BUG] 'RootAgent#source_only_router' should not be called when 'with_source_only' is false" unless @source_only_mode.enabled?
@@ -324,6 +336,7 @@ module Fluent
     end
 
     def shutdown(kind_or_agent_list: nil)
+      @shutdown_started = true unless kind_or_agent_list
       # Fluentd's shutdown sequence is stop, before_shutdown, shutdown, after_shutdown, close, terminate for plugins
       # These method callers does `rescue Exception` to call methods of shutdown sequence as far as possible
       # if plugin methods does something like infinite recursive call, `exit`, unregistering signal handlers or others.
