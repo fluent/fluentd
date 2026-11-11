@@ -524,7 +524,7 @@ class ChildProcessTest < Test::Unit::TestCase
     str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      args = ['-e', 'STDOUT.binmode; STDOUT.write "\xA4\xA2\xFF\xA4\xA4"']
+      args = ['-e', 'STDOUT.binmode; STDOUT.write "\xA4\xA2\xFF\xA9\xA1\xA4\xA4"']
       @d.child_process_execute(:t13a, "ruby", arguments: args, mode: [:read], external_encoding: 'euc-jp', internal_encoding: 'utf-8') do |io|
         m.lock
         ran = true
@@ -534,7 +534,7 @@ class ChildProcessTest < Test::Unit::TestCase
       sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding.find('utf-8'), str.encoding
-      assert_equal "あ\uFFFDい", str
+      assert_equal "あ\uFFFD\uFFFDい", str
       @d.stop; @d.shutdown; @d.close; @d.terminate
     end
   end
@@ -545,7 +545,7 @@ class ChildProcessTest < Test::Unit::TestCase
     replacement = "?"
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      args = ['-e', 'STDOUT.binmode; STDOUT.write "\xA4\xA2\xFF\xA4\xA4"']
+      args = ['-e', 'STDOUT.binmode; STDOUT.write "\xA4\xA2\xFF\xA9\xA1\xA4\xA4"']
       @d.child_process_execute(:t13b, "ruby", arguments: args, mode: [:read], external_encoding: 'euc-jp', internal_encoding: 'utf-8', scrub: true, replace_string: replacement) do |io|
         m.lock
         ran = true
@@ -555,7 +555,7 @@ class ChildProcessTest < Test::Unit::TestCase
       sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding.find('utf-8'), str.encoding
-      assert_equal "あ?い", str
+      assert_equal "あ??い", str
       @d.stop; @d.shutdown; @d.close; @d.terminate
     end
   end
