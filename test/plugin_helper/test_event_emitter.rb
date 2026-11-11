@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/plugin_helper/event_emitter'
 require 'fluent/plugin/base'
+require 'fluent/event_router'
 require 'flexmock/test_unit'
 
 class EventEmitterTest < Test::Unit::TestCase
@@ -105,5 +106,40 @@ class EventEmitterTest < Test::Unit::TestCase
       ["source_only_router", "root_event_router"],
       [router_when_source_only, router_after_canceled]
     )
+  end
+
+  test 'event_emitter_router looks up labels in the plugin configuration, not Engine.root_agent' do
+    old_router_mock = flexmock('old_router')
+    old_label_mock = flexmock('old_label')
+    old_label_mock.should_receive(:event_router).once.and_return(old_router_mock)
+    old_root = flexmock('old_root')
+    old_root.should_receive(:find_label).with('@L').once.and_return(old_label_mock)
+
+    d = Dummy.new
+    d.context_router = Fluent::EventRouter.new(nil, old_root)
+
+    stub(Fluent::Engine.root_agent).find_label { raise 'looked up in Engine.root_agent' }
+
+    assert_equal old_router_mock, d.event_emitter_router('@L')
+  end
+
+  test 'event_emitter_router @ROOT uses the plugin configuration event_router' do
+    old_router = Object.new
+    old_root = Class.new do
+      attr_reader :event_router
+      def initialize(router)
+        @event_router = router
+      end
+      def find_label(_name)
+        raise 'find_label should not be used for @ROOT'
+      end
+    end.new(old_router)
+
+    d = Dummy.new
+    d.context_router = Fluent::EventRouter.new(nil, old_root)
+
+    stub(Fluent::Engine.root_agent).event_router { raise 'looked up in Engine.root_agent' }
+
+    assert_equal old_router, d.event_emitter_router('@ROOT')
   end
 end

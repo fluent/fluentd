@@ -92,6 +92,14 @@ class EventRouterTest < ::Test::Unit::TestCase
       }
       assert_equal cache_size, num_called
     end
+
+    test "clear drops cached keys" do
+      @match_cache.get('test') { "I'm cached" }
+      @match_cache.clear
+      called = false
+      assert_equal "fresh", @match_cache.get('test') { called = true; "fresh" }
+      assert called
+    end
   end
 
   sub_test_case EventRouter::Pipeline do
@@ -152,6 +160,16 @@ class EventRouterTest < ::Test::Unit::TestCase
           mock(default_collector).emit_events('test', is_a(OneEventStream))
           event_router.emit('test', Engine.now, 'k' => 'v')
         end
+      end
+
+      test 'add_rule clears a cached unmatched tag so a later rule can match' do
+        event_router.emit('test', Engine.now, 'k' => 'v')
+        assert_equal 1, default_collector.events.size
+        event_router.add_rule('test', output)
+        event_router.emit('test', Engine.now, 'k' => 'v2')
+        assert_equal 1, default_collector.events.size
+        assert_equal 1, output.events.size
+        assert_equal 'v2', output.events['test'].first['k']
       end
 
       test "call default collector when only filter" do

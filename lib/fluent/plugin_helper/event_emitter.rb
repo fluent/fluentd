@@ -59,12 +59,31 @@ module Fluent
         @_event_emitter_force_source_only_router = false
       end
 
+      # The root agent of this plugin's configuration.
+      # During a graceful reload, Engine.root_agent is already the new
+      # configuration, but context_router still belongs to the old one.
+      # Looking labels up there keeps runtime lookups (rewrite_tag_filter,
+      # concat timeout_label, and similar) on the same configuration as
+      # @label and relabel, which are resolved once in configure.
+      def event_emitter_root_agent
+        router = self.context_router
+        handler = router.respond_to?(:emit_error_handler) ? router.emit_error_handler : nil
+        if handler.respond_to?(:find_label)
+          handler
+        elsif handler.respond_to?(:root_agent) && handler.root_agent
+          handler.root_agent
+        else
+          Engine.root_agent
+        end
+      end
+
       def event_emitter_router(label_name)
         if label_name
+          root_agent = event_emitter_root_agent
           if label_name == "@ROOT"
-            Engine.root_agent.event_router
+            root_agent.event_router
           else
-            Engine.root_agent.find_label(label_name).event_router
+            root_agent.find_label(label_name).event_router
           end
         elsif self.respond_to?(:as_secondary) && self.as_secondary
           if @primary_instance.has_router?

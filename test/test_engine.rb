@@ -3,6 +3,20 @@ require 'fluent/engine'
 require 'fluent/config'
 require 'fluent/input'
 require 'fluent/system_config'
+require 'fluent/plugin/output'
+require 'fluent/event'
+
+# Hook Agent#add_match so a test can emit during configure of a new <label>.
+# The hook is a no-op unless the current thread sets the thread-local.
+module EmitDuringAddMatchHook
+  def add_match(*args)
+    hook = Thread.current[:fluent_emit_during_add_match]
+    hook.call(self) if hook
+    super
+  end
+end
+Fluent::Agent.prepend(EmitDuringAddMatchHook)
+
 
 class EngineTest < ::Test::Unit::TestCase
   class DummyEngineTestOutput < Fluent::Plugin::Output
@@ -198,6 +212,78 @@ class EngineTest < ::Test::Unit::TestCase
 
       assert_kind_of DummyEngineTestInput, engine.root_agent.inputs[0]
       assert_kind_of DummyEngineTestOutput, engine.root_agent.outputs[0]
+    end
+  end
+
+  sub_test_case '#reload_config with a runtime label lookup' do
+    class LabelAtRuntimeOutput < Fluent::Plugin::Output
+      Fluent::Plugin.register_output('label_at_runtime', self)
+      helpers :event_emitter
+      config_param :to, :string
+      def process(tag, es)
+        event_emitter_router(@to).emit_stream("#{tag}.out", es)
+      end
+    end
+
+    class CountOutput < Fluent::Plugin::Output
+      Fluent::Plugin.register_output('count_reload_events', self)
+      def self.events; @events ||= []; end
+      def self.reset_events; @events = []; end
+      def process(tag, es)
+        es.each { |_time, record| self.class.events << record["message"] }
+      end
+    end
+
+    def build_engine
+      conf_data = <<-CONF
+        <match t>
+          @type label_at_runtime
+          to @L
+        </match>
+        <label @L>
+          <match **>
+            @type count_reload_events
+          </match>
+        </label>
+      CONF
+      conf = Fluent::Config.parse(conf_data, '(test)', '(test_dir)', true)
+      system_config = Fluent::SystemConfig.create(conf)
+      engine = Fluent::EngineClass.new
+      engine.init(system_config)
+      engine.configure(conf)
+      engine.root_agent.start
+      [engine, conf]
+    end
+
+    teardown do
+      Thread.current[:fluent_emit_during_add_match] = nil
+      CountOutput.reset_events
+    end
+
+    test 'an event during reload does not leave the new label dropping that tag' do
+      CountOutput.reset_events
+      engine, conf = build_engine
+      old_output = engine.root_agent.outputs.find { |o| o.is_a?(LabelAtRuntimeOutput) }
+
+      Thread.current[:fluent_emit_during_add_match] = lambda do |agent|
+        if agent.context == "@L"
+          Thread.current[:fluent_emit_during_add_match] = nil
+          old_output.process("t", Fluent::OneEventStream.new(Fluent::EventTime.now, { "message" => "during" }))
+        end
+      end
+
+      engine.reload_config(conf)
+      5.times { |i| engine.root_agent.event_router.emit("t", Fluent::EventTime.now, { "message" => "after#{i}" }) }
+
+      assert_equal ["during", "after0", "after1", "after2", "after3", "after4"], CountOutput.events
+    end
+
+    test 'events after a reload arrive when nothing is emitted during configure' do
+      CountOutput.reset_events
+      engine, conf = build_engine
+      engine.reload_config(conf)
+      5.times { |i| engine.root_agent.event_router.emit("t", Fluent::EventTime.now, { "message" => "after#{i}" }) }
+      assert_equal ["after0", "after1", "after2", "after3", "after4"], CountOutput.events
     end
   end
 end
