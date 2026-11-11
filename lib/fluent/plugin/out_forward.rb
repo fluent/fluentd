@@ -52,7 +52,8 @@ module Fluent::Plugin
     config_param :heartbeat_type, :enum, list: [:transport, :tcp, :udp, :none], default: :transport
     desc 'The interval of the heartbeat packer.'
     config_param :heartbeat_interval, :time, default: 1
-    desc 'The wait time before accepting a server fault recovery.'
+    desc 'The wait time before accepting a server fault recovery. ' \
+         'A server whose ack response fails is also kept out for this long while another server can take its chunks.'
     config_param :recover_wait, :time, default: 10
     desc 'The hard timeout used to detect server failure.'
     config_param :hard_timeout, :time, default: 60
@@ -379,6 +380,7 @@ module Fluent::Plugin
       return if chunk.empty?
       tag = chunk.metadata.tag
 
+      rebalance_if_availability_changed
       service_discovery_select_service { |node| node.send_data(tag, chunk) }
     end
 
@@ -389,6 +391,7 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
+      rebalance_if_availability_changed
       service_discovery_select_service { |node| node.send_data(tag, chunk) }
       last_ack if @require_ack_response && @suspend_flush
     end
@@ -501,6 +504,63 @@ module Fluent::Plugin
       end
     end
 
+    # heartbeat_type none has no heartbeat timer to rebuild the weight array, so
+    # a node detached after a failed ack (and the standby used in its place)
+    # would never be switched back. Check it before selecting a node instead.
+    def rebalance_if_availability_changed
+      return unless @heartbeat_type == :none
+
+      if @load_balancer.availability_changed?(service_discovery_services)
+        service_discovery_rebalance
+      end
+    end
+
+    # Whether another node can take the chunks of a node whose ack failed.
+    # With recover_wait 0 a detached node would be back at once, so there is
+    # no point in detaching it.
+    def failover_node_available?(failed_node)
+      return false if failed_node.nil? || @recover_wait <= 0
+
+      service_discovery_services.any? { |n| !n.equal?(failed_node) && n.weight > 0 && n.available? }
+    end
+
+    def node_label(node)
+      node.name || "#{node.host}:#{node.port}"
+    end
+
+    def on_ack_failed(chunk_id, node)
+      chunk_id_hex = chunk_id ? dump_unique_id_hex(chunk_id) : nil
+
+      if failover_node_available?(node)
+        # Keep the node out for recover_wait so that its chunks go to the
+        # other nodes (a standby node is used if needed). No retry is counted:
+        # the chunk has not failed on every node, and the retry state belongs
+        # to the whole output. If no node is left, the next write raises
+        # NoNodesAvailable and the usual retry applies.
+        node.detach!
+        service_discovery_rebalance
+        log.warn "failed to receive the ack response, detached forwarding server '#{node_label(node)}' for #{@recover_wait}s. the chunk will be sent to another server",
+                 host: node.host, port: node.port, chunk_id: chunk_id_hex
+        rollback_write(chunk_id, update_retry: false) if chunk_id
+        return
+      end
+
+      # No other node can take the chunk. Keeping the last node out would make
+      # every retry fail with NoNodesAvailable until it comes back (and could use
+      # up retry_max_times on a single transient failure), so leave it in and
+      # count a retry instead: the chunk is resent after retry_wait, and
+      # retry_timeout, retry_max_times and <secondary> apply. The error is
+      # passed so that the retry and a discard are logged as usual.
+      return unless chunk_id
+
+      if rollback_write(chunk_id, update_retry: false)
+        error = AckResponseError.new("failed to receive the ack response from forwarding server '#{node ? node_label(node) : 'unknown'}'")
+        error.set_backtrace(caller(0, 1))
+        primary = @as_secondary ? @primary_instance : self
+        primary.update_retry_state(chunk_id, @as_secondary, error)
+      end
+    end
+
     def on_udp_heartbeat_response_recv(data, sock)
       sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
       if node = service_discovery_services.find { |n| n.sockaddr == sockaddr }
@@ -545,15 +605,7 @@ module Fluent::Plugin
           # instead of returning it to the reuse pool; otherwise a late ack
           # could later be read against a chunk sent on the reused socket (#4057).
           @connection_manager.discard(sock)
-          node&.disable!
-          # rollback_write(..., update_retry: false) is used so a later write
-          # failure (after disable!) starts the retry state, instead of
-          # counting a retry here and again when NoNodesAvailable is raised.
-          # NoneHeartbeatNode#available? stays true after disable!, so that
-          # later write never fails this way and retry_timeout / secondary
-          # would never apply. Start the retry here in that case (#5619).
-          update_retry = node.nil? || node.available?
-          rollback_write(chunk_id, update_retry: update_retry) if chunk_id
+          on_ack_failed(chunk_id, node)
         when AckHandler::Result::CHUNKID_UNMATCHED
           # The ack read from this socket belongs to a different chunk than the
           # one tracked for it: the keepalive connection's ack stream is out of
@@ -592,6 +644,7 @@ module Fluent::Plugin
         @standby = server.standby
         @failure = failure
         @available = true
+        @detached_until = nil
 
         # @hostname is used for certificate verification & TLS SNI
         host_is_hostname = !(IPAddr.new(@host) rescue false)
@@ -635,6 +688,21 @@ module Fluent::Plugin
 
       def disable!
         @available = false
+      end
+
+      # Keep the node out for recover_wait after a failed ack. The hold is set
+      # before disabling so a heartbeat running in between cannot bring the
+      # node back at once, and samples added by in-flight writes cannot end it
+      # early. After the hold, recovery still needs fresh heartbeats.
+      def detach!
+        @detached_until = Fluent::Clock.now + @sender.recover_wait
+        disable!
+        @failure.clear
+      end
+
+      def detached?
+        detached_until = @detached_until
+        !detached_until.nil? && Fluent::Clock.now < detached_until
       end
 
       def standby?
@@ -830,7 +898,7 @@ module Fluent::Plugin
       def heartbeat(detect=true)
         now = Time.now.to_f
         @failure.add(now)
-        if detect && !available? && @failure.sample_size > @sender.recover_sample_size
+        if detect && !available? && !detached? && @failure.sample_size > @sender.recover_sample_size
           @available = true
           @log.warn "recovered forwarding server '#{@name}'", host: @host, port: @port
           true
@@ -858,8 +926,14 @@ module Fluent::Plugin
 
     # Override Node to disable heartbeat
     class NoneHeartbeatNode < Node
+      # Without heartbeats, a node is only kept out for recover_wait after a
+      # failed ack (see ForwardOutput#on_ack_failed).
       def available?
-        true
+        !detached?
+      end
+
+      def detach!
+        @detached_until = Fluent::Clock.now + @sender.recover_wait
       end
 
       def tick
