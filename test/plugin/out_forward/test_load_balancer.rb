@@ -131,4 +131,23 @@ class LoadBalancerTest < Test::Unit::TestCase
       assert_true lb.availability_changed?([n1, n2])
     end
   end
+
+  sub_test_case 'rebuild_weight_array generation' do
+    test 'an older rebuild does not replace a newer weight array' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      n1 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1, host: 'n1', port: 1)
+      n2 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1, host: 'n2', port: 2)
+      n3 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1, host: 'n3', port: 3)
+
+      lb.rebuild_weight_array([n1, n2, n3], 1)
+      # A later rebuild publishes only n3
+      lb.rebuild_weight_array([n3], 2)
+      # The older rebuild resumes and must not bring n1/n2 back
+      lb.rebuild_weight_array([n1, n2, n3], 1)
+
+      selected = 6.times.map { lb.select_healthy_node { |n| n }[1] }.uniq
+      assert_equal [n3], selected
+    end
+  end
+
 end

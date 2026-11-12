@@ -27,6 +27,7 @@ module Fluent::Plugin
         @rr = 0
         @mutex = Mutex.new
         @availability = {}
+        @published_generation = 0
       end
 
       def select_healthy_node
@@ -61,7 +62,7 @@ module Fluent::Plugin
         nodes.any? { |n| availability[n] != n.available? }
       end
 
-      def rebuild_weight_array(nodes)
+      def rebuild_weight_array(nodes, generation = nil)
         availability = nodes.to_h { |n| [n, n.available?] }
         standby_nodes, regular_nodes = nodes.select { |e| e.weight > 0 }.partition {|n|
           n.standby?
@@ -89,10 +90,7 @@ module Fluent::Plugin
         weight_array = []
         if regular_nodes.empty?
           @log.warn('No nodes are available')
-          @mutex.synchronize do
-            @availability = availability
-            @weight_array = weight_array
-          end
+          publish_weight_array(weight_array, availability, generation)
           return @weight_array
         end
 
@@ -110,7 +108,15 @@ module Fluent::Plugin
         r = Random.new(@rand_seed)
         weight_array.sort_by! { r.rand }
 
+        publish_weight_array(weight_array, availability, generation)
+      end
+
+      def publish_weight_array(weight_array, availability, generation)
         @mutex.synchronize do
+          if generation && @published_generation && generation < @published_generation
+            return @weight_array
+          end
+          @published_generation = generation if generation
           @availability = availability
           @weight_array = weight_array
         end

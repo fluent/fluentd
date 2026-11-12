@@ -30,6 +30,8 @@ module Fluent
           @services = {}
           @queue = Queue.new
           @static_config = true
+          @rebalance_mutex = Mutex.new
+          @rebalance_generation = 0
         end
 
         def configure(configs, parent: nil)
@@ -101,7 +103,14 @@ module Fluent
         end
 
         def rebalance
-          @load_balancer.rebalance(services)
+          # Capture a generation with the node list so an older rebuild, which
+          # may still be building after a later one has published, cannot
+          # replace the newer weight array.
+          generation, snapshot = @rebalance_mutex.synchronize do
+            @rebalance_generation += 1
+            [@rebalance_generation, services]
+          end
+          @load_balancer.rebalance(snapshot, generation)
         end
 
         def select_service(&block)

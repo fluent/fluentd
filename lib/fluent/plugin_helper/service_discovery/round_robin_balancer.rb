@@ -23,7 +23,7 @@ module Fluent
           @mutex = Mutex.new
         end
 
-        def rebalance(services)
+        def rebalance(services, generation = nil)
           @mutex.synchronize do
             @services = services
           end

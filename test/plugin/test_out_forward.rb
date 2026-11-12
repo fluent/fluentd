@@ -1545,10 +1545,10 @@ EOL
       @instance.nodes.find { |n| n.name == name }
     end
 
-    def fail_ack(node, chunk_id = 'chunk-id')
+    def fail_ack(node, chunk_id = 'chunk-id', attempt_id: nil)
       fake_ack_handler = Object.new
       fake_ack_handler.define_singleton_method(:collect_response) do |_interval, &block|
-        block.call(chunk_id, node, 'sock', Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED)
+        block.call(chunk_id, node, 'sock', Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED, attempt_id)
       end
       original = @instance.instance_variable_get(:@ack_handler)
       @instance.instance_variable_set(:@ack_handler, fake_ack_handler)
@@ -1677,6 +1677,124 @@ EOL
 
       assert_true primary.available?
     end
+
+    test 'an older rebuild does not replace a newer weight array after service discovery' do
+      create_ack_driver(heartbeat_type: 'none', servers: [
+        {name: 'failed'},
+        {name: 'removed', port: unused_port(protocol: :tcp)},
+        {name: 'retained', port: unused_port(protocol: :tcp)},
+      ])
+      failed = node_named('failed')
+      removed = node_named('removed')
+      retained = node_named('retained')
+      stub(@instance).rollback_write
+
+      lb = @instance.instance_variable_get(:@load_balancer)
+      manager = @instance.discovery_manager
+      first_started = Queue.new
+      first_continue = Queue.new
+      first_nodes = nil
+      calls = 0
+      orig = lb.method(:rebuild_weight_array)
+      # Manager#rebalance calls LoadBalancer#rebalance (an alias), so stub that
+      # entry point rather than rebuild_weight_array.
+      stub(lb).rebalance do |*args|
+        calls += 1
+        if calls == 1
+          first_nodes = args[0]
+          first_started.push(true)
+          first_continue.pop
+        end
+        orig.call(*args)
+      end
+
+      t = Thread.new { fail_ack(failed) }
+      Timeout.timeout(5) { first_started.pop }
+      assert_equal ['failed', 'removed', 'retained'], first_nodes.map(&:name).sort
+
+      services = manager.instance_variable_get(:@services)
+      services.delete(failed.discovery_id)
+      services.delete(removed.discovery_id)
+      manager.rebalance
+
+      first_continue.push(true)
+      Timeout.timeout(5) { t.join }
+
+      names = 8.times.map { selected_node.name }.uniq
+      assert_equal ['retained'], names
+    end
+
+    test 'does not count a retry for a late ack after delayed commit already rolled the attempt back' do
+      create_ack_driver(heartbeat_type: 'none')
+      node = @instance.nodes.first
+      chunk_id = 'chunk-id'
+      info1 = Fluent::Plugin::Output::DequeuedChunkInfo.new(chunk_id, Time.now, 60)
+      @instance.dequeued_chunks = [info1]
+      @instance.dequeued_chunks_mutex = Mutex.new
+      attempt1 = @instance.write_attempt_id_for(chunk_id)
+
+      info1.define_singleton_method(:expired?) { true }
+      stub(@instance.buffer).takeback_chunk(chunk_id) { true }
+      retries = 0
+      stub(@instance).update_retry_state { retries += 1 }
+      @instance.try_rollback_write
+      assert_equal 1, retries
+
+      info2 = Fluent::Plugin::Output::DequeuedChunkInfo.new(chunk_id, Time.now, 60)
+      @instance.dequeued_chunks = [info2]
+      attempt2 = @instance.write_attempt_id_for(chunk_id)
+      assert_not_equal attempt1, attempt2
+
+      stub(@instance).rollback_write(chunk_id, update_retry: false) { true }
+      fail_ack(node, chunk_id, attempt_id: attempt1)
+      assert_equal 1, retries
+    end
+
+    test 'counts a retry when a later send of the same chunk fails on its own' do
+      create_ack_driver(heartbeat_type: 'none')
+      node = @instance.nodes.first
+      chunk_id = 'chunk-id'
+      info1 = Fluent::Plugin::Output::DequeuedChunkInfo.new(chunk_id, Time.now, 60)
+      @instance.dequeued_chunks = [info1]
+      @instance.dequeued_chunks_mutex = Mutex.new
+      attempt1 = @instance.write_attempt_id_for(chunk_id)
+
+      info1.define_singleton_method(:expired?) { true }
+      stub(@instance.buffer).takeback_chunk(chunk_id) { true }
+      retries = 0
+      stub(@instance).update_retry_state { retries += 1 }
+      @instance.try_rollback_write
+      assert_equal 1, retries
+
+      info2 = Fluent::Plugin::Output::DequeuedChunkInfo.new(chunk_id, Time.now, 60)
+      @instance.dequeued_chunks = [info2]
+      attempt2 = @instance.write_attempt_id_for(chunk_id)
+
+      stub(@instance).rollback_write(chunk_id, update_retry: false) { true }
+      fail_ack(node, chunk_id, attempt_id: attempt2)
+      assert_equal 2, retries
+    end
+
+    test 'does not count a retry when delayed commit already rolled back the later attempt too' do
+      create_ack_driver(heartbeat_type: 'none')
+      node = @instance.nodes.first
+      chunk_id = 'chunk-id'
+      info2 = Fluent::Plugin::Output::DequeuedChunkInfo.new(chunk_id, Time.now, 60)
+      @instance.dequeued_chunks = [info2]
+      @instance.dequeued_chunks_mutex = Mutex.new
+      attempt2 = @instance.write_attempt_id_for(chunk_id)
+
+      info2.define_singleton_method(:expired?) { true }
+      stub(@instance.buffer).takeback_chunk(chunk_id) { true }
+      retries = 0
+      stub(@instance).update_retry_state { retries += 1 }
+      @instance.try_rollback_write
+      assert_equal 1, retries
+
+      stub(@instance).rollback_write(chunk_id, update_retry: false) { true }
+      fail_ack(node, chunk_id, attempt_id: attempt2)
+      assert_equal 1, retries
+    end
   end
 
   sub_test_case 'a server that never sends the ack (#5619)' do
@@ -1792,7 +1910,7 @@ EOL
     test 'rebuilds the weight array only once 
     while the availability stays the same' do
       create_standby_driver
-      mock.proxy(@instance.instance_variable_get(:@load_balancer)).rebalance(anything).once
+      mock.proxy(@instance.instance_variable_get(:@load_balancer)).rebalance(anything, anything).once
 
       @primary.disable!
       2.times { run_heartbeat_timer }

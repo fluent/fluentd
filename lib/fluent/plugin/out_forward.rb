@@ -172,6 +172,9 @@ module Fluent::Plugin
       @suspend_flush = false
       @healthy_nodes_count_metrics = nil
       @registered_nodes_count_metrics = nil
+      @write_attempt_seq = 0
+      @delayed_commit_rolled_back_attempts = {}
+      @delayed_commit_attempts_mutex = Mutex.new
     end
 
     def configure(conf)
@@ -528,7 +531,57 @@ module Fluent::Plugin
       node.name || "#{node.host}:#{node.port}"
     end
 
-    def on_ack_failed(chunk_id, node)
+    public
+
+    # Bind a write to the DequeuedChunkInfo created at the start of try_write,
+    # so a late ack can be matched to that attempt after a later resend.
+    def write_attempt_id_for(chunk_id)
+      return nil unless chunk_id && @dequeued_chunks && @dequeued_chunks_mutex
+
+      @dequeued_chunks_mutex.synchronize do
+        info = @dequeued_chunks.find { |i| i.chunk_id == chunk_id }
+        if info
+          unless info.instance_variable_defined?(:@write_attempt_id)
+            @write_attempt_seq += 1
+            info.instance_variable_set(:@write_attempt_id, @write_attempt_seq)
+          end
+          info.instance_variable_get(:@write_attempt_id)
+        end
+      end
+    end
+
+    def remember_delayed_commit_rollback(attempt_id)
+      return unless attempt_id
+
+      @delayed_commit_attempts_mutex.synchronize do
+        @delayed_commit_rolled_back_attempts[attempt_id] = true
+      end
+    end
+
+    def delayed_commit_already_counted?(attempt_id)
+      return false unless attempt_id
+
+      @delayed_commit_attempts_mutex.synchronize do
+        @delayed_commit_rolled_back_attempts[attempt_id]
+      end
+    end
+
+    # Record attempts that Output#try_rollback_write has already counted, so a
+    # late ack for the same send does not count a second retry.
+    def try_rollback_write
+      expired_attempt_ids = []
+      if @dequeued_chunks && @dequeued_chunks_mutex
+        @dequeued_chunks_mutex.synchronize do
+          @dequeued_chunks.each do |info|
+            expired_attempt_ids << info.instance_variable_get(:@write_attempt_id) if info.expired?
+          end
+        end
+      end
+      super
+      expired_attempt_ids.each { |attempt_id| remember_delayed_commit_rollback(attempt_id) }
+    end
+
+    def on_ack_failed(chunk_id, node, attempt_id = nil)
       chunk_id_hex = chunk_id ? dump_unique_id_hex(chunk_id) : nil
 
       if failover_node_available?(node)
@@ -554,10 +607,15 @@ module Fluent::Plugin
       return unless chunk_id
 
       if rollback_write(chunk_id, update_retry: false)
-        error = AckResponseError.new("failed to receive the ack response from forwarding server '#{node ? node_label(node) : 'unknown'}'")
-        error.set_backtrace(caller(0, 1))
-        primary = @as_secondary ? @primary_instance : self
-        primary.update_retry_state(chunk_id, @as_secondary, error)
+        # rollback_write returns true when it took a chunk with this id back,
+        # which may now be a later send of the same chunk. Do not count a retry
+        # if delayed commit has already rolled this attempt back.
+        unless delayed_commit_already_counted?(attempt_id)
+          error = AckResponseError.new("failed to receive the ack response from forwarding server '#{node ? node_label(node) : 'unknown'}'")
+          error.set_backtrace(caller(0, 1))
+          primary = @as_secondary ? @primary_instance : self
+          primary.update_retry_state(chunk_id, @as_secondary, error)
+        end
       end
     end
 
@@ -594,7 +652,7 @@ module Fluent::Plugin
     end
 
     def ack_check(select_interval)
-      @ack_handler.collect_response(select_interval) do |chunk_id, node, sock, result|
+      @ack_handler.collect_response(select_interval) do |chunk_id, node, sock, result, attempt_id|
         case result
         when AckHandler::Result::SUCCESS
           @connection_manager.close(sock)
@@ -605,7 +663,7 @@ module Fluent::Plugin
           # instead of returning it to the reuse pool; otherwise a late ack
           # could later be read against a chunk sent on the reused socket (#4057).
           @connection_manager.discard(sock)
-          on_ack_failed(chunk_id, node)
+          on_ack_failed(chunk_id, node, attempt_id)
         when AckHandler::Result::CHUNKID_UNMATCHED
           # The ack read from this socket belongs to a different chunk than the
           # one tracked for it: the keepalive connection's ack stream is out of
@@ -675,8 +733,13 @@ module Fluent::Plugin
       attr_accessor :usock
 
       attr_reader :state
+      attr_reader :sender
       attr_reader :sockaddr  # used by on_udp_heartbeat_response_recv
       attr_reader :failure # for test
+
+      def write_attempt_id(chunk_id)
+        @sender.write_attempt_id_for(chunk_id)
+      end
 
       def validate_host_resolution!
         resolved_host
