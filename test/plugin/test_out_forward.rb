@@ -1878,7 +1878,7 @@ EOL
 
       assert_equal ['retained'], manager.services.map(&:name)
       assert_equal ['retained'], load_balancer.instance_variable_get(:@weight_array).map(&:name).uniq
-      selected = 10.times.map { load_balancer.select_healthy_node { |n| n }.last.name }
+      selected = Array.new(10) { load_balancer.select_healthy_node { |n| n }.last.name }
       assert_equal ['retained'], selected.uniq
     end
   end
