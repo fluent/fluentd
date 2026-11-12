@@ -384,12 +384,95 @@ class TcpInputTest < Test::Unit::TestCase
       assert_equal(
         {
           # Asserting that '[warn]: pattern not matched message="world!\"}"' warning does not occur.
-          logs: ['[info]: The buffer size exceeds \'message_length_limit\', cleared: limit=12 size=17 head="{\"message\":\"hello"' + "\n"],
+          logs: ['[info]: The buffer size exceeds \'message_length_limit\', cleared: limit=12 size=17' + "\n"],
           records: [{"k" => "v"}],
         },
         {
           logs: logs[1..],
           records: actual_records,
+        }
+      )
+    end
+
+    test "log the clear only once for one long message" do |data|
+      message_length_limit = 12
+      d = create_driver(base_config + %!
+        message_length_limit #{message_length_limit}
+        delimiter ";"
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 1, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send("a" * (message_length_limit + 1), 0)
+          waiting(10) { sleep 0.1 until d.logs.any? { |log| log.include?("cleared:") } }
+          2.times do
+            sock.send("a" * (message_length_limit + 1), 0)
+            sleep 1 # To make the server read data and clear the buffer each time.
+          end
+          sock.send(';{"k":"v"};', 0)
+        end
+      end
+
+      logs = d.logs.collect do |log|
+        log.gsub(/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4} /, "")
+      end
+      actual_records = d.events.collect do |event|
+        event[2]
+      end
+
+      assert_equal(
+        {
+          logs: ['[info]: The buffer size exceeds \'message_length_limit\', cleared: limit=12 size=13' + "\n"],
+          records: [{"k" => "v"}],
+        },
+        {
+          logs: logs[1..],
+          records: actual_records,
+        }
+      )
+    end
+  end
+
+  sub_test_case "head of the data in logs" do
+    dropped = "The received data is larger than 'message_length_limit'"
+    cleared = "The buffer size exceeds 'message_length_limit'"
+    single_emit = "<extract>\ntag_key tag\n</extract>\n"
+    data(
+      "dropped (batch_emit)" => ["\xff" * 13 + ";", dropped, ""],
+      "dropped (single_emit)" => ["\xff" * 13 + ";", dropped, single_emit],
+      "cleared (batch_emit)" => ["\xff" * 13, cleared, ""],
+      "cleared (single_emit)" => ["\xff" * 13, cleared, single_emit],
+    )
+    test "log the head as an escaped string only at debug level" do |data|
+      payload, message, extract = data
+      d = create_driver(base_config + %!
+        @log_level debug
+        message_length_limit 12
+        delimiter ";"
+        <parse>
+          @type none
+        </parse>
+        #{extract}
+      !)
+      d.run(timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.send(payload.b, 0)
+          waiting(10) { sleep 0.1 until d.logs.any? { |log| log.include?("[info]: #{message}") } }
+        end
+      end
+
+      head = ("\xff" * 13).b.dump
+      assert_equal(
+        {
+          debug: 1,
+          info_with_head: 0,
+        },
+        {
+          debug: d.logs.count { |log| log.include?("[debug]: #{message}: head=#{head.dump}") },
+          info_with_head: d.logs.count { |log| log.include?("[info]:") && log.include?("head=") },
         }
       )
     end

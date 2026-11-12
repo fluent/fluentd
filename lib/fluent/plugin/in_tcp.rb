@@ -137,7 +137,8 @@ module Fluent::Plugin
             end
 
             if !@message_length_limit.nil? && @message_length_limit < msg.bytesize
-              log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize, head: msg[...32]
+              log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize
+              log.on_debug { log.debug "The received data is larger than 'message_length_limit':", head: msg[...32].dump }
               next
             end
 
@@ -159,7 +160,11 @@ module Fluent::Plugin
           # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
           # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
           if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
-            log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize, head: buf[...32]
+            # The rest of a long message fills the buffer again on each read, so log only the first clear.
+            unless discard_till_next_delimiter
+              log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize
+              log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buf[...32].dump }
+            end
             buf.clear
             # We should discard the subsequent data until the next delimiter comes.
             discard_till_next_delimiter = true
@@ -188,7 +193,8 @@ module Fluent::Plugin
             end
 
             if !@message_length_limit.nil? && @message_length_limit < msg.bytesize
-              log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize, head: msg[...32]
+              log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize
+              log.on_debug { log.debug "The received data is larger than 'message_length_limit':", head: msg[...32].dump }
               next
             end
 
@@ -209,7 +215,11 @@ module Fluent::Plugin
           # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
           # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
           if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
-            log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize, head: buf[...32]
+            # The rest of a long message fills the buffer again on each read, so log only the first clear.
+            unless discard_till_next_delimiter
+              log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize
+              log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buf[...32].dump }
+            end
             buf.clear
             # We should discard the subsequent data until the next delimiter comes.
             discard_till_next_delimiter = true

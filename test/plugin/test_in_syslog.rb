@@ -730,6 +730,40 @@ EOS
       assert_equal 'hello', d.events[0][2]['message']
     end
 
+    test 'traditional: the clear is logged only once for one long message' do
+      port = unused_port(protocol: :tcp)
+      d = create_tcp_driver(port)
+
+      cleared = "[info]: The buffer size exceeds 'message_length_limit', cleared:"
+
+      d.run(expect_emits: 1, timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          s.write('x' * (LIMIT + 1))
+          s.flush
+          waiting(10) { sleep 0.1 until d.logs.any? { |log| log.include?(cleared) } }
+          2.times do
+            s.write('x' * (LIMIT + 1))
+            s.flush
+            sleep 1 # To make the server read data and clear the buffer each time.
+          end
+          s.write("\n#{NORMAL_MESSAGE}\n")
+          s.flush
+          waiting(10) { sleep 0.1 until d.events.size >= 1 }
+        end
+      end
+
+      assert_equal(
+        {
+          logs: 1,
+          messages: ['hello'],
+        },
+        {
+          logs: d.logs.count { |log| log.include?(cleared) },
+          messages: d.events.collect { |event| event[2]['message'] },
+        }
+      )
+    end
+
     test 'traditional: a message split into multiple chunks is reassembled' do
       port = unused_port(protocol: :tcp)
       d = create_tcp_driver(port)
@@ -822,6 +856,36 @@ EOS
 
       assert_equal 1, d.events.size
       assert_equal 'x' * (LIMIT - 37), d.events[0][2]['message']
+    end
+
+    dropped = "The received data is larger than 'message_length_limit'"
+    exceeded = "The buffer size exceeds 'message_length_limit'"
+    data(
+      'traditional: dropped' => [:traditional, "\xff" * (LIMIT + 1) + "\n", dropped],
+      'traditional: cleared' => [:traditional, "\xff" * (LIMIT + 1), exceeded],
+      'octet_count: closing connection' => [:octet_count, "\xff" * (LIMIT + 1), exceeded],
+    )
+    test 'log the head as an escaped string at debug level' do |data|
+      frame_type, payload, message = data
+      port = unused_port(protocol: :tcp)
+      d = create_driver([
+        ipv4_config(port),
+        "@log_level debug",
+        "<transport tcp>\n</transport>",
+        "frame_type #{frame_type}",
+        "message_length_limit #{LIMIT}",
+      ].join("\n"))
+
+      d.run(timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          s.write(payload.b)
+          s.flush
+          waiting(10) { sleep 0.1 until d.logs.any? { |log| log.include?("[info]: #{message}") } }
+        end
+      end
+
+      head = ("\xff" * 32).b.dump
+      assert_equal(1, d.logs.count { |log| log.include?("[debug]: #{message}: head=#{head.dump}") })
     end
   end
 end
