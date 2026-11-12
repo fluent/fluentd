@@ -45,7 +45,7 @@ module Fluent::Plugin
           new_list = []
           @mutex.synchronize do
             @ack_waitings.each do |info|
-              if info.expired?(now)
+              if info.expired?(now) && !readable?(info.sock)
                 # There are 2 types of cases when no response has been received from socket:
                 # (1) the node does not support sending responses
                 # (2) the node does support sending response but responses have not arrived for some reasons.
@@ -59,8 +59,15 @@ module Fluent::Plugin
             @ack_waitings = new_list
           end
 
+          # Report expired acks right away instead of after a full select
+          # wait. Otherwise a failed ack can be reported up to two select
+          # intervals after it expired, which reaches delayed_commit_timeout
+          # (ack_response_timeout + 2). Then Output#try_rollback_write rolls the
+          # chunk back first and counts a retry without an error, and with
+          # retry_max_times 0 the whole queue is cleared without a log.
+          timeout = results.empty? ? select_interval : 0
           begin
-            readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
+            readable_sockets, _, _ = IO.select(sockets, nil, nil, timeout)
           rescue IOError
             @log.info "connection closed while waiting for readable sockets"
             readable_sockets = nil
@@ -76,7 +83,7 @@ module Fluent::Plugin
             if info.nil?
               yield nil, nil, nil, ret
             else
-              yield info.chunk_id, info.node, info.sock, ret
+              yield info.chunk_id, info.node, info.sock, ret, info.attempt
             end
           end
         rescue => e
@@ -85,30 +92,40 @@ module Fluent::Plugin
         end
       end
 
-      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time) do
+      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time, :attempt) do
         def expired?(now)
           expired_time < now
         end
       end
 
-      Ack = Struct.new(:chunk_id, :node, :handler) do
+      Ack = Struct.new(:chunk_id, :node, :handler, :attempt) do
         def enqueue(sock)
-          handler.enqueue(node, sock, chunk_id)
+          handler.enqueue(node, sock, chunk_id, attempt)
         end
       end
 
-      def create_ack(chunk_id, node)
-        Ack.new(chunk_id, node, self)
+      def create_ack(chunk_id, node, attempt = nil)
+        Ack.new(chunk_id, node, self, attempt)
       end
 
-      def enqueue(node, sock, cid)
-        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout)
+      def enqueue(node, sock, cid, attempt = nil)
+        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout, attempt)
         @mutex.synchronize do
           @ack_waitings << info
         end
       end
 
       private
+
+      # A socket enqueued while this thread was waiting in IO.select is not in
+      # that select call, so its ack can already be in the socket buffer when the
+      # timeout is checked. Read it instead of regarding the node as unavailable.
+      def readable?(sock)
+        readable_sockets, _, _ = IO.select([sock], nil, nil, 0)
+        !readable_sockets.nil?
+      rescue IOError
+        false
+      end
 
       def read_ack_from_sock(sock)
         begin
