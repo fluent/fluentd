@@ -1679,6 +1679,73 @@ EOL
     end
   end
 
+  sub_test_case 'concurrent rebuilds of the weight array (#5627)' do
+    # With heartbeat_type none, the ack thread and the flush threads rebuild
+    # the weight array as well as the event loop (heartbeat timer and service
+    # discovery). An older rebuild must not publish its array after a newer one.
+    test 'a rebuild that read the old node list does not replace a newer one' do
+      @d = create_driver(%[
+        heartbeat_type none
+        require_ack_response true
+        <server>
+          name failed
+          host #{TARGET_HOST}
+          port #{@target_port}
+        </server>
+        <server>
+          name removed
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+        </server>
+        <server>
+          name retained
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+        </server>
+      ])
+      instance = @d.instance
+      manager = instance.discovery_manager
+      load_balancer = instance.instance_variable_get(:@load_balancer)
+
+      # Pause the rebuild of the "ack thread" right after it has read the node list.
+      read_list = Queue.new
+      resume = Queue.new
+      paused_thread = nil
+      original_services = manager.method(:services)
+      manager.define_singleton_method(:services) do
+        list = original_services.call
+        if Thread.current.equal?(paused_thread)
+          read_list << true
+          resume.pop
+        end
+        list
+      end
+
+      paused_thread = Thread.new { instance.__send__(:service_discovery_rebalance) }
+      read_list.pop
+
+      # Service discovery removes 'failed' and 'removed' and rebuilds the array.
+      static_services = manager.instance_variable_get(:@discoveries).first.services
+      discovery = Thread.new do
+        static_services.select { |s| %w[failed removed].include?(s.name) }.each do |s|
+          manager.instance_variable_get(:@queue) << Fluent::Plugin::ServiceDiscovery.service_out_msg(s)
+        end
+        manager.run_once
+      end
+      # Without the rebuild lock this rebuild finishes now; with it, it waits
+      # for the paused rebuild.
+      Timeout.timeout(10) { sleep 0.01 until discovery.status == 'sleep' || discovery.status == false }
+
+      resume << true
+      [paused_thread, discovery].each { |t| t.join(10) }
+
+      assert_equal ['retained'], manager.services.map(&:name)
+      assert_equal ['retained'], load_balancer.instance_variable_get(:@weight_array).map(&:name).uniq
+      selected = 10.times.map { load_balancer.select_healthy_node { |n| n }.last.name }
+      assert_equal ['retained'], selected.uniq
+    end
+  end
+
   sub_test_case 'a server that never sends the ack (#5619)' do
     # Reproduces the scenarios in the review of #5627: one server accepts
     # chunks but never acks, the other acks normally. No chunk may be lost

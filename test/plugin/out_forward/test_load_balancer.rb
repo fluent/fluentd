@@ -131,4 +131,43 @@ class LoadBalancerTest < Test::Unit::TestCase
       assert_true lb.availability_changed?([n1, n2])
     end
   end
+
+  sub_test_case 'nodes_provider' do
+    test 'reads the node list from the provider instead of the given list' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      old_node = flexmock('old', :'standby?' => false, :'available?' => true, weight: 1)
+      new_node = flexmock('new', :'standby?' => false, :'available?' => true, weight: 1)
+      lb.nodes_provider = -> { [new_node] }
+
+      lb.rebuild_weight_array([old_node])
+
+      3.times { assert_equal new_node, lb.select_healthy_node { |n| n }.last }
+    end
+
+    test 'reads the node list while holding the rebuild lock' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      node = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1)
+      reading = Queue.new
+      resume = Queue.new
+      calls = 0
+      lb.nodes_provider = -> {
+        calls += 1
+        if calls == 1
+          reading << true
+          resume.pop
+        end
+        [node]
+      }
+
+      first = Thread.new { lb.rebuild_weight_array }
+      reading.pop
+      second = Thread.new { lb.rebuild_weight_array }
+      Timeout.timeout(10) { sleep 0.01 until second.status == 'sleep' || second.status == false }
+      # the second rebuild waits for the first one before reading the list
+      assert_equal 1, calls
+      resume << true
+      [first, second].each { |t| t.join(10) }
+      assert_equal 2, calls
+    end
+  end
 end

@@ -239,6 +239,9 @@ module Fluent::Plugin
         load_balancer: @load_balancer,
         custom_build_method: method(:build_node),
       )
+      # Read the node list under the rebuild lock of the load balancer, so a
+      # rebuild never uses a list that is older than the last published one.
+      @load_balancer.nodes_provider = method(:service_discovery_services)
 
       service_discovery_services.each do |server|
         # it's only for test
