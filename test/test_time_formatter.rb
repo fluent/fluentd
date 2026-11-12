@@ -241,6 +241,22 @@ class TimeFormatterTest < ::Test::Unit::TestCase
     assert_equal("19700101 000000.999999999", formatter.format(Fluent::EventTime.new(0, 999999999)))
   end
 
+  # A cached EventTime must not answer for an Integer time of the same second:
+  # EventTime.eq? compares the seconds alone then, so the cached string carried
+  # the subsecond part of the earlier event.
+  def test_format_with_subsec_integer_and_event_time_of_the_same_second
+    time = Time.new(2014, 9, 27, 0, 0, 0, 0).to_i
+    formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M%S.%N", false, nil)
+    assert_equal("20140927 000000.123456789", formatter.format(Fluent::EventTime.new(time, 123456789)))
+    assert_equal("20140927 000000.000000000", formatter.format(time))
+    assert_equal("20140927 000000.123456789", formatter.format(Fluent::EventTime.new(time, 123456789)))
+    assert_equal("20140927 000000.000000000", formatter.format(time))
+
+    formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M%S.%3N", false, nil)
+    assert_equal("20140927 000000.000", formatter.format(time))
+    assert_equal("20140927 000000.500", formatter.format(Fluent::EventTime.new(time, 500_000_000)))
+  end
+
   sub_test_case 'TimeMixin::Formatter' do
     class DummyForTimeFormatter
       include Fluent::Configurable
