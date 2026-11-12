@@ -80,7 +80,6 @@ class AckHandlerTest < Test::Unit::TestCase
 
     r, w = IO.pipe
     begin
-      w.write(chunk_id)
       mock(r).recv(anything).never
       ack.enqueue(r)
 
@@ -94,6 +93,58 @@ class AckHandlerTest < Test::Unit::TestCase
       assert_equal node, a2
       assert_equal r, a3
       assert_equal Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED, a4
+    ensure
+      r.close rescue nil
+      w.close rescue nil
+    end
+  end
+
+  test 'reports an expired ack without waiting for the select interval' do
+    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 0, log: $log, read_length: 100)
+
+    node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
+    chunk_id = 'chunk_id 111'
+    ack = ack_handler.create_ack(chunk_id, node)
+
+    r, w = IO.pipe
+    begin
+      ack.enqueue(r)
+
+      result = nil
+      started = Fluent::Clock.now
+      ack_handler.collect_response(5) do |_cid, _n, _s, ret|
+        result = ret
+      end
+      elapsed = Fluent::Clock.now - started
+
+      assert_equal Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED, result
+      assert_operator elapsed, :<, 1
+    ensure
+      r.close rescue nil
+      w.close rescue nil
+    end
+  end
+
+  test 'reads an ack that is already received when the timeout is checked' do
+    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 0, log: $log, read_length: 100)
+
+    node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
+    chunk_id = 'chunk_id 111'
+    ack = ack_handler.create_ack(chunk_id, node)
+
+    r, w = IO.pipe
+    begin
+      w.write(chunk_id)
+      mock(r).recv(anything) { |_| MessagePack.pack({ 'ack' => Base64.encode64(chunk_id) }) } # IO does not have recv
+      ack.enqueue(r)
+
+      a1 = a4 = nil
+      ack_handler.collect_response(1) do |cid, _n, _s, ret|
+        a1 = cid; a4 = ret
+      end
+
+      assert_equal chunk_id, a1
+      assert_equal Fluent::Plugin::ForwardOutput::AckHandler::Result::SUCCESS, a4
     ensure
       r.close rescue nil
       w.close rescue nil

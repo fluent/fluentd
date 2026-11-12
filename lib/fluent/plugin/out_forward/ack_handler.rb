@@ -45,7 +45,7 @@ module Fluent::Plugin
           new_list = []
           @mutex.synchronize do
             @ack_waitings.each do |info|
-              if info.expired?(now)
+              if info.expired?(now) && !readable?(info.sock)
                 # There are 2 types of cases when no response has been received from socket:
                 # (1) the node does not support sending responses
                 # (2) the node does support sending response but responses have not arrived for some reasons.
@@ -59,8 +59,15 @@ module Fluent::Plugin
             @ack_waitings = new_list
           end
 
+          # Report expired acks right away instead of after a full select
+          # wait. Otherwise a failed ack can be reported up to two select
+          # intervals after it expired, which reaches delayed_commit_timeout
+          # (ack_response_timeout + 2). Then Output#try_rollback_write rolls the
+          # chunk back first and counts a retry without an error, and with
+          # retry_max_times 0 the whole queue is cleared without a log.
+          timeout = results.empty? ? select_interval : 0
           begin
-            readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
+            readable_sockets, _, _ = IO.select(sockets, nil, nil, timeout)
           rescue IOError
             @log.info "connection closed while waiting for readable sockets"
             readable_sockets = nil
@@ -109,6 +116,16 @@ module Fluent::Plugin
       end
 
       private
+
+      # A socket enqueued while this thread was waiting in IO.select is not in
+      # that select call, so its ack can already be in the socket buffer when the
+      # timeout is checked. Read it instead of regarding the node as unavailable.
+      def readable?(sock)
+        readable_sockets, _, _ = IO.select([sock], nil, nil, 0)
+        !readable_sockets.nil?
+      rescue IOError
+        false
+      end
 
       def read_ack_from_sock(sock)
         begin
