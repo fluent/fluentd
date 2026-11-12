@@ -42,6 +42,33 @@ class AckHandlerTest < Test::Unit::TestCase
     end
   end
 
+  test 'returns the send attempt given to the ack' do
+    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 10, log: $log, read_length: 100)
+
+    node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
+    chunk_id = 'chunk_id 111'
+    attempt = Object.new
+    ack = ack_handler.create_ack(chunk_id, node, attempt)
+
+    r, w = IO.pipe
+    begin
+      w.write(chunk_id)
+      mock(r).recv(anything) { |_| nil } # the connection is closed: the ack failed
+      ack.enqueue(r)
+
+      result = yielded_attempt = nil
+      ack_handler.collect_response(1) do |_cid, _n, _s, ret, att|
+        result = ret; yielded_attempt = att
+      end
+
+      assert_equal Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED, result
+      assert_same attempt, yielded_attempt
+    ensure
+      r.close rescue nil
+      w.close rescue nil
+    end
+  end
+
   test 'returns nil if raise an error' do
     ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 10, log: $log, read_length: 100)
 

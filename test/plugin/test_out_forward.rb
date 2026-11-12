@@ -2,6 +2,7 @@ require_relative '../helper'
 require 'fluent/test/driver/output'
 require 'fluent/plugin/out_forward'
 require 'flexmock/test_unit'
+require 'timecop'
 
 require 'fluent/test/driver/input'
 require 'fluent/plugin/in_forward'
@@ -1545,10 +1546,10 @@ EOL
       @instance.nodes.find { |n| n.name == name }
     end
 
-    def fail_ack(node, chunk_id = 'chunk-id')
+    def fail_ack(node, chunk_id = 'chunk-id', attempt = nil)
       fake_ack_handler = Object.new
       fake_ack_handler.define_singleton_method(:collect_response) do |_interval, &block|
-        block.call(chunk_id, node, 'sock', Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED)
+        block.call(chunk_id, node, 'sock', Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED, attempt)
       end
       original = @instance.instance_variable_get(:@ack_handler)
       @instance.instance_variable_set(:@ack_handler, fake_ack_handler)
@@ -1676,6 +1677,142 @@ EOL
       fail_ack(primary)
 
       assert_true primary.available?
+    end
+  end
+
+  sub_test_case 'a late ack failure after the delayed commit timeout (#5627)' do
+    # A send of a chunk can take longer than delayed_commit_timeout, and the
+    # ack timeout only starts when the send is done. Then Output#try_rollback_write
+    # rolls the attempt back and counts a retry before the ack thread reports
+    # the failed ack. By then the chunk may be in flight again.
+    setup do
+      @d = create_driver(%[
+        heartbeat_type none
+        require_ack_response true
+        ack_response_timeout 1
+        <server>
+          name test
+          host #{TARGET_HOST}
+          port #{@target_port}
+        </server>
+        <buffer tag>
+          flush_mode interval
+          flush_interval 3600
+          flush_thread_interval 3600
+          flush_thread_burst_interval 3600
+          flush_at_shutdown false
+        </buffer>
+      ])
+      @instance = @d.instance
+      @node = @instance.nodes.first
+      @attempts = attempts = []
+      # record the attempt of each send instead of sending the chunk
+      @node.define_singleton_method(:send_data) { |_tag, _chunk, attempt: nil| attempts << attempt; nil }
+      @retry_errors = retry_errors = []
+      @instance.singleton_class.prepend(Module.new {
+        define_method(:update_retry_state) do |chunk_id, using_secondary, error = nil|
+          retry_errors << error
+          super(chunk_id, using_secondary, error)
+        end
+      })
+      @d.instance_start
+      # keep the flush thread from rolling back chunks by itself
+      @instance.interrupt_flushes
+      stub(@instance.instance_variable_get(:@connection_manager)).discard
+
+      @instance.emit_events('test', Fluent::OneEventStream.new(event_time, {'k' => 'v'}))
+      @instance.buffer.enqueue_all
+      @chunk_id = @instance.buffer.queue.first.unique_id
+    end
+
+    # Returns the delayed commit entry that Output#try_flush added for the send.
+    def send_chunk
+      @instance.try_flush
+      assert_true @instance.buffer.dequeued.key?(@chunk_id)
+      dequeued_chunk_infos.last
+    end
+
+    def expire_delayed_commit(attempt)
+      Timecop.travel(attempt.time + attempt.timeout + 1) do
+        @instance.try_rollback_write
+      end
+      assert_false @instance.buffer.dequeued.key?(@chunk_id)
+    end
+
+    def fail_ack(attempt)
+      fake_ack_handler = Object.new
+      chunk_id, node = @chunk_id, @node
+      fake_ack_handler.define_singleton_method(:collect_response) do |_interval, &block|
+        block.call(chunk_id, node, 'sock', Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED, attempt)
+      end
+      original = @instance.instance_variable_get(:@ack_handler)
+      @instance.instance_variable_set(:@ack_handler, fake_ack_handler)
+      @instance.__send__(:ack_check, 0)
+    ensure
+      @instance.instance_variable_set(:@ack_handler, original)
+    end
+
+    def dequeued_chunk_infos
+      @instance.dequeued_chunks_mutex.synchronize { @instance.dequeued_chunks.dup }
+    end
+
+    test 'passes the delayed commit entry of the send to the ack' do
+      attempt = send_chunk
+      assert_equal @chunk_id, attempt.chunk_id
+      assert_same attempt, @attempts.last
+    end
+
+    test 'does not count a second retry for an attempt that was already rolled back' do
+      first = send_chunk
+      expire_delayed_commit(first)
+      assert_equal [nil], @retry_errors # "timeout to commit"
+
+      second = send_chunk
+      fail_ack(first)
+
+      # the late failure belongs to the first attempt: the chunk that is in
+      # flight again is not taken back, and no retry is counted for it
+      assert_equal [nil], @retry_errors
+      assert_true @instance.buffer.dequeued.key?(@chunk_id)
+      assert_equal [second], dequeued_chunk_infos
+      assert{ @d.logs.any? { |log| log.include?("after the delayed commit timeout rolled the chunk back. no retry is counted again") } }
+    end
+
+    test 'counts a retry when a later send of the chunk fails on its own' do
+      first = send_chunk
+      expire_delayed_commit(first)
+      second = send_chunk
+      fail_ack(first)
+
+      fail_ack(second)
+
+      assert_equal [nil, Fluent::Plugin::ForwardOutput::AckResponseError], @retry_errors.map { |e| e&.class }
+      assert_false @instance.buffer.dequeued.key?(@chunk_id)
+      assert_equal [@chunk_id], @instance.buffer.queue.map(&:unique_id)
+      assert_equal [], dequeued_chunk_infos
+    end
+
+    test 'does not count a retry when the delayed commit timeout rolled back the later send too' do
+      first = send_chunk
+      expire_delayed_commit(first)
+      second = send_chunk
+      expire_delayed_commit(second)
+      assert_equal [nil, nil], @retry_errors
+
+      fail_ack(first)
+      fail_ack(second)
+
+      assert_equal [nil, nil], @retry_errors
+      assert_equal [@chunk_id], @instance.buffer.queue.map(&:unique_id)
+    end
+
+    test 'counts a retry for a failed ack before the delayed commit timeout' do
+      attempt = send_chunk
+      fail_ack(attempt)
+
+      assert_equal [Fluent::Plugin::ForwardOutput::AckResponseError], @retry_errors.map(&:class)
+      assert_equal [@chunk_id], @instance.buffer.queue.map(&:unique_id)
+      assert_equal [], dequeued_chunk_infos
     end
   end
 

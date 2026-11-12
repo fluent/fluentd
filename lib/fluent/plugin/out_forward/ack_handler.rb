@@ -83,7 +83,7 @@ module Fluent::Plugin
             if info.nil?
               yield nil, nil, nil, ret
             else
-              yield info.chunk_id, info.node, info.sock, ret
+              yield info.chunk_id, info.node, info.sock, ret, info.attempt
             end
           end
         rescue => e
@@ -92,24 +92,24 @@ module Fluent::Plugin
         end
       end
 
-      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time) do
+      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time, :attempt) do
         def expired?(now)
           expired_time < now
         end
       end
 
-      Ack = Struct.new(:chunk_id, :node, :handler) do
+      Ack = Struct.new(:chunk_id, :node, :handler, :attempt) do
         def enqueue(sock)
-          handler.enqueue(node, sock, chunk_id)
+          handler.enqueue(node, sock, chunk_id, attempt)
         end
       end
 
-      def create_ack(chunk_id, node)
-        Ack.new(chunk_id, node, self)
+      def create_ack(chunk_id, node, attempt = nil)
+        Ack.new(chunk_id, node, self, attempt)
       end
 
-      def enqueue(node, sock, cid)
-        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout)
+      def enqueue(node, sock, cid, attempt = nil)
+        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout, attempt)
         @mutex.synchronize do
           @ack_waitings << info
         end
