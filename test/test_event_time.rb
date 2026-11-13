@@ -100,10 +100,10 @@ class EventTimeTest < Test::Unit::TestCase
     refute(Fluent::EventTime.eq?(Fluent::EventTime.new(1, 2), Fluent::EventTime.new(3, 2)))
     refute(Fluent::EventTime.eq?(Fluent::EventTime.new(1, 2), Fluent::EventTime.new(3, 4)))
 
-    assert(Fluent::EventTime.eq?(Fluent::EventTime.new(1, 2), 1))
+    refute(Fluent::EventTime.eq?(Fluent::EventTime.new(1, 2), 1))
     refute(Fluent::EventTime.eq?(Fluent::EventTime.new(1, 2), 2))
 
-    assert(Fluent::EventTime.eq?(1, Fluent::EventTime.new(1, 2)))
+    refute(Fluent::EventTime.eq?(1, Fluent::EventTime.new(1, 2)))
     refute(Fluent::EventTime.eq?(2, Fluent::EventTime.new(1, 2)))
   end
 

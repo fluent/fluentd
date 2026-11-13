@@ -227,8 +227,9 @@ class TimeFormatterTest < ::Test::Unit::TestCase
     assert_equal("1969-12-31T23:59:59Z", formatter.format(Fluent::EventTime.new(-1)))
   end
 
-  # Here the slot is compared with EventTime.eq?, which falls back to comparing
-  # seconds alone, so the whole first second of the epoch matched an empty slot.
+  # Here the slot is compared with EventTime.eq?, which used to fall back to
+  # comparing seconds alone, so the whole first second of the epoch matched an
+  # empty slot.
   def test_format_epoch_with_subsec
     # Only the tc2 slot is used here, so every timestamp is a miss.
     formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M%S.%N", false, nil)
@@ -242,8 +243,8 @@ class TimeFormatterTest < ::Test::Unit::TestCase
   end
 
   # A cached EventTime must not answer for an Integer time of the same second:
-  # EventTime.eq? compares the seconds alone then, so the cached string carried
-  # the subsecond part of the earlier event.
+  # EventTime.eq? used to compare the seconds alone then, so the cached string
+  # carried the subsecond part of the earlier event.
   def test_format_with_subsec_integer_and_event_time_of_the_same_second
     time = Time.new(2014, 9, 27, 0, 0, 0, 0).to_i
     formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M%S.%N", false, nil)

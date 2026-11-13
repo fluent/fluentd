@@ -104,7 +104,9 @@ module Fluent
     end
 
     def self.eq?(a, b)
-      if a.is_a?(Fluent::EventTime) && b.is_a?(Fluent::EventTime)
+      return false unless a.class == b.class
+
+      if a.is_a?(Fluent::EventTime)
         a.sec == b.sec && a.nsec == b.nsec
       else
         a == b
@@ -408,9 +410,9 @@ module Fluent
     end
 
     def format_with_subsec(time)
-      if @tc1_str && @tc1.class == time.class && Fluent::EventTime.eq?(@tc1, time)
+      if @tc1_str && Fluent::EventTime.eq?(@tc1, time)
         return @tc1_str
-      elsif @tc2_str && @tc2.class == time.class && Fluent::EventTime.eq?(@tc2, time)
+      elsif @tc2_str && Fluent::EventTime.eq?(@tc2, time)
         return @tc2_str
       else
         str = format_nocache(time)
