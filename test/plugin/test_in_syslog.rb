@@ -181,8 +181,8 @@ EOS
     ].join("\n"))
 
     messages = [
-      '<1234>Apr 25 16:43:29 host app: message',
-      '<1234> Apr 25 16:43:29 host app: message',
+      '<134>Apr 25 16:43:29 host app: message',
+      '<134> Apr 25 16:43:29 host app: message',
       '<ab> Apr 25 16:43:29 host app: message',
     ]
     d.run(expect_emits: 3) do
@@ -216,6 +216,26 @@ EOS
     assert_equal(1, d.events.size)
     assert_equal('syslog.unmatched', d.events[0][0])
     assert_equal(message, d.events[0][2]['unmatched_line'])
+  end
+
+  data('with_priority' => [],
+       'without_priority' => ['<parse>', '  @type syslog', '  with_priority false', '</parse>'])
+  def test_priority_out_of_range_is_unmatched(parse_conf)
+    d = create_driver(([ipv4_config, 'emit_unmatched_lines true'] + parse_conf).join("\n"))
+
+    messages = [
+      '<200>Apr 25 16:43:29 host app: msg',
+      '<1234>Apr 25 16:43:29 host app: msg',
+      '<191>Apr 25 16:43:29 host app: msg',
+    ]
+    d.run(expect_emits: 3) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', @port)
+      messages.each { |message| u.send(message, 0) }
+    end
+
+    assert_equal(['syslog.unmatched', 'syslog.unmatched', 'syslog.local7.debug'], d.events.map { |tag, _time, _record| tag })
+    assert_equal(messages[0, 2], d.events[0, 2].map { |_tag, _time, record| record['unmatched_line'] })
   end
 
   def test_msg_size
