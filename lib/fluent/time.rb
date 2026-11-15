@@ -104,7 +104,9 @@ module Fluent
     end
 
     def self.eq?(a, b)
-      if a.is_a?(Fluent::EventTime) && b.is_a?(Fluent::EventTime)
+      return false unless a.class == b.class
+
+      if a.is_a?(Fluent::EventTime)
         a.sec == b.sec && a.nsec == b.nsec
       else
         a == b
