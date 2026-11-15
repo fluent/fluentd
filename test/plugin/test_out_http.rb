@@ -23,22 +23,27 @@ class HTTPOutputTest < Test::Unit::TestCase
   DEFAULT_LOGGER = ::WEBrick::Log.new(::STDOUT, ::WEBrick::BasicLog::FATAL)
 
   class << self
-    # Use class variable to reduce server start/shutdown time
+    # Share one server in each test case to reduce server start/shutdown time.
+    # Don't use a class variable for it, because sub test cases share it
+    # and lose the server of the parent test case.
+    attr_accessor :http_server_thread, :server_port
+
     def startup
       @@result = nil
       @@auth_handler = nil
-      @@http_server_thread = nil
+      @http_server_thread = nil
+      @server_port = unused_port(protocol: :tcp)
     end
 
     def shutdown
-      @@http_server_thread.kill
-      @@http_server_thread.join
+      @http_server_thread.kill
+      @http_server_thread.join
     rescue
     end
   end
 
   def server_port
-    19880
+    self.class.server_port
   end
 
   def base_endpoint
@@ -130,7 +135,7 @@ class HTTPOutputTest < Test::Unit::TestCase
     FileUtils.rm_rf(TMP_DIR)
 
     @@result = Result.new(nil, nil, {}, nil)
-    @@http_server_thread ||= Thread.new do
+    self.class.http_server_thread ||= Thread.new do
       run_http_server
     end
 
@@ -360,10 +365,6 @@ class HTTPOutputTest < Test::Unit::TestCase
       FileUtils.rm_rf(TMP_DIR)
     end
 
-    def server_port
-      19881
-    end
-
     def test_basic_auth
       d = create_driver(config + %[
         <auth>
@@ -414,10 +415,6 @@ class HTTPOutputTest < Test::Unit::TestCase
         'fakesecret',
         'fake session token'
       )
-    end
-
-    def server_port
-      19883
     end
 
     def test_aws_sigv4_sts_role_arn
@@ -498,10 +495,6 @@ class HTTPOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'HTTPS' do
-    def server_port
-      19882
-    end
-
     def server_config
       config = super
       # WEBrick supports self-generated self-signed certificate
@@ -537,10 +530,6 @@ class HTTPOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'GZIP' do
-    def server_port
-      19882
-    end
-
     data(:json_array, [false, true])
     data(:buffer_compress, ["text", "gzip"])
     def test_write_with_gzip
@@ -572,10 +561,6 @@ class HTTPOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'connection_reuse' do
-    def server_port
-      19883
-    end
-
     def test_connection_recreation
       d = create_driver(%[
         endpoint http://127.0.0.1:#{server_port}/test
@@ -589,9 +574,9 @@ class HTTPOutputTest < Test::Unit::TestCase
       data = @@result.data
 
       # Restart server to simulate connection loss
-      @@http_server_thread.kill
-      @@http_server_thread.join
-      @@http_server_thread = Thread.new do
+      self.class.http_server_thread.kill
+      self.class.http_server_thread.join
+      self.class.http_server_thread = Thread.new do
         run_http_server
       end
 
