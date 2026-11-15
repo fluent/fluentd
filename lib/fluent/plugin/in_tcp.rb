@@ -141,7 +141,7 @@ module Fluent::Plugin
               next
             end
 
-            @parser.parse(msg) do |time, record|
+            parse_message(msg) do |time, record|
               unless time && record
                 log.on_warn { warn_pattern_not_matched(msg) }
                 next
@@ -192,7 +192,7 @@ module Fluent::Plugin
               next
             end
 
-            @parser.parse(msg) do |time, record|
+            parse_message(msg) do |time, record|
               unless time && record
                 log.on_warn { warn_pattern_not_matched(msg) }
                 next
@@ -220,6 +220,12 @@ module Fluent::Plugin
     end
 
     private
+
+    def parse_message(msg, &block)
+      @parser.parse(msg, &block)
+    rescue => e
+      log.warn "failed to parse message", error: e, message: msg[...MAX_LOGGED_MESSAGE_LENGTH], size: msg.bytesize
+    end
 
     def warn_pattern_not_matched(msg)
       if msg.length > MAX_LOGGED_MESSAGE_LENGTH
