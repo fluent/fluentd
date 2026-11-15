@@ -44,7 +44,9 @@ module Fluent
       RFC3164_CAPTURES = RFC3164_WITHOUT_TIME_AND_PRI_REGEXP.names.freeze
       RFC3164_PRI_REGEXP = /\A<(?<pri>[0-9]{1,3})>/
 
-      RFC5424_WITHOUT_TIME_AND_PRI_REGEXP = /(?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|(?:\[.*?(?<!\\)\])))(?: (?<message>.+))?\z/m
+      # \G anchors the match at the position given to Regexp#match, so a header
+      # that doesn't match there is rejected instead of matched further on.
+      RFC5424_WITHOUT_TIME_AND_PRI_REGEXP = /\G(?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|(?:\[.*?(?<!\\)\])))(?: (?<message>.+))?\z/m
       RFC5424_CAPTURES = RFC5424_WITHOUT_TIME_AND_PRI_REGEXP.names.freeze
       RFC5424_PRI_REGEXP = /\A<(?<pri>\d{1,3})>\d\d{0,2}\s/
 

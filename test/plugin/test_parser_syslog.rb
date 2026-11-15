@@ -872,6 +872,19 @@ class SyslogParserTest < ::Test::Unit::TestCase
     end
 
     data(
+      'non-ASCII hostname' => '<14>1 2026-04-25T16:43:29Z hôst app 123 ID - msg',
+      'header fields after a line break' => "<14>1 2026-04-25T16:43:29Z first line\nhost app 123 ID - second line",
+    )
+    def test_parse_with_rfc5424_regexp_does_not_skip_unmatched_header(text)
+      @parser.configure(
+                        'message_format' => 'rfc5424',
+                        'with_priority' => true,
+                        'parser_engine' => 'regexp'
+                        )
+      assert_input_rejected(text, :rejects)
+    end
+
+    data(
       'regexp/with message' => ['regexp', '[x@1 a="b\] c"]', 'msg'],
       'string/with message' => ['string', '[x@1 a="b\] c"]', 'msg'],
       'regexp/without message' => ['regexp', '[x@1 a="b\] c"]', nil],
