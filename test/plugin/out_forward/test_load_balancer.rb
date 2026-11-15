@@ -103,4 +103,32 @@ class LoadBalancerTest < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case 'availability_changed?' do
+    test 'compares the nodes with their availability at the last rebuild' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      available = true
+      n1 = flexmock('node', :'standby?' => false, weight: 1)
+      n1.should_receive(:available?).and_return { available }
+
+      lb.rebuild_weight_array([n1])
+      assert_false lb.availability_changed?([n1])
+
+      available = false
+      assert_true lb.availability_changed?([n1])
+
+      lb.rebuild_weight_array([n1])
+      assert_false lb.availability_changed?([n1])
+    end
+
+    test 'regards a node added after the last rebuild as a change' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      n1 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1)
+      n2 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1)
+
+      lb.rebuild_weight_array([n1])
+
+      assert_true lb.availability_changed?([n1, n2])
+    end
+  end
 end
