@@ -395,6 +395,31 @@ class TcpInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "parser error" do
+    data("batch_emit", { extract: "" }, keep: true)
+    data("single_emit", { extract: "<extract>\ntag_key tag\n</extract>\n" }, keep: true)
+    test "drop only the line that the parser fails on and keep the connection" do |data|
+      d = create_driver(base_config + %!
+        <parse>
+          @type json
+          time_key time
+          time_format %Y-%m-%dT%H:%M:%S
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 3, timeout: 5) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.write(%Q({"k":"1"}\n{"time":"bad","k":"2"}\n{"k":"3"}\n))
+          sleep 0.5
+          sock.write(%Q({"k":"4"}\n))
+        end
+      end
+
+      assert_equal(["1", "3", "4"], d.events.map { |_tag, _time, record| record["k"] })
+      assert_equal(1, d.logs.count { |log| log.include?("[warn]: failed to parse message") })
+    end
+  end
+
   sub_test_case "pattern not matched" do
     data("batch_emit", { extract: "" }, keep: true)
     data("single_emit", { extract: "<extract>\ntag_key tag\n</extract>\n" }, keep: true)

@@ -141,7 +141,7 @@ module Fluent::Plugin
               next
             end
 
-            @parser.parse(msg) do |time, record|
+            parse_message(msg) do |time, record|
               unless time && record
                 log.on_warn { warn_pattern_not_matched(msg) }
                 next
@@ -192,7 +192,7 @@ module Fluent::Plugin
               next
             end
 
-            @parser.parse(msg) do |time, record|
+            parse_message(msg) do |time, record|
               unless time && record
                 log.on_warn { warn_pattern_not_matched(msg) }
                 next
@@ -220,6 +220,20 @@ module Fluent::Plugin
     end
 
     private
+
+    # A parser can raise ParserError on a line it can't handle (e.g. the json
+    # parser with a time that doesn't match time_format). Drop only that line
+    # and keep the connection so that the other lines are not lost.
+    def parse_message(msg, &block)
+      @parser.parse(msg, &block)
+    rescue Fluent::Plugin::Parser::ParserError => e
+      log.on_warn { warn_parse_error(msg, e) }
+    end
+
+    def warn_parse_error(msg, error)
+      head = msg.length > MAX_LOGGED_MESSAGE_LENGTH ? msg[...MAX_LOGGED_MESSAGE_LENGTH] : msg
+      log.warn "failed to parse message", message: head, error: error
+    end
 
     def warn_pattern_not_matched(msg)
       if msg.length > MAX_LOGGED_MESSAGE_LENGTH
