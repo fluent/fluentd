@@ -96,7 +96,11 @@ module Fluent
     end
 
     def self.thread_local_msgpack_packer
-      Thread.current[:local_msgpack_packer] ||= MessagePackFactory.engine_factory.packer
+      packer = Thread.current[:local_msgpack_packer] ||= MessagePackFactory.engine_factory.packer
+      # Discard bytes left by a write that raised.
+      # Use #clear because #reset needs msgpack 1.4.5 or later.
+      packer.clear
+      packer
     end
 
     def self.thread_local_msgpack_unpacker
