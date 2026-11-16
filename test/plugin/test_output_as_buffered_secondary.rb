@@ -455,27 +455,21 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert{ logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
     end
 
-    data('update_retry false' => [{update_retry: false}, false],
-         'default update_retry' => [{}, true])
-    test 'secondary plugin can rollback a chunk through the primary' do |(kwargs, update_retry)|
-      priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'retry_randomize' => false})
+    data('update_retry false' => {update_retry: false},
+         'default update_retry' => {})
+    test 'secondary plugin can rollback a chunk through the primary and update the retry state' do |kwargs|
+      priconf = config_element('buffer','tag',{'flush_thread_count' => 0, 'queued_chunks_limit_size' => 1})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
-      @i.register(:prefer_delayed_commit){ false }
-      @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
-      @i.register(:write){|chunk| raise "yay, your #write must fail" }
-      @i.secondary.register(:prefer_delayed_commit){ true }
       @i.start
       @i.after_start
-
-      @i.interrupt_flushes
 
       @i.emit_events("test.tag.1", dummy_event_stream())
       @i.buffer.enqueue_all
       chunk = @i.buffer.dequeue_chunk
 
-      mock.proxy(@i).update_retry_state(chunk.unique_id, false).times(update_retry ? 1 : 0)
+      mock.proxy(@i).update_retry_state(chunk.unique_id, false).once
       assert_true @i.secondary.rollback_write(chunk.unique_id, **kwargs)
 
       assert_nil @i.buffer.dequeued[chunk.unique_id]

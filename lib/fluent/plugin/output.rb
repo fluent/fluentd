@@ -253,7 +253,10 @@ module Fluent
 
         singleton_class.module_eval do
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
-          define_method(:rollback_write){ |chunk_id, update_retry: true| @primary_instance.rollback_write(chunk_id, update_retry: update_retry) }
+          # A secondary runs while the primary is already retrying, and only the retry limit
+          # ends that phase if the secondary never succeeds. So a rollback from the secondary
+          # always updates the retry state, even when the plugin passes update_retry: false.
+          define_method(:rollback_write){ |chunk_id, update_retry: true| @primary_instance.rollback_write(chunk_id, update_retry: true) }
         end
       end
 

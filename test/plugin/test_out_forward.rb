@@ -1594,4 +1594,70 @@ EOL
       assert_equal @standby, selected_node
     end
   end
+
+  sub_test_case 'as secondary with a destination that never acks' do
+    setup do
+      @silent_server = TCPServer.new(TARGET_HOST, 0)
+      @silent_port = @silent_server.addr[1]
+      @silent_connections = 0
+      @silent_thread = Thread.new do
+        loop do
+          sock = @silent_server.accept
+          @silent_connections += 1
+          Thread.new(sock) { |s| s.read rescue nil }
+        end
+      rescue IOError, Errno::EBADF
+      end
+    end
+
+    teardown do
+      @silent_server.close rescue nil
+      @silent_thread.join(1)
+    end
+
+    data('retry_max_times' => {'retry_type' => 'exponential_backoff', 'retry_max_times' => '2'},
+         'retry_timeout' => {'retry_type' => 'periodic', 'retry_timeout' => '4s'})
+    test 'the retry limit ends the retry after ack timeouts of the secondary' do |retry_conf|
+      @d = d = create_driver(%[
+        heartbeat_type none
+        require_ack_response true
+        ack_response_timeout 1s
+        <server>
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+        </server>
+        <buffer>
+          @type memory
+          flush_mode immediate
+          flush_at_shutdown false
+          retry_wait 1s
+          retry_randomize false
+          retry_secondary_threshold 0.25
+          #{retry_conf.map { |k, v| "#{k} #{v}" }.join("\n")}
+        </buffer>
+        <secondary>
+          @type forward
+          heartbeat_type none
+          require_ack_response true
+          ack_response_timeout 1s
+          <server>
+            host #{TARGET_HOST}
+            port #{@silent_port}
+          </server>
+        </secondary>
+      ])
+      buffer = d.instance.buffer
+      limit_reached = lambda do
+        @silent_connections > 0 &&
+          d.instance.retry.nil? &&
+          buffer.stage.empty? && buffer.queue.empty? && buffer.dequeued.empty?
+      end
+      d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false, flush: false, force_flush_retry: true) do
+        d.feed(event_time, {"a" => 1})
+        waiting(15) { sleep 0.1 until limit_reached.call }
+      end
+
+      assert_true limit_reached.call
+    end
+  end
 end
