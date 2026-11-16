@@ -39,7 +39,8 @@ Fluentd: Open-Source Log Collector
 Use bundler:
 
     $ gem install bundler
-    $ bundle install --path vendor/bundle
+    $ bundle config set --local path vendor/bundle
+    $ bundle install
 
 ### Run test
 
