@@ -181,8 +181,8 @@ EOS
     ].join("\n"))
 
     messages = [
-      '<134>Apr 25 16:43:29 host app: message',
-      '<134> Apr 25 16:43:29 host app: message',
+      '<0134>Apr 25 16:43:29 host app: message',
+      '<0134> Apr 25 16:43:29 host app: message',
       '<ab> Apr 25 16:43:29 host app: message',
     ]
     d.run(expect_emits: 3) do
@@ -224,7 +224,7 @@ EOS
     d = create_driver(([ipv4_config, 'emit_unmatched_lines true'] + parse_conf).join("\n"))
 
     messages = [
-      '<200>Apr 25 16:43:29 host app: msg',
+      '<192>Apr 25 16:43:29 host app: msg',
       '<1234>Apr 25 16:43:29 host app: msg',
       '<191>Apr 25 16:43:29 host app: msg',
     ]
