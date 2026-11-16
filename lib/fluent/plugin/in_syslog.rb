@@ -28,6 +28,7 @@ module Fluent::Plugin
 
     DEFAULT_PARSER = 'syslog'
     SYSLOG_REGEXP = /\A\<([0-9]+)\>(.*)/
+    PRI_RANGE = 0..191
 
     FACILITY_MAP = {
       0   => 'kern',
@@ -322,6 +323,14 @@ module Fluent::Plugin
         end
 
         pri ||= record.delete('pri')
+        # RFC 5424 limits PRI to 0..191. A larger value has no facility.
+        unless PRI_RANGE.cover?(pri)
+          if @emit_unmatched_lines
+            emit_unmatched(data, sock)
+          end
+          log.warn "invalid syslog priority", data: data
+          return
+        end
         facility = FACILITY_MAP[pri >> 3]
         severity = SEVERITY_MAP[pri & 0b111]
 
