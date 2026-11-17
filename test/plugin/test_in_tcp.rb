@@ -354,6 +354,35 @@ class TcpInputTest < Test::Unit::TestCase
       assert_equal expected_records, actual_records
     end
 
+    test "discard only the data of the connection that exceeded the limit" do |data|
+      message_length_limit = 10
+      d = create_driver(base_config + %!
+        message_length_limit #{message_length_limit}
+        <parse>
+          @type none
+        </parse>
+        #{data[:extract]}
+      !)
+      d.run(expect_records: 2, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |long_sock|
+          create_tcp_socket('127.0.0.1', @port) do |other_sock|
+            long_sock.send("x" * (message_length_limit + 1), 0)
+            sleep 1 # To make the server read the data and clear the buffer of long_sock here.
+            other_sock.send("hello\n", 0)
+            long_sock.send("tail\n", 0) # The end of the long message of long_sock, which must be discarded.
+            other_sock.send("world\n", 0)
+            sleep 1 # To make the server emit the records before the sockets are closed.
+          end
+        end
+      end
+
+      actual_records = d.events.collect do |event|
+        event[2]["message"]
+      end
+
+      assert_equal(["hello", "world"], actual_records)
+    end
+
     test "clear buffer and discard the subsequent data until the next delimiter" do |data|
       message_length_limit = 12
       d = create_driver(base_config + %!
