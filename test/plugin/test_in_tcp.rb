@@ -431,6 +431,39 @@ class TcpInputTest < Test::Unit::TestCase
         }
       )
     end
+
+    test "do not cut a multi-byte delimiter when clearing the buffer" do |data|
+      message_length_limit = 12
+      d = create_driver(base_config + %!
+        message_length_limit #{message_length_limit}
+        delimiter "\\r\\n"
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+      cleared = "[info]: The buffer size exceeds 'message_length_limit', cleared:"
+      d.run(expect_records: 1, timeout: 20) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          3.times do |i|
+            sock.send((i.zero? ? "" : "\n") + "a" * (message_length_limit + 1) + "\r", 0)
+            waiting(10) { sleep 0.1 until d.logs.count { |log| log.include?(cleared) } >= i + 1 }
+          end
+          sock.send(%!\n{"k":"v"}\r\n!, 0)
+        end
+      end
+
+      assert_equal(
+        {
+          logs: 3,
+          records: [{"k" => "v"}],
+        },
+        {
+          logs: d.logs.count { |log| log.include?(cleared) },
+          records: d.events.collect { |event| event[2] },
+        }
+      )
+    end
   end
 
   sub_test_case "pattern not matched" do

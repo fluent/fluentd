@@ -161,7 +161,8 @@ module Fluent::Plugin
             # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
             if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
               log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize, head: buf[...32]
-              buf.clear
+              # Don't clear all of it. The last bytes can be the first part of a delimiter split between reads.
+              buf.slice!(0, buf.bytesize - (del_size - 1))
               # We should discard the subsequent data until the next delimiter comes.
               discard_till_next_delimiter = true
               next
@@ -214,7 +215,8 @@ module Fluent::Plugin
             # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
             if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
               log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize, head: buf[...32]
-              buf.clear
+              # Don't clear all of it. The last bytes can be the first part of a delimiter split between reads.
+              buf.slice!(0, buf.bytesize - (del_size - 1))
               # We should discard the subsequent data until the next delimiter comes.
               discard_till_next_delimiter = true
               next

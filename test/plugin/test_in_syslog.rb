@@ -750,6 +750,42 @@ EOS
       assert_equal 'hello', d.events[0][2]['message']
     end
 
+    test 'traditional: a multi-byte delimiter split between reads is not cut by the clear' do
+      port = unused_port(protocol: :tcp)
+      d = create_driver([
+        ipv4_config(port),
+        "<transport tcp>\n</transport>",
+        'delimiter "\\r\\n"',
+        "message_length_limit #{LIMIT}",
+      ].join("\n"))
+
+      cleared = "[info]: The buffer size exceeds 'message_length_limit', cleared:"
+
+      d.run(expect_emits: 1, timeout: 30) do
+        TCPSocket.open('127.0.0.1', port) do |s|
+          3.times do |i|
+            s.write((i.zero? ? "" : "\n") + 'x' * (LIMIT + 1) + "\r")
+            s.flush
+            waiting(10) { sleep 0.1 until d.logs.count { |log| log.include?(cleared) } >= i + 1 }
+          end
+          s.write("\n#{NORMAL_MESSAGE}\r\n")
+          s.flush
+          waiting(10) { sleep 0.1 until d.events.size >= 1 }
+        end
+      end
+
+      assert_equal(
+        {
+          logs: 3,
+          messages: ['hello'],
+        },
+        {
+          logs: d.logs.count { |log| log.include?(cleared) },
+          messages: d.events.collect { |event| event[2]['message'] },
+        }
+      )
+    end
+
     test 'traditional: a message split into multiple chunks is reassembled' do
       port = unused_port(protocol: :tcp)
       d = create_tcp_driver(port)

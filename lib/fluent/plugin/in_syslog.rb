@@ -279,7 +279,8 @@ module Fluent::Plugin
             if buffer.bytesize > @message_length_limit
               log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buffer.bytesize
               log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buffer[...32] }
-              buffer.clear
+              # Don't clear all of it. The last bytes can be the first part of a delimiter split between reads.
+              buffer.slice!(0, buffer.bytesize - (delimiter_size - 1))
               # We should discard the subsequent data until the next delimiter comes.
               discard_till_next_delimiter = true
             end
