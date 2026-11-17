@@ -60,7 +60,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "0.5s" => [0.5, "0.5s"],
          "1.5m" => [90.0, "1.5m"],
          "0.25h" => [900.0, "0.25h"],
-         "1.5d" => [129600.0, "1.5d"])
+         "1.5d" => [129600.0, "1.5d"],
+         "1.1h" => [3960, "1.1h"],
+         "0.7d" => [60480, "0.7d"])
     test 'normal case' do |(expected, val)|
       assert_equal(expected, Config.time_value(val))
       assert_equal(expected, Config.time_value(val, { strict: true }))

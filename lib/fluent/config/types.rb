@@ -58,14 +58,10 @@ module Fluent
       end
     end
 
-    # "10" stays an Integer, "1.5" becomes a Float, so values without a
-    # fractional part keep the same type as before.
+    # Rational avoids Float errors: "1.1h" is 3960, not 3960.0000000000005.
     def self.unit_value(number, multiplier)
-      if number.include?('.')
-        number.to_f * multiplier
-      else
-        number.to_i * multiplier
-      end
+      value = number.to_r * multiplier
+      value.denominator == 1 ? value.to_i : value.to_f
     end
     private_class_method :unit_value
 
