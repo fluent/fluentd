@@ -393,6 +393,44 @@ class TcpInputTest < Test::Unit::TestCase
         }
       )
     end
+
+    test "keep the discard state for each connection" do |data|
+      message_length_limit = 12
+      d = create_driver(base_config + %!
+        message_length_limit #{message_length_limit}
+        delimiter ";"
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+      cleared = "[info]: The buffer size exceeds 'message_length_limit', cleared:"
+      d.run(expect_records: 2, timeout: 10) do
+        create_tcp_socket('127.0.0.1', @port) do |sock_a|
+          create_tcp_socket('127.0.0.1', @port) do |sock_b|
+            sock_a.send("a" * (message_length_limit + 1), 0)
+            waiting(10) { sleep 0.1 until d.logs.count { |log| log.include?(cleared) } >= 1 }
+            sock_b.send("b" * (message_length_limit + 1), 0)
+            waiting(10) { sleep 0.1 until d.logs.count { |log| log.include?(cleared) } >= 2 }
+            # A's long message is not finished, so B's next message must not be dropped.
+            sock_b.send(';{"k":"b"};', 0)
+            waiting(10) { sleep 0.1 until d.events.size >= 1 }
+            sock_a.send(';{"k":"a"};', 0)
+          end
+        end
+      end
+
+      assert_equal(
+        {
+          logs: 2,
+          records: [{"k" => "b"}, {"k" => "a"}],
+        },
+        {
+          logs: d.logs.count { |log| log.include?(cleared) },
+          records: d.events.collect { |event| event[2] },
+        }
+      )
+    end
   end
 
   sub_test_case "pattern not matched" do
