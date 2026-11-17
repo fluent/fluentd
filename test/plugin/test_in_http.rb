@@ -319,6 +319,30 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal 1, d.events.size
   end
 
+  def test_remote_addr_is_not_carried_over_a_keepalive_connection
+    d = create_driver(config + "add_remote_addr true")
+    codes = []
+    body = {"a" => 1}.to_json
+
+    d.end_if { codes.size == 2 }
+    d.run(expect_records: 2, timeout: 5) do
+      TCPSocket.open("127.0.0.1", @port) do |sock|
+        sock.write("POST /tag1 HTTP/1.1\r\nHost: 127.0.0.1\r\n" \
+                   "X-Forwarded-For: 192.0.2.1\r\n" \
+                   "Content-Type: application/json\r\nContent-Length: #{body.bytesize}\r\n\r\n#{body}")
+        codes << read_http_response(sock)
+
+        sock.write("POST /tag2 HTTP/1.1\r\nHost: 127.0.0.1\r\n" \
+                   "Content-Type: application/json\r\nContent-Length: #{body.bytesize}\r\n\r\n#{body}")
+        codes << read_http_response(sock)
+      end
+    end
+
+    assert_equal ["200", "200"], codes
+    assert_equal "192.0.2.1", d.events[0][2]["REMOTE_ADDR"]
+    assert_equal "127.0.0.1", d.events[1][2]["REMOTE_ADDR"]
+  end
+
   def test_time
     d = create_driver
     time = event_time("2011-01-02 13:14:15.123 UTC")

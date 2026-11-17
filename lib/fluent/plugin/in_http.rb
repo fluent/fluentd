@@ -445,6 +445,9 @@ module Fluent::Plugin
         @content_type = ""
         @content_encoding = ""
         @authorization = nil
+        # X-Forwarded-For overrides the address of the previous request on the
+        # same keepalive connection, so restore the socket address first.
+        @remote_addr = @io.remote_addr
         headers.each_pair {|k,v|
           @env["HTTP_#{k.tr('-','_').upcase}"] = v
           case k
