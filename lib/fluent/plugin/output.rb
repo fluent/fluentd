@@ -255,8 +255,13 @@ module Fluent
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
           # A secondary runs while the primary is already retrying, and only the retry limit
           # ends that phase if the secondary never succeeds. So a rollback from the secondary
-          # always updates the retry state, even when the plugin passes update_retry: false.
-          define_method(:rollback_write){ |chunk_id, update_retry: true| @primary_instance.rollback_write(chunk_id, update_retry: true) }
+          # updates the retry state even when the plugin passes update_retry: false, but then
+          # it does not start a new retry once the previous one has ended.
+          define_method(:rollback_write) do |chunk_id, update_retry: true|
+            rolled_back = @primary_instance.rollback_write(chunk_id, update_retry: update_retry)
+            @primary_instance.update_retry_state(chunk_id, false, create_retry: false) if rolled_back && !update_retry
+            rolled_back
+          end
         end
       end
 
@@ -1368,8 +1373,10 @@ module Fluent
         end
       end
 
-      def update_retry_state(chunk_id, using_secondary, error = nil)
+      def update_retry_state(chunk_id, using_secondary, error = nil, create_retry: true)
         @retry_mutex.synchronize do
+          return if !@retry && !create_retry
+
           @num_errors_metrics.inc
           chunk_id_hex = dump_unique_id_hex(chunk_id)
 
