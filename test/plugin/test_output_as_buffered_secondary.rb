@@ -455,6 +455,32 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert{ logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
     end
 
+    data('update_retry false while retrying' => [{update_retry: false}, true, true],
+         'update_retry false without a retry' => [{update_retry: false}, false, false],
+         'default update_retry while retrying' => [{}, true, true],
+         'default update_retry without a retry' => [{}, false, true])
+    test 'secondary plugin can rollback a chunk through the primary and update the retry state' do |(kwargs, retrying, updated)|
+      priconf = config_element('buffer','tag',{'flush_thread_count' => 0, 'queued_chunks_limit_size' => 1})
+      secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
+      @i.configure(config_element('ROOT','',{},[priconf,secconf]))
+      @i.register(:prefer_buffered_processing){ true }
+      @i.start
+      @i.after_start
+
+      @i.emit_events("test.tag.1", dummy_event_stream())
+      @i.buffer.enqueue_all
+      chunk = @i.buffer.dequeue_chunk
+      @i.update_retry_state(chunk.unique_id, false) if retrying
+      num_errors = @i.statistics["output"]["retry_count"]
+
+      assert_true @i.secondary.rollback_write(chunk.unique_id, **kwargs)
+
+      assert_nil @i.buffer.dequeued[chunk.unique_id]
+      assert_equal [chunk.unique_id], @i.buffer.queue.map(&:unique_id)
+      assert_equal (updated ? num_errors + 1 : num_errors), @i.statistics["output"]["retry_count"]
+      assert_equal (retrying || updated), !@i.retry.nil?
+    end
+
     test 'secondary plugin can do delayed commit even if primary does not do it' do
       written = []
       chunks = []
