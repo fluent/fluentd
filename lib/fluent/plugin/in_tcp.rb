@@ -115,105 +115,122 @@ module Fluent::Plugin
       # The received data is binary (ASCII-8BIT), so match the delimiter as bytes.
       delimiter = @delimiter.b
       del_size = delimiter.bytesize
-      discard_till_next_delimiter = false
       if @_extract_enabled && @_extract_tag_key
-        server_create(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key, send_keepalive_packet: @send_keepalive_packet) do |data, conn|
-          unless check_client(conn)
-            conn.close
-            next
-          end
-
-          buf = conn.buffer
-          search_pos = [buf.length - del_size + 1, 0].max
-          buf << data
-          pos = 0
-          while i = buf.index(delimiter, search_pos)
-            msg = buf[pos...i]
-            pos = search_pos = i + del_size
-
-            if discard_till_next_delimiter
-              discard_till_next_delimiter = false
+        server_create_connection(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key, send_keepalive_packet: @send_keepalive_packet) do |conn|
+          discard_till_next_delimiter = false
+          conn.data do |data|
+            unless check_client(conn)
+              conn.close
               next
             end
 
-            if !@message_length_limit.nil? && @message_length_limit < msg.bytesize
-              log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize, head: msg[...32]
-              next
-            end
+            buf = conn.buffer
+            search_pos = [buf.length - del_size + 1, 0].max
+            buf << data
+            pos = 0
+            while i = buf.index(delimiter, search_pos)
+              msg = buf[pos...i]
+              pos = search_pos = i + del_size
 
-            @parser.parse(msg) do |time, record|
-              unless time && record
-                log.on_warn { warn_pattern_not_matched(msg) }
+              if discard_till_next_delimiter
+                discard_till_next_delimiter = false
                 next
               end
 
-              tag = extract_tag_from_record(record)
-              tag ||= @tag
-              time ||= extract_time_from_record(record) || Fluent::EventTime.now
-              record[@source_address_key] = conn.remote_addr if @source_address_key
-              record[@source_hostname_key] = conn.remote_host if @source_hostname_key
-              router.emit(tag, time, record)
+              if !@message_length_limit.nil? && @message_length_limit < msg.bytesize
+                log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize
+                log.on_debug { log.debug "The received data is larger than 'message_length_limit':", head: msg[...32].dump }
+                next
+              end
+
+              @parser.parse(msg) do |time, record|
+                unless time && record
+                  log.on_warn { warn_pattern_not_matched(msg) }
+                  next
+                end
+
+                tag = extract_tag_from_record(record)
+                tag ||= @tag
+                time ||= extract_time_from_record(record) || Fluent::EventTime.now
+                record[@source_address_key] = conn.remote_addr if @source_address_key
+                record[@source_hostname_key] = conn.remote_host if @source_hostname_key
+                router.emit(tag, time, record)
+              end
             end
-          end
-          buf.slice!(0, pos) if pos > 0
-          # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
-          # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
-          if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
-            log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize, head: buf[...32]
-            buf.clear
-            # We should discard the subsequent data until the next delimiter comes.
-            discard_till_next_delimiter = true
-            next
+            buf.slice!(0, pos) if pos > 0
+            # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
+            # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
+            if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
+              # The rest of a long message fills the buffer again on each read, so log only the first clear.
+              unless discard_till_next_delimiter
+                log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize
+                log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buf[...32].dump }
+              end
+              # Don't clear all of it. The last bytes can be the first part of a delimiter split between reads.
+              buf.slice!(0, buf.bytesize - (del_size - 1))
+              # We should discard the subsequent data until the next delimiter comes.
+              discard_till_next_delimiter = true
+              next
+            end
           end
         end
       else
-        server_create(:in_tcp_server_batch_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key, send_keepalive_packet: @send_keepalive_packet) do |data, conn|
-          unless check_client(conn)
-            conn.close
-            next
-          end
-
-          buf = conn.buffer
-          search_pos = [buf.length - del_size + 1, 0].max
-          buf << data
-          pos = 0
-          es = Fluent::MultiEventStream.new
-          while i = buf.index(delimiter, search_pos)
-            msg = buf[pos...i]
-            pos = search_pos = i + del_size
-
-            if discard_till_next_delimiter
-              discard_till_next_delimiter = false
+        server_create_connection(:in_tcp_server_batch_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key, send_keepalive_packet: @send_keepalive_packet) do |conn|
+          discard_till_next_delimiter = false
+          conn.data do |data|
+            unless check_client(conn)
+              conn.close
               next
             end
 
-            if !@message_length_limit.nil? && @message_length_limit < msg.bytesize
-              log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize, head: msg[...32]
-              next
-            end
+            buf = conn.buffer
+            search_pos = [buf.length - del_size + 1, 0].max
+            buf << data
+            pos = 0
+            es = Fluent::MultiEventStream.new
+            while i = buf.index(delimiter, search_pos)
+              msg = buf[pos...i]
+              pos = search_pos = i + del_size
 
-            @parser.parse(msg) do |time, record|
-              unless time && record
-                log.on_warn { warn_pattern_not_matched(msg) }
+              if discard_till_next_delimiter
+                discard_till_next_delimiter = false
                 next
               end
 
-              time ||= extract_time_from_record(record) || Fluent::EventTime.now
-              record[@source_address_key] = conn.remote_addr if @source_address_key
-              record[@source_hostname_key] = conn.remote_host if @source_hostname_key
-              es.add(time, record)
+              if !@message_length_limit.nil? && @message_length_limit < msg.bytesize
+                log.info "The received data is larger than 'message_length_limit', dropped:", limit: @message_length_limit, size: msg.bytesize
+                log.on_debug { log.debug "The received data is larger than 'message_length_limit':", head: msg[...32].dump }
+                next
+              end
+
+              @parser.parse(msg) do |time, record|
+                unless time && record
+                  log.on_warn { warn_pattern_not_matched(msg) }
+                  next
+                end
+
+                time ||= extract_time_from_record(record) || Fluent::EventTime.now
+                record[@source_address_key] = conn.remote_addr if @source_address_key
+                record[@source_hostname_key] = conn.remote_host if @source_hostname_key
+                es.add(time, record)
+              end
             end
-          end
-          router.emit_stream(@tag, es) unless es.empty?
-          buf.slice!(0, pos) if pos > 0
-          # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
-          # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
-          if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
-            log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize, head: buf[...32]
-            buf.clear
-            # We should discard the subsequent data until the next delimiter comes.
-            discard_till_next_delimiter = true
-            next
+            router.emit_stream(@tag, es) unless es.empty?
+            buf.slice!(0, pos) if pos > 0
+            # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
+            # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
+            if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
+              # The rest of a long message fills the buffer again on each read, so log only the first clear.
+              unless discard_till_next_delimiter
+                log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize
+                log.on_debug { log.debug "The buffer size exceeds 'message_length_limit':", head: buf[...32].dump }
+              end
+              # Don't clear all of it. The last bytes can be the first part of a delimiter split between reads.
+              buf.slice!(0, buf.bytesize - (del_size - 1))
+              # We should discard the subsequent data until the next delimiter comes.
+              discard_till_next_delimiter = true
+              next
+            end
           end
         end
       end
