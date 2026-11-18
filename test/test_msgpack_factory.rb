@@ -22,6 +22,16 @@ class MessagePackFactoryTest < Test::Unit::TestCase
       packer2 = Fluent::MessagePackFactory.thread_local_msgpack_packer
       assert_equal packer1, packer2
     end
+
+    test 'clear the internal buffer of packer every time' do
+      packer1 = Fluent::MessagePackFactory.thread_local_msgpack_packer
+      assert_raise(RangeError) do
+        packer1.write([1, {"big" => 2**64}])
+      end
+
+      packer2 = Fluent::MessagePackFactory.thread_local_msgpack_packer
+      assert_equal [1, {"user" => "other"}], MessagePack.unpack(packer2.write([1, {"user" => "other"}]).full_pack)
+    end
   end
 
   sub_test_case 'thread_local_msgpack_unpacker' do
