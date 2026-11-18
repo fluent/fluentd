@@ -38,7 +38,7 @@ module Fluent
         \A<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} %s\z
       EOS
 
-      REGEXP_DETECT_RFC5424 = /\A\<[0-9]{1,3}\>[1-9]\d{0,2}/
+      REGEXP_DETECT_RFC5424 = /\A\<[0-9]{1,3}\>[1-9]\d{0,2} /
 
       RFC3164_WITHOUT_TIME_AND_PRI_REGEXP = /(?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       RFC3164_CAPTURES = RFC3164_WITHOUT_TIME_AND_PRI_REGEXP.names.freeze
