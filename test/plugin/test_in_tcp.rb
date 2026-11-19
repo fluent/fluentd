@@ -473,6 +473,36 @@ class TcpInputTest < Test::Unit::TestCase
       )
     end
 
+    test "accept a message at the limit when the delimiter is split" do |data|
+      payload = '{"k":"at-limit"}'
+      d = create_driver(base_config + %!
+        bind 127.0.0.1
+        message_length_limit #{payload.bytesize}
+        delimiter "\\r\\n"
+        <parse>
+          @type json
+        </parse>
+        #{data[:extract]}
+      !)
+
+      d.run(expect_records: 1, timeout: 20) do
+        create_tcp_socket('127.0.0.1', @port) do |sock|
+          sock.write(payload + "\r")
+          # Wait for the prefix to reach the receive callback before sending LF.
+          waiting(10) do
+            connections = d.instance.instance_variable_get(:@_server_connections)
+            until connections.first&.instance_variable_get(:@callback_connection)&.buffer&.end_with?("\r")
+              sleep 0.01
+            end
+          end
+          sock.write("\n{\"k\":\"after\"}\r\n")
+          waiting(10) { sleep 0.01 until d.events.any? { |event| event[2]["k"] == "after" } }
+        end
+      end
+
+      assert_equal(["at-limit", "after"], d.events.map { |event| event[2]["k"] })
+    end
+
     test "do not cut a multi-byte delimiter when clearing the buffer" do |data|
       message_length_limit = 12
       d = create_driver(base_config + %!
