@@ -136,6 +136,17 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       end
     end
 
+    data('float' => [1700000000.123, 123_000_000],
+         'float 0.1' => [1700000000.1, 100_000_000],
+         'numeric string' => ['1700000000.123', 123_000_000],
+         'string with nanoseconds' => ['1700000000.123456789', 123_456_789],
+         'integer' => [1700000000, 0])
+    test 'renew_time_key keeps the fractional part as written' do |(value, expected_nsec)|
+      filtered = filter(%[renew_time_key message], [value])
+      time, _record = filtered.first
+      assert_equal([1700000000, expected_nsec], [time.sec, time.nsec])
+    end
+
     test 'keep_keys' do
       config = %[renew_record true\nkeep_keys foo,message]
       msgs = ['1', '2']
