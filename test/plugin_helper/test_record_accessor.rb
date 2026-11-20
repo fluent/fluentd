@@ -141,6 +141,16 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       assert_equal 'value', accessor.call(r)
     end
 
+    data('string' => {'key1' => {'key2' => 'value'}},
+         'integer' => {'key1' => {'key2' => 1}},
+         'array' => {'key1' => {'key2' => ['value']}})
+    test "don't raise an error when a parent of the nested key is not a hash" do |r|
+      accessor = @d.record_accessor_create('$.key1.key2.key3')
+      assert_nothing_raised do
+        assert_nil accessor.call(r)
+      end
+    end
+
     data("missing ']'" => "$['key1'",
          "missing array index with dot" => "$.hello[]",
          "missing array index with bracket" => "$['hello'][]",
