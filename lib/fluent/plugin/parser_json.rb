@@ -100,7 +100,10 @@ module Fluent
             parser << chunk
             while parser.parse
               record = parser.value
-              block.call(parse_time(record), record)
+              time = parse_time(record)
+              # convert_values only accepts a Hash. Other JSON values are passed through as before.
+              time, record = convert_values(time, record) if @execute_convert_values && record.is_a?(Hash)
+              block.call(time, record)
             end
           end
         rescue EOFError
