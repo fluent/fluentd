@@ -207,6 +207,40 @@ class JsonParserTest < ::Test::Unit::TestCase
       assert_equal([[event_time('2013-02-28 12:00:00 +0900').to_i, {'size' => '777'}]], results)
     end
 
+    def test_parse_io_applies_types
+      @parser.configure('types' => 'size:string,count:integer')
+      results = []
+      io = StringIO.new('{"time":1362020400,"size":777,"count":"5"}{"size":1,"count":"6"}')
+      @parser.instance.parse_io(io) { |time, record|
+        results << [time.to_i, record]
+      }
+      assert_equal(2, results.size)
+      assert_equal([event_time('2013-02-28 12:00:00 +0900').to_i, {'size' => '777', 'count' => 5}], results[0])
+      assert_equal({'size' => '1', 'count' => 6}, results[1][1])
+    end
+
+    data('null_empty_string' => [{'null_empty_string' => 'true'}, '{"k":""}'],
+         'null_value_pattern' => [{'null_value_pattern' => '^-$'}, '{"k":"-"}'])
+    def test_parse_io_applies_null_conversion((conf, text))
+      @parser.configure(conf)
+      results = []
+      @parser.instance.parse_io(StringIO.new(text)) { |time, record|
+        results << record
+      }
+      assert_equal([{'k' => nil}], results)
+    end
+
+    def test_parse_io_with_conversion_and_non_hash_values
+      @parser.configure('types' => 'k:string', 'null_empty_string' => 'true')
+      results = []
+      assert_nothing_raised do
+        @parser.instance.parse_io(StringIO.new('"message"[1]{"k":1}')) { |time, record|
+          results << record
+        }
+      end
+      assert_equal({'k' => '1'}, results.last)
+    end
+
     data('no conversion' => [{}, 0],
          'types' => [{'types' => 'k:string'}, 2],
          'null_empty_string' => [{'null_empty_string' => 'true'}, 2],
