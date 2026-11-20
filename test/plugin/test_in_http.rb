@@ -1370,6 +1370,24 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal ["403", "403"], res_codes
   end
 
+  def test_cors_disallowed_origin_starting_with_allowed_origin
+    d = create_driver(config + 'cors_allow_origins ["http://foo.com"]')
+
+    res_codes = []
+    d.end_if { res_codes.size == 4 }
+    d.run do
+      # An origin that only starts with an allowed origin is not allowed,
+      # for both a normal request and a preflight request.
+      ["http://foo.com:8080", "http://foo.com.example.org"].each do |origin|
+        res = post("/tag1", {"json" => {"a" => 1}.to_json}, {"Origin" => origin})
+        res_codes << res.code
+        res = options("/tag1", {}, {"Origin" => origin, "Access-Control-Request-Method" => "POST"})
+        res_codes << res.code
+      end
+    end
+    assert_equal ["403", "403", "403", "403"], res_codes
+  end
+
   def test_add_query_params
     d = create_driver(config + "add_query_params true")
     assert_equal true, d.instance.add_query_params
