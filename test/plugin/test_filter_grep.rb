@@ -668,6 +668,45 @@ class GrepFilterTest < Test::Unit::TestCase
         }
       end
     end
+
+    # A value on the way to the nested key can be a string, a number, or an array
+    def messages_with_non_hash_parent
+      messages + ["plain text", 42, ["WARN"]]
+    end
+
+    test 'regexps drops records whose parent of the nested key is not a hash' do
+      d = create_driver(%[
+        <regexp>
+          key $.message.nest1.nest2
+          pattern WARN
+        </regexp>
+      ])
+      d.run {
+        messages_with_non_hash_parent.each { |msg|
+          d.feed("filter.test", @time, {'foo' => 'bar', 'message' => msg})
+        }
+      }
+      assert_equal([{"nest1" => {"nest2" => "WARN"}}] * 2,
+                   d.filtered_records.map { |r| r['message'] })
+      assert_equal([], d.logs.select { |log| log.include?("failed to grep events") })
+    end
+
+    test 'excludes keeps records whose parent of the nested key is not a hash' do
+      d = create_driver(%[
+        <exclude>
+          key $.message.nest1.nest2
+          pattern WARN
+        </exclude>
+      ])
+      d.run {
+        messages_with_non_hash_parent.each { |msg|
+          d.feed("filter.test", @time, {'foo' => 'bar', 'message' => msg})
+        }
+      }
+      assert_equal([{"nest1" => {"nest2" => "INFO"}}, "plain text", 42, ["WARN"]],
+                   d.filtered_records.map { |r| r['message'] })
+      assert_equal([], d.logs.select { |log| log.include?("failed to grep events") })
+    end
   end
 
   sub_test_case 'grep non-string jsonable values' do

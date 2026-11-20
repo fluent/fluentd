@@ -59,6 +59,9 @@ module Fluent
         # See https://gist.github.com/repeatedly/ab553ed260cd080bd01ec71da9427312
         def call_dig(r)
           r.dig(*@keys)
+        rescue TypeError
+          # A parent of the last key is not a hash or an array, e.g. a string or a number.
+          nil
         end
 
         def delete(r)
