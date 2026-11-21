@@ -156,6 +156,15 @@ class CSVParserTest < ::Test::Unit::TestCase
         assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal expected, record
       end
+
+      # escaped quotes next to a delimiter inside the quoted value
+      text = '28/Feb/2013:12:00:00 +0900,"mes,sa""ge","mes""sa,ge","me,""ssa"",ge","""mes,sage""",mess age'
+      expected = {'key1' => 'mes,sa"ge', 'key2' => 'mes"sa,ge', 'key3' => 'me,"ssa",ge',
+                  'key4' => '"mes,sage"', 'key5' => 'mess age'}
+      d.instance.parse(text) do |time, record|
+        assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal expected, record
+      end
     end
 
     def test_incompatibility_between_normal_and_fast_parser

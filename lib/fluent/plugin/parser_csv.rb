@@ -84,24 +84,28 @@ module Fluent
         j = 0
         while j < num_columns
           column = columns[j]
+          quote_count = column.count(@quote_char)
 
-          case column.count(@quote_char)
+          # A quoted value with the delimiter inside it was split into several columns.
+          # Join the following columns until its quotes are balanced again, so escaped
+          # quotes ("") next to the delimiter don't end the value early.
+          if quote_count.odd? && column.start_with?(@quote_char)
+            to_merge = [column]
+            while quote_count.odd? && j + 1 < num_columns
+              j += 1
+              to_merge << columns[j]
+              quote_count += columns[j].count(@quote_char)
+            end
+            column = to_merge.join(@delimiter)
+          end
+
+          case quote_count
           when 0
             if column.empty?
               column = nil
             end
           when 1
-            if column.start_with?(@quote_char)
-              to_merge = [column]
-              j += 1
-              while j < num_columns
-                merged_col = columns[j]
-                to_merge << merged_col
-                break if merged_col.end_with?(@quote_char)
-                j += 1
-              end
-              column = to_merge.join(@delimiter)[1..-2]
-            end
+            # unbalanced quote, keep the value as is
           when 2
             if column.start_with?(@quote_char) && column.end_with?(@quote_char)
               column = column[1..-2]
