@@ -62,10 +62,21 @@ class TestFluentdCtl < ::Test::Unit::TestCase
 
     argv, message = data
     out = capture_stdout do
-      assert_raise(SystemExit) do
+      e = assert_raise(SystemExit) do
         Fluent::Ctl.new(argv)
       end
+      assert_equal(1, e.status)
     end
     assert_include(out, message)
+  end
+
+  def test_default_winsvc_name
+    omit "Only for Windows" unless Fluent.windows?
+
+    ctl = assert_nothing_raised do
+      Fluent::Ctl.new(["shutdown"])
+    end
+    mock(ctl).call_winsvc_control_code("shutdown", "fluentdwinsvc") { true }
+    ctl.call
   end
 end
