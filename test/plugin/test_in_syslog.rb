@@ -820,6 +820,34 @@ EOS
       )
     end
 
+    test 'traditional: accept a message at the limit when the delimiter is split' do
+      port = unused_port(protocol: :tcp)
+      at_limit = '<6>Sep 10 00:00:00 localhost logger: at-limit'
+      d = create_driver([
+        ipv4_config(port),
+        "<transport tcp>\n</transport>",
+        'delimiter "\\r\\n"',
+        "message_length_limit #{at_limit.bytesize}",
+      ].join("\n"))
+
+      d.run(expect_emits: 1, timeout: 20) do
+        TCPSocket.open('127.0.0.1', port) do |sock|
+          sock.write(at_limit + "\r")
+          # Wait for the prefix to reach the receive callback before sending LF.
+          waiting(10) do
+            connections = d.instance.instance_variable_get(:@_server_connections)
+            until connections.first&.instance_variable_get(:@callback_connection)&.buffer&.end_with?("\r")
+              sleep 0.01
+            end
+          end
+          sock.write("\n#{NORMAL_MESSAGE}\r\n")
+          waiting(10) { sleep 0.01 until d.events.any? { |event| event[2]["message"] == "hello" } }
+        end
+      end
+
+      assert_equal(["at-limit", "hello"], d.events.map { |event| event[2]["message"] })
+    end
+
     test 'traditional: a message split into multiple chunks is reassembled' do
       port = unused_port(protocol: :tcp)
       d = create_tcp_driver(port)

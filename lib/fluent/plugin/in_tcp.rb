@@ -115,6 +115,8 @@ module Fluent::Plugin
       # The received data is binary (ASCII-8BIT), so match the delimiter as bytes.
       delimiter = @delimiter.b
       del_size = delimiter.bytesize
+      # A partial delimiter does not count toward the message length limit.
+      buffer_limit = @message_length_limit + del_size - 1 if @message_length_limit
       if @_extract_enabled && @_extract_tag_key
         server_create_connection(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key, send_keepalive_packet: @send_keepalive_packet) do |conn|
           discard_till_next_delimiter = false
@@ -158,9 +160,8 @@ module Fluent::Plugin
               end
             end
             buf.slice!(0, pos) if pos > 0
-            # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
-            # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
-            if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
+            # Discard an oversized message without waiting for its delimiter.
+            if buffer_limit && buf.bytesize > buffer_limit
               # The rest of a long message fills the buffer again on each read, so log only the first clear.
               unless discard_till_next_delimiter
                 log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize
@@ -217,9 +218,8 @@ module Fluent::Plugin
             end
             router.emit_stream(@tag, es) unless es.empty?
             buf.slice!(0, pos) if pos > 0
-            # If the buffer size exceeds the limit here, it means that the next message will definitely exceed the limit.
-            # So we should clear the buffer here. Otherwise, it will keep storing useless data until the next delimiter comes.
-            if !@message_length_limit.nil? && @message_length_limit < buf.bytesize
+            # Discard an oversized message without waiting for its delimiter.
+            if buffer_limit && buf.bytesize > buffer_limit
               # The rest of a long message fills the buffer again on each read, so log only the first clear.
               unless discard_till_next_delimiter
                 log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buf.bytesize

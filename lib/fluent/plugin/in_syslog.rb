@@ -189,6 +189,8 @@ module Fluent::Plugin
       # The received data is binary (ASCII-8BIT), so match the delimiter as bytes.
       delimiter = octet_count_frame ? " " : @delimiter.b
       delimiter_size = delimiter.bytesize
+      # A partial delimiter does not count toward the message length limit.
+      buffer_limit = @message_length_limit + delimiter_size - 1
       server_create_connection(
         tls ? :in_syslog_tls_server : :in_syslog_tcp_server, @port,
         bind: @bind,
@@ -273,10 +275,8 @@ module Fluent::Plugin
             end
             buffer.slice!(0, pos) if pos > 0
 
-            # If the buffer size exceeds the limit here, it means that the next message will
-            # definitely exceed the limit. So we should clear the buffer here. Otherwise, it will
-            # keep storing useless data until the next delimiter comes.
-            if buffer.bytesize > @message_length_limit
+            # Discard an oversized message without waiting for its delimiter.
+            if buffer.bytesize > buffer_limit
               # The rest of a long message fills the buffer again on each read, so log only the first clear.
               unless discard_till_next_delimiter
                 log.info "The buffer size exceeds 'message_length_limit', cleared:", limit: @message_length_limit, size: buffer.bytesize
