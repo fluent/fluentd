@@ -4873,7 +4873,8 @@ class TailInputTest < Test::Unit::TestCase
 
         waiting(15) { sleep 0.1 until d.instance.instance_variable_get(:@tails_rotate_wait).empty? }
         assert_true(old_tw.eof?)
-        assert_false(old_tw.group_watcher.include?("#{@tmp_dir}/old.log"))
+        # The timer drops the watcher from @tails_rotate_wait before detach_watcher removes it from the group.
+        waiting(5) { sleep 0.1 while old_tw.group_watcher.include?("#{@tmp_dir}/old.log") }
       end
       assert_equal([], d.logs.grep(/Stopping the timer/))
     end
