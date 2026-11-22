@@ -494,6 +494,110 @@ class HTTPOutputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'bearer auth' do
+    setup do
+      FileUtils.mkdir_p(TMP_DIR)
+      @token_path = File.join(TMP_DIR, 'token')
+      File.write(@token_path, "file-token
+")
+    end
+
+    teardown do
+      FileUtils.rm_rf(TMP_DIR)
+    end
+
+    def test_bearer_token
+      d = create_driver(config + %[
+        <auth>
+          method bearer
+          token my-token
+        </auth>
+      ])
+      d.run(default_tag: 'test.http') do
+        test_events.each { |event|
+          d.feed(event)
+        }
+      end
+
+      result = @@result
+      assert_equal test_events, result.data
+      assert_equal 'Bearer my-token', result.headers['authorization']
+    end
+
+    def test_bearer_token_path
+      d = create_driver(config + %[
+        <auth>
+          method bearer
+          token_path #{@token_path}
+        </auth>
+      ])
+      d.run(default_tag: 'test.http') do
+        test_events.each { |event|
+          d.feed(event)
+        }
+      end
+
+      result = @@result
+      assert_equal test_events, result.data
+      assert_equal 'Bearer file-token', result.headers['authorization']
+    end
+
+    def test_bearer_token_path_picks_up_rotated_token
+      d = create_driver(config + %[
+        <auth>
+          method bearer
+          token_path #{@token_path}
+        </auth>
+      ])
+      uri = URI.parse("#{base_endpoint}/test")
+
+      req = Net::HTTP::Post.new(uri.request_uri)
+      d.instance.__send__(:set_auth, req, uri)
+      assert_equal 'Bearer file-token', req['authorization']
+
+      File.write(@token_path, "rotated-token
+")
+      req = Net::HTTP::Post.new(uri.request_uri)
+      d.instance.__send__(:set_auth, req, uri)
+      assert_equal 'Bearer rotated-token', req['authorization']
+    end
+
+    def test_bearer_token_path_unreadable_at_request_time
+      d = create_driver(config + %[
+        <auth>
+          method bearer
+          token_path #{@token_path}
+        </auth>
+      ])
+      uri = URI.parse("#{base_endpoint}/test")
+
+      File.delete(@token_path)
+      req = Net::HTTP::Post.new(uri.request_uri)
+      assert_raise(Errno::ENOENT) do
+        d.instance.__send__(:set_auth, req, uri)
+      end
+    end
+
+    data('neither token nor token_path' => '',
+         'both token and token_path' => "token my-token
+token_path %{path}",
+         'empty token' => 'token " "',
+         'missing token file' => 'token_path %{path}.missing',
+         'empty token file' => 'token_path %{path}.empty')
+    def test_bearer_config_error(auth_params)
+      File.write("#{@token_path}.empty", "
+")
+      assert_raise(Fluent::ConfigError) do
+        create_driver(config + %[
+          <auth>
+            method bearer
+            #{auth_params % {path: @token_path}}
+          </auth>
+        ])
+      end
+    end
+  end
+
   sub_test_case 'HTTPS' do
     def server_config
       config = super
