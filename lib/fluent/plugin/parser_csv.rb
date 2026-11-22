@@ -84,28 +84,38 @@ module Fluent
         j = 0
         while j < num_columns
           column = columns[j]
-          quote_count = column.count(@quote_char)
 
           # A quoted value with the delimiter inside it was split into several columns.
-          # Join the following columns until its quotes are balanced again, so escaped
-          # quotes ("") next to the delimiter don't end the value early.
-          if quote_count.odd? && column.start_with?(@quote_char)
-            to_merge = [column]
-            while quote_count.odd? && j + 1 < num_columns
-              j += 1
-              to_merge << columns[j]
-              quote_count += columns[j].count(@quote_char)
+          # Escaped quotes ("") next to the delimiter can make the pieces look closed too
+          # early, so join them only when the result is a well-formed quoted value.
+          # Anything else is left to the logic below, as before.
+          if column.start_with?(@quote_char) && column.count(@quote_char).odd?
+            merged, last = join_quoted_columns(columns, j)
+            if merged
+              record[@keys[i]] = merged
+              j = last + 1
+              i += 1
+              next
             end
-            column = to_merge.join(@delimiter)
           end
 
-          case quote_count
+          case column.count(@quote_char)
           when 0
             if column.empty?
               column = nil
             end
           when 1
-            # unbalanced quote, keep the value as is
+            if column.start_with?(@quote_char)
+              to_merge = [column]
+              j += 1
+              while j < num_columns
+                merged_col = columns[j]
+                to_merge << merged_col
+                break if merged_col.end_with?(@quote_char)
+                j += 1
+              end
+              column = to_merge.join(@delimiter)[1..-2]
+            end
           when 2
             if column.start_with?(@quote_char) && column.end_with?(@quote_char)
               column = column[1..-2]
@@ -122,6 +132,24 @@ module Fluent
           i += 1
         end
         record
+      end
+
+      # Joins columns from `from` until they make one well-formed quoted value, in which
+      # every quote inside is doubled. Returns the unescaped value and the index of its
+      # last column, or nil when there is no such value.
+      def join_quoted_columns(columns, from)
+        joined = columns[from]
+        k = from
+        while (k += 1) < columns.size
+          joined = "#{joined}#{@delimiter}#{columns[k]}"
+          next unless joined.end_with?(@quote_char)
+
+          inner = joined[1..-2]
+          unless inner.gsub(@escape_pattern, '').include?(@quote_char)
+            return inner.gsub(@escape_pattern, @quote_char), k
+          end
+        end
+        nil
       end
     end
   end

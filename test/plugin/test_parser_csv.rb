@@ -197,6 +197,21 @@ class CSVParserTest < ::Test::Unit::TestCase
         assert_not_equal expected, r
       }
 
+      # quotes in the middle of a quoted value keep the following columns
+      fast = create_driver(
+        'keys' => 'method,path,status,size',
+        'parser_type' => 'fast'
+      )
+      [
+        ['GET,"/search?q=a"b",200,1234', '/search?q=a"b'],
+        ['GET,"a \\"b",200,1234', 'a \\"b'],
+        ['GET,"a,b"c"",200,1234', 'a,b"c"'],
+      ].each do |line, path|
+        fast.instance.parse(line) { |t, r|
+          assert_equal({'method' => 'GET', 'path' => path, 'status' => '200', 'size' => '1234'}, r)
+        }
+      end
+
       # And more...
     end
   end
