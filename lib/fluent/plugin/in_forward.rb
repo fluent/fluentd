@@ -134,6 +134,10 @@ module Fluent::Plugin
         if !@security.allow_anonymous_source && @security.clients.empty?
           raise Fluent::ConfigError, "<client> sections required if allow_anonymous_source disabled"
         end
+        additional_keys = @security.additional_shared_keys + @security.clients.flat_map(&:additional_shared_keys)
+        if additional_keys.any? { |key| key.nil? || key.empty? }
+          raise Fluent::ConfigError, "additional_shared_keys must not contain an empty key"
+        end
 
         @nodes = []
         @shared_keys = [@security.shared_key, *@security.additional_shared_keys].uniq
@@ -158,7 +162,7 @@ module Fluent::Plugin
                         rescue ArgumentError
                           raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
                         end
-          shared_keys = client.shared_key ? [client.shared_key] : [@security.shared_key, *@security.additional_shared_keys]
+          shared_keys = client.shared_key ? [client.shared_key] : @shared_keys
           @nodes.push({
               address: source_addr,
               shared_keys: (shared_keys + client.additional_shared_keys).uniq,

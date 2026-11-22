@@ -1325,6 +1325,66 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_true d.instance.check_ping(ping_message('oldkey1', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
     end
 
+    test 'client without shared_key adds its own additional_shared_keys to the keys from security' do
+      @d = d = create_driver(security_config(%[
+        additional_shared_keys oldkey1
+        <client>
+          network 127.0.0.0/8
+          additional_shared_keys clientoldkey
+        </client>
+      ]))
+      ['newkey', 'oldkey1', 'clientoldkey'].each do |key|
+        assert_true d.instance.check_ping(ping_message(key, 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0], "#{key} should be accepted"
+      end
+      assert_false d.instance.check_ping(ping_message('otherkey', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+    end
+
+    data(
+      'stray comma' => 'additional_shared_keys oldkey1,,oldkey2',
+      'null in JSON array' => 'additional_shared_keys [null, "oldkey"]',
+      'empty string in JSON array' => 'additional_shared_keys [""]',
+      'empty key in client' => %[
+        <client>
+          network 127.0.0.0/8
+          additional_shared_keys oldkey1,,oldkey2
+        </client>
+      ],
+      'null in client' => %[
+        <client>
+          network 127.0.0.0/8
+          additional_shared_keys [null, "oldkey"]
+        </client>
+      ],
+    )
+    test 'rejects empty or null additional_shared_keys' do |security_body|
+      assert_raise(Fluent::ConfigError.new("additional_shared_keys must not contain an empty key")) do
+        create_driver(security_config(security_body))
+      end
+    end
+
+    data(
+      'comma separated with an unset variable' => %q[additional_shared_keys "#{ENV['OLD_KEY']},#{ENV['OLDER_KEY']}"],
+      'JSON array with an unset variable' => %q[additional_shared_keys ["#{ENV['OLD_KEY']}"]],
+    )
+    test 'rejects an empty key from an unset environment variable' do |security_body|
+      old_key = ENV.delete('OLD_KEY')
+      older_key = ENV['OLDER_KEY']
+      ENV['OLDER_KEY'] = 'olderkey'
+      assert_raise(Fluent::ConfigError.new("additional_shared_keys must not contain an empty key")) do
+        create_driver(security_config(security_body))
+      end
+    ensure
+      old_key.nil? ? ENV.delete('OLD_KEY') : ENV['OLD_KEY'] = old_key
+      older_key.nil? ? ENV.delete('OLDER_KEY') : ENV['OLDER_KEY'] = older_key
+    end
+
+    test 'accepts an omitted or empty additional_shared_keys' do
+      ['', 'additional_shared_keys []', 'additional_shared_keys ""'].each do |body|
+        d = create_driver(security_config(body))
+        assert_equal [], d.instance.security.additional_shared_keys
+      end
+    end
+
     test 'client with its own shared_key uses only its own keys' do
       @d = d = create_driver(security_config(%[
         additional_shared_keys oldkey1
