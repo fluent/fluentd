@@ -60,7 +60,8 @@ module Fluent
         def call_dig(r)
           r.dig(*@keys)
         rescue TypeError
-          # A parent of the last key is not a hash or an array, e.g. a string or a number.
+          # Treat TypeError from dig as a missing key, e.g. when looking up
+          # a field on a string or using a string as an array index.
           nil
         end
 
