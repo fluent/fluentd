@@ -59,6 +59,10 @@ module Fluent
         # See https://gist.github.com/repeatedly/ab553ed260cd080bd01ec71da9427312
         def call_dig(r)
           r.dig(*@keys)
+        rescue TypeError
+          # Treat TypeError from dig as a missing key, e.g. when looking up
+          # a field on a string or using a string as an array index.
+          nil
         end
 
         def delete(r)
