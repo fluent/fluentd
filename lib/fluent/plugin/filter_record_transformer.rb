@@ -116,10 +116,23 @@ module Fluent::Plugin
     private
 
     def renew_time_from(value)
-      # Float#to_r is the exact binary value (1700000000.123 would become ...122999906 nsec),
-      # so use the shortest decimal representation, as `time_type float` of <parse> does.
-      value = value.to_s if value.is_a?(Float) && value.finite?
-      Fluent::EventTime.from_time(Time.at(value.to_r))
+      seconds = case value
+                when Float
+                  # Float#to_r is the exact binary value (1700000000.123 would become ...122999906 nsec),
+                  # so use the shortest decimal representation, as `time_type float` of <parse> does.
+                  value.finite? ? value.to_s.to_r : value
+                when String
+                  # String#to_r also reads "1/2" and expands "1e1000000000", so only a plain decimal uses it.
+                  float = value.to_f
+                  if float.finite? && value.ascii_only? && value.match?(/\A\s*[-+]?\d+(?:\.\d+)?\s*\z/)
+                    value.to_r
+                  else
+                    float
+                  end
+                else
+                  value.to_f
+                end
+      Fluent::EventTime.from_time(Time.at(seconds))
     end
 
     def parse_value(value_str)
