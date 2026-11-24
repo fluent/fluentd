@@ -957,6 +957,37 @@ EOL
     assert_equal(['test', time, records[1]], events[1])
   end
 
+  test 'connection error shows the host when the server has no name' do
+    server = TCPServer.new(TARGET_HOST, @target_port)
+    server_thread = Thread.new do
+      loop do
+        server.accept.close
+      end
+    end
+
+    @d = d = create_driver(%[
+      heartbeat_type none
+      <security>
+        self_hostname localhost
+        shared_key fluentd-sharedkey
+      </security>
+      <server>
+        host #{TARGET_HOST}
+        port #{@target_port}
+      </server>
+    ])
+
+    chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+    d.run(shutdown: false) do
+      assert_raise(Fluent::Plugin::ForwardOutput::ConnectionClosedError.new("failed to establish connection with node #{TARGET_HOST}")) do
+        d.instance.nodes.first.send_data('test', chunk)
+      end
+    end
+  ensure
+    server_thread&.kill
+    server&.close
+  end
+
   test 'keepalive + shared_key' do
     input_conf = target_config + %[
                    <security>

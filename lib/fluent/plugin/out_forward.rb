@@ -839,7 +839,7 @@ module Fluent::Plugin
           establish_connection(sock, request_info)
 
           if request_info.state != :established
-            raise ConnectionClosedError, "failed to establish connection with node #{@name}"
+            raise ConnectionClosedError, "failed to establish connection with node #{@name || @host}"
           end
         end
       end
