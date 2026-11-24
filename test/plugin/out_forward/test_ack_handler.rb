@@ -107,6 +107,56 @@ class AckHandlerTest < Test::Unit::TestCase
     end
   end
 
+  test 'an ack read on another thread is not lost' do
+    fed, resume = Queue.new, Queue.new
+    # Stop the first reader right after #feed, before #read.
+    stub.proxy(Fluent::MessagePackFactory).msgpack_unpacker do |unpacker|
+      stub.proxy(unpacker).feed do |ret|
+        if Thread.current[:pause_after_feed]
+          fed << true
+          resume.pop
+        end
+        ret
+      end
+      unpacker
+    end
+    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 10, log: Fluent::Test::TestLogger.new, read_length: 100)
+    node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
+
+    r1, w1 = IO.pipe
+    r2, w2 = IO.pipe
+    begin
+      w1.write('readable')
+      mock(r1).recv(anything) { |_| r1.readpartial(100); MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') }) } # IO does not have recv. Drain the pipe as a real recv would.
+      ack_handler.create_ack('chunk_id 111', node).enqueue(r1)
+      first_results = []
+      reader = Thread.new do
+        Thread.current[:pause_after_feed] = true
+        ack_handler.collect_response(1) { |cid, _n, _s, ret| first_results << [cid, ret] }
+      end
+      assert_equal true, fed.pop(timeout: 5), 'first reader did not reach feed'
+
+      w2.write('readable')
+      mock(r2).recv(anything) { |_| r2.readpartial(100); MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 222') }) }
+      ack_handler.create_ack('chunk_id 222', node).enqueue(r2)
+      second_results = []
+      second_reader = Thread.new do
+        ack_handler.collect_response(1) { |cid, _n, _s, ret| second_results << [cid, ret] }
+      end
+      assert_not_nil second_reader.join(5), 'second reader did not finish'
+      resume << true
+      assert_not_nil reader.join(5), 'first reader did not finish'
+
+      assert_equal [[['chunk_id 111', Fluent::Plugin::ForwardOutput::AckHandler::Result::SUCCESS]],
+                    [['chunk_id 222', Fluent::Plugin::ForwardOutput::AckHandler::Result::SUCCESS]]],
+                   [first_results, second_results]
+    ensure
+      resume.close
+      [reader, second_reader].compact.each { |t| t.kill.join(5) if t.alive? }
+      [r1, w1, r2, w2].each { |io| io.close rescue nil }
+    end
+  end
+
   test 'when ack is expired' do
     ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 0, log: $log, read_length: 100)
 
