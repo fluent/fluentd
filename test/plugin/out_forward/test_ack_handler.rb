@@ -71,6 +71,39 @@ class AckHandlerTest < Test::Unit::TestCase
     end
   end
 
+  data(
+    'truncated response' => MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') })[0..5],
+    'extra bytes after the response' => MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') }) + MessagePack.pack({ 'ack' => 'extra' }),
+  )
+  test 'a response on a connection does not affect the ack of another connection' do |first_response|
+    # A truncated response logs an error. Keep it out of $log, which another test checks.
+    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 10, log: Fluent::Test::TestLogger.new, read_length: 100)
+    node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
+
+    r1, w1 = IO.pipe
+    r2, w2 = IO.pipe
+    begin
+      w1.write('readable')
+      mock(r1).recv(anything) { |_| first_response } # IO does not have recv
+      ack_handler.create_ack('chunk_id 111', node).enqueue(r1)
+      ack_handler.collect_response(1) { |_cid, _n, _s, _ret| }
+
+      w2.write('readable')
+      mock(r2).recv(anything) { |_| MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 222') }) }
+      ack_handler.create_ack('chunk_id 222', node).enqueue(r2)
+
+      results = []
+      ack_handler.collect_response(1) do |cid, _n, _s, ret|
+        # This block is rescued by ack_handler so it needs to invoke assertion outside of this block
+        results << [cid, ret]
+      end
+
+      assert_equal [['chunk_id 222', Fluent::Plugin::ForwardOutput::AckHandler::Result::SUCCESS]], results
+    ensure
+      [r1, w1, r2, w2].each { |io| io.close rescue nil }
+    end
+  end
+
   test 'when ack is expired' do
     ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 0, log: $log, read_length: 100)
 
