@@ -163,7 +163,8 @@ module Fluent
       @opt_parser.parse!(@argv)
 
       @command = @argv[0]
-      @pid_or_svcname = @argv[1] || "fluentdwinsvc"
+      @pid_or_svcname = @argv[1]
+      @pid_or_svcname ||= "fluentdwinsvc" if Fluent.windows? # a service name can be omitted on Windows only
 
       usage("Command isn't specified!") if @command.nil? || @command.empty?
       usage("Unknown command: #{@command}") unless COMMAND_MAP.has_key?(@command.to_sym)
@@ -172,7 +173,7 @@ module Fluent
         usage("PID or SVCNAME isn't specified!") if @pid_or_svcname.nil? || @pid_or_svcname.empty?
       else
         usage("PID isn't specified!") if @pid_or_svcname.nil? || @pid_or_svcname.empty?
-        usage("Invalid PID: #{pid}") unless /^[0-9]+$/.match?(@pid_or_svcname)
+        usage("Invalid PID: #{@pid_or_svcname}") unless /^[0-9]+$/.match?(@pid_or_svcname)
       end
     end
   end
