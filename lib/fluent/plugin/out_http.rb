@@ -27,6 +27,7 @@ module Fluent::Plugin
     Fluent::Plugin.register_output('http', self)
 
     class RetryableResponse < StandardError; end
+    class BearerTokenError < StandardError; end
 
     ConnectionCache = Struct.new(:uri, :conn)
 
@@ -170,17 +171,22 @@ module Fluent::Plugin
         define_singleton_method(:format, method(:format_json_array))
       end
 
+      if @auth and @auth.method != :bearer and (@auth.token or @auth.token_path)
+        log.warn "token and token_path in <auth> are used only with method bearer"
+      end
+
       if @auth and @auth.method == :bearer
         if @auth.token.nil? == @auth.token_path.nil?
           raise Fluent::ConfigError, "either token or token_path is required for bearer auth, but not both"
         end
-        raise Fluent::ConfigError, "token must not be empty for bearer auth" if @auth.token && @auth.token.strip.empty?
-        if @auth.token_path
-          begin
+        begin
+          if @auth.token_path
             read_bearer_token
-          rescue SystemCallError, RuntimeError => e
-            raise Fluent::ConfigError, "failed to read token_path for bearer auth: #{e.message}"
+          else
+            @bearer_token = normalize_bearer_token(@auth.token)
           end
+        rescue SystemCallError, BearerTokenError => e
+          raise Fluent::ConfigError, "invalid token or token_path for bearer auth: #{e.message}"
         end
       end
 
@@ -356,14 +362,20 @@ module Fluent::Plugin
         req.add_field('x-amz-content-sha256', signature.headers['x-amz-content-sha256'])
         req.add_field('authorization', signature.headers['authorization'])
       elsif @auth.method == :bearer
-        token = @auth.token_path ? read_bearer_token : @auth.token
+        token = @auth.token_path ? read_bearer_token : @bearer_token
         req['Authorization'] = "Bearer #{token}"
       end
     end
 
     def read_bearer_token
-      token = File.read(@auth.token_path).strip
-      raise "token file is empty: #{@auth.token_path}" if token.empty?
+      normalize_bearer_token(File.read(@auth.token_path))
+    end
+
+    def normalize_bearer_token(value)
+      raise BearerTokenError, "token must be ASCII" unless value.ascii_only?
+      token = value.strip
+      raise BearerTokenError, "token is empty" if token.empty?
+      raise BearerTokenError, "token must be a single line" if token.match?(/[\r\n]/)
       token
     end
 
