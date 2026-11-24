@@ -50,10 +50,14 @@ module Fluent::Plugin
           return [socket, request_info]
         end
 
+        succeeded = false
         begin
-          yield(socket, request_info)
+          ret = yield(socket, request_info)
+          succeeded = true
+          ret
         ensure
-          if ack
+          # Wait for an ack only when the data was sent. The caller retries a failed send by itself.
+          if ack && succeeded
             ack.enqueue(socket)
           else
             socket.close_write rescue nil

@@ -77,6 +77,27 @@ class ConnectionManager < Test::Unit::TestCase
           assert_equal(ri.state, :established)
         end
       end
+
+      test 'closes socket without waiting for ack when block raises' do
+        sock = 'sock'
+        cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
+          log: $log,
+          secure: false,
+          connection_factory: -> (_, _, _) {
+            mock(sock).close.once
+            mock(sock).close_write.once
+            sock
+          },
+          socket_cache: nil,
+        )
+
+        ack = mock('ack').enqueue(sock).never.subject
+        assert_raise(RuntimeError.new('failed')) do
+          cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |_sock, _ri|
+            raise 'failed'
+          end
+        end
+      end
     end
 
     sub_test_case 'when socket_cache exists' do
