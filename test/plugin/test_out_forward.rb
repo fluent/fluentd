@@ -729,7 +729,7 @@ EOL
     'with ack and keepalive' => ["require_ack_response true\nkeepalive true", true],
     'without ack' => ['', true],
   )
-  test 'a node is disabled when sending data fails and an ack is required' do |(conf, available)|
+  test 'a failed send disables the node without rolling back the chunk when an ack is required' do |(conf, available)|
     server = TCPServer.new(TARGET_HOST, 0)
     socks = []
     server_thread = Thread.new do
@@ -746,6 +746,8 @@ EOL
     ])
     node = d.instance.nodes.first
     stub(node).send_data_actual { raise Errno::ECONNRESET }
+    rollbacks = 0
+    stub(d.instance).rollback_write { |*| rollbacks += 1 }
 
     chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
     d.run(shutdown: false) do
@@ -758,6 +760,8 @@ EOL
         end
       end
       assert_equal(available, node.available?)
+      # The flush retries a failed send by itself. A rollback here sends the chunk again.
+      assert_equal(0, rollbacks)
     end
   ensure
     server_thread&.kill

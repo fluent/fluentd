@@ -71,27 +71,27 @@ class ConnectionManager < Test::Unit::TestCase
         )
 
         mock.proxy(cm).connect_keepalive(anything).never
-        ack = mock('ack').enqueue(sock).once.subject
+        ack = mock('ack').enqueue(sock, sent: true).once.subject
         cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |sock, ri|
           assert_equal(sock, 'sock')
           assert_equal(ri.state, :established)
         end
       end
 
-      test 'closes socket without waiting for ack when block raises' do
+      test 'waits for ack without rollback when block raises' do
         sock = 'sock'
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
           secure: false,
           connection_factory: -> (_, _, _) {
-            mock(sock).close.once
-            mock(sock).close_write.once
+            mock(sock).close.never
+            mock(sock).close_write.never
             sock
           },
           socket_cache: nil,
         )
 
-        ack = mock('ack').enqueue(sock).never.subject
+        ack = mock('ack').enqueue(sock, sent: false).once.subject
         assert_raise(RuntimeError.new('failed')) do
           cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |_sock, _ri|
             raise 'failed'
