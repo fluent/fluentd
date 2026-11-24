@@ -724,6 +724,47 @@ EOL
     assert_equal d.instance.sent_chunk_ids.first, acked_chunk_ids.first
   end
 
+  data(
+    'with ack' => ['require_ack_response true', false],
+    'with ack and keepalive' => ["require_ack_response true\nkeepalive true", true],
+    'without ack' => ['', true],
+  )
+  test 'a node is disabled when sending data fails and an ack is required' do |(conf, available)|
+    server = TCPServer.new(TARGET_HOST, 0)
+    socks = []
+    server_thread = Thread.new do
+      loop { socks << server.accept }
+    end
+
+    @d = d = create_driver(%[
+      #{conf}
+      ack_response_timeout 1s
+      <server>
+        host #{TARGET_HOST}
+        port #{server.local_address.ip_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+    stub(node).send_data_actual { raise Errno::ECONNRESET }
+
+    chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+    d.run(shutdown: false) do
+      assert_raise(Errno::ECONNRESET) do
+        node.send_data('test', chunk)
+      end
+      unless available
+        waiting(5, plugin: d.instance) do
+          sleep 0.1 while node.available?
+        end
+      end
+      assert_equal(available, node.available?)
+    end
+  ensure
+    server_thread&.kill
+    socks&.each(&:close)
+    server&.close
+  end
+
   test 'a node supporting responses after stop' do
     target_input_driver = create_target_input_driver
 

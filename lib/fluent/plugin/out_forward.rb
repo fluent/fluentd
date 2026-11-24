@@ -717,6 +717,10 @@ module Fluent::Plugin
         connect(nil, ack: ack) do |sock, ri|
           ensure_established_connection(sock, ri)
           send_data_actual(sock, tag, chunk)
+        rescue
+          # The failed socket does not wait for an ack, so the ack check cannot disable this node.
+          disable! if ack && !@sender.keepalive
+          raise
         end
 
         heartbeat(false)
