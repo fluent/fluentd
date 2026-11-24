@@ -1267,6 +1267,159 @@ class ForwardInputTest < Test::Unit::TestCase
     io.close rescue nil # SSL socket requires any writes to close sockets
   end
 
+  sub_test_case 'additional_shared_keys' do
+    def ping_message(shared_key, nonce, salt: 'salt', hostname: 'clienthost')
+      digest = Digest::SHA512.new.update(salt).update(hostname).update(nonce).update(shared_key).hexdigest
+      ['PING', hostname, salt, digest, '', '']
+    end
+
+    def pong_digest(shared_key, nonce, salt: 'salt')
+      Digest::SHA512.new.update(salt).update('localhost').update(nonce).update(shared_key).hexdigest
+    end
+
+    def security_config(security_body)
+      base_config + %[
+        <security>
+          self_hostname localhost
+          shared_key newkey
+          #{security_body}
+        </security>
+      ]
+    end
+
+    test 'accepts shared_key and any of additional_shared_keys' do
+      @d = d = create_driver(security_config("additional_shared_keys oldkey1,oldkey2"))
+      nonce = 'nonce'
+
+      ['newkey', 'oldkey1', 'oldkey2'].each do |key|
+        success, salt, shared_key = d.instance.check_ping(ping_message(key, nonce), '127.0.0.1', 'authsalt', nonce)
+        assert_true success, "#{key} should be accepted"
+        assert_equal 'salt', salt
+        assert_equal key, shared_key
+        pong = d.instance.generate_pong(success, salt, nonce, shared_key)
+        assert_equal ['PONG', true, '', 'localhost', pong_digest(key, nonce)], pong
+      end
+    end
+
+    test 'rejects a key that is not configured' do
+      @d = d = create_driver(security_config("additional_shared_keys oldkey1"))
+      success, reason, _ = d.instance.check_ping(ping_message('otherkey', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')
+      assert_false success
+      assert_equal 'shared_key mismatch', reason
+    end
+
+    test 'accepts only shared_key by default' do
+      @d = d = create_driver(security_config(""))
+      assert_true d.instance.check_ping(ping_message('newkey', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+      assert_false d.instance.check_ping(ping_message('oldkey1', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+    end
+
+    test 'client without shared_key inherits the keys from security' do
+      @d = d = create_driver(security_config(%[
+        additional_shared_keys oldkey1
+        <client>
+          network 127.0.0.0/8
+        </client>
+      ]))
+      assert_true d.instance.check_ping(ping_message('newkey', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+      assert_true d.instance.check_ping(ping_message('oldkey1', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+    end
+
+    test 'client without shared_key adds its own additional_shared_keys to the keys from security' do
+      @d = d = create_driver(security_config(%[
+        additional_shared_keys oldkey1
+        <client>
+          network 127.0.0.0/8
+          additional_shared_keys clientoldkey
+        </client>
+      ]))
+      ['newkey', 'oldkey1', 'clientoldkey'].each do |key|
+        assert_true d.instance.check_ping(ping_message(key, 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0], "#{key} should be accepted"
+      end
+      assert_false d.instance.check_ping(ping_message('otherkey', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+    end
+
+    data(
+      'stray comma' => 'additional_shared_keys oldkey1,,oldkey2',
+      'null in JSON array' => 'additional_shared_keys [null, "oldkey"]',
+      'empty string in JSON array' => 'additional_shared_keys [""]',
+      'empty key in client' => %[
+        <client>
+          network 127.0.0.0/8
+          additional_shared_keys oldkey1,,oldkey2
+        </client>
+      ],
+      'null in client' => %[
+        <client>
+          network 127.0.0.0/8
+          additional_shared_keys [null, "oldkey"]
+        </client>
+      ],
+    )
+    test 'rejects empty or null additional_shared_keys' do |security_body|
+      assert_raise(Fluent::ConfigError.new("additional_shared_keys must not contain an empty key")) do
+        create_driver(security_config(security_body))
+      end
+    end
+
+    data(
+      'comma separated with an unset variable' => %q[additional_shared_keys "#{ENV['OLD_KEY']},#{ENV['OLDER_KEY']}"],
+      'JSON array with an unset variable' => %q[additional_shared_keys ["#{ENV['OLD_KEY']}"]],
+    )
+    test 'rejects an empty key from an unset environment variable' do |security_body|
+      old_key = ENV.delete('OLD_KEY')
+      older_key = ENV['OLDER_KEY']
+      ENV['OLDER_KEY'] = 'olderkey'
+      assert_raise(Fluent::ConfigError.new("additional_shared_keys must not contain an empty key")) do
+        create_driver(security_config(security_body))
+      end
+    ensure
+      old_key.nil? ? ENV.delete('OLD_KEY') : ENV['OLD_KEY'] = old_key
+      older_key.nil? ? ENV.delete('OLDER_KEY') : ENV['OLDER_KEY'] = older_key
+    end
+
+    test 'accepts an omitted or empty additional_shared_keys' do
+      ['', 'additional_shared_keys []', 'additional_shared_keys ""'].each do |body|
+        d = create_driver(security_config(body))
+        assert_equal [], d.instance.security.additional_shared_keys
+      end
+    end
+
+    test 'client with its own shared_key uses only its own keys' do
+      @d = d = create_driver(security_config(%[
+        additional_shared_keys oldkey1
+        <client>
+          network 127.0.0.0/8
+          shared_key clientkey
+          additional_shared_keys clientoldkey
+        </client>
+      ]))
+      assert_true d.instance.check_ping(ping_message('clientkey', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+      assert_true d.instance.check_ping(ping_message('clientoldkey', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+      assert_false d.instance.check_ping(ping_message('newkey', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+      assert_false d.instance.check_ping(ping_message('oldkey1', 'nonce'), '127.0.0.1', 'authsalt', 'nonce')[0]
+    end
+
+    test 'additional_shared_keys are masked in the config dump' do
+      @d = d = create_driver(security_config("additional_shared_keys oldkey1"))
+      dump = d.instance.config.to_s
+      assert_not_match(/oldkey1/, dump)
+    end
+
+    test 'forwarded events are accepted with an additional key' do
+      @d = d = create_driver(security_config("additional_shared_keys #{SHARED_KEY}"))
+      time = event_time("2011-01-02 13:14:15 UTC")
+      d.run(expect_records: 1, timeout: 20) do
+        io = connect
+        simulate_auth_sequence(io, SHARED_KEY)
+        io.write ["tag1", time, {"a" => 1}].to_msgpack
+        io.flush
+        io.close
+      end
+      assert_equal [["tag1", time, {"a" => 1}]], d.events
+    end
+  end
+
   sub_test_case 'source_hostname_key and source_address_key features' do
     data(
       both: [:hostname, :address],

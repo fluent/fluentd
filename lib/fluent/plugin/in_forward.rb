@@ -81,6 +81,8 @@ module Fluent::Plugin
       config_param :self_hostname, :string
       desc 'Shared key for authentication'
       config_param :shared_key, :string, secret: true
+      desc 'Other shared keys that are also accepted, e.g. while rotating shared_key'
+      config_param :additional_shared_keys, :array, value_type: :string, default: [], secret: true
       desc 'If true, use user based authentication'
       config_param :user_auth, :bool, default: false
       desc 'Allow anonymous source. <client> sections required if disabled.'
@@ -102,6 +104,8 @@ module Fluent::Plugin
         config_param :network, :string, default: nil
         desc 'Shared key per client'
         config_param :shared_key, :string, default: nil, secret: true
+        desc 'Other shared keys that are also accepted from this client'
+        config_param :additional_shared_keys, :array, value_type: :string, default: [], secret: true
         desc 'Array of username.'
         config_param :users, :array, default: []
       end
@@ -130,8 +134,13 @@ module Fluent::Plugin
         if !@security.allow_anonymous_source && @security.clients.empty?
           raise Fluent::ConfigError, "<client> sections required if allow_anonymous_source disabled"
         end
+        additional_keys = @security.additional_shared_keys + @security.clients.flat_map(&:additional_shared_keys)
+        if additional_keys.any? { |key| key.nil? || key.empty? }
+          raise Fluent::ConfigError, "additional_shared_keys must not contain an empty key"
+        end
 
         @nodes = []
+        @shared_keys = [@security.shared_key, *@security.additional_shared_keys].uniq
 
         @security.clients.each do |client|
           if client.host && client.network
@@ -153,9 +162,10 @@ module Fluent::Plugin
                         rescue ArgumentError
                           raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
                         end
+          shared_keys = client.shared_key ? [client.shared_key] : @shared_keys
           @nodes.push({
               address: source_addr,
-              shared_key: (client.shared_key || @security.shared_key),
+              shared_keys: (shared_keys + client.additional_shared_keys).uniq,
               users: client.users
             })
         end
@@ -452,9 +462,12 @@ module Fluent::Plugin
         return false, "anonymous source host '#{remote_addr}' denied", nil
       end
 
-      shared_key = node ? node[:shared_key] : @security.shared_key
-      serverside = Digest::SHA512.new.update(shared_key_salt).update(hostname).update(nonce).update(shared_key).hexdigest
-      if shared_key_hexdigest != serverside
+      shared_keys = node ? node[:shared_keys] : @shared_keys
+      # The client proves one of the keys. The pong is signed with the same key so the client can verify it.
+      shared_key = shared_keys.find do |key|
+        Digest::SHA512.new.update(shared_key_salt).update(hostname).update(nonce).update(key).hexdigest == shared_key_hexdigest
+      end
+      unless shared_key
         log.warn "Shared key mismatch", address: remote_addr, hostname: hostname
         return false, 'shared_key mismatch', nil
       end
