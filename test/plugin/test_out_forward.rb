@@ -1622,6 +1622,8 @@ EOL
         heartbeat_type none
         require_ack_response true
         ack_response_timeout 1s
+        # Windows takes seconds to refuse a connection to a closed port.
+        connect_timeout 1s
         <server>
           host #{TARGET_HOST}
           port #{unused_port(protocol: :tcp)}
@@ -1704,6 +1706,8 @@ EOL
         heartbeat_type none
         require_ack_response true
         ack_response_timeout 60s
+        # Windows takes seconds to refuse a connection to a closed port.
+        connect_timeout 1s
         <server>
           host #{TARGET_HOST}
           port #{primary_port}
