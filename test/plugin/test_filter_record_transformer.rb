@@ -149,7 +149,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
     end
 
     # `Time#==` of an EventTime compares only the seconds, so check sec and nsec.
-    data('exponent after a trailing dot' => ['1.e9', [1_000_000_000, 0]],
+    data('exponent after a trailing dot' => ['1.e9', ['1.e9'.to_f.to_i, 0]], # String#to_f reads "1.e9" as 1.0 before Ruby 3.4
          'fraction' => ['1700000000/2', [1_700_000_000, 0]],
          'fraction with a zero denominator' => ['1/0', [1, 0]],
          'negative exponent' => ['1e-100000000', [0, 0]],
