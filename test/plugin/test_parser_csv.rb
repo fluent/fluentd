@@ -216,6 +216,26 @@ class CSVParserTest < ::Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'fast parser on long lines' do
+    def parse_fast(line)
+      d = create_driver('keys' => 'method,path,status,size', 'parser_engine' => 'fast')
+      Timeout.timeout(5) do
+        d.instance.parse(line) { |_time, record| return record }
+      end
+    end
+
+    def test_many_quotes_without_a_closing_piece
+      assert_nothing_raised { parse_fast(%("a"b") * 1 + (',' + %("a"b")) * 3999) }
+    end
+
+    def test_many_escaped_quotes_in_one_valid_value
+      record = parse_fast('GET,"' + (',' + 'a""') * 16_000 + '",200,1234')
+      assert_equal('GET', record['method'])
+      assert_equal(',a"' * 16_000, record['path'])
+      assert_equal('200', record['status'])
+    end
+  end
+
   # "parser_type" config shouldn't hide Fluent::Plugin::Parser#plugin_type
   # https://github.com/fluent/fluentd/issues/3296
   data('normal' => :normal, 'fast' => :fast)

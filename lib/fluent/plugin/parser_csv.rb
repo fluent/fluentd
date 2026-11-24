@@ -136,20 +136,40 @@ module Fluent
 
       # Joins columns from `from` until they make one well-formed quoted value, in which
       # every quote inside is doubled. Returns the unescaped value and the index of its
-      # last column, or nil when there is no such value.
+      # last column, or nil when there is no such value. The work is linear in the length
+      # of the line: each column is scanned once and the value is joined once.
       def join_quoted_columns(columns, from)
-        joined = columns[from]
+        return nil unless quote_state(columns[from], 1) == :open
+
         k = from
         while (k += 1) < columns.size
-          joined = "#{joined}#{@delimiter}#{columns[k]}"
-          next unless joined.end_with?(@quote_char)
-
-          inner = joined[1..-2]
-          unless inner.gsub(@escape_pattern, '').include?(@quote_char)
+          case quote_state(columns[k], 0)
+          when :open
+            next
+          when :closed
+            inner = columns[from..k].join(@delimiter)[1..-2]
             return inner.gsub(@escape_pattern, @quote_char), k
+          else
+            return nil
           end
         end
         nil
+      end
+
+      # Reads the quotes of a column from `pos` as adjacent pairs. :open means that all of
+      # them are paired, so the value goes on in the next column. :closed means that
+      # exactly one is left and it is the last character. Anything else is :malformed.
+      def quote_state(column, pos)
+        while (idx = column.index(@quote_char, pos))
+          if column[idx + 1] == @quote_char
+            pos = idx + 2
+          elsif idx == column.size - 1
+            return :closed
+          else
+            return :malformed
+          end
+        end
+        :open
       end
     end
   end
