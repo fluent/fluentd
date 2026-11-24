@@ -71,7 +71,7 @@ class ConnectionManager < Test::Unit::TestCase
         )
 
         mock.proxy(cm).connect_keepalive(anything).never
-        ack = mock('ack').enqueue(sock, sent: true).once.subject
+        ack = mock('ack').enqueue(sock, send_failed: false).once.subject
         cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |sock, ri|
           assert_equal(sock, 'sock')
           assert_equal(ri.state, :established)
@@ -91,7 +91,7 @@ class ConnectionManager < Test::Unit::TestCase
           socket_cache: nil,
         )
 
-        ack = mock('ack').enqueue(sock, sent: false).once.subject
+        ack = mock('ack').enqueue(sock, send_failed: true).once.subject
         assert_raise(RuntimeError.new('failed')) do
           cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |_sock, _ri|
             raise 'failed'
@@ -112,7 +112,7 @@ class ConnectionManager < Test::Unit::TestCase
           socket_cache: nil,
         )
 
-        ack = mock('ack').enqueue(sock, sent: true).once.subject
+        ack = mock('ack').enqueue(sock, send_failed: false).once.subject
         catch(:left) do
           cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |_sock, _ri|
             throw :left
