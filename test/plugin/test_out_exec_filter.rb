@@ -601,4 +601,27 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   ensure
     d.run(start: false, shutdown: true)
   end
+
+  test 'keeps reading the output after a record that fails to parse' do
+    d = create_driver %[
+      command sh -c 'cat >/dev/null; printf "%s\\n" "{\\"t\\":\\"2020-01-01\\",\\"k\\":\\"1\\"}" "{\\"t\\":\\"bad\\",\\"k\\":\\"2\\"}" "{\\"t\\":\\"2020-01-03\\",\\"k\\":\\"3\\"}"'
+      tag test
+      <format>
+        @type tsv
+        keys message
+      </format>
+      <parse>
+        @type json
+        time_key t
+        time_type string
+        time_format %Y-%m-%d
+      </parse>
+    ]
+
+    d.run(default_tag: 'input.test', expect_emits: 2, timeout: 10) do
+      d.feed(event_time("2011-01-02 13:14:15 +0900"), {"message" => "x"})
+    end
+
+    assert_equal [{"k" => "1"}, {"k" => "3"}], d.events.map { |_tag, _time, record| record }
+  end
 end

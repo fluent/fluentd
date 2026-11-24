@@ -35,15 +35,22 @@ module Fluent
       def parse_partial_data(data, &block)
         @unpacker ||= Fluent::MessagePackFactory.engine_factory.unpacker
         @unpacker.feed_each(data) do |obj|
-          parse_unpacked_data(obj, &block)
+          parse_unpacked_data_skipping_invalid(obj, &block)
         end
       end
 
       def parse_io(io, &block)
         u = Fluent::MessagePackFactory.engine_factory.unpacker(io)
         u.each do |obj|
-          parse_unpacked_data(obj, &block)
+          parse_unpacked_data_skipping_invalid(obj, &block)
         end
+      end
+
+      # parse_io and parse_partial_data read a stream, so an invalid record must not stop the records after it.
+      def parse_unpacked_data_skipping_invalid(data, &block)
+        parse_unpacked_data(data, &block)
+      rescue ParserError => e
+        log&.warn "invalid record found: #{e.message}"
       end
 
       def parse_unpacked_data(data)
