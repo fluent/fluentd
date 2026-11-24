@@ -729,7 +729,7 @@ EOL
     'with ack and keepalive' => ["require_ack_response true\nkeepalive true", true],
     'without ack' => ['', true],
   )
-  test 'a failed send disables the node without rolling back the chunk when an ack is required' do |(conf, available)|
+  test 'a failed send is not rolled back by the ack check' do |(conf, available)|
     server = TCPServer.new(TARGET_HOST, 0)
     socks = []
     server_thread = Thread.new do
@@ -748,6 +748,8 @@ EOL
     stub(node).send_data_actual { raise Errno::ECONNRESET }
     rollbacks = 0
     stub(d.instance).rollback_write { |*| rollbacks += 1 }
+    ack_checks = 0
+    stub.proxy(d.instance).ack_check { |ret| ack_checks += 1; ret }
 
     chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
     d.run(shutdown: false) do
@@ -757,6 +759,11 @@ EOL
       unless available
         waiting(5, plugin: d.instance) do
           sleep 0.1 while node.available?
+        end
+        # The ack check disables the node before it rolls back, so wait until that call returns.
+        checked = ack_checks
+        waiting(5, plugin: d.instance) do
+          sleep 0.1 while ack_checks == checked
         end
       end
       assert_equal(available, node.available?)

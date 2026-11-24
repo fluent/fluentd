@@ -98,6 +98,27 @@ class ConnectionManager < Test::Unit::TestCase
           end
         end
       end
+
+      test 'waits for ack with rollback when block is left without an error' do
+        sock = 'sock'
+        cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
+          log: $log,
+          secure: false,
+          connection_factory: -> (_, _, _) {
+            mock(sock).close.never
+            mock(sock).close_write.never
+            sock
+          },
+          socket_cache: nil,
+        )
+
+        ack = mock('ack').enqueue(sock, sent: true).once.subject
+        catch(:left) do
+          cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |_sock, _ri|
+            throw :left
+          end
+        end
+      end
     end
 
     sub_test_case 'when socket_cache exists' do
