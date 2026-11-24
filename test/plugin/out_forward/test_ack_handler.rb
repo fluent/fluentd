@@ -72,10 +72,11 @@ class AckHandlerTest < Test::Unit::TestCase
   end
 
   data(
-    'truncated response' => MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') })[0..5],
-    'extra bytes after the response' => MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') }) + MessagePack.pack({ 'ack' => 'extra' }),
+    'truncated response' => [MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') })[0..5], Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED],
+    'extra bytes after the response' => [MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 111') }) + MessagePack.pack({ 'ack' => 'extra' }), Fluent::Plugin::ForwardOutput::AckHandler::Result::SUCCESS],
   )
-  test 'a response on a connection does not affect the ack of another connection' do |first_response|
+  test 'a response on a connection does not affect the ack of another connection' do |args|
+    first_response, first_result = args
     # A truncated response logs an error. Keep it out of $log, which another test checks.
     ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 10, log: Fluent::Test::TestLogger.new, read_length: 100)
     node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
@@ -86,7 +87,9 @@ class AckHandlerTest < Test::Unit::TestCase
       w1.write('readable')
       mock(r1).recv(anything) { |_| first_response } # IO does not have recv
       ack_handler.create_ack('chunk_id 111', node).enqueue(r1)
-      ack_handler.collect_response(1) { |_cid, _n, _s, _ret| }
+      first_results = []
+      ack_handler.collect_response(1) { |_cid, _n, _s, ret| first_results << ret }
+      assert_equal [first_result], first_results
 
       w2.write('readable')
       mock(r2).recv(anything) { |_| MessagePack.pack({ 'ack' => Base64.encode64('chunk_id 222') }) }
