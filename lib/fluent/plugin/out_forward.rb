@@ -679,7 +679,7 @@ module Fluent::Plugin
             disable!
             break
           rescue HeloError => e
-            @log.warn "received invalid helo message from #{@name}"
+            @log.warn "received invalid helo message from #{@name || @host}"
             disable!
             break
           rescue PingpongError => e
