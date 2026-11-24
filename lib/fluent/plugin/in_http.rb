@@ -706,13 +706,13 @@ module Fluent::Plugin
         if @cors_allow_origins.include?(@origin)
           return true
         end
-        filtered_cors_allow_origins = @cors_allow_origins.select {|origin| origin != ""}
-        r = filtered_cors_allow_origins.find do |origin|
+        @cors_allow_origins.any? do |origin|
+          # An origin without "*" only matches exactly, which was checked above.
+          next false unless origin.include?("*")
+
           (start_str, end_str) = origin.split("*", 2)
           @origin.start_with?(start_str) && @origin.end_with?(end_str)
         end
-
-        !r.nil?
       end
 
       def parse_query(query)
