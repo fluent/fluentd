@@ -2,6 +2,7 @@ require_relative '../helper'
 require 'fluent/test/driver/output'
 require 'fluent/plugin/out_forward'
 require 'flexmock/test_unit'
+require 'timecop'
 
 require 'fluent/test/driver/input'
 require 'fluent/plugin/in_forward'
@@ -1517,6 +1518,437 @@ EOL
       mock(cm).discard(sock).never
 
       instance.__send__(:ack_check, 0)
+    end
+  end
+
+  sub_test_case 'a failed ack (#5619)' do
+    def create_ack_driver(heartbeat_type: 'none', recover_wait: 10, servers: [{name: 'test'}])
+      @d = create_driver(%[
+        send_timeout 51
+        heartbeat_type #{heartbeat_type}
+        recover_wait #{recover_wait}
+        require_ack_response true
+        #{servers.map { |sv| %[
+        <server>
+          name #{sv[:name]}
+          host #{TARGET_HOST}
+          port #{sv[:port] || @target_port}
+          #{sv[:standby] ? 'standby true' : ''}
+        </server>] }.join}
+      ])
+      @instance = @d.instance
+      @instance.nodes.each { |n| stub(n).send_heartbeat { false } }
+      stub(@instance.instance_variable_get(:@connection_manager)).discard
+      @d
+    end
+
+    def node_named(name)
+      @instance.nodes.find { |n| n.name == name }
+    end
+
+    def fail_ack(node, chunk_id = 'chunk-id', attempt = nil)
+      fake_ack_handler = Object.new
+      fake_ack_handler.define_singleton_method(:collect_response) do |_interval, &block|
+        block.call(chunk_id, node, 'sock', Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED, attempt)
+      end
+      original = @instance.instance_variable_get(:@ack_handler)
+      @instance.instance_variable_set(:@ack_handler, fake_ack_handler)
+      @instance.__send__(:ack_check, 0)
+    ensure
+      @instance.instance_variable_set(:@ack_handler, original)
+    end
+
+    # the same as what #write does before selecting a node
+    def selected_node
+      @instance.__send__(:rebalance_if_availability_changed)
+      _, node = @instance.__send__(:service_discovery_select_service) { |n| n }
+      node
+    end
+
+    def two_servers(standby: false)
+      [{name: 'primary'}, {name: 'secondary', port: unused_port(protocol: :tcp), standby: standby}]
+    end
+
+    data('none' => 'none', 'transport' => 'transport')
+    test 'detaches the node and sends its chunks to another server without counting a retry' do |heartbeat_type|
+      create_ack_driver(heartbeat_type: heartbeat_type, servers: two_servers)
+      primary = node_named('primary')
+      secondary = node_named('secondary')
+
+      mock(@instance).rollback_write('chunk-id', update_retry: false).once
+      mock(@instance).update_retry_state.never
+      fail_ack(primary)
+
+      assert_false primary.available?
+      assert_true secondary.available?
+      5.times { assert_equal secondary, selected_node }
+      assert{ @d.logs.any? { |log| log.include?("detached forwarding server 'primary' for 10.0s") } }
+    end
+
+    data('none' => 'none', 'transport' => 'transport')
+    test 'uses the standby node while the active node is detached' do |heartbeat_type|
+      create_ack_driver(heartbeat_type: heartbeat_type, servers: two_servers(standby: true))
+      primary = node_named('primary')
+      standby = node_named('secondary')
+      assert_equal primary, selected_node
+
+      mock(@instance).rollback_write('chunk-id', update_retry: false).once
+      mock(@instance).update_retry_state.never
+      fail_ack(primary)
+
+      assert_false primary.available?
+      5.times { assert_equal standby, selected_node }
+    end
+
+    test 'heartbeat_type none switches back to the active node after recover_wait' do
+      create_ack_driver(heartbeat_type: 'none', servers: two_servers(standby: true))
+      primary = node_named('primary')
+      standby = node_named('secondary')
+      stub(@instance).rollback_write
+
+      now = Fluent::Clock.now
+      Fluent::Clock.freeze(now) do
+        fail_ack(primary)
+        assert_equal standby, selected_node
+      end
+      Fluent::Clock.freeze(now + 9) do
+        assert_equal standby, selected_node
+      end
+      Fluent::Clock.freeze(now + 10) do
+        assert_true primary.available?
+        assert_equal primary, selected_node
+      end
+    end
+
+    test 'heartbeat_type transport does not bring a detached node back before recover_wait' do
+      create_ack_driver(heartbeat_type: 'transport', recover_wait: 2, servers: two_servers)
+      primary = node_named('primary')
+      stub(@instance).rollback_write
+
+      now = Fluent::Clock.now
+      Fluent::Clock.freeze(now) do
+        fail_ack(primary)
+        # enough samples to recover, as a heartbeat or in-flight writes would add
+        (@instance.recover_sample_size.ceil + 2).times { primary.heartbeat(false) }
+        primary.heartbeat
+        assert_false primary.available?
+      end
+      Fluent::Clock.freeze(now + 2) do
+        primary.heartbeat
+        assert_true primary.available?
+      end
+    end
+
+    data('none' => 'none', 'transport' => 'transport')
+    test 'keeps the last node and counts a retry with the error' do |heartbeat_type|
+      create_ack_driver(heartbeat_type: heartbeat_type)
+      node = @instance.nodes.first
+
+      errors = []
+      mock(@instance).rollback_write('chunk-id', update_retry: false).once { true }
+      mock(@instance).update_retry_state('chunk-id', false, anything).once { |_id, _sec, error| errors << error }
+      fail_ack(node)
+
+      assert_true node.available?
+      assert_equal [Fluent::Plugin::ForwardOutput::AckResponseError], errors.map(&:class)
+      assert_equal "failed to receive the ack response from forwarding server 'test'", errors.first.message
+    end
+
+    test 'counts a retry when the other node is detached too' do
+      create_ack_driver(heartbeat_type: 'none', servers: two_servers)
+      primary = node_named('primary')
+      secondary = node_named('secondary')
+      stub(@instance).rollback_write { true }
+      mock(@instance).update_retry_state('chunk-2', false, anything).once
+
+      fail_ack(primary, 'chunk-1')
+      fail_ack(secondary, 'chunk-2')
+
+      assert_false primary.available?
+      assert_true secondary.available?
+    end
+
+    test 'does not detach the node when recover_wait is 0' do
+      create_ack_driver(heartbeat_type: 'none', recover_wait: 0, servers: two_servers)
+      primary = node_named('primary')
+      stub(@instance).rollback_write { true }
+      mock(@instance).update_retry_state('chunk-id', false, anything).once
+
+      fail_ack(primary)
+
+      assert_true primary.available?
+    end
+  end
+
+  sub_test_case 'a late ack failure after the delayed commit timeout (#5627)' do
+    # A send of a chunk can take longer than delayed_commit_timeout, and the
+    # ack timeout only starts when the send is done. Then Output#try_rollback_write
+    # rolls the attempt back and counts a retry before the ack thread reports
+    # the failed ack. By then the chunk may be in flight again.
+    setup do
+      @d = create_driver(%[
+        heartbeat_type none
+        require_ack_response true
+        ack_response_timeout 1
+        <server>
+          name test
+          host #{TARGET_HOST}
+          port #{@target_port}
+        </server>
+        <buffer tag>
+          flush_mode interval
+          flush_interval 3600
+          flush_thread_interval 3600
+          flush_thread_burst_interval 3600
+          flush_at_shutdown false
+        </buffer>
+      ])
+      @instance = @d.instance
+      @node = @instance.nodes.first
+      @attempts = attempts = []
+      # record the attempt of each send instead of sending the chunk
+      @node.define_singleton_method(:send_data) { |_tag, _chunk, attempt: nil| attempts << attempt; nil }
+      @retry_errors = retry_errors = []
+      @instance.singleton_class.prepend(Module.new {
+        define_method(:update_retry_state) do |chunk_id, using_secondary, error = nil|
+          retry_errors << error
+          super(chunk_id, using_secondary, error)
+        end
+      })
+      @d.instance_start
+      # keep the flush thread from rolling back chunks by itself
+      @instance.interrupt_flushes
+      stub(@instance.instance_variable_get(:@connection_manager)).discard
+
+      @instance.emit_events('test', Fluent::OneEventStream.new(event_time, {'k' => 'v'}))
+      @instance.buffer.enqueue_all
+      @chunk_id = @instance.buffer.queue.first.unique_id
+    end
+
+    # Returns the delayed commit entry that Output#try_flush added for the send.
+    def send_chunk
+      @instance.try_flush
+      assert_true @instance.buffer.dequeued.key?(@chunk_id)
+      dequeued_chunk_infos.last
+    end
+
+    def expire_delayed_commit(attempt)
+      Timecop.travel(attempt.time + attempt.timeout + 1) do
+        @instance.try_rollback_write
+      end
+      assert_false @instance.buffer.dequeued.key?(@chunk_id)
+    end
+
+    def fail_ack(attempt)
+      fake_ack_handler = Object.new
+      chunk_id, node = @chunk_id, @node
+      fake_ack_handler.define_singleton_method(:collect_response) do |_interval, &block|
+        block.call(chunk_id, node, 'sock', Fluent::Plugin::ForwardOutput::AckHandler::Result::FAILED, attempt)
+      end
+      original = @instance.instance_variable_get(:@ack_handler)
+      @instance.instance_variable_set(:@ack_handler, fake_ack_handler)
+      @instance.__send__(:ack_check, 0)
+    ensure
+      @instance.instance_variable_set(:@ack_handler, original)
+    end
+
+    def dequeued_chunk_infos
+      @instance.dequeued_chunks_mutex.synchronize { @instance.dequeued_chunks.dup }
+    end
+
+    test 'passes the delayed commit entry of the send to the ack' do
+      attempt = send_chunk
+      assert_equal @chunk_id, attempt.chunk_id
+      assert_same attempt, @attempts.last
+    end
+
+    test 'does not count a second retry for an attempt that was already rolled back' do
+      first = send_chunk
+      expire_delayed_commit(first)
+      assert_equal [nil], @retry_errors # "timeout to commit"
+
+      second = send_chunk
+      fail_ack(first)
+
+      # the late failure belongs to the first attempt: the chunk that is in
+      # flight again is not taken back, and no retry is counted for it
+      assert_equal [nil], @retry_errors
+      assert_true @instance.buffer.dequeued.key?(@chunk_id)
+      assert_equal [second], dequeued_chunk_infos
+      assert{ @d.logs.any? { |log| log.include?("after the delayed commit timeout rolled the chunk back. no retry is counted again") } }
+    end
+
+    test 'counts a retry when a later send of the chunk fails on its own' do
+      first = send_chunk
+      expire_delayed_commit(first)
+      second = send_chunk
+      fail_ack(first)
+
+      fail_ack(second)
+
+      assert_equal [nil, Fluent::Plugin::ForwardOutput::AckResponseError], @retry_errors.map { |e| e&.class }
+      assert_false @instance.buffer.dequeued.key?(@chunk_id)
+      assert_equal [@chunk_id], @instance.buffer.queue.map(&:unique_id)
+      assert_equal [], dequeued_chunk_infos
+    end
+
+    test 'does not count a retry when the delayed commit timeout rolled back the later send too' do
+      first = send_chunk
+      expire_delayed_commit(first)
+      second = send_chunk
+      expire_delayed_commit(second)
+      assert_equal [nil, nil], @retry_errors
+
+      fail_ack(first)
+      fail_ack(second)
+
+      assert_equal [nil, nil], @retry_errors
+      assert_equal [@chunk_id], @instance.buffer.queue.map(&:unique_id)
+    end
+
+    test 'counts a retry for a failed ack before the delayed commit timeout' do
+      attempt = send_chunk
+      fail_ack(attempt)
+
+      assert_equal [Fluent::Plugin::ForwardOutput::AckResponseError], @retry_errors.map(&:class)
+      assert_equal [@chunk_id], @instance.buffer.queue.map(&:unique_id)
+      assert_equal [], dequeued_chunk_infos
+    end
+  end
+
+  sub_test_case 'concurrent rebuilds of the weight array (#5627)' do
+    # With heartbeat_type none, the ack thread and the flush threads rebuild
+    # the weight array as well as the event loop (heartbeat timer and service
+    # discovery). An older rebuild must not publish its array after a newer one.
+    test 'a rebuild that read the old node list does not replace a newer one' do
+      @d = create_driver(%[
+        heartbeat_type none
+        require_ack_response true
+        <server>
+          name failed
+          host #{TARGET_HOST}
+          port #{@target_port}
+        </server>
+        <server>
+          name removed
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+        </server>
+        <server>
+          name retained
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+        </server>
+      ])
+      instance = @d.instance
+      manager = instance.discovery_manager
+      load_balancer = instance.instance_variable_get(:@load_balancer)
+
+      # Pause the rebuild of the "ack thread" right after it has read the node list.
+      read_list = Queue.new
+      resume = Queue.new
+      paused_thread = nil
+      original_services = manager.method(:services)
+      manager.define_singleton_method(:services) do
+        list = original_services.call
+        if Thread.current.equal?(paused_thread)
+          read_list << true
+          resume.pop
+        end
+        list
+      end
+
+      paused_thread = Thread.new { instance.__send__(:service_discovery_rebalance) }
+      read_list.pop
+
+      # Service discovery removes 'failed' and 'removed' and rebuilds the array.
+      static_services = manager.instance_variable_get(:@discoveries).first.services
+      discovery = Thread.new do
+        static_services.select { |s| %w[failed removed].include?(s.name) }.each do |s|
+          manager.instance_variable_get(:@queue) << Fluent::Plugin::ServiceDiscovery.service_out_msg(s)
+        end
+        manager.run_once
+      end
+      # Without the rebuild lock this rebuild finishes now; with it, it waits
+      # for the paused rebuild.
+      Timeout.timeout(10) { sleep 0.01 until discovery.status == 'sleep' || discovery.status == false }
+
+      resume << true
+      [paused_thread, discovery].each { |t| t.join(10) }
+
+      assert_equal ['retained'], manager.services.map(&:name)
+      assert_equal ['retained'], load_balancer.instance_variable_get(:@weight_array).map(&:name).uniq
+      selected = Array.new(10) { load_balancer.select_healthy_node { |n| n }.last.name }
+      assert_equal ['retained'], selected.uniq
+    end
+  end
+
+  sub_test_case 'a server that never sends the ack (#5619)' do
+    # Reproduces the scenarios in the review of #5627: one server accepts
+    # chunks but never acks, the other acks normally. No chunk may be lost
+    # even with retry_max_times 0.
+    def run_with_silent_server(standby:)
+      silent_port = unused_port(protocol: :all)
+      silent = create_target_input_driver(response_stub: ->(_option) { nil },
+                                          conf: %[port #{silent_port}\nbind #{TARGET_HOST}])
+      healthy = create_target_input_driver
+
+      @d = d = create_driver(%[
+        heartbeat_type none
+        require_ack_response true
+        ack_response_timeout 1
+        <server>
+          name silent
+          host #{TARGET_HOST}
+          port #{silent_port}
+        </server>
+        <server>
+          name healthy
+          host #{TARGET_HOST}
+          port #{@target_port}
+          #{standby ? 'standby true' : ''}
+        </server>
+        <buffer tag>
+          flush_mode immediate
+          flush_thread_interval 0.1
+          flush_thread_burst_interval 0.1
+          retry_wait 1
+          retry_max_times 0
+          flush_at_shutdown false
+        </buffer>
+      ])
+
+      time = event_time
+      tags = (1..8).map { |i| "test.#{i}" }
+      # The logs are taken when every chunk has arrived: a chunk still in
+      # flight to the healthy server can fail when the drivers shut down.
+      logs = nil
+      delivered = -> { healthy.events.map(&:first).uniq.sort_by { |t| t.split('.').last.to_i } }
+      done = -> { delivered.call.size >= tags.size && (logs ||= d.logs.dup) }
+      [healthy, d].each { |drv| drv.end_if(&done) }
+
+      silent.instance_start
+      begin
+        healthy.run(timeout: 30) do
+          d.run(timeout: 25, wait_flush_completion: false, shutdown: false, flush: false) do
+            tags.each { |tag| d.feed(tag, time, {'tag' => tag}) }
+          end
+        end
+      ensure
+        silent.instance_shutdown
+      end
+
+      assert_equal tags, delivered.call
+      assert{ logs.any? { |log| log.include?("detached forwarding server 'silent'") } }
+      assert{ logs.none? { |log| log.include?('Hit limit for retries') } }
+    end
+
+    test 'delivers every chunk to the healthy server' do
+      run_with_silent_server(standby: false)
+    end
+
+    test 'delivers every chunk to the healthy standby server' do
+      run_with_silent_server(standby: true)
     end
   end
 

@@ -27,7 +27,20 @@ module Fluent::Plugin
         @rr = 0
         @mutex = Mutex.new
         @availability = {}
+        # The weight array is rebuilt from several threads: the event loop
+        # (heartbeat timer and service discovery), the ack thread after a
+        # failed ack and, with heartbeat_type none, the flush threads. Each
+        # rebuild reads the node list and publishes its array while holding
+        # this lock, so an older rebuild cannot publish its array after a
+        # newer one (#5627).
+        @rebuild_mutex = Mutex.new
+        @nodes_provider = nil
       end
+
+      # Returns the current node list. When it is set, every rebuild reads the
+      # node list from it under the rebuild lock instead of using the list the
+      # caller read before.
+      attr_writer :nodes_provider
 
       def select_healthy_node
         error = nil
@@ -61,7 +74,19 @@ module Fluent::Plugin
         nodes.any? { |n| availability[n] != n.available? }
       end
 
-      def rebuild_weight_array(nodes)
+      def rebuild_weight_array(nodes = nil)
+        @rebuild_mutex.synchronize do
+          nodes = @nodes_provider.call if @nodes_provider
+          rebuild_weight_array_unlocked(nodes)
+        end
+      end
+
+      alias select_service select_healthy_node
+      alias rebalance rebuild_weight_array
+
+      private
+
+      def rebuild_weight_array_unlocked(nodes)
         availability = nodes.to_h { |n| [n, n.available?] }
         standby_nodes, regular_nodes = nodes.select { |e| e.weight > 0 }.partition {|n|
           n.standby?
@@ -115,9 +140,6 @@ module Fluent::Plugin
           @weight_array = weight_array
         end
       end
-
-      alias select_service select_healthy_node
-      alias rebalance rebuild_weight_array
     end
   end
 end
