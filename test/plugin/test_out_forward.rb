@@ -966,7 +966,8 @@ EOL
     server_thread = Thread.new do
       sock = server.accept
       sock.write(['HELO'].to_msgpack)
-      sock.close
+    ensure
+      sock&.close
     end
 
     @d = d = create_driver(%[
