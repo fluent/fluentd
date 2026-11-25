@@ -156,6 +156,15 @@ class CSVParserTest < ::Test::Unit::TestCase
         assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal expected, record
       end
+
+      # escaped quotes next to a delimiter inside the quoted value
+      text = '28/Feb/2013:12:00:00 +0900,"mes,sa""ge","mes""sa,ge","me,""ssa"",ge","""mes,sage""",mess age'
+      expected = {'key1' => 'mes,sa"ge', 'key2' => 'mes"sa,ge', 'key3' => 'me,"ssa",ge',
+                  'key4' => '"mes,sage"', 'key5' => 'mess age'}
+      d.instance.parse(text) do |time, record|
+        assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal expected, record
+      end
     end
 
     def test_incompatibility_between_normal_and_fast_parser
@@ -188,7 +197,53 @@ class CSVParserTest < ::Test::Unit::TestCase
         assert_not_equal expected, r
       }
 
+      # quotes in the middle of a quoted value keep the following columns
+      fast = create_driver(
+        'keys' => 'method,path,status,size',
+        'parser_type' => 'fast'
+      )
+      [
+        ['GET,"/search?q=a"b",200,1234', '/search?q=a"b'],
+        ['GET,"a \\"b",200,1234', 'a \\"b'],
+        ['GET,"a,b"c"",200,1234', 'a,b"c"'],
+      ].each do |line, path|
+        fast.instance.parse(line) { |t, r|
+          assert_equal({'method' => 'GET', 'path' => path, 'status' => '200', 'size' => '1234'}, r)
+        }
+      end
+
       # And more...
+    end
+  end
+
+  sub_test_case 'fast parser on long lines' do
+    def parse_fast(line)
+      d = create_driver('keys' => 'method,path,status,size', 'parser_engine' => 'fast')
+      Timeout.timeout(5) do
+        d.instance.parse(line) { |_time, record| return record }
+      end
+    end
+
+    def test_many_quotes_without_a_closing_piece
+      assert_nothing_raised { parse_fast('"",' + %("a"b") + (',' + %("a"b")) * 3999) }
+    end
+
+    def test_many_escaped_quotes_in_one_valid_value
+      record = parse_fast('GET,"' + (',' + 'a""') * 16_000 + '",200,1234')
+      assert_equal('GET', record['method'])
+      assert_equal(',a"' * 16_000, record['path'])
+      assert_equal('200', record['status'])
+    end
+
+    def test_many_escaped_quotes_in_multibyte_value
+      line = ('GET,"' + 'あ""' * 64_000 + ',z",200,1234').encode(Encoding::UTF_8)
+      record = parse_fast(line)
+      assert_equal({'method' => 'GET', 'path' => 'あ"' * 64_000 + ',z', 'status' => '200', 'size' => '1234'}, record)
+    end
+
+    def test_quoted_value_with_delimiter_and_no_escaped_quote
+      record = parse_fast('GET,"a,b",200,1234')
+      assert_equal({'method' => 'GET', 'path' => 'a,b', 'status' => '200', 'size' => '1234'}, record)
     end
   end
 

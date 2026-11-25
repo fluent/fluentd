@@ -37,6 +37,8 @@ module Fluent
         if @parser_engine == :fast
           @quote_char = '"'
           @escape_pattern = Regexp.compile(@quote_char * 2)
+          @escape_quotes = @quote_char * 2
+          @quote_byte = @quote_char.ord
 
           m = method(:parse_fast)
           self.singleton_class.module_eval do
@@ -80,10 +82,27 @@ module Fluent
         # use while because while is now faster than each_with_index
         columns = text.split(@delimiter, -1)
         num_columns = columns.size
+        # Only a line with an escaped quote needs the join below, so other lines take the
+        # same path as before.
+        has_escaped_quote = text.include?(@quote_char) && text.include?(@escape_quotes)
         i = 0
         j = 0
         while j < num_columns
           column = columns[j]
+
+          # A quoted value with the delimiter inside it was split into several columns.
+          # Escaped quotes ("") next to the delimiter can make the pieces look closed too
+          # early, so join them only when the result is a well-formed quoted value.
+          # Anything else is left to the logic below, as before.
+          if has_escaped_quote && column.start_with?(@quote_char) && column.count(@quote_char).odd?
+            merged, last = join_quoted_columns(columns, j)
+            if merged
+              record[@keys[i]] = merged
+              j = last + 1
+              i += 1
+              next
+            end
+          end
 
           case column.count(@quote_char)
           when 0
@@ -118,6 +137,47 @@ module Fluent
           i += 1
         end
         record
+      end
+
+      # Joins columns from `from` until they make one well-formed quoted value, in which
+      # every quote inside is doubled. Returns the unescaped value and the index of its
+      # last column, or nil when there is no such value. The work is linear in the length
+      # of the line: each column is scanned once and the value is joined once.
+      def join_quoted_columns(columns, from)
+        return nil unless quote_state(columns[from], 1) == :open
+
+        k = from
+        while (k += 1) < columns.size
+          case quote_state(columns[k], 0)
+          when :open
+            next
+          when :closed
+            inner = columns[from..k].join(@delimiter)[1..-2]
+            return inner.gsub(@escape_pattern, @quote_char), k
+          else
+            return nil
+          end
+        end
+        nil
+      end
+
+      # Reads the quotes of a column from the byte offset `pos` as adjacent pairs. :open
+      # means that all of them are paired, so the value goes on in the next column. :closed
+      # means that exactly one is left and it is the last character. Anything else is
+      # :malformed. Offsets are in bytes, because character offsets make the scan quadratic
+      # for strings with multibyte characters. The quote is one byte in every encoding that
+      # is compatible with ASCII.
+      def quote_state(column, pos)
+        while (idx = column.byteindex(@quote_char, pos))
+          if column.getbyte(idx + 1) == @quote_byte
+            pos = idx + 2
+          elsif idx == column.bytesize - 1
+            return :closed
+          else
+            return :malformed
+          end
+        end
+        :open
       end
     end
   end
