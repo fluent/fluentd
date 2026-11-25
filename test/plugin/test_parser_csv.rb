@@ -225,7 +225,7 @@ class CSVParserTest < ::Test::Unit::TestCase
     end
 
     def test_many_quotes_without_a_closing_piece
-      assert_nothing_raised { parse_fast(%("a"b") * 1 + (',' + %("a"b")) * 3999) }
+      assert_nothing_raised { parse_fast('"",' + %("a"b") + (',' + %("a"b")) * 3999) }
     end
 
     def test_many_escaped_quotes_in_one_valid_value

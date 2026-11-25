@@ -84,7 +84,7 @@ module Fluent
         num_columns = columns.size
         # Only a line with an escaped quote needs the join below, so other lines take the
         # same path as before.
-        has_escaped_quote = text.include?(@escape_quotes)
+        has_escaped_quote = text.include?(@quote_char) && text.include?(@escape_quotes)
         i = 0
         j = 0
         while j < num_columns
