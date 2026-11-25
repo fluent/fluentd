@@ -340,4 +340,42 @@ EOC
       assert_nil d.instance.command_timeout
     end
   end
+
+  sub_test_case 'invalid record in the command output' do
+    # The second record has a time that does not match time_format.
+    def parse_section(type)
+      %[
+        <parse>
+          @type #{type}
+          #{type == "tsv" ? "keys t,k" : ""}
+          time_key t
+          time_type string
+          time_format %Y-%m-%d
+        </parse>
+      ]
+    end
+
+    def run_with_script(script, type)
+      d = create_driver %[
+        command ruby -rjson -rmsgpack -e '#{script}'
+        tag test
+        #{parse_section(type)}
+      ]
+      d.run(expect_records: 2, timeout: 10)
+      d
+    end
+
+    data(
+      json: ["json", 'puts [{t: "2020-01-01", k: "1"}, {t: "bad", k: "2"}, {t: "2020-01-03", k: "3"}].map(&:to_json)'],
+      msgpack: ["msgpack", 'print [{t: "2020-01-01", k: "1"}, {t: "bad", k: "2"}, {t: "2020-01-03", k: "3"}].map(&:to_msgpack).join'],
+      tsv: ["tsv", 'puts ["2020-01-01\t1", "bad\t2", "2020-01-03\t3"]'],
+    )
+    test 'skips only the invalid record' do |(type, script)|
+      d = run_with_script(script, type)
+
+      assert_equal [{"k" => "1"}, {"k" => "3"}], d.events.map { |_tag, _time, record| record }
+      assert_equal [event_time("2020-01-01", format: "%Y-%m-%d"), event_time("2020-01-03", format: "%Y-%m-%d")],
+                   d.events.map { |_tag, time, _record| time }
+    end
+  end
 end

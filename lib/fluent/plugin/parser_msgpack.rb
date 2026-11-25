@@ -35,21 +35,21 @@ module Fluent
       def parse_partial_data(data, &block)
         @unpacker ||= Fluent::MessagePackFactory.engine_factory.unpacker
         @unpacker.feed_each(data) do |obj|
-          parse_unpacked_data(obj, &block)
+          parse_unpacked_data(obj, skip_invalid: true, &block)
         end
       end
 
       def parse_io(io, &block)
         u = Fluent::MessagePackFactory.engine_factory.unpacker(io)
         u.each do |obj|
-          parse_unpacked_data(obj, &block)
+          parse_unpacked_data(obj, skip_invalid: true, &block)
         end
       end
 
-      def parse_unpacked_data(data)
+      def parse_unpacked_data(data, skip_invalid: false)
         if data.is_a?(Hash)
-          time, record = convert_values(parse_time(data), data)
-          yield time, record
+          converted = convert_unpacked_record(data, skip_invalid)
+          yield(*converted) if converted
           return
         end
 
@@ -63,9 +63,19 @@ module Fluent
             yield nil, nil
             next
           end
-          time, converted_record = convert_values(parse_time(record), record)
-          yield time, converted_record
+          converted = convert_unpacked_record(record, skip_invalid)
+          yield(*converted) if converted
         end
+      end
+
+      private
+
+      def convert_unpacked_record(record, skip_invalid)
+        convert_values(parse_time(record), record)
+      rescue ParserError => e
+        raise unless skip_invalid
+        log&.warn "invalid record found", error: e
+        nil
       end
     end
   end

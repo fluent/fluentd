@@ -294,7 +294,11 @@ module Fluent::Plugin
         end
       when @parser.parser_type == :text_per_line
         io.each_line do |line|
-          @parser.parse(line.chomp, &method(:on_record))
+          begin
+            @parser.parse(line.chomp, &method(:on_record))
+          rescue Fluent::Plugin::Parser::ParserError => e
+            log.warn "invalid line found", line: line, error: e
+          end
         end
       else
         @parser.parse(io.read, &method(:on_record))

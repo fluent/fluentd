@@ -100,7 +100,13 @@ module Fluent
             parser << chunk
             while parser.parse
               record = parser.value
-              time = parse_time(record)
+              begin
+                time = parse_time(record)
+              rescue ParserError => e
+                # Skip only this record so that the rest of the stream is still read.
+                log&.warn "invalid record found", error: e
+                next
+              end
               # convert_values only accepts a Hash. Other JSON values are passed through as before.
               time, record = convert_values(time, record) if @execute_convert_values && record.is_a?(Hash)
               block.call(time, record)
