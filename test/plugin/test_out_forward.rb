@@ -724,6 +724,58 @@ EOL
     assert_equal d.instance.sent_chunk_ids.first, acked_chunk_ids.first
   end
 
+  data(
+    'with ack' => ['require_ack_response true', false],
+    'with ack and keepalive' => ["require_ack_response true\nkeepalive true", true],
+    'without ack' => ['', true],
+  )
+  test 'a failed send is not rolled back by the ack check' do |(conf, available)|
+    server = TCPServer.new(TARGET_HOST, 0)
+    socks = []
+    server_thread = Thread.new do
+      loop { socks << server.accept }
+    end
+
+    @d = d = create_driver(%[
+      #{conf}
+      ack_response_timeout 1s
+      <server>
+        host #{TARGET_HOST}
+        port #{server.local_address.ip_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+    stub(node).send_data_actual { raise Errno::ECONNRESET }
+    rollbacks = 0
+    stub(d.instance).rollback_write { |*| rollbacks += 1 }
+    ack_checks = 0
+    stub.proxy(d.instance).ack_check { |ret| ack_checks += 1; ret }
+
+    chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+    d.run(shutdown: false) do
+      assert_raise(Errno::ECONNRESET) do
+        node.send_data('test', chunk)
+      end
+      unless available
+        waiting(5, plugin: d.instance) do
+          sleep 0.1 while node.available?
+        end
+        # The ack check disables the node before it rolls back, so wait until that call returns.
+        checked = ack_checks
+        waiting(5, plugin: d.instance) do
+          sleep 0.1 while ack_checks == checked
+        end
+      end
+      assert_equal(available, node.available?)
+      # The flush retries a failed send by itself. A rollback here sends the chunk again.
+      assert_equal(0, rollbacks)
+    end
+  ensure
+    server_thread&.kill
+    socks&.each(&:close)
+    server&.close
+  end
+
   test 'a node supporting responses after stop' do
     target_input_driver = create_target_input_driver
 

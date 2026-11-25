@@ -50,11 +50,17 @@ module Fluent::Plugin
           return [socket, request_info]
         end
 
+        send_failed = false
         begin
           yield(socket, request_info)
+        rescue
+          # The caller retries this send by itself. Other ways to leave the block, such as a killed thread, do not.
+          send_failed = true
+          raise
         ensure
+          # A failed send also waits for the ack check, which disables the node. It only skips the rollback.
           if ack
-            ack.enqueue(socket)
+            ack.enqueue(socket, send_failed: send_failed)
           else
             socket.close_write rescue nil
             socket.close rescue nil

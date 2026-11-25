@@ -54,4 +54,29 @@ class TestFluentdCtl < ::Test::Unit::TestCase
 
     assert_win32_event(event_name, command, "testfluentdwinsvc")
   end
+
+  data("not a number" => [["shutdown", "abc"], "Error: Invalid PID: abc"],
+       "no PID" => [["shutdown"], "Error: PID isn't specified!"])
+  def test_invalid_pid(data)
+    omit "Windows accepts a service name instead of a PID" if Fluent.windows?
+
+    argv, message = data
+    out = capture_stdout do
+      e = assert_raise(SystemExit) do
+        Fluent::Ctl.new(argv)
+      end
+      assert_equal(1, e.status)
+    end
+    assert_include(out, message)
+  end
+
+  def test_default_winsvc_name
+    omit "Only for Windows" unless Fluent.windows?
+
+    ctl = assert_nothing_raised do
+      Fluent::Ctl.new(["shutdown"])
+    end
+    mock(ctl).call_winsvc_control_code("shutdown", "fluentdwinsvc") { true }
+    ctl.call
+  end
 end
