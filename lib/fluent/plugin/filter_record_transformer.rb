@@ -101,7 +101,7 @@ module Fluent::Plugin
 
           new_record = reform(record, placeholder_values)
           if @renew_time_key && new_record.has_key?(@renew_time_key)
-            time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
+            time = renew_time_from(new_record[@renew_time_key])
           end
           @key_deleters.each { |deleter| deleter.delete(new_record) } if @key_deleters
           new_es.add(time, new_record)
@@ -114,6 +114,26 @@ module Fluent::Plugin
     end
 
     private
+
+    def renew_time_from(value)
+      seconds = case value
+                when Float
+                  # Float#to_r is the exact binary value (1700000000.123 would become ...122999906 nsec),
+                  # so use the shortest decimal representation, as `time_type float` of <parse> does.
+                  value.finite? ? value.to_s.to_r : value
+                when String
+                  # String#to_r also reads "1/2" and expands "1e1000000000", so only a plain decimal uses it.
+                  float = value.to_f
+                  if float.finite? && value.ascii_only? && value.match?(/\A\s*[-+]?\d+(?:\.\d+)?\s*\z/)
+                    value.to_r
+                  else
+                    float
+                  end
+                else
+                  value.to_f
+                end
+      Fluent::EventTime.from_time(Time.at(seconds))
+    end
 
     def parse_value(value_str)
       if value_str.start_with?('{', '[')

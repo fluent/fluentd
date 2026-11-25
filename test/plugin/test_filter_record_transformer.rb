@@ -136,6 +136,71 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       end
     end
 
+    data('float' => [1700000000.123, 123_000_000],
+         'float 0.1' => [1700000000.1, 100_000_000],
+         'numeric string' => ['1700000000.123', 123_000_000],
+         'numeric string with a sign and spaces' => [' +1700000000.123 ', 123_000_000],
+         'string with nanoseconds' => ['1700000000.123456789', 123_456_789],
+         'integer' => [1700000000, 0])
+    test 'renew_time_key keeps the fractional part as written' do |(value, expected_nsec)|
+      filtered = filter(%[renew_time_key message], [value])
+      time, _record = filtered.first
+      assert_equal([1700000000, expected_nsec], [time.sec, time.nsec])
+    end
+
+    # `Time#==` of an EventTime compares only the seconds, so check sec and nsec.
+    data('exponent after a trailing dot' => ['1.e9', ['1.e9'.to_f.to_i, 0]], # String#to_f reads "1.e9" as 1.0 before Ruby 3.4
+         'fraction' => ['1700000000/2', [1_700_000_000, 0]],
+         'fraction with a zero denominator' => ['1/0', [1, 0]],
+         'negative exponent' => ['1e-100000000', [0, 0]],
+         'zero mantissa with a large exponent' => ['0e500000000', [0, 0]],
+         'invalid byte after a number' => ["1700000000.5\xff", [1_700_000_000, 500_000_000]],
+         'not a number' => ['abc', [0, 0]],
+         'nil' => [nil, [0, 0]])
+    test 'renew_time_key converts a value that is not a plain decimal with to_f' do |(value, expected)|
+      filtered = filter(%[renew_time_key message], [value])
+      time, _record = filtered.first
+      assert_equal(expected, [time.sec, time.nsec])
+    end
+
+    test 'renew_time_key converts a value that has to_f but not to_r with to_f' do
+      value = Object.new
+      def value.to_f
+        1700000000.5
+      end
+      filtered = filter(%[renew_time_key message], [value])
+      time, _record = filtered.first
+      assert_equal([1_700_000_000, 500_000_000], [time.sec, time.nsec])
+    end
+
+    data('overflow with an exponent' => '1e309',
+         'huge exponent' => '1e1000000000',
+         'overflow without an exponent' => '1' + '0' * 309,
+         'infinity' => Float::INFINITY)
+    test 'renew_time_key sends a value that is not a finite time to the error stream' do |value|
+      d = create_driver(%[renew_time_key message])
+      d.run do
+        d.feed(@tag, @time, {'message' => value})
+      end
+      assert_equal(0, d.filtered.size)
+      assert_equal(1, d.error_events.size)
+      _tag, time, _record, error = d.error_events.first
+      assert_equal(FloatDomainError, error.class)
+      assert_equal([@time.sec, @time.nsec], [time.sec, time.nsec])
+    end
+
+    test 'renew_time_key keeps the other records of the stream when one value is not a finite time' do
+      d = create_driver(%[renew_time_key message])
+      d.run do
+        d.feed(@tag, [[@time, {'message' => 1700000000.1}],
+                      [@time, {'message' => '1e309'}],
+                      [@time, {'message' => 1700000000.3}]])
+      end
+      assert_equal([[1_700_000_000, 100_000_000], [1_700_000_000, 300_000_000]],
+                   d.filtered.map { |time, _record| [time.sec, time.nsec] })
+      assert_equal(1, d.error_events.size)
+    end
+
     test 'keep_keys' do
       config = %[renew_record true\nkeep_keys foo,message]
       msgs = ['1', '2']
