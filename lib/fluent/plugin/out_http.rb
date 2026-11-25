@@ -27,6 +27,7 @@ module Fluent::Plugin
     Fluent::Plugin.register_output('http', self)
 
     class RetryableResponse < StandardError; end
+    class BearerTokenError < StandardError; end
 
     ConnectionCache = Struct.new(:uri, :conn)
 
@@ -87,7 +88,7 @@ module Fluent::Plugin
 
     config_section :auth, required: false, multi: false do
       desc 'The method for HTTP authentication'
-      config_param :method, :enum, list: [:basic, :aws_sigv4], default: :basic
+      config_param :method, :enum, list: [:basic, :aws_sigv4, :bearer], default: :basic
       desc 'The username for basic authentication'
       config_param :username, :string, default: nil
       desc 'The password for basic authentication'
@@ -98,6 +99,10 @@ module Fluent::Plugin
       config_param :aws_region, :string, default: nil
       desc 'The AWS role ARN to assume when authenticating'
       config_param :aws_role_arn, :string, default: nil
+      desc 'The token for bearer authentication'
+      config_param :token, :string, default: nil, secret: true
+      desc 'The path to a file that holds the token for bearer authentication. It is read on every request, so a rotated token is picked up'
+      config_param :token_path, :string, default: nil
     end
 
     # To prevent URI::InvalidURIError, we replace Fluentd placeholders with a dummy string.
@@ -164,6 +169,25 @@ module Fluent::Plugin
           raise Fluent::ConfigError, "json_array option could be used with json formatter only"
         end
         define_singleton_method(:format, method(:format_json_array))
+      end
+
+      if @auth and @auth.method != :bearer and (@auth.token or @auth.token_path)
+        log.warn "token and token_path in <auth> are used only with method bearer"
+      end
+
+      if @auth and @auth.method == :bearer
+        if @auth.token.nil? == @auth.token_path.nil?
+          raise Fluent::ConfigError, "either token or token_path is required for bearer auth, but not both"
+        end
+        begin
+          if @auth.token_path
+            read_bearer_token
+          else
+            @bearer_token = normalize_bearer_token(@auth.token)
+          end
+        rescue SystemCallError, BearerTokenError => e
+          raise Fluent::ConfigError, "invalid token or token_path for bearer auth: #{e.message}"
+        end
       end
 
       if @auth and @auth.method == :aws_sigv4
@@ -337,7 +361,22 @@ module Fluent::Plugin
         req.add_field('x-amz-security-token', signature.headers['x-amz-security-token'])
         req.add_field('x-amz-content-sha256', signature.headers['x-amz-content-sha256'])
         req.add_field('authorization', signature.headers['authorization'])
+      elsif @auth.method == :bearer
+        token = @auth.token_path ? read_bearer_token : @bearer_token
+        req['Authorization'] = "Bearer #{token}"
       end
+    end
+
+    def read_bearer_token
+      normalize_bearer_token(File.read(@auth.token_path))
+    end
+
+    def normalize_bearer_token(value)
+      raise BearerTokenError, "token must be ASCII" unless value.ascii_only?
+      token = value.strip
+      raise BearerTokenError, "token is empty" if token.empty?
+      raise BearerTokenError, "token must be a single line" if token.match?(/[\r\n]/)
+      token
     end
 
     def create_request(chunk, uri)
