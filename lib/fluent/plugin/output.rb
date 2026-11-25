@@ -1548,7 +1548,11 @@ module Fluent
                 timekey_unit = @buffer_config.timekey
                 timekey_wait = @buffer_config.timekey_wait
                 current_timekey = now_int - now_int % timekey_unit
-                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_timekey && metadata.timekey + timekey_unit + timekey_wait <= now_int }
+                @buffer.enqueue_all do |metadata, _chunk|
+                  timekey = metadata.timekey
+                  # Restored file chunks can predate the addition of a time chunk key.
+                  timekey.nil? || (timekey < current_timekey && timekey + timekey_unit + timekey_wait <= now_int)
+                end
               end
             rescue => e
               raise if @under_plugin_development
