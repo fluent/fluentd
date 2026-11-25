@@ -602,16 +602,21 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     d.run(start: false, shutdown: true)
   end
 
-  test 'keeps reading the output after a record that fails to parse' do
+  data(
+    json: ["json", 'puts %q({"t":"2020-01-01","k":"1"}), %q({"t":"bad","k":"2"}), %q({"t":"2020-01-03","k":"3"})'],
+    tsv: ["tsv", 'puts "2020-01-01\t1", "bad\t2", "2020-01-03\t3"'],
+  )
+  test 'keeps reading the output after a record that fails to parse' do |(type, script)|
     d = create_driver %[
-      command sh -c 'cat >/dev/null; printf "%s\\n" "{\\"t\\":\\"2020-01-01\\",\\"k\\":\\"1\\"}" "{\\"t\\":\\"bad\\",\\"k\\":\\"2\\"}" "{\\"t\\":\\"2020-01-03\\",\\"k\\":\\"3\\"}"'
+      command ruby -e 'STDOUT.sync = true; STDIN.gets; #{script}'
       tag test
       <format>
         @type tsv
         keys message
       </format>
       <parse>
-        @type json
+        @type #{type}
+        #{type == "tsv" ? "keys t,k" : ""}
         time_key t
         time_type string
         time_format %Y-%m-%d
@@ -622,6 +627,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       d.feed(event_time("2011-01-02 13:14:15 +0900"), {"message" => "x"})
     end
 
+    assert_false d.broken?, "expected both records before shutdown"
     assert_equal [{"k" => "1"}, {"k" => "3"}], d.events.map { |_tag, _time, record| record }
   end
 end

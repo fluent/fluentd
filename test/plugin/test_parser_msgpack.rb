@@ -162,4 +162,109 @@ class MessagePackParserTest < ::Test::Unit::TestCase
     assert_equal("foo", parsed_records[0]["message"])
     assert_equal_event_time(event_time, parsed_records[0]["time"])
   end
+
+  # A bad time is skipped only while converting that record. The caller's block
+  # stays outside the rescue, and parse itself still raises.
+  sub_test_case "invalid time in one record" do
+    def time_conf
+      %[
+        time_key t
+        time_type string
+        time_format %Y-%m-%d
+      ]
+    end
+
+    def pack(*objects)
+      packer = Fluent::MessagePackFactory.msgpack_packer
+      objects.each { |object| packer.write(object) }
+      packer.to_s
+    end
+
+    def warnings(driver)
+      driver.logs.grep(/\[warn\]/)
+    end
+
+    def feed_stream(parser, bytes, method_name)
+      parsed = []
+      collect = ->(time, record) { parsed << [time, record] }
+      case method_name
+      when :parse_io
+        StringIO.open(bytes) { |io| parser.parse_io(io, &collect) }
+      when :parse_partial_data
+        # Several calls, including splits in the middle of an object.
+        offset = 0
+        chunk_size = 4
+        while offset < bytes.bytesize
+          parser.parse_partial_data(bytes.byteslice(offset, chunk_size), &collect)
+          offset += chunk_size
+        end
+      end
+      parsed
+    end
+
+    data("parse_io" => :parse_io, "parse_partial_data" => :parse_partial_data)
+    test "emits the records around a bad time and warns once" do |method_name|
+      r1 = {"t" => "2020-01-01", "k" => "1"}
+      bad = {"t" => "bad", "k" => "2"}
+      r3 = {"t" => "2020-01-03", "k" => "3"}
+      r4 = {"t" => "2020-01-04", "k" => "4"}
+      bytes = pack([r1, bad, r3], r4)
+      assert_operator bytes.bytesize, :>, 4 if method_name == :parse_partial_data
+
+      driver = create_driver(time_conf)
+      parsed = feed_stream(driver.instance, bytes, method_name)
+
+      assert_equal([
+        [event_time("2020-01-01", format: "%Y-%m-%d"), {"k" => "1"}],
+        [event_time("2020-01-03", format: "%Y-%m-%d"), {"k" => "3"}],
+        [event_time("2020-01-04", format: "%Y-%m-%d"), {"k" => "4"}],
+      ], parsed)
+      assert_equal(1, warnings(driver).size)
+      assert_match(/\[warn\]: invalid record found error_class=\S+ error=/, warnings(driver).first)
+    end
+
+    data(
+      "parse_io hash" => [:parse_io, :hash],
+      "parse_io array" => [:parse_io, :array],
+      "parse_partial_data hash" => [:parse_partial_data, :hash],
+      "parse_partial_data array" => [:parse_partial_data, :array],
+    )
+    test "a ParserError from the caller escapes with no invalid-record warning" do |(method_name, shape)|
+      record = {"t" => "2020-01-01", "k" => "1"}
+      bytes = pack(shape == :array ? [record] : record)
+      driver = create_driver(time_conf)
+      parser = driver.instance
+      raised = Fluent::Plugin::Parser::ParserError.new("from the caller")
+
+      error = assert_raise(Fluent::Plugin::Parser::ParserError) do
+        case method_name
+        when :parse_io
+          StringIO.open(bytes) { |io| parser.parse_io(io) { |_time, _record| raise raised } }
+        when :parse_partial_data
+          parser.parse_partial_data(bytes) { |_time, _record| raise raised }
+        end
+      end
+
+      assert_same(raised, error)
+      assert_equal([], warnings(driver).grep(/invalid record found/))
+    end
+
+    test "parse raises on the bad time after yielding the previous record" do
+      r1 = {"t" => "2020-01-01", "k" => "1"}
+      bad = {"t" => "bad", "k" => "2"}
+      r3 = {"t" => "2020-01-03", "k" => "3"}
+      driver = create_driver(time_conf)
+      parsed = []
+
+      error = assert_raise(Fluent::Plugin::Parser::ParserError) do
+        driver.instance.parse(pack([r1, bad, r3])) do |_time, record|
+          parsed << record
+        end
+      end
+
+      assert_equal([{"k" => "1"}], parsed)
+      assert_match(/invalid time format: value = bad/, error.message)
+      assert_equal([], warnings(driver).grep(/invalid record found/))
+    end
+  end
 end
