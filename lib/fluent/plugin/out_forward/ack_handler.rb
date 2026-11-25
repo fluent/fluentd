@@ -34,7 +34,6 @@ module Fluent::Plugin
         @timeout = timeout
         @log = log
         @read_length = read_length
-        @unpacker = Fluent::MessagePackFactory.msgpack_unpacker
       end
 
       def collect_response(select_interval)
@@ -85,7 +84,7 @@ module Fluent::Plugin
         end
       end
 
-      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time, :send_failed) do
+      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time, :send_failed, :unpacker) do
         def expired?(now)
           expired_time < now
         end
@@ -102,7 +101,8 @@ module Fluent::Plugin
       end
 
       def enqueue(node, sock, cid, send_failed: false)
-        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout, send_failed)
+        # Each pending ack has its own unpacker, so bytes of a connection are never read as the ack of another one.
+        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout, send_failed, Fluent::MessagePackFactory.msgpack_unpacker)
         @mutex.synchronize do
           @ack_waitings << info
         end
@@ -135,8 +135,7 @@ module Fluent::Plugin
           # info.node.disable!
           return info, Result::FAILED
         else
-          @unpacker.feed(raw_data)
-          res = @unpacker.read
+          res = info.unpacker.feed(raw_data).read
           @log.trace 'getting response from destination', host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
           if res['ack'] != info.chunk_id_base64
             # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
