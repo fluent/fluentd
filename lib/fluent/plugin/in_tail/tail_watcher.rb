@@ -25,12 +25,13 @@ module Fluent::Plugin
       def initialize(target_info, pe, log, read_from_head, follow_inodes, update_watcher, file_feed, io_handler_build, metrics)
         @path = target_info.path
         @ino = target_info.ino
+        @dev = target_info.dev
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
         @follow_inodes = follow_inodes
         @update_watcher = update_watcher
         @log = log
-        @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
+        @rotate_handler = RotateHandler.new(log, follow_inodes, &method(:on_rotate))
         @file_feed = file_feed
         @io_handler = nil
         @io_handler_build = io_handler_build
@@ -40,7 +41,11 @@ module Fluent::Plugin
         @close_pending = false
       end
 
-      attr_reader :path, :ino
+      attr_reader :path, :ino, :dev, :rotation_device
+
+      def identity
+        [@dev, @ino]
+      end
 
       def detached?
         @detached
@@ -63,7 +68,11 @@ module Fluent::Plugin
         @detached = true
         if @io_handler
           ready_to_shutdown(shutdown_start_time)
-          @io_handler.on_notify
+          # An already-open handle still refers to the old file. A closed
+          # handler may reopen only if its path still leads to that file.
+          if !@follow_inodes || @dev.nil? || @io_handler.opened? || same_file?(stat_path)
+            @io_handler.on_notify
+          end
         end
         @file_feed&.close(self)
       end
@@ -120,14 +129,7 @@ module Fluent::Plugin
           return
         end
 
-        begin
-          stat = Fluent::FileWrapper.stat(@path)
-        rescue Errno::ENOENT, Errno::EACCES
-          # moved or deleted
-          stat = nil
-        end
-
-        @rotate_handler.on_notify(stat) if @rotate_handler
+        @rotate_handler.on_notify(stat_path) if @rotate_handler
         read_more
       end
 
@@ -150,6 +152,16 @@ module Fluent::Plugin
       end
 
       def on_rotate(stat)
+        if @follow_inodes && stat && @dev && !same_file?(stat) &&
+           (@io_handler.nil? || !@io_handler.opened?)
+          # The path changed before the first open (or while it was closed).
+          # Drop the closed handler so it cannot reopen the replacement using
+          # the old position after rotation.
+          @io_handler = nil
+          notify_watcher_update(@pe, stat)
+          return
+        end
+
         if @io_handler.nil?
           if stat
             # first time
@@ -188,7 +200,7 @@ module Fluent::Plugin
 
           if stat
             inode = stat.ino
-            if inode == @pe.read_inode # truncated
+            if inode == @pe.read_inode && (!@follow_inodes || @dev == stat.dev) # truncated
               @pe.update_pos(0)
               @io_handler.close
             elsif !@io_handler.opened? # There is no previous file. Reuse TailWatcher
@@ -213,14 +225,14 @@ module Fluent::Plugin
               #   If a notify comes before the new file for the path is created during rotation,
               #   then it appears as if the file was resurrected once it disappeared.
               # Don't want to swap state because we need latest read offset in pos file even after rotate_wait
-              @update_watcher.call(self, @pe, stat&.ino)
+              notify_watcher_update(@pe, stat)
             else
               # Permit to handle if stat is nil (file not present).
               # If a file is mv-ed and a new file is created during
               # calling `#refresh_watchers`s, and `#refresh_watchers` won't run `#start_watchers`
               # and `#stop_watchers()` for the path because `target_paths_hash`
               # always contains the path.
-              @update_watcher.call(self, swap_state(@pe), stat&.ino)
+              notify_watcher_update(swap_state(@pe), stat)
             end
           else
             @log.info "detected rotation of #{@path}"
@@ -244,27 +256,48 @@ module Fluent::Plugin
         pe # This pe will be updated in on_rotate after TailWatcher is initialized
       end
 
+      def stat_path
+        Fluent::FileWrapper.stat(@path)
+      rescue Errno::ENOENT, Errno::EACCES
+        nil
+      end
+      private :stat_path
+
+      def same_file?(stat)
+        stat && @dev == stat.dev && @ino == stat.ino
+      end
+      private :same_file?
+
+      def notify_watcher_update(pe, stat)
+        @rotation_device = stat&.dev
+        @update_watcher.call(self, pe, stat&.ino)
+      ensure
+        @rotation_device = nil
+      end
+      private :notify_watcher_update
+
       class RotateHandler
-        def initialize(log, &on_rotate)
+        def initialize(log, follow_inodes = false, &on_rotate)
           @log = log
-          @inode = nil
+          @identity = nil
+          @follow_inodes = follow_inodes
           @fsize = -1  # first
           @on_rotate = on_rotate
         end
 
         def on_notify(stat)
           if stat.nil?
-            inode = nil
+            identity = nil
             fsize = 0
           else
-            inode = stat.ino
+            identity = @follow_inodes ? [stat.dev, stat.ino] : stat.ino
             fsize = stat.size
           end
 
-          if @inode != inode || fsize < @fsize
+          if @identity != identity || fsize < @fsize
             @on_rotate.call(stat)
           end
-          @inode = inode
+          @identity = identity
           @fsize = fsize
         rescue
           @log.error $!.to_s

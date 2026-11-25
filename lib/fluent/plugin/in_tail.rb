@@ -428,9 +428,11 @@ module Fluent::Plugin
     def construct_watcher(target_info)
       path = target_info.path
 
-      # The file might be rotated or removed after collecting paths, so check inode again here.
+      # The file might be rotated or removed after collecting paths, so check its identity again here.
       begin
-        target_info.ino = Fluent::FileWrapper.stat(path).ino
+        stat = Fluent::FileWrapper.stat(path)
+        target_info.ino = stat.ino
+        target_info.dev = stat.dev
       rescue Errno::ENOENT, Errno::EACCES
         log.warn "stat() for #{path} failed. Continuing without tailing it."
         return
@@ -509,37 +511,44 @@ module Fluent::Plugin
       # TODO we should use another callback for this.
       # To suppress impact to existing logics, limit the case to `@follow_inodes`.
       # We may not need `@follow_inodes` condition.
+      path = tail_watcher.path
       if @follow_inodes && new_inode.nil?
-        # nil inode means the file disappeared, so we only need to stop it.
-        @tails.delete(tail_watcher.path)
-        detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
+        # A draining watcher may see the path disappear after a replacement
+        # has already been installed. Keep the replacement active.
+        @tails.delete(path) if @tails[path].equal?(tail_watcher)
+        detach_watcher_after_rotate_wait(tail_watcher, tail_watcher.ino)
         return
       end
-
-      path = tail_watcher.path
 
       log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
 
       if @pf
         pe_inode = pe.read_inode
-        target_info_from_position_entry = TargetInfo.new(path, pe_inode)
-        unless pe_inode == @pf[target_info_from_position_entry].read_inode
+        old_target = if @follow_inodes
+                       TargetInfo.new(path, tail_watcher.ino, tail_watcher.dev)
+                     else
+                       TargetInfo.new(path, pe_inode)
+                     end
+        current_entry = @pf[old_target]
+        unless pe_inode == current_entry.read_inode
           log.warn "Skip update_watcher because watcher has been already updated by other inotify event",
-                   path: path, inode: pe.read_inode, inode_in_pos_file: @pf[target_info_from_position_entry].read_inode
+                   path: path, inode: pe_inode, inode_in_pos_file: current_entry.read_inode
           return
         end
       end
 
-      new_target_info = TargetInfo.new(path, new_inode)
+      new_target_info = TargetInfo.new(path, new_inode, tail_watcher.rotation_device)
 
       if @follow_inodes
         new_position_entry = @pf[new_target_info]
-        # If `refresh_watcher` find the new file before, this will not be zero.
-        # In this case, only we have to do is detaching the current tail_watcher.
+        # If another watcher already follows the new file, discard the old
+        # watcher from the active paths so the next refresh can find its rotated path.
         if new_position_entry.read_inode == 0
           @tails[path] = setup_watcher(new_target_info, new_position_entry)
           @tails[path].ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
           @tails[path].on_notify
+        elsif @tails[path].equal?(tail_watcher)
+          @tails.delete(path)
         end
       else
         @tails[path] = setup_watcher(new_target_info, pe)
@@ -547,7 +556,7 @@ module Fluent::Plugin
         @tails[path].on_notify
       end
 
-      detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
+      detach_watcher_after_rotate_wait(tail_watcher, @follow_inodes ? tail_watcher.ino : pe.read_inode)
     end
 
     def detach_watcher(tw, ino, close_io = true)
@@ -572,7 +581,7 @@ module Fluent::Plugin
       tw.group_watcher&.delete(tw.path, tw)
 
       if @pf && tw.unwatched && (@follow_inodes || !@tails[tw.path])
-        target_info = TargetInfo.new(tw.path, ino)
+        target_info = TargetInfo.new(tw.path, ino, tw.dev)
         if defer_worker_completion
           @worker_deferred_unwatch[tw] = target_info
         else
