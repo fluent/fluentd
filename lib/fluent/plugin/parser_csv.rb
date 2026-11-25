@@ -37,6 +37,8 @@ module Fluent
         if @parser_engine == :fast
           @quote_char = '"'
           @escape_pattern = Regexp.compile(@quote_char * 2)
+          @escape_quotes = @quote_char * 2
+          @quote_byte = @quote_char.ord
 
           m = method(:parse_fast)
           self.singleton_class.module_eval do
@@ -80,6 +82,9 @@ module Fluent
         # use while because while is now faster than each_with_index
         columns = text.split(@delimiter, -1)
         num_columns = columns.size
+        # Only a line with an escaped quote needs the join below, so other lines take the
+        # same path as before.
+        has_escaped_quote = text.include?(@escape_quotes)
         i = 0
         j = 0
         while j < num_columns
@@ -89,7 +94,7 @@ module Fluent
           # Escaped quotes ("") next to the delimiter can make the pieces look closed too
           # early, so join them only when the result is a well-formed quoted value.
           # Anything else is left to the logic below, as before.
-          if column.start_with?(@quote_char) && column.count(@quote_char).odd?
+          if has_escaped_quote && column.start_with?(@quote_char) && column.count(@quote_char).odd?
             merged, last = join_quoted_columns(columns, j)
             if merged
               record[@keys[i]] = merged
@@ -156,14 +161,17 @@ module Fluent
         nil
       end
 
-      # Reads the quotes of a column from `pos` as adjacent pairs. :open means that all of
-      # them are paired, so the value goes on in the next column. :closed means that
-      # exactly one is left and it is the last character. Anything else is :malformed.
+      # Reads the quotes of a column from the byte offset `pos` as adjacent pairs. :open
+      # means that all of them are paired, so the value goes on in the next column. :closed
+      # means that exactly one is left and it is the last character. Anything else is
+      # :malformed. Offsets are in bytes, because character offsets make the scan quadratic
+      # for strings with multibyte characters. The quote is one byte in every encoding that
+      # is compatible with ASCII.
       def quote_state(column, pos)
-        while (idx = column.index(@quote_char, pos))
-          if column[idx + 1] == @quote_char
+        while (idx = column.byteindex(@quote_char, pos))
+          if column.getbyte(idx + 1) == @quote_byte
             pos = idx + 2
-          elsif idx == column.size - 1
+          elsif idx == column.bytesize - 1
             return :closed
           else
             return :malformed

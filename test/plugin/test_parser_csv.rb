@@ -234,6 +234,17 @@ class CSVParserTest < ::Test::Unit::TestCase
       assert_equal(',a"' * 16_000, record['path'])
       assert_equal('200', record['status'])
     end
+
+    def test_many_escaped_quotes_in_multibyte_value
+      line = ('GET,"' + 'あ""' * 64_000 + ',z",200,1234').encode(Encoding::UTF_8)
+      record = parse_fast(line)
+      assert_equal({'method' => 'GET', 'path' => 'あ"' * 64_000 + ',z', 'status' => '200', 'size' => '1234'}, record)
+    end
+
+    def test_quoted_value_with_delimiter_and_no_escaped_quote
+      record = parse_fast('GET,"a,b",200,1234')
+      assert_equal({'method' => 'GET', 'path' => 'a,b', 'status' => '200', 'size' => '1234'}, record)
+    end
   end
 
   # "parser_type" config shouldn't hide Fluent::Plugin::Parser#plugin_type
