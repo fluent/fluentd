@@ -1009,6 +1009,74 @@ EOL
     assert_equal(['test', time, records[1]], events[1])
   end
 
+  data(
+    'without name' => ['', TARGET_HOST],
+    'with name' => ['name mynode', 'mynode'],
+  )
+  test 'handshake failure shows the name of the server, or the host without a name' do |(name_line, expected)|
+    server = TCPServer.new(TARGET_HOST, 0)
+    server_thread = Thread.new do
+      sock = server.accept
+      sock.write(['HELO'].to_msgpack)
+    ensure
+      sock&.close
+    end
+
+    @d = d = create_driver(%[
+      heartbeat_type none
+      <security>
+        self_hostname localhost
+        shared_key fluentd-sharedkey
+      </security>
+      <server>
+        #{name_line}
+        host #{TARGET_HOST}
+        port #{server.local_address.ip_port}
+      </server>
+    ])
+
+    chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+    d.run(shutdown: false) do
+      assert_raise(Fluent::Plugin::ForwardOutput::ConnectionClosedError.new("failed to establish connection with node #{expected}")) do
+        d.instance.nodes.first.send_data('test', chunk)
+      end
+    end
+    assert(d.logs.any? { |log| log.include?("received invalid helo message from #{expected}\n") }, d.logs.join)
+  ensure
+    server_thread&.kill
+    server&.close
+  end
+
+  data(
+    'without name' => ['', 'name=nil'],
+    'with name' => ['name mynode', 'name="mynode"'],
+  )
+  test 'detached and recovered warnings show the name of the server as a field' do |(name_line, expected)|
+    @d = d = create_driver(%[
+      <server>
+        #{name_line}
+        host #{TARGET_HOST}
+        port #{@target_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+    server = "#{expected} host=\"#{TARGET_HOST}\" port=#{@target_port}"
+
+    hard_timeout = true
+    stub(node.failure).hard_timeout? { hard_timeout }
+    assert_true node.tick
+    assert(d.logs.any? { |log| log.include?("detached forwarding server #{server} hard_timeout=true\n") }, d.logs.join)
+
+    stub(node.failure).sample_size { d.instance.recover_sample_size + 1 }
+    assert_true node.heartbeat
+    assert(d.logs.any? { |log| log.include?("recovered forwarding server #{server}\n") }, d.logs.join)
+
+    hard_timeout = false
+    stub(node.failure).phi { d.instance.phi_threshold + 1 }
+    assert_true node.tick
+    assert(d.logs.any? { |log| log.include?("detached forwarding server #{server} phi=#{d.instance.phi_threshold + 1} phi_threshold=#{d.instance.phi_threshold}\n") }, d.logs.join)
+  end
+
   test 'keepalive + shared_key' do
     input_conf = target_config + %[
                    <security>

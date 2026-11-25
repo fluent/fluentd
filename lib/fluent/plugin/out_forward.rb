@@ -679,7 +679,7 @@ module Fluent::Plugin
             disable!
             break
           rescue HeloError => e
-            @log.warn "received invalid helo message from #{@name}"
+            @log.warn "received invalid helo message from #{@name || @host}"
             disable!
             break
           rescue PingpongError => e
@@ -800,7 +800,7 @@ module Fluent::Plugin
         end
 
         if @failure.hard_timeout?(now)
-          @log.warn "detached forwarding server '#{@name}'", host: @host, port: @port, hard_timeout: true
+          @log.warn "detached forwarding server", name: @name, host: @host, port: @port, hard_timeout: true
           disable!
           @resolved_host = nil  # expire cached host
           @failure.clear
@@ -810,7 +810,7 @@ module Fluent::Plugin
         if @sender.phi_failure_detector
           phi = @failure.phi(now)
           if phi > @sender.phi_threshold
-            @log.warn "detached forwarding server '#{@name}'", host: @host, port: @port, phi: phi, phi_threshold: @sender.phi_threshold
+            @log.warn "detached forwarding server", name: @name, host: @host, port: @port, phi: phi, phi_threshold: @sender.phi_threshold
             disable!
             @resolved_host = nil  # expire cached host
             @failure.clear
@@ -825,7 +825,7 @@ module Fluent::Plugin
         @failure.add(now)
         if detect && !available? && @failure.sample_size > @sender.recover_sample_size
           @available = true
-          @log.warn "recovered forwarding server '#{@name}'", host: @host, port: @port
+          @log.warn "recovered forwarding server", name: @name, host: @host, port: @port
           true
         else
           nil
@@ -839,7 +839,7 @@ module Fluent::Plugin
           establish_connection(sock, request_info)
 
           if request_info.state != :established
-            raise ConnectionClosedError, "failed to establish connection with node #{@name}"
+            raise ConnectionClosedError, "failed to establish connection with node #{@name || @host}"
           end
         end
       end
