@@ -800,7 +800,7 @@ module Fluent::Plugin
         end
 
         if @failure.hard_timeout?(now)
-          @log.warn "detached forwarding server '#{@name}'", host: @host, port: @port, hard_timeout: true
+          @log.warn "detached forwarding server", name: @name, host: @host, port: @port, hard_timeout: true
           disable!
           @resolved_host = nil  # expire cached host
           @failure.clear
@@ -810,7 +810,7 @@ module Fluent::Plugin
         if @sender.phi_failure_detector
           phi = @failure.phi(now)
           if phi > @sender.phi_threshold
-            @log.warn "detached forwarding server '#{@name}'", host: @host, port: @port, phi: phi, phi_threshold: @sender.phi_threshold
+            @log.warn "detached forwarding server", name: @name, host: @host, port: @port, phi: phi, phi_threshold: @sender.phi_threshold
             disable!
             @resolved_host = nil  # expire cached host
             @failure.clear
@@ -825,7 +825,7 @@ module Fluent::Plugin
         @failure.add(now)
         if detect && !available? && @failure.sample_size > @sender.recover_sample_size
           @available = true
-          @log.warn "recovered forwarding server '#{@name}'", host: @host, port: @port
+          @log.warn "recovered forwarding server", name: @name, host: @host, port: @port
           true
         else
           nil

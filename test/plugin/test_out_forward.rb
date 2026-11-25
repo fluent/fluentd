@@ -995,6 +995,36 @@ EOL
     server&.close
   end
 
+  data(
+    'without name' => ['', 'name=nil'],
+    'with name' => ['name mynode', 'name="mynode"'],
+  )
+  test 'detached and recovered warnings show the name of the server as a field' do |(name_line, expected)|
+    @d = d = create_driver(%[
+      <server>
+        #{name_line}
+        host #{TARGET_HOST}
+        port #{@target_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+    server = "#{expected} host=\"#{TARGET_HOST}\" port=#{@target_port}"
+
+    hard_timeout = true
+    stub(node.failure).hard_timeout? { hard_timeout }
+    assert_true node.tick
+    assert(d.logs.any? { |log| log.include?("detached forwarding server #{server} hard_timeout=true\n") }, d.logs.join)
+
+    stub(node.failure).sample_size { d.instance.recover_sample_size + 1 }
+    assert_true node.heartbeat
+    assert(d.logs.any? { |log| log.include?("recovered forwarding server #{server}\n") }, d.logs.join)
+
+    hard_timeout = false
+    stub(node.failure).phi { d.instance.phi_threshold + 1 }
+    assert_true node.tick
+    assert(d.logs.any? { |log| log.include?("detached forwarding server #{server} phi=#{d.instance.phi_threshold + 1} phi_threshold=#{d.instance.phi_threshold}\n") }, d.logs.join)
+  end
+
   test 'keepalive + shared_key' do
     input_conf = target_config + %[
                    <security>
