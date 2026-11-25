@@ -58,7 +58,7 @@ module Fluent::Plugin
           send_failed = true
           raise
         ensure
-          # A failed send also waits for the ack check, which disables the node. It only skips the rollback.
+          # A failed send also waits for the ack check in case the receiver got the chunk.
           if ack
             ack.enqueue(socket, send_failed: send_failed)
           else
