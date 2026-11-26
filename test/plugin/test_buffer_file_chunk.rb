@@ -774,10 +774,11 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_raise(IOError) { @c.open { |io| io.write "chunk io is opened as read only" } }
     end
 
-    test 'preserves queued files if opening metadata runs out of descriptors' do
-      stub(File).binread(@enqueued_path + '.meta') { raise Errno::EMFILE }
+    data('EMFILE' => Errno::EMFILE, 'ENFILE' => Errno::ENFILE)
+    test 'preserves queued files if opening metadata runs out of descriptors' do |error|
+      stub(File).binread(@enqueued_path + '.meta') { raise error }
 
-      assert_raise(Errno::EMFILE) do
+      assert_raise(error) do
         @klass.new(gen_metadata, @enqueued_path, :queued)
       end
       assert File.exist?(@enqueued_path)
@@ -891,10 +892,32 @@ class BufferFileChunkTest < Test::Unit::TestCase
     assert_true reader.closed?
 
     output = StringIO.new
+    output.set_encoding(Encoding::ASCII_8BIT)
     chunk.write_to(output)
     assert_equal content, output.string
   ensure
     chunk&.purge
+  end
+
+  data('close' => :close, 'purge' => :purge)
+  test 'stops active readers when a queued chunk is closed or purged' do |action|
+    chunk = @klass.new(gen_metadata, gen_path('queued.*.log'), :create)
+    chunk.append(['record'])
+    chunk.commit
+    chunk.enqueued!
+
+    chunk.open do |first|
+      chunk.open do |second|
+        assert_equal 'r', first.read(1)
+        assert_equal 'r', second.read(1)
+        chunk.public_send(action)
+        assert_raise(IOError) { first.read(1) }
+        assert_raise(IOError) { second.read(1) }
+      end
+    end
+
+    assert_equal(action == :close, File.exist?(chunk.path))
+    assert_equal(action == :close, File.exist?(chunk.meta_path))
   end
 
   sub_test_case 'compressed buffer' do

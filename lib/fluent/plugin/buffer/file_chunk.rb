@@ -45,6 +45,8 @@ module Fluent
           @permission = perm.is_a?(String) ? perm.to_i(8) : perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @chunk = @meta = nil
+          @readers = []
+          @readers_mutex = Mutex.new
 
           case mode
           when :create then create_new_chunk(path, @permission)
@@ -151,7 +153,7 @@ module Fluent
 
         def close
           super
-          size = @chunk ? @chunk.size : bytesize
+          size = @chunk&.size || bytesize
           close_file_handles
           if size == 0
             File.unlink(@path, @meta_path)
@@ -379,10 +381,11 @@ module Fluent
 
           @meta_path = @path + '.meta'
           if File.readable?(@meta_path)
-            # Only malformed metadata should trigger broken-chunk backup and removal.
-            bindata = File.binread(@meta_path)
             begin
-              restore_metadata(bindata)
+              restore_metadata(File.binread(@meta_path))
+            rescue Errno::EMFILE, Errno::ENFILE
+              # Descriptor exhaustion does not indicate a broken chunk.
+              raise
             rescue => e
               raise FileChunkError, "enqueued meta file is broken. #{e.message}"
             end
@@ -398,20 +401,47 @@ module Fluent
           @chunk&.close
           @meta&.close
           @chunk = @meta = nil
+
+          readers = @readers_mutex.synchronize do
+            active_readers = @readers
+            @readers = []
+            active_readers
+          end
+          readers.each(&:close)
         end
 
-        def open_chunk
+        def open_chunk(&block)
           raise IOError, 'closed stream' if closed?
 
           # Queued chunks normally have no open handles. A failed rename can
           # leave the original handle open so committed data remains readable.
-          return File.open(@path, 'rb') { |file| yield file } unless @chunk
+          chunk = @chunk
+          return open_queued_chunk(&block) unless chunk
 
-          @chunk.seek(0, IO::SEEK_SET)
+          chunk.seek(0, IO::SEEK_SET)
           begin
-            yield @chunk
+            yield chunk
           ensure
-            @chunk.seek(0, IO::SEEK_END) if staged?
+            chunk.seek(0, IO::SEEK_END) if staged?
+          end
+        end
+
+        def open_queued_chunk
+          reader = @readers_mutex.synchronize do
+            raise IOError, 'closed stream' if closed?
+
+            # Allow deletion on Windows even if a native read is still unwinding.
+            file = File.open(@path, File::RDONLY | File::SHARE_DELETE, binmode: true)
+            @readers << file
+            file
+          end
+          yield reader
+        ensure
+          if reader
+            @readers_mutex.synchronize do
+              # A concurrent close or purge owns the readers it has removed.
+              reader.close if @readers.delete(reader)
+            end
           end
         end
 

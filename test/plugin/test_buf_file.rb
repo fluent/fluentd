@@ -1511,6 +1511,28 @@ class FileBufferTest < Test::Unit::TestCase
       assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
     end
 
+    test '#resume backs up a queued chunk on a metadata read error and restores healthy chunks' do
+      setup_plugins({'path' => @bufpath})
+      c1id, p1 = create_first_chunk('q')
+      c2id, p2 = create_second_chunk('q')
+      contents = File.binread(p2)
+      file_binread = File.method(:binread)
+      stub(File).binread do |path|
+        raise Errno::EIO if path == p2 + '.meta'
+        file_binread.call(path)
+      end
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
+      compare_queued_chunk(@p.queue, c1id, 4, :queued)
+      assert_equal File.binread(p1), @p.queue.first.read
+      assert_false File.exist?(p2)
+      assert_false File.exist?(p2 + '.meta')
+      assert_equal contents, File.binread("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log")
+    end
+
     test '#resume backups enqueued broken metadata which has broken id, c, m fields' do
       setup_plugins({'path' => @bufpath})
       cid, path = create_first_chunk('q')
