@@ -83,6 +83,10 @@ module Fluent
     # called by Agent to add new match pattern and collector
     def add_rule(pattern, collector)
       @match_rules << Rule.new(pattern, collector)
+      # A tag may already be cached as unmatched (or as an earlier rule)
+      # if an event arrived before this rule was added, e.g. during a
+      # graceful reload. Drop the cache so the new rule can match.
+      @match_cache.clear
     end
 
     def add_metric_callbacks(caller_plugin_id, callback)
@@ -157,6 +161,11 @@ module Fluent
         end
         @keys << key
         collector
+      end
+
+      def clear
+        @map.clear
+        @keys.clear
       end
     end
 
