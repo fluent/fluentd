@@ -194,6 +194,20 @@ class IntailPositionFileTest < Test::Unit::TestCase
                  "ö.log\t0000000000000004\t000000000000002b\t000000000000000b\n".b, @file.read)
   end
 
+  data('exact row first' => false, 'exact row last' => true)
+  test 'prefers an exact device and inode match to an inode-only match on restart' do |exact_last|
+    target = Fluent::Plugin::TailInput::TargetInfo.new('tail.log', 42, 11)
+    exact_row = "tail.log\t0000000000000008\t000000000000002a\t000000000000000b\n"
+    stale_row = "tail.log\t0000000000000004\t000000000000002a\t0000000000000016\n"
+    write_data(@file, exact_last ? stale_row + exact_row : exact_row + stale_row)
+
+    pf = Fluent::Plugin::TailInput::PositionFile.load(@file, true, {target.identity => target}, logger: $log)
+
+    assert_equal 8, pf[target].read_pos
+    @file.rewind
+    assert_equal exact_row, @file.read
+  end
+
   sub_test_case '#[]' do
     test 'return entry' do
       write_data(@file, TEST_CONTENT)

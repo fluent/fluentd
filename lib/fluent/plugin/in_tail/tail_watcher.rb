@@ -41,7 +41,7 @@ module Fluent::Plugin
         @close_pending = false
       end
 
-      attr_reader :path, :ino, :dev, :rotation_device
+      attr_reader :path, :ino, :dev
 
       def identity
         [@dev, @ino]
@@ -68,9 +68,8 @@ module Fluent::Plugin
         @detached = true
         if @io_handler
           ready_to_shutdown(shutdown_start_time)
-          # An already-open handle still refers to the old file. A closed
-          # handler may reopen only if its path still leads to that file.
-          if !@follow_inodes || @dev.nil? || @io_handler.opened? || same_file?(stat_path)
+          # A closed handler must not apply its offset to a file on another device.
+          unless @follow_inodes && @dev && !@io_handler.opened? && path_on_another_device?
             @io_handler.on_notify
           end
         end
@@ -152,18 +151,14 @@ module Fluent::Plugin
       end
 
       def on_rotate(stat)
-        if @follow_inodes && stat && @dev && !same_file?(stat) &&
-           (@io_handler.nil? || !@io_handler.opened?)
-          # The path changed before the first open (or while it was closed).
-          # Drop the closed handler so it cannot reopen the replacement using
-          # the old position after rotation.
-          @io_handler = nil
-          notify_watcher_update(@pe, stat)
-          return
-        end
-
         if @io_handler.nil?
           if stat
+            # Discovery and the first open can see different files.
+            if @follow_inodes && @dev && !same_file?(stat)
+              notify_watcher_update(@pe, stat)
+              return
+            end
+
             # first time
             fsize = stat.size
             inode = stat.ino
@@ -204,7 +199,13 @@ module Fluent::Plugin
               @pe.update_pos(0)
               @io_handler.close
             elsif !@io_handler.opened? # There is no previous file. Reuse TailWatcher
-              @pe.update(inode, 0)
+              if @follow_inodes
+                # A replacement on another device needs its own watcher and offset.
+                @io_handler = nil if @dev != stat.dev
+                watcher_needs_update = true
+              else
+                @pe.update(inode, 0)
+              end
             else # file is rotated and new file found
               watcher_needs_update = true
               # Handle the old log file before renewing TailWatcher [fluentd#1055]
@@ -242,6 +243,18 @@ module Fluent::Plugin
         end
       end
 
+      def reuse_for_rotation(target_info, pe)
+        return false unless @io_handler && !@io_handler.opened? && @dev == target_info.dev
+
+        # Keep the multiline buffer until the first line from the new file.
+        pe.update(target_info.ino, 0)
+        @ino = target_info.ino
+        @pe = pe
+        @log.info "detected rotation of #{@path}"
+        @io_handler = io_handler
+        true
+      end
+
       def io_handler
         handler = @io_handler_build.call(self, @path)
         handler.ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
@@ -268,11 +281,15 @@ module Fluent::Plugin
       end
       private :same_file?
 
+      def path_on_another_device?
+        Fluent::FileWrapper.stat(@path).dev != @dev
+      rescue SystemCallError
+        false
+      end
+      private :path_on_another_device?
+
       def notify_watcher_update(pe, stat)
-        @rotation_device = stat&.dev
-        @update_watcher.call(self, pe, stat&.ino)
-      ensure
-        @rotation_device = nil
+        @update_watcher.call(self, pe, stat&.ino, stat&.dev)
       end
       private :notify_watcher_update
 

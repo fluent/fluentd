@@ -152,6 +152,7 @@ module Fluent::Plugin
 
       def fetch_compacted_entries(existing_targets = nil)
         entries = {}
+        exact_matches = {}
         if @follow_inodes && existing_targets
           targets_by_inode = existing_targets.values.group_by(&:ino)
         end
@@ -173,16 +174,23 @@ module Fluent::Plugin
             next
           end
 
-          if targets_by_inode && dev.nil?
-            target = resolve_legacy_target(path, ino, targets_by_inode.fetch(ino, []))
+          if targets_by_inode
+            exact_target = dev && existing_targets[[dev, ino]]
+            candidates = targets_by_inode.fetch(ino, [])
+            # Device numbers can change across restarts. A unique inode
+            # still identifies the saved position, as in older versions.
+            target = exact_target || (candidates.first if candidates.one?)
+            target ||= resolve_legacy_target(path, ino, candidates) if dev.nil?
             next unless target
 
-            path = target.path
+            path = target.path unless exact_target
             dev = target.dev
           end
 
           key = target_key(TargetInfo.new(path, ino, dev))
           next if existing_targets && !existing_targets.key?(key)
+          next if exact_matches[key] && !exact_target
+          exact_matches[key] = true if exact_target
 
           if entries.key?(key)
             description = @follow_inodes ? "#{path} (device: #{dev}, inode: #{ino})" : path
@@ -200,28 +208,9 @@ module Fluent::Plugin
         target = candidates.find { |candidate| candidate.path.b == path.b }
         return target if target
 
-        # A live alias can identify the device. A replacement's device
-        # alone cannot distinguish between multiple renames.
+        # A live alias can identify the device when several targets share an inode.
         stat = Fluent::FileWrapper.stat(path)
-        if stat.ino == ino
-          candidates.find { |candidate| candidate.dev == stat.dev }
-        elsif candidates.one? && candidates.first.dev == stat.dev
-          candidates.first
-        end
-      rescue Errno::ENOENT
-        resolve_legacy_rename(path, candidates)
-      rescue SystemCallError, ArgumentError
-        nil
-      end
-
-      def resolve_legacy_rename(path, candidates)
-        return unless candidates.one?
-
-        # A missing path has no device ID. Check the original directory to
-        # avoid reusing the offset for an unrelated file on another device.
-        # Use File.stat for both paths because WindowsFile uses volume serials.
-        target = candidates.first
-        target if File.stat(File.dirname(path)).dev == File.stat(target.path).dev
+        candidates.find { |candidate| candidate.dev == stat.dev } if stat.ino == ino
       rescue SystemCallError, ArgumentError
         nil
       end
