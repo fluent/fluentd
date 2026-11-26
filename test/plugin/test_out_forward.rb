@@ -777,17 +777,42 @@ EOL
     server&.close
   end
 
+  TLS_CLIENT_CONFIG = "transport tls\ntls_insecure_mode true"
+
+  def create_tls_server_context
+    key = OpenSSL::PKey::RSA.new(2048)
+    cert = OpenSSL::X509::Certificate.new
+    cert.version = 2
+    cert.serial = 1
+    cert.subject = cert.issuer = OpenSSL::X509::Name.parse('/CN=localhost')
+    cert.public_key = key.public_key
+    cert.not_before = Time.now - 60
+    cert.not_after = Time.now + 3600
+    cert.sign(key, OpenSSL::Digest.new('SHA256'))
+    OpenSSL::SSL::SSLContext.new.tap do |context|
+      context.cert = cert
+      context.key = key
+    end
+  end
+
   data(
     'memory chunk' => [:memory, ''],
     'file chunk' => [:file, ''],
     'keepalive' => [:memory, 'keepalive true'],
     'require_ack_response' => [:memory, 'require_ack_response true'],
+    'tls' => [:memory, TLS_CLIENT_CONFIG],
+    'tls and keepalive' => [:memory, "#{TLS_CLIENT_CONFIG}\nkeepalive true"],
   )
   test 'send_timeout stops a send to a server which does not read' do |(chunk_type, conf)|
     server = TCPServer.new(TARGET_HOST, 0)
+    tls_context = create_tls_server_context if conf.include?(TLS_CLIENT_CONFIG)
     socks = []
     server_thread = Thread.new do
-      loop { socks << server.accept }
+      loop do
+        sock = server.accept
+        sock = OpenSSL::SSL::SSLSocket.new(sock, tls_context).tap { |s| s.sync_close = true }.accept if tls_context
+        socks << sock
+      end
     end
 
     @d = d = create_driver(%[
@@ -827,11 +852,17 @@ EOL
     server&.close
   end
 
-  test 'send_timeout 0 does not limit a send' do
+  data(
+    'tcp' => '',
+    'tls' => TLS_CLIENT_CONFIG,
+  )
+  test 'send_timeout 0 does not limit a send' do |conf|
     server = TCPServer.new(TARGET_HOST, 0)
+    tls_context = create_tls_server_context unless conf.empty?
     received = +''
     server_thread = Thread.new do
       sock = server.accept
+      sock = OpenSSL::SSL::SSLSocket.new(sock, tls_context).tap { |s| s.sync_close = true }.accept if tls_context
       sleep 1
       loop { received << sock.readpartial(1024 * 1024) }
     rescue EOFError
@@ -841,6 +872,7 @@ EOL
     @d = d = create_driver(%[
       send_timeout 0
       heartbeat_type none
+      #{conf}
       <server>
         host #{TARGET_HOST}
         port #{server.local_address.ip_port}
@@ -862,6 +894,31 @@ EOL
   ensure
     chunk&.purge
     server_thread&.kill
+    server&.close
+  end
+
+  test 'send_timeout stops a send when a TLS socket waits for data from the server' do
+    server = TCPServer.new(TARGET_HOST, 0)
+    @d = d = create_driver(%[
+      send_timeout 1s
+      heartbeat_type none
+      <server>
+        host #{TARGET_HOST}
+        port #{server.local_address.ip_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+    io = TCPSocket.new(TARGET_HOST, server.local_address.ip_port)
+    # A TLS socket returns :wait_readable when the write needs a TLS record from the server first.
+    sock = Object.new
+    stub(sock).write_nonblock { :wait_readable }
+    stub(sock).to_io { io }
+
+    assert_raise(Fluent::Plugin::ForwardOutput::SendTimeoutError) do
+      node.__send__(:write_with_timeout, sock, 'data')
+    end
+  ensure
+    io&.close
     server&.close
   end
 
