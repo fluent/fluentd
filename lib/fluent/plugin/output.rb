@@ -823,8 +823,23 @@ module Fluent
                      # For existing plugins. Old plugin passes Chunk.metadata instead of Chunk
                      chunk
                    end
-        if metadata.empty?
-          str.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
+        empty_metadata = metadata.empty?
+        rvalue = str
+        # Format the raw template before expanding the other placeholders.
+        if @chunk_key_time && (chunk_passed || !empty_metadata)
+          timekey = metadata.timekey
+          if chunk_passed && timekey.nil?
+            # Restored chunks can predate the time chunk key. Leave the emit cache out of this calculation.
+            timekey_owner = @as_secondary ? @primary_instance : self
+            timekey = timekey_owner.calculate_timekey_without_cache(chunk.created_at)
+          end
+
+          @output_time_formatter_cache[str] ||= Fluent::Timezone.formatter(@timekey_zone, str)
+          rvalue = @output_time_formatter_cache[str].call(timekey)
+        end
+
+        if empty_metadata
+          rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
             if chunk_passed
               dump_unique_id_hex(chunk.unique_id)
             else
@@ -832,12 +847,6 @@ module Fluent
             end
           }
         else
-          rvalue = str.dup
-          # strftime formatting
-          if @chunk_key_time # this section MUST be earlier than rest to use raw 'str'
-            @output_time_formatter_cache[str] ||= Fluent::Timezone.formatter(@timekey_zone, str)
-            rvalue = @output_time_formatter_cache[str].call(metadata.timekey)
-          end
           # ${tag}, ${tag[0]}, ${tag[1]}, ... , ${tag[-2]}, ${tag[-1]}
           if @chunk_key_tag
             if str.include?('${tag}')
@@ -994,13 +1003,18 @@ module Fluent
         return @calculate_timekey_last_timekey if @calculate_timekey_last_time_int == time_int
 
         @calculate_timekey_last_time_int = time_int
+        @calculate_timekey_last_timekey = calculate_timekey_without_cache(time, time_int)
+      end
+
+      def calculate_timekey_without_cache(time, time_int = time.to_i)
         if @timekey_use_utc
-          @calculate_timekey_last_timekey = (time_int - (time_int % @timekey)).to_i
+          (time_int - (time_int % @timekey)).to_i
         else
           offset = @calculate_offset ? @calculate_offset.call(time) : @offset
-          @calculate_timekey_last_timekey = (time_int - ((time_int + offset) % @timekey)).to_i
+          (time_int - ((time_int + offset) % @timekey)).to_i
         end
       end
+      protected :calculate_timekey_without_cache
 
       def chunk_for_test(tag, time, record)
         require 'fluent/plugin/buffer/memory_chunk'

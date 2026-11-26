@@ -2039,6 +2039,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'path' => "#{@tmp_dir}/time-chunk-key",
         'flush_at_shutdown' => 'false',
         'flush_thread_interval' => '0.01',
+        'queued_chunks_limit_size' => '2',
       }
       before_restart = {"message" => "before restart"}
       after_restart = {"message" => "after restart"}
