@@ -30,7 +30,7 @@ class ConnectionManager < Test::Unit::TestCase
           connection_factory: -> (_, _, _) {
             sock = 'sock'
             mock(sock).close.once
-            mock(sock).close_write.once
+            mock(sock).shutdown(:WR).once
             sock
           },
           socket_cache: nil,
@@ -95,6 +95,27 @@ class ConnectionManager < Test::Unit::TestCase
         assert_raise(RuntimeError.new('failed')) do
           cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |_sock, _ri|
             raise 'failed'
+          end
+        end
+      end
+
+      test 'closes the socket without waiting for ack when the send times out' do
+        sock = 'sock'
+        cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
+          log: $log,
+          secure: false,
+          connection_factory: -> (_, _, _) {
+            mock(sock).close.once
+            mock(sock).shutdown(:WR).once
+            sock
+          },
+          socket_cache: nil,
+        )
+
+        ack = mock('ack').enqueue(anything, anything).never.subject
+        assert_raise(Fluent::Plugin::ForwardOutput::SendTimeoutError) do
+          cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |_sock, _ri|
+            raise Fluent::Plugin::ForwardOutput::SendTimeoutError
           end
         end
       end
@@ -195,7 +216,7 @@ class ConnectionManager < Test::Unit::TestCase
         socket_cache: nil,
       )
 
-      mock(sock).close_write.once
+      mock(sock).shutdown(:WR).once
       mock(sock).close.once
       cm.discard(sock)
     end
