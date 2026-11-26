@@ -354,6 +354,23 @@ class SyslogParserTest < ::Test::Unit::TestCase
     assert_equal([13, 'web01', 'nginx'], record.values_at('pri', 'host', 'ident'))
   end
 
+  data('regexp' => 'regexp', 'string' => 'string')
+  def test_auto_detects_rfc3164_with_a_timestamp_starting_with_the_year(parser_engine)
+    @parser.configure(
+      'parser_engine' => parser_engine,
+      'message_format' => 'auto',
+      'with_priority' => true,
+      'time_format' => '%Y-%m-%dT%H:%M:%S%z',
+    )
+
+    time = record = nil
+    @parser.instance.parse('<13>2026-04-25T16:43:29+00:00 web01 nginx: hello') do |t, r|
+      time, record = t, r
+    end
+    assert_equal(event_time('2026-04-25T16:43:29+00:00', format: '%Y-%m-%dT%H:%M:%S%z'), time)
+    assert_equal([13, 'web01', 'nginx', 'hello'], record.values_at('pri', 'host', 'ident', 'message'))
+  end
+
   data(
     'rfc5424' => ['rfc5424', 'time_format'],
     'auto' => ['auto', 'rfc5424_time_format'],
