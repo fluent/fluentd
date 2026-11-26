@@ -391,34 +391,44 @@ module Fluent::Plugin
     end
 
     private def send_chunk(chunk)
-      failures = {}
+      disconnected = {}
+      failed_nodes = {}
       tried_standbys = {}
       tag = chunk.metadata.tag
       send_to_node = lambda do |node|
+        previous_generation = disconnected.delete(node)
+        failed_nodes.delete(node)
         tried_standbys[node] = true if node.standby?
-        result = node.send_data(tag, chunk) { |error| failures[node] = error }
-        failures.delete(node)
-        result
+        generation = node.write_generation
+        node.send_data(tag, chunk)
+      rescue WriteDisconnected => error
+        # Count consecutive disconnects only while no other flush has written to this node.
+        disconnected[node] = generation
+        failed_nodes[node] = [error, generation] if previous_generation == generation
+        raise
       end
-      service_discovery_select_service(&send_to_node)
-    rescue
-      raise if failures.empty? || @heartbeat_type == :none
 
-      failed_nodes = failures
-      failures = {}
-      detach_failed_nodes(failed_nodes)
-      # A transport heartbeat can recover a node that still resets writes.
-      # Give this flush a chance to reach a standby before retrying the primary.
-      @load_balancer.select_standby(failed_nodes, tried_standbys, &send_to_node) || raise
-    ensure
-      # Let the load balancer retry a send on a fresh connection before detaching the node.
-      detach_failed_nodes(failures) unless failures.empty?
+      result = begin
+        service_discovery_select_service(&send_to_node)
+      rescue WriteDisconnected => error
+        raise if failed_nodes.empty? || @heartbeat_type == :none
+
+        begin
+          @load_balancer.select_standby(failed_nodes, tried_standbys, &send_to_node)
+        rescue NoNodesAvailable
+          raise error
+        end
+      end
+
+      # Keep every route available for the next buffer retry until another node accepts the chunk.
+      detach_failed_nodes(failed_nodes) unless failed_nodes.empty?
+      result
     end
 
     private def detach_failed_nodes(failures)
       availability_changed = false
-      failures.each do |node, error|
-        availability_changed = node.detach_after_send_failure(error) || availability_changed
+      failures.each do |node, (error, generation)|
+        availability_changed = node.detach_after_send_failure(error, generation) || availability_changed
       end
       @load_balancer.refresh_availability if availability_changed
     end
@@ -602,9 +612,8 @@ module Fluent::Plugin
       def_delegators :@server, :discovery_id, :host, :port, :name, :weight, :standby
 
       class DataWriter
-        def initialize(socket, on_disconnect)
+        def initialize(socket)
           @socket = socket
-          @on_disconnect = on_disconnect
         end
 
         def write(data)
@@ -626,7 +635,7 @@ module Fluent::Plugin
         def handle_disconnect
           yield
         rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::ENOTCONN, OpenSSL::SSL::SSLError => error
-          @on_disconnect&.call(error)
+          error.extend(WriteDisconnected)
           raise
         end
       end
@@ -646,6 +655,7 @@ module Fluent::Plugin
         @standby = server.standby
         @failure = failure
         @health_mutex = Mutex.new
+        @write_generation = 0
         @available = true
 
         # @hostname is used for certificate verification & TLS SNI
@@ -692,14 +702,20 @@ module Fluent::Plugin
         @health_mutex.synchronize { @available = false }
       end
 
-      def detach_after_send_failure(error)
+      def write_generation
+        @health_mutex.synchronize { @write_generation }
+      end
+
+      def detach_after_send_failure(error, generation)
         @health_mutex.synchronize do
-          was_available = @available
-          @log.warn "detached forwarding server", name: @name, host: @host, port: @port, error: error if was_available
+          return false unless @available && @write_generation == generation
+
+          @log.warn "detached forwarding server", name: @name, host: @host, port: @port, error: error
           # Recovery requires new heartbeats following a failed data write.
           @failure.clear
+          @resolved_host = nil
           @available = false
-          was_available
+          true
         end
       end
 
@@ -763,7 +779,7 @@ module Fluent::Plugin
         end
       end
 
-      def send_data_actual(sock, tag, chunk, &on_disconnect)
+      def send_data_actual(sock, tag, chunk)
         option = { 'size' => chunk.size, 'compressed' => @compress }
         option['chunk'] = Base64.encode64(chunk.unique_id) if @ack_handler
 
@@ -773,7 +789,7 @@ module Fluent::Plugin
 
         tag = tag.dup.force_encoding(Encoding::UTF_8)
 
-        writer = DataWriter.new(sock, on_disconnect)
+        writer = DataWriter.new(sock)
         writer.write @sender.forward_header                    # array, size=3
         writer.write tag.to_msgpack                            # 1. tag: String (str)
         chunk.open(compressed: @compress) do |chunk_io|
@@ -786,19 +802,18 @@ module Fluent::Plugin
         # TODO: use bin32 for non-utf8 content(entries) when old msgpack-ruby (0.5.x or earlier) not supported
       end
 
-      def send_data(tag, chunk, &on_disconnect)
+      def send_data(tag, chunk)
         ack = @ack_handler && @ack_handler.create_ack(chunk.unique_id, self)
         connect(nil, ack: ack) do |sock, ri|
           ensure_established_connection(sock, ri)
-          send_data_actual(sock, tag, chunk) do |error|
-            if on_disconnect
-              ack.send_disconnected = true if ack
-              on_disconnect.call(error)
-            end
-          end
+          send_data_actual(sock, tag, chunk)
+          heartbeat(false)
+        rescue WriteDisconnected
+          # Record this before ConnectionManager enqueues a failed socket for ACK checking.
+          ack.send_disconnected = true if ack
+          raise
         end
 
-        heartbeat(false)
         nil
       end
 
@@ -873,7 +888,10 @@ module Fluent::Plugin
         @health_mutex.synchronize do
           now = Time.now.to_f
           unless @available
-            @failure.clear if @failure.hard_timeout?(now)
+            if @failure.hard_timeout?(now)
+              @failure.clear
+              @resolved_host = nil
+            end
             return nil
           end
 
@@ -898,6 +916,8 @@ module Fluent::Plugin
       def heartbeat(detect=true)
         @health_mutex.synchronize do
           @failure.add(Time.now.to_f)
+          # Successful data writes advance the generation used by flushes to track disconnects.
+          @write_generation += 1 unless detect
           if detect && !@available && @failure.sample_size > @sender.recover_sample_size
             @available = true
             @log.warn "recovered forwarding server", name: @name, host: @host, port: @port
@@ -929,7 +949,7 @@ module Fluent::Plugin
         true
       end
 
-      def detach_after_send_failure(_error)
+      def detach_after_send_failure(_error, _generation)
       end
 
       def tick

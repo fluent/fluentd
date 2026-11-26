@@ -37,15 +37,20 @@ module Fluent::Plugin
         # Don't care about the change of @weight_array's size while looping since
         # it's only used for determining the number of loops and it is not so important.
         wlen = (routes || @weight_array).size
-        wlen.times do
-          node = @mutex.synchronize do
-            weights = routes || @weight_array
-            next if weights.empty?
+        # Standby retries walk their own route list even when another flush advances @rr.
+        start = @mutex.synchronize { @rr } if routes
+        wlen.times do |index|
+          node = if routes
+                   routes[(start + index) % wlen]
+                 else
+                   @mutex.synchronize do
+                     next if @weight_array.empty?
 
-            r = @rr % weights.size
-            @rr = (r + 1) % weights.size
-            weights[r]
-          end
+                     r = @rr % @weight_array.size
+                     @rr = (r + 1) % @weight_array.size
+                     @weight_array[r]
+                   end
+                 end
           break unless node
           next unless node.available?
 
@@ -83,10 +88,28 @@ module Fluent::Plugin
         availability = nodes.to_h do |node|
           [node, node.available? && !failed_nodes.key?(node) && !tried_standbys.key?(node)]
         end
-        _, promoted = partition_routes(nodes, availability)
-        select_healthy_node(routes: weight_array_for(promoted), &block)
-      rescue NoNodesAvailable
-        nil
+        last_error = nil
+
+        loop do
+          _, promoted = partition_routes(nodes, availability)
+          break if promoted.empty?
+
+          begin
+            return select_healthy_node(routes: weight_array_for(promoted), &block)
+          rescue NoNodesAvailable
+            # A candidate may become unavailable before its send is attempted.
+          rescue *Output::UNRECOVERABLE_ERRORS
+            raise
+          rescue => error
+            last_error = error
+          end
+
+          # Exclude this group for the current flush and try the remaining standbys.
+          promoted.each { |node| availability[node] = false }
+        end
+
+        raise last_error if last_error
+        raise NoNodesAvailable, "no nodes are available"
       end
 
       private def rebuild_routes(nodes)

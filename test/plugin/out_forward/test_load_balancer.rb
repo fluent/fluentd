@@ -108,6 +108,24 @@ class LoadBalancerTest < Test::Unit::TestCase
       end
     end
 
+    test 'a standby route list is covered even if a concurrent selection advances the cursor' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      primary = flexmock('primary', :'standby?' => false, :'available?' => true, weight: 1)
+      failed = flexmock('failed', :'available?' => true)
+      healthy = flexmock('healthy', :'available?' => true)
+      lb.rebuild_weight_array([primary])
+
+      result = lb.select_healthy_node(routes: [failed, healthy]) do |node|
+        if node == failed
+          lb.select_healthy_node { |regular| assert_equal primary, regular }
+          raise Errno::EPIPE
+        end
+        :sent
+      end
+
+      assert_equal [:sent, healthy], result
+    end
+
     test 'it regards weight=0 node as unavailable' do
       lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
       lb.rebuild_weight_array([flexmock('node', :'standby?' => false, :'available?' => true, weight: 0)])
