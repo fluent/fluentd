@@ -530,6 +530,20 @@ class SyslogParserTest < ::Test::Unit::TestCase
     assert_input_rejected(text, expectation)
   end
 
+  data(
+    'non-ASCII host' => '<14>1 2026-04-25T16:43:29Z hôst app 123 ID - msg',
+    'header on a later line' => "<14>1 2026-04-25T16:43:29Z first line\nhost app 123 ID - second line",
+  )
+  def test_regexp_engine_does_not_match_rfc5424_header_later_in_the_message(text)
+    @parser.configure(
+      'parser_engine' => 'regexp',
+      'message_format' => 'rfc5424',
+      'with_priority' => true,
+    )
+
+    assert_input_rejected(text, :rejects)
+  end
+
   def test_parse_rfc5424_with_space_containing_time_format
     @parser.configure(
       'parser_engine' => 'string',
