@@ -272,6 +272,12 @@ CONF
       assert_not_equal(e.inspect, e.to_s)
       assert_equal(expected, e.to_s)
     end
+
+    test 'dump a key that is not a string' do
+      e = element('ROOT', '', {}, [element('record', '', {123 => 'test'})])
+      e.v1_config = true
+      assert_equal("<ROOT>\n  <record>\n    123 test\n  </record>\n</ROOT>\n", e.to_s)
+    end
   end
 
   sub_test_case '#inspect' do
@@ -388,6 +394,17 @@ CONF
         assert_equal 'xxxxxx',  e2['hash2']
         assert_equal 'yay', e2['unknown1']
         assert_equal 'boo', e2['unknown2']
+      end
+
+      test 'keeps an argument that is not a string' do
+        e = element('ROOT', '', {}, [element('record', 7)])
+        assert_equal(7, e.to_masked_element.elements.first.arg)
+      end
+
+      test 'keeps a key that cannot be a symbol in a section without proxies' do
+        key = "\xC3".dup.force_encoding(Encoding::UTF_8)
+        e = element('record', '', {key => 'ok'})
+        assert_equal('ok', e.to_masked_element[key])
       end
     end
 

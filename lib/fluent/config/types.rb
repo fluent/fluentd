@@ -204,15 +204,26 @@ module Fluent
       end
     }
 
+    def self.parse_json(val, opts, name, kind)
+      JSON.parse(val, **Fluent::DEFAULT_JSON_PARSE_OPTIONS)
+    rescue JSON::ParserError => e
+      raise ConfigError, "#{name}: invalid JSON #{kind}: #{e.message}", cause: nil unless opts[:secret]
+      # The parser's message can contain part of the value.
+      reason = e.is_a?(JSON::NestingError) ? ": too deep" : ""
+      raise ConfigError, "#{name}: invalid JSON #{kind}#{reason}", cause: nil
+    end
+    private_class_method :parse_json
+
     def self.hash_value(val, opts = {}, name = nil)
       return nil if val.nil?
 
       param = if val.is_a?(String)
-                val.start_with?('{') ? JSON.parse(val, **Fluent::DEFAULT_JSON_PARSE_OPTIONS) : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
+                val.start_with?('{') ? parse_json(val, opts, name, "object") : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
               else
                 val
               end
       if param.class != Hash
+        raise ConfigError, "#{name}: hash required but got #{val.class}" if opts[:secret]
         raise ConfigError, "hash required but got #{val.inspect}"
       end
       if opts.empty?
@@ -235,7 +246,7 @@ module Fluent
       return nil if val.nil?
 
       param = if val.is_a?(String)
-                val.start_with?('[') ? JSON.parse(val, **Fluent::DEFAULT_JSON_PARSE_OPTIONS) : val.strip.split(/\s*,\s*/)
+                val.start_with?('[') ? parse_json(val, opts, name, "array") : val.strip.split(/\s*,\s*/)
               elsif val.is_a?(Array)
                 val
               elsif val.is_a?(Numeric) || val == true || val == false
@@ -248,6 +259,7 @@ module Fluent
                 val
               end
       if param.class != Array
+        raise ConfigError, "#{name}: array required but got #{val.class}" if opts[:secret]
         raise ConfigError, "array required but got #{val.inspect}"
       end
       if opts[:value_type]

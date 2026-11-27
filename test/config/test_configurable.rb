@@ -178,6 +178,7 @@ module ConfigurableSpec
 
     config_param :normal_param, :string
     config_param :secret_param, :string, secret: true
+    config_param :secret_param3, :string, secret: true, alias: :legacy_secret_param, default: nil
 
     config_section :section  do
       config_param :normal_param2, :string
@@ -434,6 +435,55 @@ module ConfigurableSpec
     attr_accessor :log
     config_param :key1, :string, default: 'deprecated', deprecated: "key1 will be removed."
     config_param :key2, :string, default: 'obsoleted', obsoleted: "key2 has been removed."
+  end
+
+  class ExampleWithSecretInChildSection
+    include Fluent::Configurable
+    attr_accessor :log
+
+    config_param :normal_param, :string
+    config_param :secret_param, :string, secret: true
+
+    config_section :section, multi: false do
+      config_param :secret_param2, :string, secret: true
+    end
+
+    # Like <store> of copy, the parameters belong to a plugin configured later.
+    config_section :store, multi: true do
+      config_param :@type, :string, default: nil
+    end
+  end
+
+  class ExampleWithSecretArgument
+    include Fluent::Configurable
+    attr_accessor :log
+
+    config_section :auth, multi: false do
+      config_argument :token, :array, secret: true, default: nil
+    end
+  end
+
+  class ExampleWithPluginSection
+    include Fluent::Configurable
+    attr_accessor :log
+
+    # Like <buffer> of output, the section also has parameters of a plugin configured later.
+    config_section :buffer, multi: false do
+      config_argument :chunk_keys, :array, default: []
+      config_param :@type, :string, default: 'memory', alias: :type
+      config_param :flush_mode, :enum, list: [:default, :lazy], default: :default
+      config_param :log_level, :string, default: nil
+    end
+  end
+
+  class ExampleWithAliases
+    include Fluent::Configurable
+
+    config_param :password, :string, secret: true, alias: :pass, default: nil
+    config_param :pass, :string, default: nil
+    config_param :user, :string, alias: :legacy, default: nil
+    config_param :token, :string, secret: true, alias: :legacy, default: nil
+    config_param :name, :string, alias: :legacy_name, default: nil
   end
 end
 
@@ -1370,7 +1420,8 @@ module Fluent::Config
         @conf = config_element('ROOT', '',
                                {
                                  'normal_param' => 'normal',
-                                 'secret_param' => 'secret'
+                                 'secret_param' => 'secret',
+                                 'legacy_secret_param' => 'secret'
                                },
                                [config_element('section', '', {'normal_param2' => 'normal', 'secret_param2' => 'secret'} )])
         @example = ConfigurableSpec::ExampleWithSecret.new
@@ -1400,9 +1451,125 @@ module Fluent::Config
         case key
         when 'normal_param', 'normal_param2'
           assert_equal 'normal', value
-        when 'secret_param', 'secret_param2'
+        when 'secret_param', 'secret_param2', 'legacy_secret_param'
           assert_equal 'xxxxxx', value
         end
+      end
+    end
+
+    sub_test_case 'config error log' do
+      data("error in a parameter" => [{'secret_param' => 'SECRET_ROOT'},
+                                      "'normal_param' parameter is required",
+                                      "<ROOT>\n  secret_param xxxxxx\n</ROOT>\n"],
+           "error in a section" => [{'normal_param' => 'normal', 'secret_param' => 'SECRET_ROOT'},
+                                    "'<section>' section cannot be written twice or more",
+                                    "<ROOT>\n  normal_param normal\n  secret_param xxxxxx\n</ROOT>\n"])
+      test 'does not show secrets of child sections' do |(attrs, message, dump)|
+        conf = config_element('ROOT', '', attrs,
+                              [config_element('section', '', {'secret_param2' => 'SECRET_SECTION1'}),
+                               config_element('section', '', {'secret_param2' => 'SECRET_SECTION2'}),
+                               config_element('store', '', {'@type' => 'test', 'password' => 'SECRET_STORE'})])
+        example = ConfigurableSpec::ExampleWithSecretInChildSection.new
+        example.log = Fluent::Test::TestLogger.new
+        assert_raise(Fluent::ConfigError.new(message)) do
+          example.configure(conf)
+        end
+        logs = example.log.logs.join
+        assert_true(logs.include?("config error in:\n#{dump}"))
+        assert_not_match(/SECRET/, logs)
+      end
+
+      test 'masks values of keys that the section does not define' do
+        conf = config_element('ROOT', '', {},
+                              [config_element('buffer', 'tag', {'@type' => 'file', 'flush_mode' => 'bogus', 'encryption_key' => 'SECRET_KEY'})])
+        example = ConfigurableSpec::ExampleWithPluginSection.new
+        example.log = Fluent::Test::TestLogger.new
+        assert_raise(Fluent::ConfigError.new("valid options are default,lazy but got bogus")) do
+          example.configure(conf)
+        end
+        logs = example.log.logs.join
+        assert_true(logs.include?("config error in:\n<buffer tag>\n  @type file\n  flush_mode bogus\n  encryption_key xxxxxx\n</buffer>\n"))
+        assert_not_match(/SECRET/, logs)
+      end
+
+      data("legacy name next to the reserved one" => [{'@type' => 'file', '@id' => 'buf', 'id' => 'SECRET_ID'}, "  @type file\n  @id buf\n  id xxxxxx\n"],
+           "legacy name alone" => [{'type' => 'file', 'id' => 'buf'}, "  type file\n  id buf\n"],
+           "alias written next to the name" => [{'@type' => 'file', 'type' => 'SECRET_TYPE'}, "  @type file\n  type xxxxxx\n"],
+           "parameter named like a legacy name" => [{'@log_level' => 'info', 'log_level' => 'notice'}, "  @log_level info\n  log_level notice\n"],
+           "symbol key in YAML" => [{:flush_mode => 'SECRET_SYMBOL'}, "  flush_mode xxxxxx\n  flush_mode bogus\n"],
+           "null key in YAML" => [{nil => 'SECRET_NULL'}, "<buffer tag>\n   xxxxxx\n"])
+      test 'masks keys that do not stand for reserved names' do |(attrs, dump)|
+        conf = config_element('ROOT', '', {}, [config_element('buffer', 'tag', attrs.merge('flush_mode' => 'bogus'))])
+        example = ConfigurableSpec::ExampleWithPluginSection.new
+        example.log = Fluent::Test::TestLogger.new
+        assert_raise(Fluent::ConfigError.new("valid options are default,lazy but got bogus")) do
+          example.configure(conf)
+        end
+        logs = example.log.logs.join
+        assert_true(logs.include?(dump))
+        assert_not_match(/SECRET/, logs)
+      end
+    end
+
+    sub_test_case 'secret section argument' do
+      test 'is masked in the config error log' do
+        conf = config_element('ROOT', '', {}, [config_element('auth', '[SECRET_ARG')])
+        example = ConfigurableSpec::ExampleWithSecretArgument.new
+        example.log = Fluent::Test::TestLogger.new
+        assert_raise(Fluent::ConfigError.new("token: invalid JSON array")) do
+          example.configure(conf)
+        end
+        logs = example.log.logs.join
+        assert_true(logs.include?("config error in:\n<auth xxxxxx>\n</auth>\n"))
+        assert_not_match(/SECRET/, logs)
+      end
+
+      test 'is masked in to_s and the masked config' do
+        conf = config_element('ROOT', '', {}, [config_element('auth', 'SECRET_ARG')])
+        example = ConfigurableSpec::ExampleWithSecretArgument.new
+        example.configure(conf)
+        assert_equal(["SECRET_ARG"], example.auth.token)
+        assert_equal("<ROOT>\n  <auth xxxxxx>\n  </auth>\n</ROOT>\n", conf.to_s)
+        assert_equal("xxxxxx", example.config.elements.first.arg)
+      end
+
+      test 'is masked in the unused section warning' do
+        conf = config_element('ROOT', '', {}, [config_element('auth', 'SECRET_ARG', {}, [config_element('unknown', '', {'k' => 'v'})])])
+        ConfigurableSpec::ExampleWithSecretArgument.new.configure(conf)
+        assert_equal(["auth xxxxxx", nil], conf.elements.first.elements.first.unused_in)
+      end
+
+      data('empty string' => '', 'empty array' => [], 'empty hash' => {})
+      test 'is kept empty in the masked config when omitted' do |arg|
+        conf = config_element('ROOT', '', {}, [config_element('auth', arg)])
+        example = ConfigurableSpec::ExampleWithSecretArgument.new
+        example.configure(conf)
+        assert_nil(example.auth.token)
+        assert_equal(arg, example.config.elements.first.arg)
+      end
+    end
+
+    sub_test_case 'parameter written with an alias' do
+      data("alias equal to another parameter's name" => 'pass',
+           "alias shared with another parameter" => 'legacy')
+      test 'is masked if any parameter that accepts it is secret' do |key|
+        conf = config_element('ROOT', '', {key => 'SECRET'})
+        ConfigurableSpec::ExampleWithAliases.new.configure(conf)
+        assert_equal("<ROOT>\n  #{key} xxxxxx\n</ROOT>\n", conf.to_s)
+      end
+
+      test 'is dumped with the type of the parameter' do
+        conf = config_element('ROOT', '', {'legacy_name' => 'a b'})
+        conf.v1_config = true
+        ConfigurableSpec::ExampleWithAliases.new.configure(conf)
+        assert_equal("<ROOT>\n  legacy_name \"a b\"\n</ROOT>\n", conf.to_s)
+      end
+
+      test 'is dumped when a YAML value is not a string' do
+        conf = config_element('ROOT', '', {'legacy_name' => 123})
+        conf.v1_config = true
+        ConfigurableSpec::ExampleWithAliases.new.configure(conf)
+        assert_equal("<ROOT>\n  legacy_name \"123\"\n</ROOT>\n", conf.to_s)
       end
     end
 

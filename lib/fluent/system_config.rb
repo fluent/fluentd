@@ -163,7 +163,9 @@ module Fluent
       begin
         super(conf, strict)
       rescue ConfigError => e
-        $log.error "config error in:\n#{conf}"
+        # The supervisor reads <system> before it sets up $log.
+        raise unless $log
+        $log.error "config error in:\n#{conf.dump_for_error}"
         $log.error 'config error', error: e
         $log.debug_backtrace
         exit!(1)

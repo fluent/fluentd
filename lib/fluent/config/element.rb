@@ -145,7 +145,7 @@ module Fluent
         if @arg.nil? || @arg.empty?
           out << "#{indent}<#{@name}>\n"
         else
-          out << "#{indent}<#{@name} #{@arg}>\n"
+          out << "#{indent}<#{@name} #{masked_arg}>\n"
         end
         each_pair { |k, v|
           out << dump_value(k, v, nindent)
@@ -159,7 +159,7 @@ module Fluent
 
       def to_masked_element
         new_elems = @elements.map { |e| e.to_masked_element }
-        new_elem = Element.new(@name, @arg, {}, new_elems, @unused)
+        new_elem = Element.new(@name, masked_arg, {}, new_elems, @unused)
         new_elem.v1_config = @v1_config
         new_elem.corresponding_proxies = @corresponding_proxies
         each_pair { |k, v|
@@ -168,41 +168,58 @@ module Fluent
         new_elem
       end
 
+      # Child sections are left out, and values of keys that the section does not define are masked.
+      # They may belong to a plugin configured later, e.g. one in <store>, <secondary> or <buffer>,
+      # whose secret parameters are not known yet.
+      def dump_for_error
+        section = dup
+        section.elements = []
+        section.keys.each do |key|
+          next if RESERVED_PARAMETERS.include?(key)
+          # A legacy name such as type stands for @type only when @type is not written.
+          # Use key?, because Element#has_key? marks the key as used in the original too.
+          reserved = key && RESERVED_PARAMETERS_COMPAT.key(key)
+          next if reserved && !section.key?(reserved)
+          section[key] = 'xxxxxx' unless section.param_defined?(key)
+        end
+        section.to_s
+      end
+
       def secret_param?(key)
-        return false if @corresponding_proxies.empty?
+        params_for(key).any? { |_proxy, _name, opts| opts[:secret] }
+      end
 
-        param_key = key.to_sym
-        @corresponding_proxies.each { |proxy|
-          _block, opts = proxy.params[param_key]
-          if opts && opts.has_key?(:secret)
-            return opts[:secret]
-          end
+      def param_defined?(key)
+        return false unless key.is_a?(String)
+
+        params_for(key).any? { |_proxy, name, _opts|
+          # SectionGenerator reads an alias only when the name itself is not written.
+          name.to_s == key || !key?(name.to_s)
         }
+      end
 
-        false
+      def secret_argument?
+        @corresponding_proxies.any? { |proxy|
+          _name, _block, opts = proxy.argument
+          opts && opts[:secret]
+        }
+      end
+
+      def masked_arg
+        return @arg unless secret_argument?
+        return @arg if @arg.nil? || (@arg.respond_to?(:empty?) && @arg.empty?)
+
+        'xxxxxx'
       end
 
       def param_type(key)
-        return nil if @corresponding_proxies.empty?
-
-        param_key = key.to_sym
-        proxy = @corresponding_proxies.detect do |_proxy|
-          _proxy.params.has_key?(param_key)
-        end
-        return nil unless proxy
-        _block, opts = proxy.params[param_key]
-        opts[:type]
+        _proxy, _name, opts = params_for(key).first
+        opts && opts[:type]
       end
 
       def default_value(key)
-        return nil if @corresponding_proxies.empty?
-
-        param_key = key.to_sym
-        proxy = @corresponding_proxies.detect do |_proxy|
-          _proxy.params.has_key?(param_key)
-        end
-        return nil unless proxy
-        proxy.defaults[param_key]
+        proxy, name, _opts = params_for(key).first
+        proxy && proxy.defaults[name]
       end
 
       def dump_value(k, v, nindent)
@@ -217,7 +234,7 @@ module Fluent
         else
           case param_type(k)
           when :string
-            "#{nindent}#{k} \"#{self.class.unescape_parameter(v)}\"\n"
+            "#{nindent}#{k} \"#{self.class.unescape_parameter(v.to_s)}\"\n"
           when :enum, :integer, :float, :size, :bool, :time
             "#{nindent}#{k} #{v}\n"
           when :hash, :array
@@ -259,6 +276,23 @@ module Fluent
 
       def for_another_worker?
         !@target_worker_ids.empty? && !@target_worker_ids.include?(Fluent::Engine.worker_id)
+      end
+
+      private
+
+      # The parameters that accept the key as their name or alias, matched by name first.
+      # A key can match several of them, e.g. an alias that is also the name of another parameter.
+      def params_for(key)
+        return [] if @corresponding_proxies.empty?
+
+        param_key = key.to_s.to_sym
+        params = @corresponding_proxies.flat_map { |proxy|
+          proxy.params.filter_map { |name, (_block, opts)|
+            [proxy, name, opts] if name == param_key || opts[:alias] == param_key
+          }
+        }
+        by_name, by_alias = params.partition { |_proxy, name, _opts| name == param_key }
+        by_name + by_alias
       end
     end
   end

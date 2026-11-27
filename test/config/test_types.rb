@@ -374,6 +374,22 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(nil, Config::HASH_TYPE.call(nil))
     end
 
+    data("invalid JSON" => ["map: invalid JSON object", '{"a": SECRET}'],
+         "not a hash" => ["map: hash required but got Array", ["SECRET"]])
+    test 'hash w/ secret hides the value in the error' do |(message, val)|
+      error = assert_raise(Fluent::ConfigError.new(message)) do
+        Config::HASH_TYPE.call(val, {secret: true}, "map")
+      end
+      assert_nil(error.cause)
+    end
+
+    test 'hash w/ invalid JSON' do
+      error = assert_raise(Fluent::ConfigError) do
+        Config::HASH_TYPE.call('{"a": PLAIN}', {}, "map")
+      end
+      assert_match(/\Amap: invalid JSON object: .*PLAIN/, error.message)
+    end
+
     data("strings and integer" => [["1","2",1],   '["1","2",1]', {}],
          "number strings" => [["1","2","1"], '1,2,1', {}],
          "alphabets" => [["a","b","c"], '["a","b","c"]', {}],
@@ -428,6 +444,23 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     test 'array w/ nil' do
       assert_equal(nil, Config::ARRAY_TYPE.call(nil))
+    end
+
+    data("invalid JSON" => ["keys: invalid JSON array", '["one", SECRET]'],
+         "too deep JSON" => ["keys: invalid JSON array: too deep", "[" * 101 + "\"SECRET\"" + "]" * 101],
+         "not an array" => ["keys: array required but got Hash", {"k" => "SECRET"}])
+    test 'array w/ secret hides the value in the error' do |(message, val)|
+      error = assert_raise(Fluent::ConfigError.new(message)) do
+        Config::ARRAY_TYPE.call(val, {secret: true}, "keys")
+      end
+      assert_nil(error.cause)
+    end
+
+    test 'array w/ invalid JSON' do
+      error = assert_raise(Fluent::ConfigError) do
+        Config::ARRAY_TYPE.call('["one", PLAIN]', {}, "keys")
+      end
+      assert_match(/\Akeys: invalid JSON array: .*PLAIN/, error.message)
     end
   end
 end
