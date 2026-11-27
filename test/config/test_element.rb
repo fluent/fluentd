@@ -400,6 +400,12 @@ CONF
         e = element('ROOT', '', {}, [element('record', 7)])
         assert_equal(7, e.to_masked_element.elements.first.arg)
       end
+
+      test 'keeps a key that cannot be a symbol in a section without proxies' do
+        key = "\xC3".dup.force_encoding(Encoding::UTF_8)
+        e = element('record', '', {key => 'ok'})
+        assert_equal('ok', e.to_masked_element[key])
+      end
     end
 
     sub_test_case '#secret_param?' do
