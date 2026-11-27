@@ -1714,4 +1714,166 @@ EOL
       assert_equal @standby, selected_node
     end
   end
+
+  sub_test_case 'as secondary with a destination that never acks' do
+    setup do
+      @silent_server = TCPServer.new(TARGET_HOST, 0)
+      @silent_port = @silent_server.addr[1]
+      @silent_connections = 0
+      @silent_thread = Thread.new do
+        loop do
+          sock = @silent_server.accept
+          @silent_connections += 1
+          Thread.new(sock) { |s| s.read rescue nil }
+        end
+      rescue IOError, Errno::EBADF
+      end
+    end
+
+    teardown do
+      @silent_server.close rescue nil
+      @silent_thread.join(1)
+    end
+
+    data('retry_max_times' => {'retry_type' => 'exponential_backoff', 'retry_max_times' => '2'},
+         'retry_timeout' => {'retry_type' => 'periodic', 'retry_timeout' => '4s'})
+    test 'the retry limit ends the retry after ack timeouts of the secondary' do |retry_conf|
+      @d = d = create_driver(%[
+        heartbeat_type none
+        require_ack_response true
+        ack_response_timeout 1s
+        # Windows takes seconds to refuse a connection to a closed port.
+        connect_timeout 1s
+        <server>
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+        </server>
+        <buffer>
+          @type memory
+          flush_mode immediate
+          flush_at_shutdown false
+          retry_wait 1s
+          retry_randomize false
+          retry_secondary_threshold 0.25
+          #{retry_conf.map { |k, v| "#{k} #{v}" }.join("\n")}
+        </buffer>
+        <secondary>
+          @type forward
+          heartbeat_type none
+          require_ack_response true
+          ack_response_timeout 1s
+          <server>
+            host #{TARGET_HOST}
+            port #{@silent_port}
+          </server>
+        </secondary>
+      ])
+      buffer = d.instance.buffer
+      limit_reached = lambda do
+        @silent_connections > 0 &&
+          d.instance.retry.nil? &&
+          buffer.stage.empty? && buffer.queue.empty? && buffer.dequeued.empty?
+      end
+      d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false, flush: false, force_flush_retry: true) do
+        d.feed(event_time, {"a" => 1})
+        waiting(15) { sleep 0.1 until limit_reached.call }
+      end
+
+      assert_true limit_reached.call
+    end
+  end
+
+  sub_test_case 'as secondary after the retry has ended' do
+    # Acks the chunks whose tag is in ack_tags, or every chunk without ack_tags.
+    def start_ack_server(port, received, ack_tags = nil)
+      server = TCPServer.new(TARGET_HOST, port)
+      thread = Thread.new do
+        loop do
+          Thread.new(server.accept) do |sock|
+            unpacker = MessagePack::Unpacker.new
+            while (data = sock.readpartial(65536) rescue nil)
+              unpacker.feed_each(data) do |tag, _entries, option|
+                received << tag
+                sock.write({'ack' => option['chunk']}.to_msgpack) if ack_tags.nil? || ack_tags.include?(tag)
+              end
+            end
+            sock.close rescue nil
+          end
+        end
+      rescue IOError, Errno::EBADF
+      end
+      [server, thread]
+    end
+
+    setup do
+      @servers = []
+    end
+
+    teardown do
+      @servers.each do |server, thread|
+        server.close rescue nil
+        thread.join(1)
+      end
+    end
+
+    test 'an ack timeout on the secondary does not start a new retry' do
+      primary_port = unused_port(protocol: :tcp)
+      secondary_port = unused_port(protocol: :tcp)
+      primary_received = []
+      secondary_received = []
+      @servers << start_ack_server(secondary_port, secondary_received, ['good'])
+      @d = d = create_driver(%[
+        heartbeat_type none
+        require_ack_response true
+        ack_response_timeout 60s
+        # Windows takes seconds to refuse a connection to a closed port.
+        connect_timeout 1s
+        <server>
+          host #{TARGET_HOST}
+          port #{primary_port}
+        </server>
+        <buffer tag>
+          @type memory
+          flush_mode immediate
+          flush_thread_interval 0.05
+          flush_thread_burst_interval 0.05
+          queued_chunks_limit_size 20
+          flush_at_shutdown false
+          retry_type periodic
+          retry_wait 2s
+          retry_max_times 3
+          retry_timeout 30s
+          retry_randomize false
+          retry_secondary_threshold 0.2
+        </buffer>
+        <secondary>
+          @type forward
+          heartbeat_type none
+          require_ack_response true
+          ack_response_timeout 3s
+          <server>
+            host #{TARGET_HOST}
+            port #{secondary_port}
+          </server>
+        </secondary>
+      ])
+      rollback_count = nil
+      d.run(timeout: 30, wait_flush_completion: false, shutdown: false, flush: false, force_flush_retry: true) do
+        d.feed('slow', event_time, {"a" => 1})
+        d.feed('good', event_time, {"a" => 2})
+        waiting(10) { sleep 0.05 until secondary_received.include?('slow') && secondary_received.include?('good') && d.instance.retry.nil? }
+        # The retry has ended by the success of good, and slow still waits for its ack.
+        @servers << start_ack_server(primary_port, primary_received)
+        rollback_count = d.instance.statistics['output']['rollback_count']
+        waiting(10) { sleep 0.05 until d.instance.statistics['output']['rollback_count'] > rollback_count }
+        assert_nil d.instance.retry
+
+        d.feed('fresh', event_time, {"a" => 3})
+        waiting(10) { sleep 0.05 until primary_received.include?('fresh') && primary_received.include?('slow') }
+      end
+
+      assert_nil d.instance.retry
+      assert_equal ['fresh', 'slow'], primary_received.sort
+    end
+  end
 end
