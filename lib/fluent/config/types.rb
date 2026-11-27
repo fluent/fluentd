@@ -206,13 +206,12 @@ module Fluent
 
     def self.parse_json(val, opts, name, kind)
       JSON.parse(val, **Fluent::DEFAULT_JSON_PARSE_OPTIONS)
-    rescue JSON::NestingError
-      # Its message has only the depth, not the value.
-      raise
-    rescue JSON::ParserError
-      raise unless opts[:secret]
-      # The parser's message contains part of the value.
-      raise ConfigError, "#{name}: invalid JSON #{kind}", cause: nil
+    rescue JSON::ParserError => e
+      # The parser's message contains part of the value, except for a too deep value.
+      if opts[:secret] && !e.is_a?(JSON::NestingError)
+        raise ConfigError, "#{name}: invalid JSON #{kind}", cause: nil
+      end
+      raise ConfigError, "#{name}: invalid JSON #{kind}: #{e.message}", cause: nil
     end
     private_class_method :parse_json
 
