@@ -435,6 +435,23 @@ module ConfigurableSpec
     config_param :key1, :string, default: 'deprecated', deprecated: "key1 will be removed."
     config_param :key2, :string, default: 'obsoleted', obsoleted: "key2 has been removed."
   end
+
+  class ExampleWithSecretInChildSection
+    include Fluent::Configurable
+    attr_accessor :log
+
+    config_param :normal_param, :string
+    config_param :secret_param, :string, secret: true
+
+    config_section :section, multi: false do
+      config_param :secret_param2, :string, secret: true
+    end
+
+    # Like <store> of copy, the parameters belong to a plugin configured later.
+    config_section :store, multi: true do
+      config_param :@type, :string, default: nil
+    end
+  end
 end
 
 module Fluent::Config
@@ -1403,6 +1420,29 @@ module Fluent::Config
         when 'secret_param', 'secret_param2'
           assert_equal 'xxxxxx', value
         end
+      end
+    end
+
+    sub_test_case 'config error log' do
+      data("error in a parameter" => [{'secret_param' => 'SECRET_ROOT'},
+                                      "'normal_param' parameter is required",
+                                      "<ROOT>\n  secret_param xxxxxx\n</ROOT>\n"],
+           "error in a section" => [{'normal_param' => 'normal', 'secret_param' => 'SECRET_ROOT'},
+                                    "'<section>' section cannot be written twice or more",
+                                    "<ROOT>\n  normal_param normal\n  secret_param xxxxxx\n</ROOT>\n"])
+      test 'does not show secrets of child sections' do |(attrs, message, dump)|
+        conf = config_element('ROOT', '', attrs,
+                              [config_element('section', '', {'secret_param2' => 'SECRET_SECTION1'}),
+                               config_element('section', '', {'secret_param2' => 'SECRET_SECTION2'}),
+                               config_element('store', '', {'@type' => 'test', 'password' => 'SECRET_STORE'})])
+        example = ConfigurableSpec::ExampleWithSecretInChildSection.new
+        example.log = Fluent::Test::TestLogger.new
+        assert_raise(Fluent::ConfigError.new(message)) do
+          example.configure(conf)
+        end
+        logs = example.log.logs.join
+        assert_true(logs.include?("config error in:\n#{dump}"))
+        assert_not_match(/SECRET/, logs)
       end
     end
 
