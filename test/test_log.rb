@@ -2,7 +2,9 @@ require_relative 'helper'
 require 'fluent/test/driver/input'
 require 'fluent/engine'
 require 'fluent/log'
+require 'fluent/file_wrapper'
 require 'timecop'
+require 'timeout'
 require 'logger'
 require 'securerandom'
 require 'pathname'
@@ -761,6 +763,167 @@ class LogTest < Test::Unit::TestCase
         logdev&.close
       end
     end
+  end
+
+  def test_log_can_be_read_by_another_handle_during_rotation
+    path = "#{@tmp_dir}/log-dev-io-read-during-rotation"
+    logdev = Fluent::LogDeviceIO.new(path, shift_age: 5, shift_size: 100)
+    reader = Fluent::FileWrapper.open(path)
+
+    logdev.write("a" * 101 + "\n")
+
+    read_during_rotation = nil
+    logdev.singleton_class.prepend(Module.new do
+      define_method(:shift_log_age) do
+        read_during_rotation = begin
+                                 reader.read
+                               rescue => e
+                                 e
+                               end
+        super()
+      end
+    end)
+    logdev.write("b\n")
+
+    assert_true File.exist?(path + ".0")
+    assert_kind_of String, read_during_rotation
+    assert_true read_during_rotation.include?("a" * 101)
+  ensure
+    reader&.close
+    logdev&.close
+  end
+
+  def test_log_rotation_holds_the_inter_process_lock
+    if Fluent.windows? && Gem::Version.new(Logger::VERSION) < Gem::Version.new("1.6.3")
+      omit "logger < 1.6.3 doesn't lock the log for rotation on Windows"
+    end
+    path = "#{@tmp_dir}/log-dev-io-lock-during-rotation"
+    logdev = Fluent::LogDeviceIO.new(path, shift_age: 5, shift_size: 100)
+
+    logdev.write("a" * 101 + "\n")
+
+    locked_during_rotation = nil
+    logdev.singleton_class.prepend(Module.new do
+      define_method(:shift_log_age) do
+        File.open(path, File::WRONLY | File::APPEND | File::SHARE_DELETE | File::BINARY) do |other|
+          locked_during_rotation = !other.flock(File::LOCK_EX | File::LOCK_NB)
+        end
+        super()
+      end
+    end)
+    logdev.write("b\n")
+
+    assert_true File.exist?(path + ".0")
+    assert_true locked_during_rotation
+  ensure
+    logdev&.close
+  end
+
+  def test_log_rotation_waits_for_the_inter_process_lock
+    omit "LogDeviceIO polls LockFileEx only on Windows" unless Fluent.windows?
+    if Gem::Version.new(Logger::VERSION) < Gem::Version.new("1.6.3")
+      omit "logger < 1.6.3 doesn't lock the log for rotation on Windows"
+    end
+    path = "#{@tmp_dir}/log-dev-io-wait-for-lock"
+    logdev = Fluent::LogDeviceIO.new(path, shift_age: 5, shift_size: 100)
+    logdev.write("a" * 101 + "\n")
+
+    File.open(path, File::WRONLY | File::APPEND | File::SHARE_DELETE | File::BINARY) do |other|
+      other.flock(File::LOCK_EX)
+      polls = 0
+      # Release the lock when the rotation polls for it, instead of sleeping.
+      logdev.define_singleton_method(:sleep) do |seconds|
+        return super(seconds) unless caller_locations(1, 1).first.base_label == "lock_beyond_eof"
+        polls += 1
+        other.flock(File::LOCK_UN)
+      end
+      writer = Thread.new { logdev.write("b\n") }
+      # A wait that doesn't poll blocks until the lock is released.
+      unless writer.join(10)
+        other.flock(File::LOCK_UN)
+        writer.join
+      end
+      assert_equal 1, polls
+    end
+
+    assert_true File.exist?(path + ".0")
+    assert_equal ["b\n"], File.readlines(path).reject { |line| line.start_with?("#") }
+  ensure
+    logdev&.close
+  end
+
+  def test_log_rotation_wait_can_be_interrupted
+    omit "LogDeviceIO polls LockFileEx only on Windows" unless Fluent.windows?
+    if Gem::Version.new(Logger::VERSION) < Gem::Version.new("1.6.3")
+      omit "logger < 1.6.3 doesn't lock the log for rotation on Windows"
+    end
+    path = "#{@tmp_dir}/log-dev-io-interrupt-wait"
+    logdev = Fluent::LogDeviceIO.new(path, shift_age: 5, shift_size: 100)
+    logdev.write("a" * 101 + "\n")
+
+    File.open(path, File::WRONLY | File::APPEND | File::SHARE_DELETE | File::BINARY) do |other|
+      other.flock(File::LOCK_EX)
+      polls = 0
+      logdev.define_singleton_method(:sleep) do |seconds|
+        polls += 1 if caller_locations(1, 1).first.base_label == "lock_beyond_eof"
+        super(seconds)
+      end
+      # Release the lock after a while anyway, so that a wait that can't be interrupted fails instead of hanging.
+      unlocker = Thread.new { sleep 3; other.flock(File::LOCK_UN) }
+      begin
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        assert_raise(Timeout::Error) { Timeout.timeout(0.5) { logdev.write("b\n") } }
+        assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 2
+        assert_operator polls, :>, 0
+      ensure
+        unlocker.kill
+        unlocker.join
+      end
+    end
+  ensure
+    logdev&.close
+  end
+
+  def test_log_rotated_by_another_logdevio_is_reopened
+    if Fluent.windows? && Gem::Version.new(Logger::VERSION) < Gem::Version.new("1.6.3")
+      omit "logger < 1.6.3 opens the log without File::SHARE_DELETE on Windows, so another device can't rename it"
+    end
+    path = "#{@tmp_dir}/log-dev-io-rotated-by-another"
+    logdev1 = Fluent::LogDeviceIO.new(path, shift_age: 5, shift_size: 100)
+    logdev2 = Fluent::LogDeviceIO.new(path, shift_age: 5, shift_size: 100)
+
+    logdev1.write("a" * 101 + "\n")
+    logdev1.write("b\n")
+    # logdev2 still writes to the rotated file, which is over shift_size.
+    logdev2.write("c\n")
+
+    assert_false File.exist?(path + ".1")
+    assert_true File.read(path + ".0").include?("a" * 101)
+    assert_equal ["b\n", "c\n"], File.readlines(path).reject { |line| line.start_with?("#") }
+  ensure
+    logdev1&.close
+    logdev2&.close
+  end
+
+  def test_log_moved_away_is_reopened_after_retry
+    if Fluent.windows? && Gem::Version.new(Logger::VERSION) < Gem::Version.new("1.6.3")
+      omit "logger < 1.6.3 opens the log without File::SHARE_DELETE on Windows, so it can't be moved"
+    end
+    path = "#{@tmp_dir}/log-dev-io-moved-away"
+    logdev = Fluent::LogDeviceIO.new(path, shift_age: 5, shift_size: 100)
+    logdev.write("a" * 101 + "\n")
+    File.rename(path, path + ".moved")
+    # Create the log file again while the rotation waits for it, instead of sleeping.
+    logdev.define_singleton_method(:sleep) do |_seconds|
+      File.write(path, "") unless File.exist?(path)
+    end
+    logdev.write("b\n")
+    logdev.write("c\n")
+
+    assert_false logdev.dev.closed?
+    assert_equal ["b\n", "c\n"], File.readlines(path)
+  ensure
+    logdev&.close
   end
 
   def test_reopen

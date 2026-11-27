@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/platform'
+
 unless Fluent.windows?
   Fluent::FileWrapper = File
 else

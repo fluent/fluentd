@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/env'
+require 'fluent/platform'
 
 module Fluent
   module Win32API
@@ -34,5 +34,24 @@ module Fluent
     extern "intptr_t _get_osfhandle(int)"
     extern "BOOL GetFileInformationByHandle(HANDLE, void *)"
     extern "BOOL GetFileInformationByHandleEx(HANDLE, int, void *, DWORD)"
+    extern "BOOL UnlockFileEx(HANDLE, DWORD, DWORD, DWORD, void *)"
+
+    LOCKFILE_FAIL_IMMEDIATELY = 0x00000001
+    LOCKFILE_EXCLUSIVE_LOCK = 0x00000002
+    ERROR_LOCK_VIOLATION = 33
+
+    # Only for LockFileEx with LOCKFILE_FAIL_IMMEDIATELY, which doesn't block. Keep the GVL during the call.
+    # Otherwise Fiddle reads GetLastError after taking the GVL back, and the error code may be lost.
+    LOCK_FILE_EX = Fiddle::Function.new(
+      handler.sym("LockFileEx"),
+      [Fiddle::TYPE_VOIDP, -Fiddle::TYPE_INT32_T, -Fiddle::TYPE_INT32_T, -Fiddle::TYPE_INT32_T, -Fiddle::TYPE_INT32_T, Fiddle::TYPE_VOIDP],
+      Fiddle::TYPE_INT,
+      need_gvl: true,
+    )
+    private_constant :LOCK_FILE_EX
+
+    def self.lock_file_ex_nonblocking(handle, flags, reserved, bytes_low, bytes_high, overlapped)
+      LOCK_FILE_EX.call(handle, flags | LOCKFILE_FAIL_IMMEDIATELY, reserved, bytes_low, bytes_high, overlapped)
+    end
   end if Fluent.windows?
 end

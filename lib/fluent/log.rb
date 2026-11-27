@@ -16,6 +16,7 @@
 
 require 'forwardable'
 require 'logger'
+require 'fluent/platform'
 
 module Fluent
   class Log
@@ -770,6 +771,71 @@ module Fluent
         raise "Unsupported mode: #{mode}"
       end
       super(path)
+    end
+
+    private
+
+    if Fluent.windows? && Gem::Version.new(::Logger::VERSION) >= Gem::Version.new("1.6.3")
+      require 'fluent/win32api'
+
+      # A byte far beyond EOF. Readers of the log never touch it.
+      ROTATION_LOCK_OFFSET = 2**63 - 2
+      private_constant :ROTATION_LOCK_OFFSET
+
+      # Override Logger::LogDevice#lock_shift_log to work around a problem in logger on Windows.
+      # Since logger 1.6.3, it locks the whole log file with flock while rotating it. flock on
+      # Windows is a mandatory lock, so in_tail fails to read the file during the rotation.
+      # This is the same as the implementation in logger 1.7.0 except that it locks only
+      # ROTATION_LOCK_OFFSET. The flock of logger 1.6.3 or later covers that byte too, so
+      # other processes rotating the file with either of them still wait for each other.
+      # See https://github.com/ruby/logger/issues/188
+      def lock_shift_log
+        retry_limit = 8
+        retry_sleep = 0.1
+        begin
+          File.open(@filename, File::WRONLY | File::APPEND | File::SHARE_DELETE | File::BINARY) do |lock|
+            lock_beyond_eof(lock) do
+              if File.identical?(@filename, lock) && File.identical?(lock, @dev)
+                yield
+              else
+                # Another process has already rotated the log file.
+                @dev.close rescue nil
+                @dev = open_logfile(@filename)
+                @dev.sync = true
+              end
+            end
+          end
+          true
+        rescue Errno::ENOENT
+          # The log file doesn't exist between the rename and the creation in another process.
+          if retry_limit <= 0
+            warn("log rotation inter-process lock failed. #{$!}")
+          else
+            sleep retry_sleep
+            retry_limit -= 1
+            retry_sleep *= 2
+            retry
+          end
+        end
+      rescue
+        warn("log rotation inter-process lock failed. #{$!}")
+      end
+
+      def lock_beyond_eof(file)
+        handle = Fluent::Win32API._get_osfhandle(file.fileno)
+        overlapped = [0, 0, ROTATION_LOCK_OFFSET & 0xFFFFFFFF, ROTATION_LOCK_OFFSET >> 32, 0].pack("J2L2J")
+        # Poll instead of blocking in LockFileEx, so that Thread#raise and Timeout can stop the wait.
+        while Fluent::Win32API.lock_file_ex_nonblocking(handle, Fluent::Win32API::LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, overlapped).zero?
+          error = Fiddle.win32_last_error
+          raise IOError, "LockFileEx failed with error #{error}" unless error == Fluent::Win32API::ERROR_LOCK_VIOLATION
+          sleep 0.01
+        end
+        begin
+          yield
+        ensure
+          Fluent::Win32API.UnlockFileEx(handle, 0, 1, 0, overlapped)
+        end
+      end
     end
   end
 end
