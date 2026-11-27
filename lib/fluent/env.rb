@@ -16,7 +16,7 @@
 
 require 'securerandom'
 
-require 'serverengine/utils'
+require 'fluent/platform'
 require 'fluent/oj_options'
 
 module Fluent
@@ -30,16 +30,4 @@ module Fluent
   DEFAULT_DIR_PERMISSION = 0755
   DEFAULT_FILE_PERMISSION = 0644
   INSTANCE_ID = ENV['FLUENT_INSTANCE_ID'] || SecureRandom.uuid
-
-  def self.windows?
-    ServerEngine.windows?
-  end
-
-  def self.linux?
-    RUBY_PLATFORM.include?("linux")
-  end
-
-  def self.macos?
-    RUBY_PLATFORM.include?("darwin")
-  end
 end
