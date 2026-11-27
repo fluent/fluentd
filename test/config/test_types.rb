@@ -447,7 +447,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     data("invalid JSON" => ["keys: invalid JSON array", '["one", SECRET]'],
-         "too deep JSON" => ["keys: invalid JSON array: nesting of 101 is too deep", "[" * 101 + "\"SECRET\"" + "]" * 101],
+         "too deep JSON" => ["keys: invalid JSON array: too deep", "[" * 101 + "\"SECRET\"" + "]" * 101],
          "not an array" => ["keys: array required but got Hash", {"k" => "SECRET"}])
     test 'array w/ secret hides the value in the error' do |(message, val)|
       error = assert_raise(Fluent::ConfigError.new(message)) do
