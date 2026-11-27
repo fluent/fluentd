@@ -1490,6 +1490,21 @@ module Fluent::Config
         assert_true(logs.include?("config error in:\n<buffer tag>\n  @type file\n  flush_mode bogus\n  encryption_key xxxxxx\n</buffer>\n"))
         assert_not_match(/SECRET/, logs)
       end
+
+      data("legacy name next to the reserved one" => [{'@type' => 'file', '@id' => 'buf', 'id' => 'SECRET_ID'}, "  @type file\n  @id buf\n  id xxxxxx\n"],
+           "legacy name alone" => [{'type' => 'file', 'id' => 'buf'}, "  type file\n  id buf\n"],
+           "null key in YAML" => [{nil => 'SECRET_NULL'}, "<buffer tag>\n   xxxxxx\n"])
+      test 'masks keys that do not stand for reserved names' do |(attrs, dump)|
+        conf = config_element('ROOT', '', {}, [config_element('buffer', 'tag', attrs.merge('flush_mode' => 'bogus'))])
+        example = ConfigurableSpec::ExampleWithPluginSection.new
+        example.log = Fluent::Test::TestLogger.new
+        assert_raise(Fluent::ConfigError.new("valid options are default,lazy but got bogus")) do
+          example.configure(conf)
+        end
+        logs = example.log.logs.join
+        assert_true(logs.include?(dump))
+        assert_not_match(/SECRET/, logs)
+      end
     end
 
     sub_test_case 'secret section argument' do

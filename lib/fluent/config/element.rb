@@ -175,7 +175,11 @@ module Fluent
         section = dup
         section.elements = []
         section.keys.each do |key|
-          next if RESERVED_PARAMETERS.include?(key) || RESERVED_PARAMETERS_COMPAT.value?(key)
+          next if RESERVED_PARAMETERS.include?(key)
+          # A legacy name such as type stands for @type only when @type is not written.
+          # Use key?, because Element#has_key? marks the key as used in the original too.
+          reserved = key && RESERVED_PARAMETERS_COMPAT.key(key)
+          next if reserved && !section.key?(reserved)
           section[key] = 'xxxxxx' unless section.param_defined?(key)
         end
         section.to_s
