@@ -173,7 +173,7 @@ module Fluent
 
         param_key = key.to_sym
         @corresponding_proxies.each { |proxy|
-          _block, opts = proxy.params[param_key]
+          _block, opts = proxy.params[param_key] || proxy.params.values.find { |_, param_opts| param_opts[:alias] == param_key }
           if opts && opts.has_key?(:secret)
             return opts[:secret]
           end

@@ -651,13 +651,15 @@ class YamlParserTest < Test::Unit::TestCase
 
     config_param :secret_array, :array, secret: true, default: nil
     config_param :secret_hash, :hash, secret: true, default: nil
+    config_param :aliased_hash, :hash, secret: true, alias: :legacy_hash, default: nil
   end
 
   sub_test_case 'secret parameter' do
     data("array w/ symbol" => ["secret_array: :SECRET", Fluent::ConfigError, "secret_array: array required but got Symbol"],
          "array w/ invalid JSON" => ["secret_array: '[SECRET'", JSON::ParserError, "secret_array: invalid JSON array"],
          "hash w/ sequence" => ["secret_hash: [SECRET]", Fluent::ConfigError, "secret_hash: hash required but got Array"],
-         "hash w/ invalid JSON" => [%q(secret_hash: '{"a": SECRET}'), JSON::ParserError, "secret_hash: invalid JSON object"])
+         "hash w/ invalid JSON" => [%q(secret_hash: '{"a": SECRET}'), JSON::ParserError, "secret_hash: invalid JSON object"],
+         "hash w/ sequence through an alias" => ["legacy_hash: [SECRET]", Fluent::ConfigError, "aliased_hash: hash required but got Array"])
     test 'conversion error does not show the value' do |(param, error_class, message)|
       write_config "#{TMP_DIR}/test_secret_param.yaml", <<~EOS
         config:
