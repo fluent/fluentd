@@ -565,6 +565,57 @@ class FileOutputTest < Test::Unit::TestCase
     end
   end
 
+  data('empty chunk keys' => ['[]', false],
+       'tag chunk key' => ['tag', false],
+       'tag chunk key with secondary_file' => ['tag', true])
+  test 'writes restored chunks using the creation time window after adding a time key' do |(old_keys, use_secondary)|
+    now = Time.utc(2016, 4, 11, 11, 40).to_i
+    stub(Fluent::Clock).real_now { now }
+    old_path = old_keys == 'tag' ? 'out_file_test.${tag}' : 'out_file_test'
+    before = create_driver(%[
+      path #{TMP_DIR}/#{old_path}
+      <buffer #{old_keys}>
+        @type file
+        path #{TMP_DIR}/buffer
+        flush_mode lazy
+        flush_at_shutdown false
+      </buffer>
+    ])
+    before.run(default_tag: 'test', flush: false) do
+      before.feed(event_time('2016-04-11 10:05:00 UTC'), {'a' => 1})
+    end
+
+    now += 86400
+    after_config = %[
+      path #{TMP_DIR}/out_file_test
+      <buffer time>
+        @type file
+        path #{TMP_DIR}/buffer
+        timekey 1h
+        timekey_zone Asia/Kathmandu
+        disable_chunk_backup true
+        retry_max_times 0
+      </buffer>
+    ]
+    if use_secondary
+      after_config << %[
+        <secondary>
+          @type secondary_file
+          directory #{TMP_DIR}
+          basename secondary.%Y%m%d%H%M
+        </secondary>
+      ]
+    end
+    after = create_driver(after_config)
+    if use_secondary
+      stub(after.instance).write { raise Fluent::UnrecoverableError, 'primary write failed' }
+    end
+    after.run(timeout: 2) {}
+
+    filename = use_secondary ? 'secondary.201604111700.0' : 'out_file_test.2016041117_0.log'
+    check_result(File.join(TMP_DIR, filename), before.formatted.first)
+  end
+
   test 'path with index number' do
     time = event_time("2011-01-02 13:14:15 UTC")
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}#{@default_newline}] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}#{@default_newline}]

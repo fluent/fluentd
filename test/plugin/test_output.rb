@@ -389,6 +389,23 @@ class OutputTest < Test::Unit::TestCase
       assert_equal "/mypath/2016/04/11/20-30/fluentd.test.output/////tail", @i.extract_placeholders(tmpl, c)
     end
 
+    data('old tag only' => ['time', 'fluentd.test.output', '${tag}'],
+         'retained tag key' => ['time,tag', 'fluentd.test.output', 'fluentd.test.output'],
+         'empty metadata' => ['time', nil, '${tag}'],
+         'empty metadata with tag enabled' => ['time,tag', nil, '${tag}'])
+    test '#extract_placeholders uses the creation time of a chunk without a timekey' do |(keys, tag, expected_tag)|
+      buffer = config_element('buffer', keys, {'timekey' => '1h', 'timekey_zone' => 'Asia/Kathmandu'})
+      @i.configure(config_element('ROOT', '', {}, [buffer]))
+      stub(Fluent::Clock).real_now { Time.utc(2016, 4, 11, 11, 40).to_i }
+      chunk = create_chunk(tag: tag)
+      chunk_id = Fluent::UniqueId.hex(chunk.unique_id)
+      mock(@i).calculate_timekey(anything).never
+
+      assert_equal "/2016/04/11/17-00/#{expected_tag}/#{chunk_id}",
+                   @i.extract_placeholders('/%Y/%m/%d/%H-%M/${tag}/${chunk_id}', chunk)
+      assert_nil chunk.metadata.timekey
+    end
+
     test '#extract_placeholders logs warn message if metadata is passed for ${chunk_id} placeholder' do
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
       tmpl = "/mypath/${chunk_id}/tail"

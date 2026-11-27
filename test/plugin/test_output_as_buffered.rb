@@ -2031,6 +2031,53 @@ class BufferedOutputTest < Test::Unit::TestCase
       FileUtils.rm_rf(@tmp_dir)
     end
 
+    test 'flushes restored file chunks after adding a time chunk key' do
+      now = Time.utc(2026, 1, 1)
+      Timecop.freeze(now)
+      options = {
+        '@type' => 'file',
+        'path' => "#{@tmp_dir}/time-chunk-key",
+        'flush_at_shutdown' => 'false',
+        'flush_thread_interval' => '0.01',
+        'queued_chunks_limit_size' => '2',
+      }
+      before_restart = {"message" => "before restart"}
+      after_restart = {"message" => "after restart"}
+
+      @i = create_output(:buffered)
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', options.merge('flush_mode' => 'lazy'))]))
+      @i.start
+      @i.after_start
+      @i.emit_events('test.tag', Fluent::ArrayEventStream.new([[Fluent::EventTime.from_time(now), before_restart]]))
+      @i.stop
+      @i.before_shutdown
+      @i.shutdown
+      @i.after_shutdown
+      @i.close
+      @i.terminate
+
+      writes = Queue.new
+      @i = create_output(:buffered)
+      @i.register(:write) { |chunk| writes << JSON.parse(chunk.read).last }
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', options.merge('timekey' => '10s', 'timekey_wait' => '5s'))]))
+      @i.start
+      @i.interrupt_flushes
+      @i.after_start
+      assert_equal [nil], @i.buffer.stage.keys.map(&:timekey)
+      @i.emit_events('test.tag', Fluent::ArrayEventStream.new([[Fluent::EventTime.from_time(now), after_restart]]))
+
+      Timecop.freeze(now + 14)
+      @i.enqueue_thread_wait
+      assert_equal [now.to_i], @i.buffer.stage.keys.map(&:timekey)
+      @i.flush_thread_wakeup
+      assert_equal before_restart, Timeout.timeout(4) { writes.pop }
+
+      Timecop.freeze(now + 15)
+      @i.enqueue_thread_wait
+      @i.flush_thread_wakeup
+      assert_equal after_restart, Timeout.timeout(4) { writes.pop }
+    end
+
     data('buffer path has no brace {}' => 'test-a',
          'buffer path has brace {}' => 'test-{a}',
          'buffer path has bracket []' => 'test-[a]',
