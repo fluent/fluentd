@@ -267,7 +267,7 @@ module Fluent
       # The parameters that accept the key as their name or alias, matched by name first.
       # A key can match several of them, e.g. an alias that is also the name of another parameter.
       def params_for(key)
-        param_key = key.to_sym
+        param_key = key.to_s.to_sym
         params = @corresponding_proxies.flat_map { |proxy|
           proxy.params.filter_map { |name, (_block, opts)|
             [proxy, name, opts] if name == param_key || opts[:alias] == param_key

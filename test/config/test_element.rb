@@ -272,6 +272,12 @@ CONF
       assert_not_equal(e.inspect, e.to_s)
       assert_equal(expected, e.to_s)
     end
+
+    test 'dump a key that is not a string' do
+      e = element('ROOT', '', {}, [element('record', '', {123 => 'test'})])
+      e.v1_config = true
+      assert_equal("<ROOT>\n  <record>\n    123 test\n  </record>\n</ROOT>\n", e.to_s)
+    end
   end
 
   sub_test_case '#inspect' do
