@@ -1641,7 +1641,17 @@ EOL
   end
 
   sub_test_case 'a node disabled outside the heartbeat' do
-    def create_standby_driver(primary_host: TARGET_HOST, conf: '')
+    def create_standby_driver(primary_host: TARGET_HOST, conf: '', standby: true, stub_primary_heartbeat: true)
+      if standby
+        standby_config = %[
+          <server>
+            name standby
+            host #{TARGET_HOST}
+            port #{unused_port(protocol: :tcp)}
+            standby true
+          </server>
+        ]
+      end
       @d = create_driver(%[
         heartbeat_type transport
         recover_wait 0
@@ -1651,17 +1661,26 @@ EOL
           host #{primary_host}
           port #{@target_port}
         </server>
-        <server>
-          name standby
-          host #{TARGET_HOST}
-          port #{unused_port(protocol: :tcp)}
-          standby true
-        </server>
+        #{standby_config}
       ])
       @instance = @d.instance
       @primary = @instance.nodes.find { |n| n.name == 'primary' }
       @standby = @instance.nodes.find { |n| n.name == 'standby' }
-      @instance.nodes.each { |n| stub(n).send_heartbeat { false } }
+      @instance.nodes.each do |node|
+        next if node == @primary && !stub_primary_heartbeat
+
+        stub(node).send_heartbeat { false }
+      end
+    end
+
+    def other_regular_server
+      %[
+        <server>
+          name other
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+        </server>
+      ]
     end
 
     def run_heartbeat_timer
@@ -1671,6 +1690,441 @@ EOL
     def selected_node
       _, node = @instance.__send__(:service_discovery_select_service) { |n| n }
       node
+    end
+
+    def data_chunk(tag = 'test')
+      chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, tag, nil))
+      chunk.concat([Fluent::EventTime.now, {'message' => 'test'}].to_msgpack, 1)
+      chunk
+    end
+
+    def stub_node_socket(node, host: TARGET_HOST, &factory)
+      stub(@instance).socket_create_tcp(host, node.port, linger_timeout: anything, send_timeout: anything,
+                                       recv_timeout: anything, connect_timeout: anything,
+                                       send_keepalive_packet: anything, &factory)
+    end
+
+    def reset_socket
+      StringIO.new.tap { |socket| stub(socket).write { raise Errno::ECONNRESET } }
+    end
+
+    def forwarded_tags(sockets)
+      tags = []
+      sockets.each do |socket|
+        MessagePack::Unpacker.new.feed_each(socket.string) { |message| tags << message.first }
+      end
+      tags
+    end
+
+    data(
+      'without keepalive or ACKs' => '',
+      'with keepalive and without ACKs' => 'keepalive true',
+      'with keepalive and ACKs' => "keepalive true\nrequire_ack_response true",
+    )
+    test 'a primary that resets writes is replaced by the standby' do |conf|
+      create_standby_driver(conf: "#{conf}\nrecover_wait 3s")
+      4.times { @primary.heartbeat }
+      stub(@primary).send_heartbeat { @primary.heartbeat }
+      primary_sockets = []
+      stub_node_socket(@primary) do
+        StringIO.new.tap do |socket|
+          stub(socket).write { raise Errno::ECONNRESET }
+          primary_sockets << socket
+        end
+      end
+      standby_sockets = []
+      stub_node_socket(@standby) { StringIO.new.tap { |socket| standby_sockets << socket } }
+
+      chunk = data_chunk
+      write = @instance.require_ack_response ? :try_write : :write
+      @instance.public_send(write, chunk)
+      assert_false @primary.available?
+      assert_equal @standby, selected_node
+      assert_equal ['test'], forwarded_tags(standby_sockets)
+      assert_true @d.logs.any? { |line| line.include?('detached forwarding server') && line.include?('primary') }
+      @instance.__send__(:on_purge_obsolete_socks) if @instance.keepalive
+      assert_true primary_sockets.all?(&:closed?)
+
+      4.times { run_heartbeat_timer }
+      assert_equal @primary, selected_node
+      @instance.public_send(write, chunk)
+      assert_equal @standby, selected_node
+      assert_equal ['test', 'test'], forwarded_tags(standby_sockets)
+    end
+
+    test 'one reset on a keepalive socket leaves the primary available when another regular server succeeds' do
+      create_standby_driver(conf: "keepalive true\n#{other_regular_server}")
+      other = @instance.nodes.find { |node| node.name == 'other' }
+      load_balancer = @instance.instance_variable_get(:@load_balancer)
+      load_balancer.instance_variable_set(:@weight_array, [@primary, other, @primary, other])
+
+      stale_socket = StringIO.new
+      primary_connections = 0
+      stub_node_socket(@primary) do
+        primary_connections += 1
+        stale_socket
+      end
+      @primary.verify_connection
+      resets = 0
+      stub(stale_socket).write do
+        resets += 1
+        raise Errno::ECONNRESET
+      end
+      healthy_socket = StringIO.new
+      stub_node_socket(other) { healthy_socket }
+
+      @instance.write(data_chunk)
+
+      assert_equal 1, primary_connections
+      assert_equal 1, resets
+      assert_true @primary.available?
+      assert_equal ['test'], forwarded_tags([healthy_socket])
+    end
+
+    data('one reset' => 1, 'two resets' => 2)
+    test 'a local chunk error after write disconnects keeps its error and leaves the primary available' do |reset_count|
+      create_standby_driver
+      primary_attempts = 0
+      stub_node_socket(@primary) do
+        primary_attempts += 1
+        primary_attempts <= reset_count ? reset_socket : StringIO.new
+      end
+      standby_attempts = 0
+      stub_node_socket(@standby) do
+        standby_attempts += 1
+        raise Errno::ECONNREFUSED
+      end
+      chunk = data_chunk
+      stub(chunk).open(compressed: :text) { raise ArgumentError, 'invalid chunk' }
+
+      error = assert_raise(ArgumentError) { @instance.write(chunk) }
+
+      assert_equal 'invalid chunk', error.message
+      assert_operator primary_attempts, :>, reset_count
+      assert_equal 0, standby_attempts
+      assert_true @primary.available?
+    end
+
+    test 'a recovering primary cannot prevent the failed flush from reaching the standby' do
+      create_standby_driver
+      stub(@primary).send_heartbeat { @primary.heartbeat }
+      stub_node_socket(@primary) do
+        StringIO.new.tap { |socket| stub(socket).write { raise Errno::ECONNRESET } }
+      end
+      standby_sockets = []
+      stub_node_socket(@standby) { StringIO.new.tap { |socket| standby_sockets << socket } }
+
+      before_standby_send = lambda do
+        run_heartbeat_timer
+        assert_equal @primary, selected_node
+      end
+      lb = @instance.instance_variable_get(:@load_balancer)
+      lb.define_singleton_method(:select_standby) do |failed_nodes, tried_standbys, &block|
+        before_standby_send.call
+        super(failed_nodes, tried_standbys, &block)
+      end
+
+      3.times do
+        @instance.write(data_chunk)
+        assert_false @primary.available?
+        run_heartbeat_timer
+        assert_equal @primary, selected_node
+      end
+      assert_equal ['test', 'test', 'test'], forwarded_tags(standby_sockets)
+    end
+
+    test 'the promoted standby can reconnect in the same flush' do
+      create_standby_driver(conf: 'keepalive true')
+      stub_node_socket(@primary) do
+        StringIO.new.tap { |socket| stub(socket).write { raise Errno::EPIPE } }
+      end
+      broken_socket = StringIO.new
+      stub(broken_socket).write { raise Errno::EPIPE }
+      healthy_socket = StringIO.new
+      sockets = [broken_socket, healthy_socket]
+      stub_node_socket(@standby) { sockets.shift }
+
+      @instance.write(data_chunk)
+
+      assert_empty sockets
+      assert_true @standby.available?
+      assert_equal ['test'], forwarded_tags([healthy_socket])
+    end
+
+    def first_standby_config
+      %[
+        <server>
+          name first-standby
+          host #{TARGET_HOST}
+          port #{unused_port(protocol: :tcp)}
+          standby true
+        </server>
+      ]
+    end
+
+    test 'a later healthy standby accepts the chunk when earlier standby writes reset' do
+      create_standby_driver(conf: first_standby_config)
+      first_standby = @instance.nodes.find { |node| node.name == 'first-standby' }
+      stub_node_socket(@primary) { reset_socket }
+      standby_attempts = 0
+      stub_node_socket(first_standby) do
+        standby_attempts += 1
+        reset_socket
+      end
+      healthy_socket = StringIO.new
+      stub_node_socket(@standby) { healthy_socket }
+
+      assert_equal @standby, @instance.write(data_chunk).last
+
+      assert_operator standby_attempts, :>=, 2
+      assert_false @primary.available?
+      assert_false first_standby.available?
+      assert_equal ['test'], forwarded_tags([healthy_socket])
+    end
+
+    test 'a later standby send failure surfaces its error and keeps all nodes available' do
+      create_standby_driver(conf: first_standby_config)
+      first_standby = @instance.nodes.find { |node| node.name == 'first-standby' }
+      stub_node_socket(@primary) { reset_socket }
+      stub_node_socket(first_standby) { reset_socket }
+      stub_node_socket(@standby) { raise Errno::ECONNREFUSED }
+
+      assert_raise(Errno::ECONNREFUSED) { @instance.write(data_chunk) }
+      assert_true @instance.nodes.all?(&:available?)
+    end
+
+    test 'a local chunk error from the first standby stays unrecoverable' do
+      create_standby_driver(conf: first_standby_config)
+      first_standby = @instance.nodes.find { |node| node.name == 'first-standby' }
+      stub_node_socket(@primary) { reset_socket }
+      stub_node_socket(first_standby) { StringIO.new }
+      stub_node_socket(@standby) { raise Errno::ECONNREFUSED }
+      chunk = data_chunk
+      stub(chunk).open(compressed: :text) { raise ArgumentError, 'invalid chunk' }
+
+      assert_raise(ArgumentError) { @instance.write(chunk) }
+      assert_true @instance.nodes.all?(&:available?)
+    end
+
+    test 'a newer successful write prevents an older flush from detaching the primary' do
+      create_standby_driver(conf: "recover_wait 3s\n<buffer>\nflush_thread_count 2\n</buffer>")
+      resetting_primary = true
+      primary_sockets = []
+      standby_sockets = []
+      stub_node_socket(@primary) do
+        resetting_primary ? reset_socket : StringIO.new.tap { |socket| primary_sockets << socket }
+      end
+      started_standby = Queue.new
+      resume_standby = Queue.new
+      stub_node_socket(@standby) do
+        if standby_sockets.empty?
+          started_standby << true
+          resume_standby.pop
+        end
+        StringIO.new.tap { |socket| standby_sockets << socket }
+      end
+
+      older_flush = Thread.new { @instance.write(data_chunk('older')) }
+      waiting(5) { started_standby.pop }
+      resetting_primary = false
+      assert_equal @primary, @instance.write(data_chunk('newer')).last
+
+      resume_standby << true
+      assert_equal @standby, waiting(5) { older_flush.value }.last
+      assert_true @primary.available?
+      assert_equal @primary, @instance.write(data_chunk('next')).last
+      assert_equal ['newer', 'next'], forwarded_tags(primary_sockets)
+      assert_equal ['older'], forwarded_tags(standby_sockets)
+    ensure
+      resume_standby&.push(true)
+      older_flush&.join(5)
+    end
+
+    data('one server' => :single, 'two regular servers' => :regulars,
+         'unavailable standby' => :unavailable, 'standby refuses connections' => :refused)
+    test 'a failed flush can retry a recovered server when no other server accepted the chunk' do |mode|
+      create_standby_driver(conf: mode == :regulars ? other_regular_server : '', standby: [:unavailable, :refused].include?(mode))
+      @standby.disable! if mode == :unavailable
+      stub_node_socket(@standby) { raise Errno::ECONNREFUSED } if mode == :refused
+      regular_nodes = @instance.nodes.reject(&:standby?)
+      initial_samples = regular_nodes.map { |node| node.failure.sample_size }
+      resetting = true
+      reset_nodes = []
+      healthy_sockets = []
+      regular_nodes.each do |node|
+        stub_node_socket(node) do
+          if resetting
+            reset_nodes << node
+            reset_socket
+          else
+            StringIO.new.tap { |socket| healthy_sockets << socket }
+          end
+        end
+      end
+      chunk = data_chunk
+      error = mode == :refused ? Errno::ECONNREFUSED : Errno::ECONNRESET
+
+      assert_raise(error) { @instance.write(chunk) }
+      assert_equal regular_nodes.map(&:name).sort, reset_nodes.map(&:name).uniq.sort
+      assert_true regular_nodes.all?(&:available?)
+      assert_equal initial_samples, regular_nodes.map { |node| node.failure.sample_size }
+
+      resetting = false
+      @instance.write(chunk)
+
+      assert_equal ['test'], forwarded_tags(healthy_sockets)
+    end
+
+    data('before the first recovery heartbeat' => false, 'after a failed recovery heartbeat' => true)
+    test 'a primary detached after write disconnects recovers after its DNS address changes' do |fail_heartbeat_first|
+      create_standby_driver(primary_host: 'localhost', stub_primary_heartbeat: false)
+      old_address = @primary.resolved_host
+      new_address = old_address == TARGET_HOST ? '127.0.0.2' : TARGET_HOST
+      address = old_address
+      resolutions = []
+      stub(@primary).resolve_dns! do
+        resolutions << address
+        address
+      end
+      refuse_old_address = false
+      stub_node_socket(@primary, host: old_address) do
+        raise Errno::ECONNREFUSED if refuse_old_address
+
+        reset_socket
+      end
+      standby_socket = StringIO.new
+      stub_node_socket(@standby) { standby_socket }
+      new_sockets = []
+      stub_node_socket(@primary, host: new_address) { StringIO.new.tap { |socket| new_sockets << socket } }
+
+      @instance.write(data_chunk)
+
+      assert_false @primary.available?
+      assert_equal ['test'], forwarded_tags([standby_socket])
+      refuse_old_address = true
+      if fail_heartbeat_first
+        run_heartbeat_timer
+        assert_false @primary.available?
+        assert_equal [old_address], resolutions
+      end
+
+      address = new_address
+      run_heartbeat_timer
+      assert_true @primary.available?
+      assert_equal(fail_heartbeat_first ? [old_address, new_address] : [new_address], resolutions)
+
+      @instance.write(data_chunk)
+
+      assert_equal ['test'], forwarded_tags(new_sockets)
+      assert_equal ['test'], forwarded_tags([standby_socket])
+    end
+
+    test 'clearing a failed node waits for heartbeat sampling to finish' do
+      create_standby_driver
+      generation = @primary.write_generation
+      sampling = Queue.new
+      resume_sampling = Queue.new
+      stub(@primary.failure).phi do
+        sampling << true
+        resume_sampling.pop
+        sampling << @primary.failure.sample_size
+        0.0
+      end
+
+      heartbeat = Thread.new { @primary.tick }
+      waiting(5) { sampling.pop }
+      detach = Thread.new { @primary.detach_after_send_failure(Errno::EPIPE.new, generation) }
+      waiting(5) { Thread.pass until detach.stop? }
+      assert_true detach.alive?
+
+      resume_sampling << true
+      assert_false heartbeat.value
+      assert_operator sampling.pop, :>, 0
+      assert_true detach.value
+      assert_equal 0, @primary.failure.sample_size
+    ensure
+      resume_sampling&.push(true)
+      heartbeat&.join(5)
+      detach&.join(5)
+    end
+
+    test 'a temporary write failure can reconnect in the same flush' do
+      create_standby_driver(conf: 'keepalive true')
+      broken_socket = StringIO.new
+      stub(broken_socket).write { raise Errno::EPIPE }
+      healthy_socket = StringIO.new
+      sockets = [broken_socket, healthy_socket]
+      stub_node_socket(@primary) { sockets.shift }
+
+      @instance.write(data_chunk)
+
+      @instance.__send__(:on_purge_obsolete_socks)
+      assert_predicate broken_socket, :closed?
+      assert_empty sockets
+      assert_true @primary.available?
+      assert_equal 'test', MessagePack.unpack(healthy_socket.string).first
+    end
+
+    data('EOF' => false, 'late ACK' => true)
+    test 'the ACK for a failed socket does not detach a primary that reconnected' do |late_ack|
+      create_standby_driver(conf: 'require_ack_response true')
+      server = TCPServer.new(TARGET_HOST, 0)
+      sockets, peers = 2.times.map do
+        socket = TCPSocket.new(TARGET_HOST, server.local_address.ip_port)
+        [socket, server.accept]
+      end.transpose
+      broken_socket, healthy_socket = sockets
+      stub(broken_socket).write { raise Errno::EPIPE }
+      attempts = sockets.dup
+      stub_node_socket(@primary) { attempts.shift }
+      chunk = data_chunk
+      mock(@instance).rollback_write(anything, update_retry: anything).never
+      if late_ack
+        peers.first.write({'ack' => Base64.encode64(chunk.unique_id)}.to_msgpack)
+        mock(@instance).commit_write(chunk.unique_id).once
+      else
+        mock(@instance).commit_write(chunk.unique_id).never
+      end
+      peers.first.close
+
+      @instance.try_write(chunk)
+      assert_empty attempts
+      assert_true @primary.available?
+
+      @instance.__send__(:ack_check, 1)
+      assert_false @d.logs.any? { |line| line.include?('unexpected error while receiving ack') }
+      assert_true @primary.available?
+      assert_predicate broken_socket, :closed?
+      assert_false healthy_socket.closed?
+    ensure
+      (Array(sockets) + Array(peers) + [server]).compact.each { |socket| socket.close unless socket.closed? }
+    end
+
+    test 'a local chunk read error does not disable the primary' do
+      create_standby_driver
+      stub_node_socket(@primary) { StringIO.new }
+      chunk = data_chunk
+      stub(chunk).open(compressed: :text) { raise Errno::EPIPE }
+
+      assert_raise(Errno::EPIPE) { @instance.write(chunk) }
+      run_heartbeat_timer
+      assert_true @primary.available?
+      assert_equal @primary, selected_node
+    end
+
+    test 'a disconnect error from the custom chunk reader does not disable the primary' do
+      create_standby_driver
+      stub_node_socket(@primary) { StringIO.new }
+      chunk = data_chunk
+      source = Object.new
+      stub(source).size { 16 }
+      stub(source).read { raise Errno::ECONNRESET }
+      stub(chunk).open(compressed: :text).yields(source)
+
+      assert_raise(Errno::ECONNRESET) { @instance.write(chunk) }
+      run_heartbeat_timer
+      assert_true @primary.available?
+      assert_equal @primary, selected_node
     end
 
     test 'the heartbeat timer switches to the standby node' do

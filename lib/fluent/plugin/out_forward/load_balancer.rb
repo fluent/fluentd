@@ -26,21 +26,32 @@ module Fluent::Plugin
         @rand_seed = Random.new.seed
         @rr = 0
         @mutex = Mutex.new
+        @rebalance_mutex = Mutex.new
+        @nodes = []
         @availability = {}
       end
 
-      def select_healthy_node
+      def select_healthy_node(routes: nil)
         error = nil
 
         # Don't care about the change of @weight_array's size while looping since
         # it's only used for determining the number of loops and it is not so important.
-        wlen = @weight_array.size
-        wlen.times do
-          node = @mutex.synchronize do
-            r = @rr % @weight_array.size
-            @rr = (r + 1) % @weight_array.size
-            @weight_array[r]
-          end
+        wlen = (routes || @weight_array).size
+        # Standby retries walk their own route list even when another flush advances @rr.
+        start = @mutex.synchronize { @rr } if routes
+        wlen.times do |index|
+          node = if routes
+                   routes[(start + index) % wlen]
+                 else
+                   @mutex.synchronize do
+                     next if @weight_array.empty?
+
+                     r = @rr % @weight_array.size
+                     @rr = (r + 1) % @weight_array.size
+                     @weight_array[r]
+                   end
+                 end
+          break unless node
           next unless node.available?
 
           begin
@@ -62,58 +73,94 @@ module Fluent::Plugin
       end
 
       def rebuild_weight_array(nodes)
+        @rebalance_mutex.synchronize do
+          @nodes = nodes
+          rebuild_routes(nodes)
+        end
+      end
+
+      def refresh_availability
+        @rebalance_mutex.synchronize { rebuild_routes(@nodes) }
+      end
+
+      def select_standby(failed_nodes, tried_standbys, &block)
+        nodes = @rebalance_mutex.synchronize { @nodes }
+        availability = nodes.to_h do |node|
+          [node, node.available? && !failed_nodes.key?(node) && !tried_standbys.key?(node)]
+        end
+        last_error = nil
+
+        loop do
+          _, promoted = partition_routes(nodes, availability)
+          break if promoted.empty?
+
+          begin
+            return select_healthy_node(routes: weight_array_for(promoted), &block)
+          rescue NoNodesAvailable
+            # A candidate may become unavailable before its send is attempted.
+          rescue *Output::UNRECOVERABLE_ERRORS
+            raise
+          rescue => error
+            last_error = error
+          end
+
+          # Exclude this group for the current flush and try the remaining standbys.
+          promoted.each { |node| availability[node] = false }
+        end
+
+        raise last_error if last_error
+        raise NoNodesAvailable, "no nodes are available"
+      end
+
+      private def rebuild_routes(nodes)
         availability = nodes.to_h { |n| [n, n.available?] }
+        regular_nodes, promoted = partition_routes(nodes, availability)
+        promoted.each { |n| @log.warn "using standby node #{n.host}:#{n.port}", weight: n.weight }
+        routes = regular_nodes + promoted
+        @log.warn('No nodes are available') if routes.empty?
+        weight_array = weight_array_for(routes)
+        @mutex.synchronize do
+          @availability = availability
+          @weight_array = weight_array
+        end
+      end
+
+      private def partition_routes(nodes, availability)
         standby_nodes, regular_nodes = nodes.select { |e| e.weight > 0 }.partition {|n|
           n.standby?
         }
 
-        lost_weight = 0
-        regular_nodes.each {|n|
-          unless availability[n]
-            lost_weight += n.weight
-          end
-        }
+        lost_weight = regular_nodes.sum { |node| availability[node] ? 0 : node.weight }
         @log.debug("rebuilding weight array", lost_weight: lost_weight)
 
-        if lost_weight > 0
-          standby_nodes.each {|n|
-            if availability[n]
-              regular_nodes << n
-              @log.warn "using standby node #{n.host}:#{n.port}", weight: n.weight
-              lost_weight -= n.weight
-              break if lost_weight <= 0
-            end
-          }
+        promoted = []
+        standby_nodes.each do |node|
+          break if lost_weight <= 0
+          next unless availability[node]
+
+          promoted << node
+          lost_weight -= node.weight
         end
+        [regular_nodes, promoted]
+      end
+
+      private def weight_array_for(nodes)
+        return [] if nodes.empty?
 
         weight_array = []
-        if regular_nodes.empty?
-          @log.warn('No nodes are available')
-          @mutex.synchronize do
-            @availability = availability
-            @weight_array = weight_array
-          end
-          return @weight_array
-        end
-
-        gcd = regular_nodes.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
-        regular_nodes.each {|n|
+        gcd = nodes.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
+        nodes.each {|n|
           (n.weight / gcd).times {
             weight_array << n
           }
         }
 
         # for load balancing during detecting crashed servers
-        coe = (regular_nodes.size * 6) / weight_array.size
+        coe = (nodes.size * 6) / weight_array.size
         weight_array *= coe if coe > 1
 
         r = Random.new(@rand_seed)
         weight_array.sort_by! { r.rand }
-
-        @mutex.synchronize do
-          @availability = availability
-          @weight_array = weight_array
-        end
       end
 
       alias select_service select_healthy_node

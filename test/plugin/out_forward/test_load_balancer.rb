@@ -95,6 +95,37 @@ class LoadBalancerTest < Test::Unit::TestCase
       end
     end
 
+    test 'preserve the send error if the routes are cleared during a send' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      node = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1)
+      lb.rebuild_weight_array([node])
+
+      assert_raise(Errno::EPIPE) do
+        lb.select_healthy_node do
+          lb.rebuild_weight_array([])
+          raise Errno::EPIPE
+        end
+      end
+    end
+
+    test 'a standby route list is covered even if a concurrent selection advances the cursor' do
+      lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+      primary = flexmock('primary', :'standby?' => false, :'available?' => true, weight: 1)
+      failed = flexmock('failed', :'available?' => true)
+      healthy = flexmock('healthy', :'available?' => true)
+      lb.rebuild_weight_array([primary])
+
+      result = lb.select_healthy_node(routes: [failed, healthy]) do |node|
+        if node == failed
+          lb.select_healthy_node { |regular| assert_equal primary, regular }
+          raise Errno::EPIPE
+        end
+        :sent
+      end
+
+      assert_equal [:sent, healthy], result
+    end
+
     test 'it regards weight=0 node as unavailable' do
       lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
       lb.rebuild_weight_array([flexmock('node', :'standby?' => false, :'available?' => true, weight: 0)])
@@ -102,6 +133,18 @@ class LoadBalancerTest < Test::Unit::TestCase
         lb.select_healthy_node
       end
     end
+  end
+
+  test 'fallback fills the lost weight with standbys in configuration order' do
+    lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
+    primary = flexmock('primary', :'standby?' => false, :'available?' => true, weight: 1)
+    first = flexmock('first', :'standby?' => true, :'available?' => true, weight: 1)
+    second = flexmock('second', :'standby?' => true, :'available?' => true, weight: 3)
+    lb.rebuild_weight_array([primary, first, second])
+    failed_nodes = {primary => Errno::EPIPE.new}
+
+    assert_equal [first, first], lb.select_standby(failed_nodes, {}) { |node| node }
+    assert_equal [second, second], lb.select_standby(failed_nodes, {first => true}) { |node| node }
   end
 
   sub_test_case 'availability_changed?' do

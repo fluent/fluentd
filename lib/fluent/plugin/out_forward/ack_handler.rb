@@ -48,7 +48,8 @@ module Fluent::Plugin
                 # There are 2 types of cases when no response has been received from socket:
                 # (1) the node does not support sending responses
                 # (2) the node does support sending response but responses have not arrived for some reasons.
-                @log.warn 'no response from node. regard it as unavailable.', host: info.node.host, port: info.node.port
+                message = info.send_disconnected ? 'no response from node after failed send.' : 'no response from node. regard it as unavailable.'
+                @log.warn message, host: info.node.host, port: info.node.port
                 results << [info, Result::FAILED]
               else
                 sockets << info.sock
@@ -75,7 +76,7 @@ module Fluent::Plugin
             if info.nil?
               yield nil, nil, nil, ret
             else
-              yield info.chunk_id, info.node, info.sock, ret, info.send_failed
+              yield info.chunk_id, info.node, info.sock, ret, info.send_failed, info.send_disconnected
             end
           end
         rescue => e
@@ -84,15 +85,15 @@ module Fluent::Plugin
         end
       end
 
-      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time, :send_failed, :unpacker) do
+      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time, :send_failed, :unpacker, :send_disconnected) do
         def expired?(now)
           expired_time < now
         end
       end
 
-      Ack = Struct.new(:chunk_id, :node, :handler) do
+      Ack = Struct.new(:chunk_id, :node, :handler, :send_disconnected) do
         def enqueue(sock, send_failed: false)
-          handler.enqueue(node, sock, chunk_id, send_failed: send_failed)
+          handler.enqueue(node, sock, chunk_id, send_failed: send_failed, send_disconnected: send_disconnected)
         end
       end
 
@@ -100,9 +101,9 @@ module Fluent::Plugin
         Ack.new(chunk_id, node, self)
       end
 
-      def enqueue(node, sock, cid, send_failed: false)
+      def enqueue(node, sock, cid, send_failed: false, send_disconnected: false)
         # Each pending ack has its own unpacker, so bytes of a connection are never read as the ack of another one.
-        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout, send_failed, Fluent::MessagePackFactory.msgpack_unpacker)
+        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout, send_failed, Fluent::MessagePackFactory.msgpack_unpacker, send_disconnected)
         @mutex.synchronize do
           @ack_waitings << info
         end
@@ -131,7 +132,8 @@ module Fluent::Plugin
         elsif raw_data.nil? || raw_data.empty?
           # A nil or empty response means the remote host closed the connection.
           # If this happens we assume the data wasn't delivered and retry it.
-          @log.warn 'destination node closed the connection. regard it as unavailable.', host: info.node.host, port: info.node.port
+          message = info.send_disconnected ? 'destination node closed the connection after failed send.' : 'destination node closed the connection. regard it as unavailable.'
+          @log.warn message, host: info.node.host, port: info.node.port
           # info.node.disable!
           return info, Result::FAILED
         else

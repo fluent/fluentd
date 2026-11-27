@@ -377,9 +377,7 @@ module Fluent::Plugin
 
     def write(chunk)
       return if chunk.empty?
-      tag = chunk.metadata.tag
-
-      service_discovery_select_service { |node| node.send_data(tag, chunk) }
+      send_chunk(chunk)
     end
 
     def try_write(chunk)
@@ -388,9 +386,51 @@ module Fluent::Plugin
         commit_write(chunk.unique_id)
         return
       end
-      tag = chunk.metadata.tag
-      service_discovery_select_service { |node| node.send_data(tag, chunk) }
+      send_chunk(chunk)
       last_ack if @require_ack_response && @suspend_flush
+    end
+
+    private def send_chunk(chunk)
+      disconnected = {}
+      failed_nodes = {}
+      tried_standbys = {}
+      tag = chunk.metadata.tag
+      send_to_node = lambda do |node|
+        previous_generation = disconnected.delete(node)
+        failed_nodes.delete(node)
+        tried_standbys[node] = true if node.standby?
+        generation = node.write_generation
+        node.send_data(tag, chunk)
+      rescue WriteDisconnected => error
+        # Count consecutive disconnects only while no other flush has written to this node.
+        disconnected[node] = generation
+        failed_nodes[node] = [error, generation] if previous_generation == generation
+        raise
+      end
+
+      result = begin
+        service_discovery_select_service(&send_to_node)
+      rescue WriteDisconnected => error
+        raise if failed_nodes.empty? || @heartbeat_type == :none
+
+        begin
+          @load_balancer.select_standby(failed_nodes, tried_standbys, &send_to_node)
+        rescue NoNodesAvailable
+          raise error
+        end
+      end
+
+      # Keep every route available for the next buffer retry until another node accepts the chunk.
+      detach_failed_nodes(failed_nodes) unless failed_nodes.empty?
+      result
+    end
+
+    private def detach_failed_nodes(failures)
+      availability_changed = false
+      failures.each do |node, (error, generation)|
+        availability_changed = node.detach_after_send_failure(error, generation) || availability_changed
+      end
+      @load_balancer.refresh_availability if availability_changed
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -534,7 +574,7 @@ module Fluent::Plugin
     end
 
     def ack_check(select_interval)
-      @ack_handler.collect_response(select_interval) do |chunk_id, node, sock, result, send_failed|
+      @ack_handler.collect_response(select_interval) do |chunk_id, node, sock, result, send_failed, send_disconnected|
         case result
         when AckHandler::Result::SUCCESS
           @connection_manager.close(sock)
@@ -545,7 +585,8 @@ module Fluent::Plugin
           # instead of returning it to the reuse pool; otherwise a late ack
           # could later be read against a chunk sent on the reused socket (#4057).
           @connection_manager.discard(sock)
-          node&.disable!
+          # The write path already handled a send disconnect, possibly by reconnecting.
+          node&.disable! unless send_disconnected
           rollback_write(chunk_id, update_retry: false) if chunk_id && !send_failed
         when AckHandler::Result::CHUNKID_UNMATCHED
           # The ack read from this socket belongs to a different chunk than the
@@ -570,6 +611,35 @@ module Fluent::Plugin
       extend Forwardable
       def_delegators :@server, :discovery_id, :host, :port, :name, :weight, :standby
 
+      class DataWriter
+        def initialize(socket)
+          @socket = socket
+        end
+
+        def write(data)
+          handle_disconnect { @socket.write(data) }
+        end
+
+        def copy_from(chunk_io)
+          if chunk_io.instance_of?(File) || chunk_io.instance_of?(StringIO) || chunk_io.instance_of?(Tempfile)
+            # Built-in chunk streams are local, so retain IO.copy_stream's fast path.
+            handle_disconnect { IO.copy_stream(chunk_io, @socket) }
+          else
+            # Let IO.copy_stream handle the read protocol, and classify errors only in #write.
+            IO.copy_stream(chunk_io, self)
+          end
+        end
+
+        private
+
+        def handle_disconnect
+          yield
+        rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::ENOTCONN, OpenSSL::SSL::SSLError => error
+          error.extend(WriteDisconnected)
+          raise
+        end
+      end
+
       # @param connection_manager [Fluent::Plugin::ForwardOutput::ConnectionManager]
       # @param ack_handler [Fluent::Plugin::ForwardOutput::AckHandler]
       def initialize(sender, server, failure:, connection_manager:, ack_handler:)
@@ -584,6 +654,8 @@ module Fluent::Plugin
         @weight = server.weight
         @standby = server.standby
         @failure = failure
+        @health_mutex = Mutex.new
+        @write_generation = 0
         @available = true
 
         # @hostname is used for certificate verification & TLS SNI
@@ -627,7 +699,24 @@ module Fluent::Plugin
       end
 
       def disable!
-        @available = false
+        @health_mutex.synchronize { @available = false }
+      end
+
+      def write_generation
+        @health_mutex.synchronize { @write_generation }
+      end
+
+      def detach_after_send_failure(error, generation)
+        @health_mutex.synchronize do
+          return false unless @available && @write_generation == generation
+
+          @log.warn "detached forwarding server", name: @name, host: @host, port: @port, error: error
+          # Recovery requires new heartbeats following a failed data write.
+          @failure.clear
+          @resolved_host = nil
+          @available = false
+          true
+        end
       end
 
       def standby?
@@ -700,14 +789,15 @@ module Fluent::Plugin
 
         tag = tag.dup.force_encoding(Encoding::UTF_8)
 
-        sock.write @sender.forward_header                    # array, size=3
-        sock.write tag.to_msgpack                            # 1. tag: String (str)
+        writer = DataWriter.new(sock)
+        writer.write @sender.forward_header                    # array, size=3
+        writer.write tag.to_msgpack                            # 1. tag: String (str)
         chunk.open(compressed: @compress) do |chunk_io|
           entries = [0xdb, chunk_io.size].pack('CN')
-          sock.write entries.force_encoding(Encoding::UTF_8) # 2. entries: String (str32)
-          IO.copy_stream(chunk_io, sock)                     #    writeRawBody(packed_es)
+          writer.write entries.force_encoding(Encoding::UTF_8) # 2. entries: String (str32)
+          writer.copy_from(chunk_io)                            #    writeRawBody(packed_es)
         end
-        sock.write option.to_msgpack                         # 3. option: Hash(map)
+        writer.write option.to_msgpack                         # 3. option: Hash(map)
 
         # TODO: use bin32 for non-utf8 content(entries) when old msgpack-ruby (0.5.x or earlier) not supported
       end
@@ -717,9 +807,13 @@ module Fluent::Plugin
         connect(nil, ack: ack) do |sock, ri|
           ensure_established_connection(sock, ri)
           send_data_actual(sock, tag, chunk)
+          heartbeat(false)
+        rescue WriteDisconnected
+          # Record this before ConnectionManager enqueues a failed socket for ACK checking.
+          ack.send_disconnected = true if ack
+          raise
         end
 
-        heartbeat(false)
         nil
       end
 
@@ -791,44 +885,44 @@ module Fluent::Plugin
       private :resolve_dns!
 
       def tick
-        now = Time.now.to_f
-        unless available?
-          if @failure.hard_timeout?(now)
-            @failure.clear
+        @health_mutex.synchronize do
+          now = Time.now.to_f
+          unless @available
+            if @failure.hard_timeout?(now)
+              @failure.clear
+              @resolved_host = nil
+            end
+            return nil
           end
-          return nil
-        end
 
-        if @failure.hard_timeout?(now)
-          @log.warn "detached forwarding server", name: @name, host: @host, port: @port, hard_timeout: true
-          disable!
+          if @failure.hard_timeout?(now)
+            @log.warn "detached forwarding server", name: @name, host: @host, port: @port, hard_timeout: true
+          elsif @sender.phi_failure_detector
+            phi = @failure.phi(now)
+            return false unless phi > @sender.phi_threshold
+
+            @log.warn "detached forwarding server", name: @name, host: @host, port: @port, phi: phi, phi_threshold: @sender.phi_threshold
+          else
+            return false
+          end
+
+          @available = false
           @resolved_host = nil  # expire cached host
           @failure.clear
-          return true
+          true
         end
-
-        if @sender.phi_failure_detector
-          phi = @failure.phi(now)
-          if phi > @sender.phi_threshold
-            @log.warn "detached forwarding server", name: @name, host: @host, port: @port, phi: phi, phi_threshold: @sender.phi_threshold
-            disable!
-            @resolved_host = nil  # expire cached host
-            @failure.clear
-            return true
-          end
-        end
-        false
       end
 
       def heartbeat(detect=true)
-        now = Time.now.to_f
-        @failure.add(now)
-        if detect && !available? && @failure.sample_size > @sender.recover_sample_size
-          @available = true
-          @log.warn "recovered forwarding server", name: @name, host: @host, port: @port
-          true
-        else
-          nil
+        @health_mutex.synchronize do
+          @failure.add(Time.now.to_f)
+          # Successful data writes advance the generation used by flushes to track disconnects.
+          @write_generation += 1 unless detect
+          if detect && !@available && @failure.sample_size > @sender.recover_sample_size
+            @available = true
+            @log.warn "recovered forwarding server", name: @name, host: @host, port: @port
+            true
+          end
         end
       end
 
@@ -853,6 +947,9 @@ module Fluent::Plugin
     class NoneHeartbeatNode < Node
       def available?
         true
+      end
+
+      def detach_after_send_failure(_error, _generation)
       end
 
       def tick
