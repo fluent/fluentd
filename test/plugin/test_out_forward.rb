@@ -5,6 +5,7 @@ require 'flexmock/test_unit'
 
 require 'fluent/test/driver/input'
 require 'fluent/plugin/in_forward'
+require 'fluent/plugin/buffer/file_chunk'
 
 class ForwardOutputTest < Test::Unit::TestCase
   def setup
@@ -773,6 +774,215 @@ EOL
   ensure
     server_thread&.kill
     socks&.each(&:close)
+    server&.close
+  end
+
+  TLS_CLIENT_CONFIG = "transport tls\ntls_insecure_mode true"
+
+  def create_tls_server_context
+    key = OpenSSL::PKey::RSA.new(2048)
+    cert = OpenSSL::X509::Certificate.new
+    cert.version = 2
+    cert.serial = 1
+    cert.subject = cert.issuer = OpenSSL::X509::Name.parse('/CN=localhost')
+    cert.public_key = key.public_key
+    cert.not_before = Time.now - 60
+    cert.not_after = Time.now + 3600
+    cert.sign(key, OpenSSL::Digest.new('SHA256'))
+    OpenSSL::SSL::SSLContext.new.tap do |context|
+      context.cert = cert
+      context.key = key
+    end
+  end
+
+  data(
+    'memory chunk' => [:memory, ''],
+    'file chunk' => [:file, ''],
+    'keepalive' => [:memory, 'keepalive true'],
+    'require_ack_response' => [:memory, 'require_ack_response true'],
+    'tls' => [:memory, TLS_CLIENT_CONFIG],
+    'tls and keepalive' => [:memory, "#{TLS_CLIENT_CONFIG}\nkeepalive true"],
+  )
+  test 'send_timeout stops a send to a server which does not read' do |(chunk_type, conf)|
+    server = TCPServer.new(TARGET_HOST, 0)
+    tls_context = create_tls_server_context if conf.include?(TLS_CLIENT_CONFIG)
+    socks = []
+    server_thread = Thread.new do
+      loop do
+        sock = server.accept
+        sock = OpenSSL::SSL::SSLSocket.new(sock, tls_context).tap { |s| s.sync_close = true }.accept if tls_context
+        socks << sock
+      end
+    end
+
+    @d = d = create_driver(%[
+      send_timeout 2s
+      heartbeat_type none
+      #{conf}
+      <server>
+        host #{TARGET_HOST}
+        port #{server.local_address.ip_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+
+    metadata = Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil)
+    chunk_dir = Dir.mktmpdir('out_forward_send_timeout')
+    chunk = if chunk_type == :file
+              Fluent::Plugin::Buffer::FileChunk.new(metadata, File.join(chunk_dir, 'buffer.*.log'), :create)
+            else
+              Fluent::Plugin::Buffer::MemoryChunk.new(metadata)
+            end
+    # Larger than the socket buffers, so the send cannot finish while the server does not read.
+    chunk.append(['x' * 1024 * 1024] * 32)
+    chunk.commit
+
+    d.run(shutdown: false, timeout: 20) do
+      assert_raise(Fluent::Plugin::ForwardOutput::SendTimeoutError) do
+        node.send_data('test', chunk)
+      end
+      # The server cannot send an ACK for a chunk it did not read.
+      assert_empty(d.instance.ack_handler.instance_variable_get(:@ack_waitings)) if d.instance.require_ack_response
+    end
+  ensure
+    chunk&.purge
+    FileUtils.rm_rf(chunk_dir) if chunk_dir
+    server_thread&.kill
+    socks&.each(&:close)
+    server&.close
+  end
+
+  data(
+    'tcp' => '',
+    'tls' => TLS_CLIENT_CONFIG,
+  )
+  test 'send_timeout 0 does not limit a send' do |conf|
+    server = TCPServer.new(TARGET_HOST, 0)
+    tls_context = create_tls_server_context unless conf.empty?
+    received = +''
+    server_thread = Thread.new do
+      sock = server.accept
+      sock = OpenSSL::SSL::SSLSocket.new(sock, tls_context).tap { |s| s.sync_close = true }.accept if tls_context
+      sleep 1
+      loop { received << sock.readpartial(1024 * 1024) }
+    rescue EOFError
+      sock&.close
+    end
+
+    @d = d = create_driver(%[
+      send_timeout 0
+      heartbeat_type none
+      #{conf}
+      <server>
+        host #{TARGET_HOST}
+        port #{server.local_address.ip_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+
+    chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+    chunk.append(['x' * 1024 * 1024] * 32)
+    chunk.commit
+
+    d.run(shutdown: false, timeout: 20) do
+      assert_nothing_raised do
+        node.send_data('test', chunk)
+      end
+      server_thread.join(10)
+    end
+    assert_equal(['test', chunk.read], MessagePack.unpack(received)[0, 2])
+  ensure
+    chunk&.purge
+    server_thread&.kill
+    server&.close
+  end
+
+  test 'send_timeout stops a send when a TLS socket waits for data from the server' do
+    server = TCPServer.new(TARGET_HOST, 0)
+    @d = d = create_driver(%[
+      send_timeout 1s
+      heartbeat_type none
+      <server>
+        host #{TARGET_HOST}
+        port #{server.local_address.ip_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+    io = TCPSocket.new(TARGET_HOST, server.local_address.ip_port)
+    # A TLS socket returns :wait_readable when the write needs a TLS record from the server first.
+    sock = Object.new
+    stub(sock).write_nonblock { :wait_readable }
+    stub(sock).to_io { io }
+
+    assert_raise(Fluent::Plugin::ForwardOutput::SendTimeoutError) do
+      node.__send__(:write_with_timeout, sock, 'data')
+    end
+  ensure
+    io&.close
+    server&.close
+  end
+
+  test 'send_timeout keeps an earlier chunk sent on a keepalive connection' do
+    server = TCPServer.new(TARGET_HOST, 0)
+    server.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF, 8 * 1024)
+    received = +''
+    send_timed_out = Queue.new
+    server_wrote = Queue.new
+    start_reading = Queue.new
+    server_thread = Thread.new do
+      sock = server.accept
+      send_timed_out.pop
+      # Unread data makes close reset the connection. TLS 1.3 session tickets can arrive this late.
+      sock.write('unread')
+      server_wrote << true
+      start_reading.pop
+      loop { received << sock.readpartial(1024 * 1024) }
+    rescue EOFError, SystemCallError
+      sock&.close
+    end
+
+    @d = d = create_driver(%[
+      send_timeout 1s
+      heartbeat_type none
+      keepalive true
+      <server>
+        host #{TARGET_HOST}
+        port #{server.local_address.ip_port}
+      </server>
+    ])
+    node = d.instance.nodes.first
+    # The first chunk must fit in the send buffer on every platform, and must not fit in the receive buffer of the server.
+    stub.proxy(d.instance).socket_create_tcp do |sock|
+      sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDBUF, 1024 * 1024)
+      sock
+    end
+
+    metadata = Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil)
+    first = Fluent::Plugin::Buffer::MemoryChunk.new(metadata)
+    first.append(['x' * 64 * 1024])
+    first.commit
+    second = Fluent::Plugin::Buffer::MemoryChunk.new(metadata)
+    second.append(['y' * 1024 * 1024] * 32)
+    second.commit
+
+    d.run(shutdown: false, timeout: 20) do
+      node.send_data('test', first)
+      assert_raise(Fluent::Plugin::ForwardOutput::SendTimeoutError) do
+        node.send_data('test', second)
+      end
+      send_timed_out << true
+      server_wrote.pop
+      sleep 0.1
+      d.instance.__send__(:on_purge_obsolete_socks)
+      start_reading << true
+      server_thread.join(10)
+    end
+    first_message = MessagePack::Unpacker.new.tap { |u| u.feed(received) }.read
+    assert_equal(['test', first.read], first_message[0, 2])
+  ensure
+    first&.purge
+    second&.purge
+    server_thread&.kill
     server&.close
   end
 

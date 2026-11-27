@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin/output'
+require 'fluent/plugin/out_forward/error'
 
 module Fluent::Plugin
   class ForwardOutput < Output
@@ -53,17 +54,21 @@ module Fluent::Plugin
         send_failed = false
         begin
           yield(socket, request_info)
+        rescue SendTimeoutError
+          # The server stopped reading and will not send an ACK. Waiting for it can block the ACK thread on TLS.
+          ack = nil
+          raise
         rescue
           # The caller retries this send by itself. Other ways to leave the block, such as a killed thread, do not.
           send_failed = true
           raise
         ensure
           # A failed send also waits for the ack check, which disables the node. It only skips the rollback.
+          # A timed out send does not wait, so its socket is closed here.
           if ack
             ack.enqueue(socket, send_failed: send_failed)
           else
-            socket.close_write rescue nil
-            socket.close rescue nil
+            close_socket(socket)
           end
         end
       end
@@ -79,8 +84,7 @@ module Fluent::Plugin
         if @socket_cache
           @socket_cache.checkin(sock)
         else
-          sock.close_write rescue nil
-          sock.close rescue nil
+          close_socket(sock)
         end
       end
 
@@ -97,12 +101,20 @@ module Fluent::Plugin
         if @socket_cache
           @socket_cache.revoke(sock)
         else
-          sock.close_write rescue nil
-          sock.close rescue nil
+          close_socket(sock)
         end
       end
 
       private
+
+      def close_socket(sock)
+        # IO#close_write makes Ruby keep the GVL while close waits for SO_LINGER. shutdown does not.
+        begin
+          sock.respond_to?(:shutdown) ? sock.shutdown(:WR) : sock.close_write
+        rescue StandardError
+        end
+        sock.close rescue nil
+      end
 
       def connect_keepalive(host:, port:, hostname:, ack: nil)
         request_info = RequestInfo.new(:established)

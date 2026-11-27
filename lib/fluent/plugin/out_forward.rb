@@ -417,7 +417,7 @@ module Fluent::Plugin
           # expiring SO_LINGER enabled ports should wait 4 minutes
           # where set by TcpTimeDelay. Its default value is 4 minutes.
           # So, we should disable SO_LINGER on Windows to prevent flood of waiting ports.
-          linger_timeout: Fluent.windows? ? nil : @send_timeout,
+          linger_timeout: Fluent.windows? ? nil : transfer_linger_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
           connect_timeout: @connect_timeout,
@@ -427,7 +427,7 @@ module Fluent::Plugin
       when :tcp
         socket_create_tcp(
           host, port,
-          linger_timeout: @send_timeout,
+          linger_timeout: transfer_linger_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
           connect_timeout: @connect_timeout,
@@ -466,6 +466,11 @@ module Fluent::Plugin
     end
 
     private
+
+    # SO_LINGER of 0 seconds discards the data that is not sent yet when the socket is closed.
+    def transfer_linger_timeout
+      @send_timeout.positive? ? [@send_timeout.to_i, 1].max : nil
+    end
 
     def build_node(server)
       name = server.name || "#{server.host}:#{server.port}"
@@ -567,6 +572,8 @@ module Fluent::Plugin
     end
 
     class Node
+      SEND_BUFFER_SIZE = 1024 * 1024
+
       extend Forwardable
       def_delegators :@server, :discovery_id, :host, :port, :name, :weight, :standby
 
@@ -700,17 +707,52 @@ module Fluent::Plugin
 
         tag = tag.dup.force_encoding(Encoding::UTF_8)
 
-        sock.write @sender.forward_header                    # array, size=3
-        sock.write tag.to_msgpack                            # 1. tag: String (str)
+        write_with_timeout(sock, @sender.forward_header)      # array, size=3
+        write_with_timeout(sock, tag.to_msgpack)              # 1. tag: String (str)
         chunk.open(compressed: @compress) do |chunk_io|
           entries = [0xdb, chunk_io.size].pack('CN')
-          sock.write entries.force_encoding(Encoding::UTF_8) # 2. entries: String (str32)
-          IO.copy_stream(chunk_io, sock)                     #    writeRawBody(packed_es)
+          write_with_timeout(sock, entries)                   # 2. entries: String (str32)
+          read_size = chunk_io.size.clamp(1, SEND_BUFFER_SIZE)
+          buf = +''
+          write_with_timeout(sock, buf) while chunk_io.read(read_size, buf) # writeRawBody(packed_es)
         end
-        sock.write option.to_msgpack                         # 3. option: Hash(map)
+        write_with_timeout(sock, option.to_msgpack)           # 3. option: Hash(map)
 
         # TODO: use bin32 for non-utf8 content(entries) when old msgpack-ruby (0.5.x or earlier) not supported
       end
+
+      # SO_SNDTIMEO does not end IO#write, which waits and writes again. IO.copy_stream is the same.
+      def write_with_timeout(sock, data)
+        timeout = @sender.send_timeout.positive? ? @sender.send_timeout : nil
+        offset = 0
+        while offset < data.bytesize
+          case written = sock.write_nonblock(offset.zero? ? data : data.byteslice(offset..), exception: false)
+          when :wait_writable
+            sock.to_io.wait_writable(timeout) or raise_send_timeout(sock)
+          when :wait_readable # TLS
+            sock.to_io.wait_readable(timeout) or raise_send_timeout(sock)
+          else
+            offset += written
+          end
+        end
+      end
+
+      def raise_send_timeout(sock)
+        if @sender.keepalive
+          # Earlier chunks may still be in the send buffer, so the connection must not be reset.
+          linger = ::Socket::Option.linger(false, 0)
+        else
+          # Only this chunk is on the socket, and it is sent again. Without a reset, it stays in the kernel while the server does not read.
+          linger = ::Socket::Option.linger(true, 0)
+        end
+        begin
+          sock.to_io.setsockopt(linger)
+        rescue IOError, SystemCallError
+        end
+        raise SendTimeoutError, "the send to #{@host}:#{@port} made no progress for #{@sender.send_timeout} seconds (send_timeout)"
+      end
+
+      private :write_with_timeout, :raise_send_timeout
 
       def send_data(tag, chunk)
         ack = @ack_handler && @ack_handler.create_ack(chunk.unique_id, self)
