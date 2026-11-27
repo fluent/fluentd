@@ -45,7 +45,8 @@ module Fluent
           @permission = perm.is_a?(String) ? perm.to_i(8) : perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @chunk = @meta = nil
-          @readers = []
+          # Abandoned enumerators can leave their reader suspended inside open.
+          @readers = ObjectSpace::WeakMap.new
           @readers_mutex = Mutex.new
 
           case mode
@@ -367,6 +368,8 @@ module Fluent
           else
             # classic buffer chunk - read only chunk
             stat = File.stat(@path)
+            raise Errno::EACCES, @path unless File.readable?(@path)
+
             @bytesize = stat.size
             restore_metadata_partially(stat)
             @state = :queued
@@ -378,6 +381,7 @@ module Fluent
           stat = File.stat(@path)
           @bytesize = stat.size
           raise FileChunkError, "enqueued file chunk is empty" if @bytesize.zero?
+          raise Errno::EACCES, @path unless File.readable?(@path)
 
           @meta_path = @path + '.meta'
           if File.readable?(@meta_path)
@@ -403,8 +407,8 @@ module Fluent
           @chunk = @meta = nil
 
           readers = @readers_mutex.synchronize do
-            active_readers = @readers
-            @readers = []
+            active_readers = @readers.keys
+            @readers = ObjectSpace::WeakMap.new
             active_readers
           end
           readers.each(&:close)
@@ -432,7 +436,7 @@ module Fluent
 
             # Allow deletion on Windows even if a native read is still unwinding.
             file = File.open(@path, File::RDONLY | File::SHARE_DELETE, binmode: true)
-            @readers << file
+            @readers[file] = true
             file
           end
           yield reader

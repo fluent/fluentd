@@ -1495,6 +1495,26 @@ class FileBufferTest < Test::Unit::TestCase
       assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c1id)}.log") }
     end
 
+    data('queued chunk' => 'q', 'v0.12 chunk without metadata' => 'b')
+    test 'startup preserves buffered files when a queued chunk cannot be read' do |mode|
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+      omit 'chmod of file does not affect root user' if Process.euid.zero?
+
+      setup_plugins({'path' => @bufpath})
+      _, unreadable = create_first_chunk(mode)
+      File.unlink(unreadable + '.meta') if mode == 'b'
+      create_second_chunk('q')
+      paths = Dir.glob(File.join(@bufdir, '*'))
+      File.chmod(0, unreadable)
+      assert_false File.readable?(unreadable)
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        assert_raise(Errno::EACCES) { @p.start }
+      end
+
+      paths.each { |path| assert(File.exist?(path), path) }
+    end
+
     test '#resume backups enqueued broken metadata' do
       setup_plugins({'path' => @bufpath})
       c1id, _ = create_first_chunk('q')
