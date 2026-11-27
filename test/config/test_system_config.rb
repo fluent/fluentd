@@ -269,5 +269,25 @@ module Fluent::Config
       assert_true(logs.include?("config error in:\n<system>\n  workers 1\n</system>\n"))
       assert_not_match(/SECRET/, logs)
     end
+
+    test 'raises the config error before $log is set up' do
+      conf = parse_text(<<~EOS)
+        <system>
+          <metrics>
+            @type test
+            labels "{bad"
+          </metrics>
+        </system>
+      EOS
+      original_log = $log
+      $log = nil
+      begin
+        assert_raise(Fluent::ConfigError) do
+          Fluent::SystemConfig.new(conf)
+        end
+      ensure
+        $log = original_log
+      end
+    end
   end
 end
