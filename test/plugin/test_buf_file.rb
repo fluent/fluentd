@@ -1495,6 +1495,26 @@ class FileBufferTest < Test::Unit::TestCase
       assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c1id)}.log") }
     end
 
+    data('queued chunk' => 'q', 'v0.12 chunk without metadata' => 'b')
+    test 'startup preserves buffered files when a queued chunk cannot be read' do |mode|
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+      omit 'chmod of file does not affect root user' if Process.euid.zero?
+
+      setup_plugins({'path' => @bufpath})
+      _, unreadable = create_first_chunk(mode)
+      File.unlink(unreadable + '.meta') if mode == 'b'
+      create_second_chunk('q')
+      paths = Dir.glob(File.join(@bufdir, '*'))
+      File.chmod(0, unreadable)
+      assert_false File.readable?(unreadable)
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        assert_raise(Errno::EACCES) { @p.start }
+      end
+
+      paths.each { |path| assert(File.exist?(path), path) }
+    end
+
     test '#resume backups enqueued broken metadata' do
       setup_plugins({'path' => @bufpath})
       c1id, _ = create_first_chunk('q')
@@ -1509,6 +1529,28 @@ class FileBufferTest < Test::Unit::TestCase
       compare_log(@p, 'enqueued meta file is broken')
       assert { not File.exist?(p2) }
       assert { File.exist?("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log") }
+    end
+
+    test '#resume backs up a queued chunk on a metadata read error and restores healthy chunks' do
+      setup_plugins({'path' => @bufpath})
+      c1id, p1 = create_first_chunk('q')
+      c2id, p2 = create_second_chunk('q')
+      contents = File.binread(p2)
+      file_binread = File.method(:binread)
+      stub(File).binread do |path|
+        raise Errno::EIO if path == p2 + '.meta'
+        file_binread.call(path)
+      end
+
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir) do
+        @p.start
+      end
+
+      compare_queued_chunk(@p.queue, c1id, 4, :queued)
+      assert_equal File.binread(p1), @p.queue.first.read
+      assert_false File.exist?(p2)
+      assert_false File.exist?(p2 + '.meta')
+      assert_equal contents, File.binread("#{@bufdir}/backup/worker0/#{@id_output}/#{@d.dump_unique_id_hex(c2id)}.log")
     end
 
     test '#resume backups enqueued broken metadata which has broken id, c, m fields' do

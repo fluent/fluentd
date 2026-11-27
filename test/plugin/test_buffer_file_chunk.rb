@@ -181,6 +181,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert !File.exist?(stage_path + '.meta')
       assert File.exist?(queue_path)
       assert File.exist?(queue_path + '.meta')
+      assert_nil @c.instance_variable_get(:@chunk)
+      assert_nil @c.instance_variable_get(:@meta)
     end
 
     test '#enqueued! marks a chunk as queued even if renaming its files fails' do
@@ -764,13 +766,23 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal @metadata[:s], @c.size
       assert_equal @d.bytesize, @c.bytesize
       assert_equal @d, @c.read
+      assert_nil @c.instance_variable_get(:@chunk)
 
       assert_raise RuntimeError.new("BUG: concatenating to unwritable chunk, now 'queued'") do
         @c.append(["queued chunk is read only"])
       end
-      assert_raise IOError do
-        @c.instance_eval{ @chunk }.write "chunk io is opened as read only"
+      assert_raise(IOError) { @c.open { |io| io.write "chunk io is opened as read only" } }
+    end
+
+    data('EMFILE' => Errno::EMFILE, 'ENFILE' => Errno::ENFILE)
+    test 'preserves queued files if opening metadata runs out of descriptors' do |error|
+      stub(File).binread(@enqueued_path + '.meta') { raise error }
+
+      assert_raise(error) do
+        @klass.new(gen_metadata, @enqueued_path, :queued)
       end
+      assert File.exist?(@enqueued_path)
+      assert File.exist?(@enqueued_path + '.meta')
     end
   end
 
@@ -806,13 +818,12 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal @d.bytesize, @c.bytesize
       assert_equal 0, @c.size
       assert_equal @d, @c.read
+      assert_nil @c.instance_variable_get(:@chunk)
 
       assert_raise RuntimeError.new("BUG: concatenating to unwritable chunk, now 'queued'") do
         @c.append(["queued chunk is read only"])
       end
-      assert_raise IOError do
-        @c.instance_eval{ @chunk }.write "chunk io is opened as read only"
-      end
+      assert_raise(IOError) { @c.open { |io| io.write "chunk io is opened as read only" } }
     end
   end
 
@@ -848,14 +859,65 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal @d.bytesize, @c.bytesize
       assert_equal 0, @c.size
       assert_equal @d, @c.read
+      assert_nil @c.instance_variable_get(:@chunk)
 
       assert_raise RuntimeError.new("BUG: concatenating to unwritable chunk, now 'queued'") do
         @c.append(["queued chunk is read only"])
       end
-      assert_raise IOError do
-        @c.instance_eval{ @chunk }.write "chunk io is opened as read only"
+      assert_raise(IOError) { @c.open { |io| io.write "chunk io is opened as read only" } }
+    end
+  end
+
+  data('text' => :text, 'gzip' => :gzip, 'zstd' => :zstd)
+  test 'reads queued chunks on demand and closes the file when the reader raises' do |compress|
+    content = "record\x00\xFF".b
+    chunk = @klass.new(gen_metadata, gen_path('queued.*.log'), :create, compress: compress)
+    chunk.append([content], compress: compress)
+    chunk.commit
+    chunk.enqueued!
+
+    assert_equal content, chunk.read
+    chunk.close
+    assert_raise(IOError) { chunk.read }
+    chunk = @klass.new(gen_metadata, chunk.path, :queued, compress: compress)
+
+    reader = nil
+    assert_raise(RuntimeError.new('flush failed')) do
+      chunk.open(compressed: compress) do |file|
+        reader = file
+        assert_equal File.binread(chunk.path), file.read
+        raise 'flush failed'
       end
     end
+    assert_true reader.closed?
+
+    output = StringIO.new
+    output.set_encoding(Encoding::ASCII_8BIT)
+    chunk.write_to(output)
+    assert_equal content, output.string
+  ensure
+    chunk&.purge
+  end
+
+  data('close' => :close, 'purge' => :purge)
+  test 'stops active readers when a queued chunk is closed or purged' do |action|
+    chunk = @klass.new(gen_metadata, gen_path('queued.*.log'), :create)
+    chunk.append(['record'])
+    chunk.commit
+    chunk.enqueued!
+
+    chunk.open do |first|
+      chunk.open do |second|
+        assert_equal 'r', first.read(1)
+        assert_equal 'r', second.read(1)
+        chunk.public_send(action)
+        assert_raise(IOError) { first.read(1) }
+        assert_raise(IOError) { second.read(1) }
+      end
+    end
+
+    assert_equal(action == :close, File.exist?(chunk.path))
+    assert_equal(action == :close, File.exist?(chunk.meta_path))
   end
 
   sub_test_case 'compressed buffer' do

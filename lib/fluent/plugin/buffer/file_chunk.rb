@@ -44,7 +44,10 @@ module Fluent
           perm ||= Fluent::DEFAULT_FILE_PERMISSION
           @permission = perm.is_a?(String) ? perm.to_i(8) : perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
-          @meta = nil
+          @chunk = @meta = nil
+          # Abandoned enumerators can leave their reader suspended inside open.
+          @readers = ObjectSpace::WeakMap.new
+          @readers_mutex = Mutex.new
 
           case mode
           when :create then create_new_chunk(path, @permission)
@@ -104,6 +107,7 @@ module Fluent
 
           super
           rename_to_queued_path
+          close_file_handles
           self
         end
 
@@ -150,9 +154,8 @@ module Fluent
 
         def close
           super
-          size = @chunk.size
-          @chunk.close
-          @meta.close if @meta # meta may be missing if chunk is queued at first
+          size = @chunk&.size || bytesize
+          close_file_handles
           if size == 0
             File.unlink(@path, @meta_path)
           end
@@ -160,24 +163,17 @@ module Fluent
 
         def purge
           super
-          @chunk.close
-          @meta.close if @meta
+          close_file_handles
           @bytesize = @size = @adding_bytes = @adding_size = 0
           File.unlink(@path, @meta_path)
         end
 
         def read(**kwargs)
-          @chunk.seek(0, IO::SEEK_SET)
-          @chunk.read
+          open_chunk(&:read)
         end
 
         def open(**kwargs, &block)
-          @chunk.seek(0, IO::SEEK_SET)
-          begin
-            yield @chunk
-          ensure
-            @chunk.seek(0, IO::SEEK_END) if self.staged?
-          end
+          open_chunk(&block)
         end
 
         def self.assume_chunk_state(path)
@@ -244,11 +240,11 @@ module Fluent
           @metadata.seq = data[:seq] || 0
         end
 
-        def restore_metadata_partially(chunk)
-          @unique_id = self.class.unique_id_from_path(chunk.path) || @unique_id
+        def restore_metadata_partially(stat)
+          @unique_id = self.class.unique_id_from_path(@path) || @unique_id
           @size = 0
-          @created_at = chunk.ctime.to_i # birthtime isn't supported on Windows (and Travis?)
-          @modified_at = chunk.mtime.to_i
+          @created_at = stat.ctime.to_i # birthtime isn't supported on Windows (and Travis?)
+          @modified_at = stat.mtime.to_i
 
           @metadata.timekey = nil
           @metadata.tag = nil
@@ -371,46 +367,87 @@ module Fluent
             @adding_size = 0
           else
             # classic buffer chunk - read only chunk
-            @chunk = File.open(@path, 'rb')
-            @chunk.set_encoding(Encoding::ASCII_8BIT)
-            @chunk.binmode
-            @chunk.seek(0, IO::SEEK_SET)
+            stat = File.stat(@path)
+            raise Errno::EACCES, @path unless File.readable?(@path)
+
+            @bytesize = stat.size
+            restore_metadata_partially(stat)
             @state = :queued
-            @bytesize = @chunk.size
-
-            restore_metadata_partially(@chunk)
-
-            @commit_position = @chunk.size
-            @unique_id = self.class.unique_id_from_path(@path) || @unique_id
           end
         end
 
         def load_existing_enqueued_chunk(path)
           @path = path
-          raise FileChunkError, "enqueued file chunk is empty" if File.size(@path).zero?
-
-          @chunk = File.open(@path, 'rb')
-          @chunk.set_encoding(Encoding::ASCII_8BIT)
-          @chunk.binmode
-          @chunk.seek(0, IO::SEEK_SET)
-          @bytesize = @chunk.size
-          @commit_position = @chunk.size
+          stat = File.stat(@path)
+          @bytesize = stat.size
+          raise FileChunkError, "enqueued file chunk is empty" if @bytesize.zero?
+          raise Errno::EACCES, @path unless File.readable?(@path)
 
           @meta_path = @path + '.meta'
           if File.readable?(@meta_path)
             begin
-              restore_metadata(File.open(@meta_path){|f| f.set_encoding(Encoding::ASCII_8BIT); f.binmode; f.read })
+              restore_metadata(File.binread(@meta_path))
+            rescue Errno::EMFILE, Errno::ENFILE
+              # Descriptor exhaustion does not indicate a broken chunk.
+              raise
             rescue => e
-              @chunk.close
               raise FileChunkError, "enqueued meta file is broken. #{e.message}"
             end
           else
-            restore_metadata_partially(@chunk)
+            restore_metadata_partially(stat)
           end
           @state = :queued
         end
 
         private
+
+        def close_file_handles
+          @chunk&.close
+          @meta&.close
+          @chunk = @meta = nil
+
+          readers = @readers_mutex.synchronize do
+            active_readers = @readers.keys
+            @readers = ObjectSpace::WeakMap.new
+            active_readers
+          end
+          readers.each(&:close)
+        end
+
+        def open_chunk(&block)
+          raise IOError, 'closed stream' if closed?
+
+          # Queued chunks normally have no open handles. A failed rename can
+          # leave the original handle open so committed data remains readable.
+          chunk = @chunk
+          return open_queued_chunk(&block) unless chunk
+
+          chunk.seek(0, IO::SEEK_SET)
+          begin
+            yield chunk
+          ensure
+            chunk.seek(0, IO::SEEK_END) if staged?
+          end
+        end
+
+        def open_queued_chunk
+          reader = @readers_mutex.synchronize do
+            raise IOError, 'closed stream' if closed?
+
+            # Allow deletion on Windows even if a native read is still unwinding.
+            file = File.open(@path, File::RDONLY | File::SHARE_DELETE, binmode: true)
+            @readers[file] = true
+            file
+          end
+          yield reader
+        ensure
+          if reader
+            @readers_mutex.synchronize do
+              # A concurrent close or purge owns the readers it has removed.
+              reader.close if @readers.delete(reader)
+            end
+          end
+        end
 
         def restore_metadata_with_new_format(chunk)
           if chunk.size <= 6 # size of BUFFER_HEADER (2) + size of data size(4)
