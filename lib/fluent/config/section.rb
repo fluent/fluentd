@@ -249,11 +249,16 @@ module Fluent
         Section.new(section_params, conf)
       end
 
-      # Child sections are left out. Their secret parameters may not be known yet,
-      # e.g. those of a plugin in <store> or <secondary>, so they would be shown in plain text.
+      # Child sections are left out, and values of keys that the section does not define are masked.
+      # They may belong to a plugin configured later, e.g. one in <store>, <secondary> or <buffer>,
+      # whose secret parameters are not known yet.
       def self.dump_section(conf)
         section = conf.dup
         section.elements = []
+        section.keys.each do |key|
+          next if Element::RESERVED_PARAMETERS.include?(key) || Element::RESERVED_PARAMETERS_COMPAT.value?(key)
+          section[key] = 'xxxxxx' unless section.param_defined?(key)
+        end
         section.to_s
       end
       private_class_method :dump_section

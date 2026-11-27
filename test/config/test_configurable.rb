@@ -463,6 +463,18 @@ module ConfigurableSpec
     end
   end
 
+  class ExampleWithPluginSection
+    include Fluent::Configurable
+    attr_accessor :log
+
+    # Like <buffer> of output, the section also has parameters of a plugin configured later.
+    config_section :buffer, multi: false do
+      config_argument :chunk_keys, :array, default: []
+      config_param :@type, :string, default: 'memory'
+      config_param :flush_mode, :enum, list: [:default, :lazy], default: :default
+    end
+  end
+
   class ExampleWithAliases
     include Fluent::Configurable
 
@@ -1463,6 +1475,19 @@ module Fluent::Config
         end
         logs = example.log.logs.join
         assert_true(logs.include?("config error in:\n#{dump}"))
+        assert_not_match(/SECRET/, logs)
+      end
+
+      test 'masks values of keys that the section does not define' do
+        conf = config_element('ROOT', '', {},
+                              [config_element('buffer', 'tag', {'@type' => 'file', 'flush_mode' => 'bogus', 'encryption_key' => 'SECRET_KEY'})])
+        example = ConfigurableSpec::ExampleWithPluginSection.new
+        example.log = Fluent::Test::TestLogger.new
+        assert_raise(Fluent::ConfigError.new("valid options are default,lazy but got bogus")) do
+          example.configure(conf)
+        end
+        logs = example.log.logs.join
+        assert_true(logs.include?("config error in:\n<buffer tag>\n  @type file\n  flush_mode bogus\n  encryption_key xxxxxx\n</buffer>\n"))
         assert_not_match(/SECRET/, logs)
       end
     end

@@ -172,6 +172,10 @@ module Fluent
         params_for(key).any? { |_proxy, _name, opts| opts[:secret] }
       end
 
+      def param_defined?(key)
+        !params_for(key).empty?
+      end
+
       def secret_argument?
         @corresponding_proxies.any? { |proxy|
           _name, _block, opts = proxy.argument
