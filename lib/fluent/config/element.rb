@@ -169,17 +169,7 @@ module Fluent
       end
 
       def secret_param?(key)
-        return false if @corresponding_proxies.empty?
-
-        param_key = key.to_sym
-        @corresponding_proxies.each { |proxy|
-          _block, opts = proxy.params[param_key] || proxy.params.values.find { |_, param_opts| param_opts[:alias] == param_key }
-          if opts && opts.has_key?(:secret)
-            return opts[:secret]
-          end
-        }
-
-        false
+        params_for(key).any? { |_proxy, _name, opts| opts[:secret] }
       end
 
       def secret_argument?
@@ -190,26 +180,13 @@ module Fluent
       end
 
       def param_type(key)
-        return nil if @corresponding_proxies.empty?
-
-        param_key = key.to_sym
-        proxy = @corresponding_proxies.detect do |_proxy|
-          _proxy.params.has_key?(param_key)
-        end
-        return nil unless proxy
-        _block, opts = proxy.params[param_key]
-        opts[:type]
+        _proxy, _name, opts = params_for(key).first
+        opts && opts[:type]
       end
 
       def default_value(key)
-        return nil if @corresponding_proxies.empty?
-
-        param_key = key.to_sym
-        proxy = @corresponding_proxies.detect do |_proxy|
-          _proxy.params.has_key?(param_key)
-        end
-        return nil unless proxy
-        proxy.defaults[param_key]
+        proxy, name, _opts = params_for(key).first
+        proxy && proxy.defaults[name]
       end
 
       def dump_value(k, v, nindent)
@@ -266,6 +243,21 @@ module Fluent
 
       def for_another_worker?
         !@target_worker_ids.empty? && !@target_worker_ids.include?(Fluent::Engine.worker_id)
+      end
+
+      private
+
+      # The parameters that accept the key as their name or alias, matched by name first.
+      # A key can match several of them, e.g. an alias that is also the name of another parameter.
+      def params_for(key)
+        param_key = key.to_sym
+        params = @corresponding_proxies.flat_map { |proxy|
+          proxy.params.filter_map { |name, (_block, opts)|
+            [proxy, name, opts] if name == param_key || opts[:alias] == param_key
+          }
+        }
+        by_name, by_alias = params.partition { |_proxy, name, _opts| name == param_key }
+        by_name + by_alias
       end
     end
   end

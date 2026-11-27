@@ -462,6 +462,16 @@ module ConfigurableSpec
       config_argument :token, :array, secret: true
     end
   end
+
+  class ExampleWithAliases
+    include Fluent::Configurable
+
+    config_param :password, :string, secret: true, alias: :pass, default: nil
+    config_param :pass, :string, default: nil
+    config_param :user, :string, alias: :legacy, default: nil
+    config_param :token, :string, secret: true, alias: :legacy, default: nil
+    config_param :name, :string, alias: :legacy_name, default: nil
+  end
 end
 
 module Fluent::Config
@@ -1477,6 +1487,23 @@ module Fluent::Config
         assert_equal(["SECRET_ARG"], example.auth.token)
         assert_equal("<ROOT>\n  <auth xxxxxx>\n  </auth>\n</ROOT>\n", conf.to_s)
         assert_equal("xxxxxx", example.config.elements.first.arg)
+      end
+    end
+
+    sub_test_case 'parameter written with an alias' do
+      data("alias equal to another parameter's name" => 'pass',
+           "alias shared with another parameter" => 'legacy')
+      test 'is masked if any parameter that accepts it is secret' do |key|
+        conf = config_element('ROOT', '', {key => 'SECRET'})
+        ConfigurableSpec::ExampleWithAliases.new.configure(conf)
+        assert_equal("<ROOT>\n  #{key} xxxxxx\n</ROOT>\n", conf.to_s)
+      end
+
+      test 'is dumped with the type of the parameter' do
+        conf = config_element('ROOT', '', {'legacy_name' => 'a b'})
+        conf.v1_config = true
+        ConfigurableSpec::ExampleWithAliases.new.configure(conf)
+        assert_equal("<ROOT>\n  legacy_name \"a b\"\n</ROOT>\n", conf.to_s)
       end
     end
 
