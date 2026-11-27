@@ -145,7 +145,7 @@ module Fluent
         if @arg.nil? || @arg.empty?
           out << "#{indent}<#{@name}>\n"
         else
-          out << "#{indent}<#{@name} #{@arg}>\n"
+          out << "#{indent}<#{@name} #{secret_argument? ? 'xxxxxx' : @arg}>\n"
         end
         each_pair { |k, v|
           out << dump_value(k, v, nindent)
@@ -159,7 +159,7 @@ module Fluent
 
       def to_masked_element
         new_elems = @elements.map { |e| e.to_masked_element }
-        new_elem = Element.new(@name, @arg, {}, new_elems, @unused)
+        new_elem = Element.new(@name, secret_argument? ? 'xxxxxx' : @arg, {}, new_elems, @unused)
         new_elem.v1_config = @v1_config
         new_elem.corresponding_proxies = @corresponding_proxies
         each_pair { |k, v|
@@ -180,6 +180,13 @@ module Fluent
         }
 
         false
+      end
+
+      def secret_argument?
+        @corresponding_proxies.any? { |proxy|
+          _name, _block, opts = proxy.argument
+          opts && opts[:secret]
+        }
       end
 
       def param_type(key)

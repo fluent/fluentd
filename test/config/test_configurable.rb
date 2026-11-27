@@ -453,6 +453,15 @@ module ConfigurableSpec
       config_param :@type, :string, default: nil
     end
   end
+
+  class ExampleWithSecretArgument
+    include Fluent::Configurable
+    attr_accessor :log
+
+    config_section :auth, multi: false do
+      config_argument :token, :array, secret: true
+    end
+  end
 end
 
 module Fluent::Config
@@ -1445,6 +1454,29 @@ module Fluent::Config
         logs = example.log.logs.join
         assert_true(logs.include?("config error in:\n#{dump}"))
         assert_not_match(/SECRET/, logs)
+      end
+    end
+
+    sub_test_case 'secret section argument' do
+      test 'is masked in the config error log' do
+        conf = config_element('ROOT', '', {}, [config_element('auth', '[SECRET_ARG')])
+        example = ConfigurableSpec::ExampleWithSecretArgument.new
+        example.log = Fluent::Test::TestLogger.new
+        assert_raise(Fluent::ConfigError.new("token: invalid JSON array")) do
+          example.configure(conf)
+        end
+        logs = example.log.logs.join
+        assert_true(logs.include?("config error in:\n<auth xxxxxx>\n</auth>\n"))
+        assert_not_match(/SECRET/, logs)
+      end
+
+      test 'is masked in to_s and the masked config' do
+        conf = config_element('ROOT', '', {}, [config_element('auth', 'SECRET_ARG')])
+        example = ConfigurableSpec::ExampleWithSecretArgument.new
+        example.configure(conf)
+        assert_equal(["SECRET_ARG"], example.auth.token)
+        assert_equal("<ROOT>\n  <auth xxxxxx>\n  </auth>\n</ROOT>\n", conf.to_s)
+        assert_equal("xxxxxx", example.config.elements.first.arg)
       end
     end
 
