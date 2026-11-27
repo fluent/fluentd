@@ -829,9 +829,11 @@ module Fluent
         if @chunk_key_time && (chunk_passed || !empty_metadata)
           timekey = metadata.timekey
           if chunk_passed && timekey.nil?
+            timekey = chunk.assumed_timekey if @as_secondary && chunk.respond_to?(:assumed_timekey)
+
             # Restored chunks can predate the time chunk key. Leave the emit cache out of this calculation.
             timekey_owner = @as_secondary ? @primary_instance : self
-            timekey = timekey_owner.calculate_timekey_without_cache(chunk.created_at)
+            timekey ||= timekey_owner.calculate_timekey_without_cache(chunk.created_at)
           end
 
           @output_time_formatter_cache[str] ||= Fluent::Timezone.formatter(@timekey_zone, str)

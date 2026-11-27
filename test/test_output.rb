@@ -1,5 +1,6 @@
 require_relative 'helper'
 require 'fluent/test'
+require 'fluent/test/driver/output'
 require 'fluent/output'
 require 'fluent/output_chain'
 require 'fluent/plugin/buffer'
@@ -224,6 +225,91 @@ module FluentOutputTest
       assert_nothing_raised {
         create_driver(CONFIG + param)
       }
+    end
+
+    test "retries a chunk without a timekey with the same time slice" do
+      driver = Fluent::Test::Driver::Output.new(TimeSlicedOutputTestPlugin) do
+        attr_reader :flushed_records
+
+        def write(chunk)
+          super
+          raise IOError, "temporary write failure" if written_chunk_keys.size == 1
+
+          @flushed_records = chunk.read
+        end
+      end.configure(%[
+        buffer_type memory
+        num_threads 0
+        time_slice_format %Y%m%d%H
+      ])
+
+      # Run both flush attempts directly so the requeued chunk can be inspected.
+      driver.run(flush: false, force_flush_retry: true) do
+        output = driver.instance
+        buffer = output.buffer
+        stub(Fluent::Clock).real_now { Time.utc(2016, 11, 8, 17, 44, 30).to_i }
+        metadata = buffer.metadata
+        buffer.write({metadata => ["restored\n"]})
+        buffer.enqueue_all(true)
+        chunk = buffer.queue.first
+
+        output.try_flush
+
+        assert_equal 1, output.rollback_count
+        assert buffer.queued?(metadata)
+        assert_same chunk, buffer.queue.first
+        assert_nil chunk.metadata.timekey
+
+        minute_output = create_driver("buffer_type memory\ntime_slice_format %Y%m%d%H%M").instance
+        minute_output.write(chunk)
+        assert_equal ["201611081700"], minute_output.written_chunk_keys
+
+        output.try_flush
+
+        assert_equal ["2016110817", "2016110817"], output.written_chunk_keys
+        assert_equal "restored\n", output.flushed_records
+        assert_nil chunk.metadata.timekey
+        assert_false buffer.queued?
+      end
+    end
+
+    test "uses the v0.12 file name time slice in secondary_file" do
+      buffer_dir = File.join(TMP_DIR, "job.20250101.build")
+      FileUtils.mkdir_p(buffer_dir)
+      id = "0123456789abcdef0123456789abcdef"
+      File.binwrite("#{buffer_dir}/slice.20161108174430.q#{id}.log", "legacy\n")
+
+      driver = Fluent::Test::Driver::Output.new(TimeSlicedOutputTestPlugin) do
+        def write(chunk)
+          super
+          raise Fluent::UnrecoverableError, "send this chunk to the secondary"
+        end
+      end.configure(%[
+        buffer_path #{buffer_dir}/slice.*.log
+        num_threads 0
+        time_slice_format %Y%m%d%H%M%S
+        timezone +0000
+        <secondary>
+          @type secondary_file
+          directory #{TMP_DIR}/out
+          basename dump.%Y%m%d%H%M%S
+        </secondary>
+      ])
+
+      driver.run(flush: false) do
+        output = driver.instance
+        chunk = output.buffer.queue.first
+        stub(chunk).created_at { Time.utc(2020, 1, 1) }
+
+        output.try_flush
+
+        # The legacy file name parser interprets the digits in local time.
+        stamp = Time.local(2016, 11, 8, 17, 44, 30).utc.strftime("%Y%m%d%H%M%S")
+        assert_equal [stamp], output.written_chunk_keys
+        assert_equal ["dump.#{stamp}.0"], Dir.children("#{TMP_DIR}/out")
+        assert_equal "legacy\n", File.binread("#{TMP_DIR}/out/dump.#{stamp}.0")
+        assert_nil chunk.metadata.timekey
+      end
     end
 
     sub_test_case "test emit" do

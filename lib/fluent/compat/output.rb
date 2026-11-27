@@ -85,24 +85,31 @@ module Fluent
       def assume_timekey!
         @_formatter = Fluent::TimeFormatter.new(@_time_slice_format, nil, @_timezone)
 
-        return if self.metadata.timekey
-        if self.respond_to?(:path) && self.path =~ /\.(\d+)\.(?:b|q)(?:[a-z0-9]+)/
+        # The buffer uses the metadata as a Hash key. Keep the first inferred timekey on the chunk.
+        return if metadata.timekey || @_assumed_timekey
+
+        path = self.path if respond_to?(:path)
+        if path && File.basename(path) =~ /\.(\d+)\.(?:b|q)[a-z0-9]+/
           begin
-            self.metadata.timekey = Time.parse($1, @_time_slice_format).to_i
+            @_assumed_timekey = Time.parse($1, @_time_slice_format).to_i
           rescue ArgumentError
             # unknown format / value as timekey
           end
         end
-        unless self.metadata.timekey
+        unless @_assumed_timekey
           # file creation time is assumed in the time range of that time slice
           # because the first record should be in that range.
-          time_int = self.created_at.to_i
-          self.metadata.timekey = time_int - (time_int % @_timekey)
+          time_int = created_at.to_i
+          @_assumed_timekey = time_int - (time_int % @_timekey)
         end
       end
 
+      def assumed_timekey
+        @_assumed_timekey
+      end
+
       def key
-        @_formatter.call(self.metadata.timekey)
+        @_formatter.call(metadata.timekey || assumed_timekey)
       end
     end
 
