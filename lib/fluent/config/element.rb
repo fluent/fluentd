@@ -168,6 +168,19 @@ module Fluent
         new_elem
       end
 
+      # Child sections are left out, and values of keys that the section does not define are masked.
+      # They may belong to a plugin configured later, e.g. one in <store>, <secondary> or <buffer>,
+      # whose secret parameters are not known yet.
+      def dump_for_error
+        section = dup
+        section.elements = []
+        section.keys.each do |key|
+          next if RESERVED_PARAMETERS.include?(key) || RESERVED_PARAMETERS_COMPAT.value?(key)
+          section[key] = 'xxxxxx' unless section.param_defined?(key)
+        end
+        section.to_s
+      end
+
       def secret_param?(key)
         params_for(key).any? { |_proxy, _name, opts| opts[:secret] }
       end

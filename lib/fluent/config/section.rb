@@ -137,20 +137,20 @@ module Fluent
 
             if conf.arg == :default
               unless section_params.has_key?(key)
-                logger.error "config error in:\n#{dump_section(conf)}" if logger
+                logger.error "config error in:\n#{conf.dump_for_error}" if logger
                 raise ConfigError, "'#{key}' doesn't have default value"
               end
             else
               begin
                 section_params[key] = self.instance_exec(conf.arg, opts, key, &block)
               rescue ConfigError => e
-                logger.error "config error in:\n#{dump_section(conf)}" if logger
+                logger.error "config error in:\n#{conf.dump_for_error}" if logger
                 raise e
               end
             end
           end
           unless section_params.has_key?(proxy.argument.first)
-            logger.error "config error in:\n#{dump_section(conf)}" if logger # logger should exist, but sometimes it's nil (e.g, in tests)
+            logger.error "config error in:\n#{conf.dump_for_error}" if logger # logger should exist, but sometimes it's nil (e.g, in tests)
             raise ConfigError, "'<#{proxy.name} ARG>' section requires argument" + section_stack
           end
           # argument should NOT be deprecated... (argument always has a value: '')
@@ -171,21 +171,21 @@ module Fluent
             if val == :default
               # default value is already set if it exists
               unless section_params.has_key?(varname)
-                logger.error "config error in:\n#{dump_section(conf)}" if logger
+                logger.error "config error in:\n#{conf.dump_for_error}" if logger
                 raise ConfigError, "'#{varname}' doesn't have default value"
               end
             else
               begin
                 section_params[varname] = self.instance_exec(val, opts, name, &block)
               rescue ConfigError => e
-                logger.error "config error in:\n#{dump_section(conf)}" if logger
+                logger.error "config error in:\n#{conf.dump_for_error}" if logger
                 raise e
               end
             end
 
             if section_params[varname].nil?
               unless proxy.defaults.has_key?(varname) && proxy.defaults[varname].nil?
-                logger.error "config error in:\n#{dump_section(conf)}" if logger
+                logger.error "config error in:\n#{conf.dump_for_error}" if logger
                 raise ConfigError, "'#{name}' parameter is required but nil is specified"
               end
             end
@@ -200,12 +200,12 @@ module Fluent
               logger.warn "'#{name}' parameter is deprecated: #{opts[:deprecated]}" if logger
             end
             if opts[:obsoleted]
-              logger.error "config error in:\n#{dump_section(conf)}" if logger
+              logger.error "config error in:\n#{conf.dump_for_error}" if logger
               raise ObsoletedParameterError, "'#{name}' parameter is already removed: #{opts[:obsoleted]}" + section_stack
             end
           end
           unless section_params.has_key?(varname)
-            logger.error "config error in:\n#{dump_section(conf)}" if logger
+            logger.error "config error in:\n#{conf.dump_for_error}" if logger
             raise ConfigError, "'#{name}' parameter is required" + section_stack
           end
         end
@@ -232,14 +232,14 @@ module Fluent
           }
 
           if subproxy.required? && elements.size < 1
-            logger.error "config error in:\n#{dump_section(conf)}" if logger
+            logger.error "config error in:\n#{conf.dump_for_error}" if logger
             raise ConfigError, "'<#{subproxy.name}>' sections are required" + section_stack
           end
           if subproxy.multi?
             section_params[varname] = elements.map{ |e| generate(subproxy, e, logger, plugin_class, stack + [subproxy.name], strict_config_value) }
           else
             if elements.size > 1
-              logger.error "config error in:\n#{dump_section(conf)}" if logger
+              logger.error "config error in:\n#{conf.dump_for_error}" if logger
               raise ConfigError, "'<#{subproxy.name}>' section cannot be written twice or more" + section_stack
             end
             section_params[varname] = generate(subproxy, elements.first, logger, plugin_class, stack + [subproxy.name], strict_config_value)
@@ -247,19 +247,6 @@ module Fluent
         end
 
         Section.new(section_params, conf)
-      end
-
-      # Child sections are left out, and values of keys that the section does not define are masked.
-      # They may belong to a plugin configured later, e.g. one in <store>, <secondary> or <buffer>,
-      # whose secret parameters are not known yet.
-      def self.dump_section(conf)
-        section = conf.dup
-        section.elements = []
-        section.keys.each do |key|
-          next if Element::RESERVED_PARAMETERS.include?(key) || Element::RESERVED_PARAMETERS_COMPAT.value?(key)
-          section[key] = 'xxxxxx' unless section.param_defined?(key)
-        end
-        section.to_s
       end
 
       def self.check_unused_section(proxy, conf, plugin_class)
