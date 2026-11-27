@@ -1619,6 +1619,9 @@ module Fluent
               end
             end
 
+            # Shutdown can signal while the flush thread has released the mutex.
+            break unless @output_flush_threads_running
+
             state.cond_var.wait(state.mutex, interval) if interval > 0
           end
         rescue => e

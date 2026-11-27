@@ -191,6 +191,49 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       assert{ @i.num_errors > 1 }
     end
 
+    test 'a write that fails during shutdown skips the retry wait' do
+      write_started = Queue.new
+      finish_write = Queue.new
+      shutdown_signaled = Queue.new
+      retry_waits = []
+      buffer_config = {
+        'flush_mode' => 'immediate',
+        'flush_at_shutdown' => false,
+        'retry_wait' => 60,
+        'retry_randomize' => false,
+      }
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag', buffer_config)]))
+      @i.register(:write) do
+        write_started << true
+        finish_write.pop
+        raise IOError, 'write failed'
+      end
+      @i.start
+      @i.after_start
+      @i.emit_events('test.tag', dummy_event_stream)
+      waiting(5) { write_started.pop }
+
+      @i.stop
+      @i.before_shutdown
+      @i.shutdown
+      state = @i.instance_variable_get(:@output_flush_threads).first
+      signal = state.cond_var.method(:signal)
+      state.cond_var.define_singleton_method(:signal) { signal.call.tap { shutdown_signaled << true } }
+      # Record a regression without actually sleeping for the retry interval.
+      state.cond_var.define_singleton_method(:wait) { |_mutex, interval| retry_waits << interval }
+      shutdown_thread = Thread.new { @i.after_shutdown }
+      waiting(5) { shutdown_signaled.pop }
+      finish_write << true
+      waiting(5) { shutdown_thread.value }
+
+      assert_operator @i.retry.next_time, :>, Time.now
+      assert_true @i.buffer.queued?
+      assert_empty retry_waits
+    ensure
+      finish_write << true
+      shutdown_thread&.join(5)
+    end
+
     test 'max retry interval is limited by retry_max_interval' do
       chunk_key = 'tag'
       hash = {
