@@ -644,4 +644,35 @@ class YamlParserTest < Test::Unit::TestCase
       assert_equal([502, 503], target.retryable_response_codes)
     end
   end
+
+  class SecretParamInput
+    include Fluent::Configurable
+    attr_accessor :log
+
+    config_param :secret_array, :array, secret: true, default: nil
+    config_param :secret_hash, :hash, secret: true, default: nil
+  end
+
+  sub_test_case 'secret parameter' do
+    data("array w/ symbol" => ["secret_array: :SECRET", Fluent::ConfigError, "secret_array: array required but got Symbol"],
+         "array w/ invalid JSON" => ["secret_array: '[SECRET'", JSON::ParserError, "secret_array: invalid JSON array"],
+         "hash w/ sequence" => ["secret_hash: [SECRET]", Fluent::ConfigError, "secret_hash: hash required but got Array"],
+         "hash w/ invalid JSON" => [%q(secret_hash: '{"a": SECRET}'), JSON::ParserError, "secret_hash: invalid JSON object"])
+    test 'conversion error does not show the value' do |(param, error_class, message)|
+      write_config "#{TMP_DIR}/test_secret_param.yaml", <<~EOS
+        config:
+          - source:
+              $type: dummy
+              #{param}
+      EOS
+      config = Fluent::Config::YamlParser.parse("#{TMP_DIR}/test_secret_param.yaml")
+      target = SecretParamInput.new
+      target.log = Fluent::Test::TestLogger.new
+      error = assert_raise(error_class) do
+        target.configure(config.elements[0])
+      end
+      assert_equal(message, error.message)
+      assert_not_match(/SECRET/, target.log.logs.join)
+    end
+  end
 end
