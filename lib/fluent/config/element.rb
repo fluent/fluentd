@@ -190,7 +190,12 @@ module Fluent
       end
 
       def param_defined?(key)
-        !params_for(key).empty?
+        return false unless key.is_a?(String)
+
+        params_for(key).any? { |_proxy, name, _opts|
+          # SectionGenerator reads an alias only when the name itself is not written.
+          name.to_s == key || !key?(name.to_s)
+        }
       end
 
       def secret_argument?

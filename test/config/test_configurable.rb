@@ -470,8 +470,9 @@ module ConfigurableSpec
     # Like <buffer> of output, the section also has parameters of a plugin configured later.
     config_section :buffer, multi: false do
       config_argument :chunk_keys, :array, default: []
-      config_param :@type, :string, default: 'memory'
+      config_param :@type, :string, default: 'memory', alias: :type
       config_param :flush_mode, :enum, list: [:default, :lazy], default: :default
+      config_param :log_level, :string, default: nil
     end
   end
 
@@ -1493,6 +1494,9 @@ module Fluent::Config
 
       data("legacy name next to the reserved one" => [{'@type' => 'file', '@id' => 'buf', 'id' => 'SECRET_ID'}, "  @type file\n  @id buf\n  id xxxxxx\n"],
            "legacy name alone" => [{'type' => 'file', 'id' => 'buf'}, "  type file\n  id buf\n"],
+           "alias written next to the name" => [{'@type' => 'file', 'type' => 'SECRET_TYPE'}, "  @type file\n  type xxxxxx\n"],
+           "parameter named like a legacy name" => [{'@log_level' => 'info', 'log_level' => 'notice'}, "  @log_level info\n  log_level notice\n"],
+           "symbol key in YAML" => [{:flush_mode => 'SECRET_SYMBOL'}, "  flush_mode xxxxxx\n  flush_mode bogus\n"],
            "null key in YAML" => [{nil => 'SECRET_NULL'}, "<buffer tag>\n   xxxxxx\n"])
       test 'masks keys that do not stand for reserved names' do |(attrs, dump)|
         conf = config_element('ROOT', '', {}, [config_element('buffer', 'tag', attrs.merge('flush_mode' => 'bogus'))])
