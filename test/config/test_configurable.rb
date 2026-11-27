@@ -1530,6 +1530,13 @@ module Fluent::Config
         ConfigurableSpec::ExampleWithAliases.new.configure(conf)
         assert_equal("<ROOT>\n  legacy_name \"a b\"\n</ROOT>\n", conf.to_s)
       end
+
+      test 'is dumped when a YAML value is not a string' do
+        conf = config_element('ROOT', '', {'legacy_name' => 123})
+        conf.v1_config = true
+        ConfigurableSpec::ExampleWithAliases.new.configure(conf)
+        assert_equal("<ROOT>\n  legacy_name \"123\"\n</ROOT>\n", conf.to_s)
+      end
     end
 
     sub_test_case 'unused section' do

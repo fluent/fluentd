@@ -218,7 +218,7 @@ module Fluent
         else
           case param_type(k)
           when :string
-            "#{nindent}#{k} \"#{self.class.unescape_parameter(v)}\"\n"
+            "#{nindent}#{k} \"#{self.class.unescape_parameter(v.to_s)}\"\n"
           when :enum, :integer, :float, :size, :bool, :time
             "#{nindent}#{k} #{v}\n"
           when :hash, :array
