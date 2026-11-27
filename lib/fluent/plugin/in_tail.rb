@@ -428,13 +428,17 @@ module Fluent::Plugin
     def construct_watcher(target_info)
       path = target_info.path
 
-      # The file might be rotated or removed after collecting paths, so check inode again here.
+      # The file might be rotated or removed after collecting paths, so check its identity again here.
       begin
-        target_info.ino = Fluent::FileWrapper.stat(path).ino
+        stat = Fluent::FileWrapper.stat(path)
+        target_info.ino = stat.ino
+        target_info.dev = stat.dev
       rescue Errno::ENOENT, Errno::EACCES
         log.warn "stat() for #{path} failed. Continuing without tailing it."
         return
       end
+
+      return if @follow_inodes && block_given? && yield(target_info.identity)
 
       pe = nil
       if @pf
@@ -452,13 +456,30 @@ module Fluent::Plugin
       @tails[path] = tw
       tw.ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
       tw.on_notify
+      tw
     end
 
     def start_watchers(targets_info)
-      targets_info.each_value {|target_info|
-        construct_watcher(target_info)
+      if @follow_inodes
+        watchers_by_identity = {}
+        @tails_rotate_wait.each_key { |watcher| watchers_by_identity[watcher.identity] = watcher }
+        @tails.each_value { |watcher| watchers_by_identity[watcher.identity] = watcher }
+        already_watched = ->(identity) do
+          watcher = watchers_by_identity[identity]
+          watcher && !watcher.detached? && watcher.identity == identity
+        end
+      end
+
+      targets_info.each_value do |target_info|
+        watcher = construct_watcher(target_info, &already_watched)
+        if @follow_inodes && watcher
+          watchers_by_identity[watcher.identity] = watcher unless watcher.detached?
+          # The first notification can install a replacement for the path.
+          current_watcher = @tails[target_info.path]
+          watchers_by_identity[current_watcher.identity] = current_watcher if current_watcher && !current_watcher.equal?(watcher)
+        end
         break if before_shutdown?
-      }
+      end
     end
 
     def stop_watchers(targets_info, immediate: false, unwatched: false, remove_watcher: true)
@@ -496,58 +517,65 @@ module Fluent::Plugin
       end
     end
 
-    def update_watcher(tail_watcher, pe, new_inode)
+    def update_watcher(tail_watcher, pe, new_inode, new_dev = nil)
       @watcher_refresh_monitor.synchronize do
         return if @shutdown_start_time
 
-        update_watcher_raw(tail_watcher, pe, new_inode)
+        update_watcher_raw(tail_watcher, pe, new_inode, new_dev)
       end
     end
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
-    def update_watcher_raw(tail_watcher, pe, new_inode)
-      # TODO we should use another callback for this.
-      # To suppress impact to existing logics, limit the case to `@follow_inodes`.
-      # We may not need `@follow_inodes` condition.
-      if @follow_inodes && new_inode.nil?
-        # nil inode means the file disappeared, so we only need to stop it.
-        @tails.delete(tail_watcher.path)
-        detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
-        return
-      end
-
+    def update_watcher_raw(tail_watcher, pe, new_inode, new_dev = nil)
       path = tail_watcher.path
+      if @follow_inodes
+        return if tail_watcher.detached? || !tail_watcher.pe.equal?(pe)
 
-      log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
+        current_watcher = @tails[path]
+        if current_watcher && !current_watcher.equal?(tail_watcher)
+          # Refresh may have installed the replacement before this notification.
+          detach_watcher_after_rotate_wait(tail_watcher, tail_watcher.ino)
+          return
+        end
 
-      if @pf
+        if new_inode.nil?
+          @tails.delete(path)
+          detach_watcher_after_rotate_wait(tail_watcher, tail_watcher.ino)
+          return
+        end
+      elsif @pf
         pe_inode = pe.read_inode
-        target_info_from_position_entry = TargetInfo.new(path, pe_inode)
-        unless pe_inode == @pf[target_info_from_position_entry].read_inode
+        current_entry = @pf[TargetInfo.new(path, pe_inode)]
+        unless pe_inode == current_entry.read_inode
           log.warn "Skip update_watcher because watcher has been already updated by other inotify event",
-                   path: path, inode: pe.read_inode, inode_in_pos_file: @pf[target_info_from_position_entry].read_inode
+                   path: path, inode: pe_inode, inode_in_pos_file: current_entry.read_inode
           return
         end
       end
 
-      new_target_info = TargetInfo.new(path, new_inode)
-
+      new_target_info = TargetInfo.new(path, new_inode, new_dev)
+      new_position_entry = pe
       if @follow_inodes
         new_position_entry = @pf[new_target_info]
-        # If `refresh_watcher` find the new file before, this will not be zero.
-        # In this case, only we have to do is detaching the current tail_watcher.
-        if new_position_entry.read_inode == 0
-          @tails[path] = setup_watcher(new_target_info, new_position_entry)
-          @tails[path].ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
-          @tails[path].on_notify
+        # A saved offset can outlive its watcher. Only skip setup if the
+        # replacement is still being read.
+        watching_replacement = @tails.each_value.any? { |watcher| watcher.pe.equal?(new_position_entry) } ||
+                               @tails_rotate_wait.each_key.any? { |watcher| watcher.pe.equal?(new_position_entry) }
+        if watching_replacement
+          @tails.delete(path)
+        elsif current_watcher && tail_watcher.reuse_for_rotation(new_target_info, new_position_entry)
+          return
         end
-      else
-        @tails[path] = setup_watcher(new_target_info, pe)
+      end
+
+      log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
+      unless watching_replacement
+        @tails[path] = setup_watcher(new_target_info, new_position_entry)
         @tails[path].ready_to_shutdown(@shutdown_start_time) if @shutdown_start_time
         @tails[path].on_notify
       end
 
-      detach_watcher_after_rotate_wait(tail_watcher, pe.read_inode)
+      detach_watcher_after_rotate_wait(tail_watcher, @follow_inodes ? tail_watcher.ino : pe.read_inode)
     end
 
     def detach_watcher(tw, ino, close_io = true)
@@ -572,7 +600,7 @@ module Fluent::Plugin
       tw.group_watcher&.delete(tw.path, tw)
 
       if @pf && tw.unwatched && (@follow_inodes || !@tails[tw.path])
-        target_info = TargetInfo.new(tw.path, ino)
+        target_info = TargetInfo.new(tw.path, ino, tw.dev)
         if defer_worker_completion
           @worker_deferred_unwatch[tw] = target_info
         else

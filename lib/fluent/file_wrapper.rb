@@ -36,9 +36,9 @@ else
 
       def self.stat(path)
         f = WindowsFile.new(path)
-        s = f.stat
-        f.close
-        s
+        f.stat
+      ensure
+        f&.close
       end
     end
 
@@ -50,12 +50,12 @@ else
       INVALID_HANDLE_VALUE = -1
 
       def initialize(path, mode_enc='r')
-        @path = path
         mode, enc = mode_enc.split(":", 2)
         @io = File.open(path, mode2flags(mode))
         @io.set_encoding(enc) if enc
         @file_handle = Win32API._get_osfhandle(@io.to_i)
-        @io.instance_variable_set(:@file_index, self.ino)
+        @ino, @dev = file_identity
+        @io.instance_variable_set(:@file_index, @ino)
         def @io.ino
           @file_index
         end
@@ -66,30 +66,32 @@ else
         @file_handle = INVALID_HANDLE_VALUE
       end
 
-      # To keep backward compatibility, we continue to use GetFileInformationByHandle()
-      # to get file id.
-      # Note that Ruby's File.stat uses GetFileInformationByHandleEx() with FileIdInfo
-      # and returned value is different with above one, former one is 64 bit while
-      # later one is 128bit.
-      def ino
-        by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
-
-        unless Win32API.GetFileInformationByHandle(@file_handle, by_handle_file_information)
-          return 0
-        end
-
-        by_handle_file_information.unpack("I11Q1")[11] # fileindex
-      end
+      attr_reader :ino
 
       def stat
         raise Errno::ENOENT if delete_pending
-        s = File.stat(@path)
-        s.instance_variable_set :@ino, self.ino
+        s = @io.stat
+        s.instance_variable_set :@ino, @ino
+        s.instance_variable_set :@dev, @dev
         def s.ino; @ino; end
+        def s.dev; @dev; end
         s
       end
 
       private
+
+      # Keep the same file index encoding used by previous versions.
+      # Ruby's File.stat uses a different, 128-bit file identifier on Windows.
+      def file_identity
+        buffer = "\0" * 52
+        unless Win32API.GetFileInformationByHandle(@file_handle, buffer)
+          return [0, 0]
+        end
+
+        # BY_HANDLE_FILE_INFORMATION stores the volume serial number before
+        # the file size and link count, and the file index in its last 8 bytes.
+        [buffer.unpack("I11Q1")[11], buffer.unpack("I8")[7]]
+      end
 
       def mode2flags(mode)
         # Always inject File::Constants::SHARE_DELETE

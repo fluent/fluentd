@@ -15,12 +15,13 @@
 #
 
 require 'fluent/plugin/input'
+require 'fluent/file_wrapper'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     class PositionFile
       UNWATCHED_POSITION = 0xffffffffffffffff
-      POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
+      POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)(?:\t([0-9a-fA-F]+))?/.freeze
 
       def self.load(file, follow_inodes, existing_targets, logger:)
         pf = new(file, follow_inodes, logger: logger)
@@ -37,20 +38,21 @@ module Fluent::Plugin
       end
 
       def [](target_info)
-        if m = @map[@follow_inodes ? target_info.ino : target_info.path]
-          return m
-        end
+        key = target_key(target_info)
 
-        @file_mutex.synchronize {
+        @file_mutex.synchronize do
+          entry = @map[key]
+          return entry if entry
+
           @file.seek(0, IO::SEEK_END)
           seek = @file.pos + target_info.path.bytesize + 1
-          @file.write "#{target_info.path}\t0000000000000000\t0000000000000000\n"
-          if @follow_inodes
-            @map[target_info.ino] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
-          else
-            @map[target_info.path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
-          end
-        }
+          # Persist the key as soon as the row exists, including if compaction
+          # runs before the watcher initializes its position.
+          inode = @follow_inodes ? target_info.ino : 0
+          device = @follow_inodes ? target_info.dev : nil
+          @file.write Entry.new(target_info.path, 0, inode, device).to_entry_fmt
+          @map[key] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+        end
       end
 
       def unwatch_removed_targets(existing_targets)
@@ -62,7 +64,7 @@ module Fluent::Plugin
       end
 
       def unwatch(target_info)
-        unwatch_key(@follow_inodes ? target_info.ino : target_info.path)
+        unwatch_key(target_key(target_info))
       end
 
       def load(existing_targets = nil)
@@ -80,11 +82,9 @@ module Fluent::Plugin
             pos = m[2].to_i(16)
             ino = m[3].to_i(16)
             seek = @file.pos - line.bytesize + path.bytesize + 1
-            if @follow_inodes
-              map[ino] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
-            else
-              map[path] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
-            end
+            dev = m[4]&.to_i(16)
+            key = target_key(TargetInfo.new(path, ino, dev))
+            map[key] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
           end
         end
 
@@ -106,16 +106,7 @@ module Fluent::Plugin
 
         @file_mutex.synchronize do
           if last_modified == @file.mtime && size == @file.size
-            @file.pos = 0
-            @file.truncate(0)
-            @file.write(entries.values.map(&:to_entry_fmt).join)
-
-            # entry contains path/ino key and value.
-            entries.each do |key, val|
-              if (m = @map[key])
-                m.seek = val.seek
-              end
-            end
+            write_entries(entries)
           else
             # skip
           end
@@ -130,29 +121,43 @@ module Fluent::Plugin
         end
       end
 
+      def target_key(target_info)
+        @follow_inodes ? target_info.identity : target_info.path
+      end
+
       def compact(existing_targets = nil)
         @file_mutex.synchronize do
-          entries = fetch_compacted_entries
+          entries = fetch_compacted_entries(existing_targets)
           @logger&.debug "Compacted entries: ", entries.keys
 
-          if existing_targets
-            entries = remove_deleted_files_entries(entries, existing_targets)
-            @logger&.debug "Remove missing entries.",
-                           existing_targets: existing_targets.keys,
-                           entries_after_removing: entries.keys
-          end
-
-          @file.pos = 0
-          @file.truncate(0)
-          @file.write(entries.values.map(&:to_entry_fmt).join)
+          write_entries(entries)
         end
       end
 
-      def fetch_compacted_entries
-        entries = {}
+      def write_entries(entries)
+        contents = String.new
+        seeks = {}
+        entries.each do |key, entry|
+          if (position_entry = @map[key])
+            seeks[position_entry] = contents.bytesize + entry.path.bytesize + 1
+          end
+          contents << entry.to_entry_fmt.b
+        end
 
         @file.pos = 0
-        file_pos = 0
+        @file.write(contents)
+        @file.truncate(contents.bytesize)
+        seeks.each { |position_entry, seek| position_entry.seek = seek }
+      end
+
+      def fetch_compacted_entries(existing_targets = nil)
+        entries = {}
+        exact_matches = {}
+        if @follow_inodes && existing_targets
+          targets_by_inode = existing_targets.values.group_by(&:ino)
+        end
+
+        @file.pos = 0
         @file.each_line do |line|
           m = POSITION_FILE_ENTRY_REGEX.match(line)
           if m.nil?
@@ -163,35 +168,59 @@ module Fluent::Plugin
           path = m[1]
           pos = m[2].to_i(16)
           ino = m[3].to_i(16)
+          dev = m[4]&.to_i(16)
           if pos == UNWATCHED_POSITION
             @logger.debug "Remove unwatched line from pos_file: #{line}" if @logger
-          else
-            if @follow_inodes
-              @logger&.warn("#{path} (inode: #{ino}) already exists. use latest one: deleted #{entries[ino]}") if entries.include?(ino)
-              entries[ino] = Entry.new(path, pos, ino, file_pos + path.bytesize + 1)
-            else
-              @logger&.warn("#{path} already exists. use latest one: deleted #{entries[path]}") if entries.include?(path)
-              entries[path] = Entry.new(path, pos, ino, file_pos + path.bytesize + 1)
-            end
-            file_pos += line.size
+            next
           end
+
+          if targets_by_inode
+            exact_target = dev && existing_targets[[dev, ino]]
+            candidates = targets_by_inode.fetch(ino, [])
+            # Device numbers can change across restarts. A unique inode
+            # still identifies the saved position, as in older versions.
+            target = exact_target || (candidates.first if candidates.one?)
+            target ||= resolve_legacy_target(path, ino, candidates) if dev.nil?
+            next unless target
+
+            path = target.path unless exact_target
+            dev = target.dev
+          end
+
+          key = target_key(TargetInfo.new(path, ino, dev))
+          next if existing_targets && !existing_targets.key?(key)
+          next if exact_matches[key] && !exact_target
+          exact_matches[key] = true if exact_target
+
+          if entries.key?(key)
+            description = @follow_inodes ? "#{path} (device: #{dev}, inode: #{ino})" : path
+            @logger&.warn("#{description} already exists. use latest one: deleted #{entries[key]}")
+          end
+          entries[key] = Entry.new(path, pos, ino, @follow_inodes ? dev : nil)
         end
 
         entries
       end
 
-      def remove_deleted_files_entries(existent_entries, existing_targets)
-        existent_entries.select { |path_or_ino|
-          existing_targets.key?(path_or_ino)
-        }
+      def resolve_legacy_target(path, ino, candidates)
+        return if candidates.empty?
+
+        target = candidates.find { |candidate| candidate.path.b == path.b }
+        return target if target
+
+        # A live alias can identify the device when several targets share an inode.
+        stat = Fluent::FileWrapper.stat(path)
+        candidates.find { |candidate| candidate.dev == stat.dev } if stat.ino == ino
+      rescue SystemCallError, ArgumentError
+        nil
       end
     end
 
-    Entry = Struct.new(:path, :pos, :ino, :seek) do
-      POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
-
+    Entry = Struct.new(:path, :pos, :ino, :dev) do
       def to_entry_fmt
-        POSITION_FILE_ENTRY_FORMAT % [path, pos, ino]
+        fields = "%s\t%016x\t%016x" % [path, pos, ino]
+        fields << "\t%016x" % dev unless dev.nil?
+        fields << "\n"
       end
     end
 
@@ -264,6 +293,10 @@ module Fluent::Plugin
       end
     end
 
-    TargetInfo = Struct.new(:path, :ino)
+    TargetInfo = Struct.new(:path, :ino, :dev) do
+      def identity
+        [dev, ino]
+      end
+    end
   end
 end

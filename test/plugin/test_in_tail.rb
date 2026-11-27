@@ -44,7 +44,8 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def create_target_info(path)
-    Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+    stat = Fluent::FileWrapper.stat(path)
+    Fluent::Plugin::TailInput::TargetInfo.new(path, stat.ino, stat.dev)
   end
 
   ROOT_CONFIG = config_element("ROOT", "", {
@@ -902,7 +903,7 @@ class TailInputTest < Test::Unit::TestCase
         plugin.timer_execute(:test_worker_initial_read, 0.01, repeat: false) { tail_watcher.on_notify }
         waiting(5) { sleep 0.01 until parse_started.size == 1 }
         waiting(5) { sleep 0.01 until tail_watcher.pending? }
-        target = Fluent::Plugin::TailInput::TargetInfo.new(path, Fluent::FileWrapper.stat(path).ino)
+        target = create_target_info(path)
         assert_true tail_watcher.pending?
         position_entry = plugin.instance_variable_get(:@pf)[target]
         plugin.send(:stop_watchers, { path => target }, immediate: true, unwatched: true)
@@ -1221,7 +1222,7 @@ class TailInputTest < Test::Unit::TestCase
         end
 
         watcher = plugin.instance_variable_get(:@worker_waiting_watchers).first
-        target = Fluent::Plugin::TailInput::TargetInfo.new(watcher.path, watcher.ino)
+        target = Fluent::Plugin::TailInput::TargetInfo.new(watcher.path, watcher.ino, watcher.dev)
         position_entry = plugin.instance_variable_get(:@pf)[target]
         plugin.send(:stop_watchers, { watcher.path => target }, immediate: true, unwatched: true)
         assert_true plugin.instance_variable_get(:@worker_deferred_unwatch).key?(watcher)
@@ -2797,8 +2798,7 @@ class TailInputTest < Test::Unit::TestCase
 
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
       path = "test/plugin/data/2010/01/20100102-030406.log"
-      inode = Fluent::FileWrapper.stat(path).ino
-      target_info = Fluent::Plugin::TailInput::TargetInfo.new(path, inode)
+      target_info = create_target_info(path)
       mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(target_info, anything, anything, true, false, anything, anything, anything, anything).once
       plugin.refresh_watchers
 
@@ -2863,6 +2863,409 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'device-aware inode tracking' do
+    def stub_file_identity(path, inode, &device)
+      stat = Struct.new(:ino, :dev, :size)
+      stub(Fluent::FileWrapper).stat(path) do
+        stat.new(inode, device.call, File.size(path))
+      end
+    end
+
+    test 'refresh does not read a replacement on another device at the old offset' do
+      path = "#{@tmp_dir}/tail.txt"
+      other = "#{@tmp_dir}/tail.txt.other"
+      File.binwrite(path, "a00\n")
+      File.binwrite(other, "other\n")
+      inode, device = 42, 11
+      stat = Struct.new(:ino, :dev, :size)
+      stub(Fluent::FileWrapper).stat(path) { stat.new(inode, device, File.size(path)) }
+      stub_file_identity(other, 42) { 22 }
+
+      config = config_element('', '', {'refresh_interval' => '1h'}) +
+               common_follow_inode_config + CONFIG_OPEN_ON_EVERY_UPDATE + CONFIG_DISABLE_STAT_WATCHER
+      d = create_driver(config, false)
+      d.run do
+        plugin = d.instance
+        plugin.instance_variable_get(:@watcher_refresh_monitor).synchronize do
+          File.rename(path, "#{@tmp_dir}/archive.log")
+          File.binwrite(path, "one\ntwo\n")
+          inode, device = 43, 22
+          plugin.refresh_watchers
+        end
+      end
+
+      assert_equal %w[a00 one other two], d.events.map { |_, _, record| record['message'] }.sort
+    end
+
+    data('changed path starts first' => :changed_first, 'stable path starts first' => :stable_first,
+         'stable path is already active' => :active)
+    test 'only one watcher is attached when restat finds an alias' do |order|
+      changed = "#{@tmp_dir}/tail.txt.changed"
+      stable = "#{@tmp_dir}/tail.txt.stable"
+      File.binwrite(changed, "old\n") unless order == :active
+      File.binwrite(stable, "stable\n")
+      device = 11
+      stub_file_identity(changed, 42) { device }
+      stub_file_identity(stable, 42) { 22 }
+      paths = order == :changed_first ? [changed, stable] : [stable, changed]
+      config = config_element('', '', {'path' => paths.join(','), 'refresh_interval' => '1h'}) +
+               common_follow_inode_config + CONFIG_DISABLE_STAT_WATCHER
+      d = create_driver(config, false)
+      plugin = d.instance
+      archive = "#{@tmp_dir}/archive.log"
+      plugin.define_singleton_method(:construct_watcher) do |target, &block|
+        if target.path == changed && device == 11
+          File.rename(changed, archive)
+          File.link(stable, changed)
+          device = 22
+        end
+        super(target, &block)
+      end
+
+      d.run do
+        if order == :active
+          File.binwrite(changed, "old\n")
+          plugin.refresh_watchers
+        end
+        Fluent::FileWrapper.open(stable, 'ab') { |file| file.puts 'appended' }
+        plugin.instance_variable_get(:@tails).each_value(&:on_notify)
+      end
+
+      assert_equal %w[stable appended], d.events.map { |_, _, record| record['message'] }
+      assert_equal 1, plugin.statistics.dig('input', 'tracked_file_count')
+    end
+
+    data('read from end' => false, 'read from head' => true)
+    test 'resumes after a device number changes between runs' do |read_from_head|
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, "old1\nold2\nold3\n")
+      device = 11
+      stub_file_identity(path, 42) { device }
+
+      first = create_driver(common_follow_inode_config, false)
+      first.run
+      assert_equal %w[old1 old2 old3], first.events.map { |_, _, record| record['message'] }
+
+      Fluent::FileWrapper.open(path, 'ab') { |file| file.puts 'new1', 'new2' }
+      device = 22
+      config = config_element('', '', {'read_from_head' => read_from_head}) + common_follow_inode_config
+      restarted = create_driver(config, false)
+      restarted.run
+
+      assert_equal %w[new1 new2], restarted.events.map { |_, _, record| record['message'] }
+    end
+
+    data('new position file' => false, 'legacy position file' => true)
+    test 'tails files sharing an inode on different devices and resumes both offsets' do |legacy|
+      left = "#{@tmp_dir}/tail.txt.left"
+      right = "#{@tmp_dir}/tail.txt.right"
+      pos_file = "#{@tmp_dir}/tail.pos"
+      inode = 42
+      File.binwrite(left, "left-old\nleft-new\n")
+      File.binwrite(right, "right-old\nright-new\n")
+      stub_file_identity(left, inode) { 11 }
+      stub_file_identity(right, inode) { 22 }
+
+      expected = %w[left-old left-new right-old right-new]
+      if legacy
+        File.binwrite(pos_file, "%s\t%016x\t%016x\n%s\t%016x\t%016x\n" %
+                      [left, "left-old\n".bytesize, inode, right, "right-old\n".bytesize, inode])
+        expected = %w[left-new right-new]
+      end
+
+      d = create_driver(common_follow_inode_config, false)
+      d.run
+      assert_equal expected.sort, d.events.map { |_, _, record| record['message'] }.sort
+
+      Fluent::FileWrapper.open(left, 'ab') { |f| f.puts 'left-after-restart' }
+      Fluent::FileWrapper.open(right, 'ab') { |f| f.puts 'right-after-restart' }
+      d = create_driver(common_follow_inode_config, false)
+      d.run
+      assert_equal %w[left-after-restart right-after-restart], d.events.map { |_, _, record| record['message'] }.sort
+    end
+
+    data('old path is missing' => :missing, 'old path is replaced on the same device' => :same_device,
+         'old path is replaced on a different device' => :different_device)
+    test 'resumes a legacy offset only when a rename can be resolved' do |replacement|
+      original = "#{@tmp_dir}/tail.txt"
+      renamed = "#{@tmp_dir}/tail.txt.1"
+      other = "#{@tmp_dir}/tail.txt.other"
+      pos_file = "#{@tmp_dir}/tail.pos"
+      File.binwrite(renamed, "already-read\nread-after-rename\n")
+      File.binwrite(pos_file, "%s\t%016x\t%016x\n" % [original, "already-read\n".bytesize, 42])
+      device = File.stat(@tmp_dir).dev
+      stub_file_identity(renamed, 42) { device }
+
+      expected = %w[read-after-rename]
+      case replacement
+      when :missing
+        stub(Fluent::FileWrapper).stat(original) { raise Errno::ENOENT }
+        stub(File).stat(@tmp_dir) { Struct.new(:dev).new(device) }
+        stub(File).stat(renamed) { Struct.new(:dev).new(device) } if Fluent.windows?
+      when :same_device
+        File.write(original, "replacement\n")
+        stub_file_identity(original, 43) { device }
+        expected = %w[read-after-rename replacement]
+      when :different_device
+        File.write(original, "replacement\n")
+        File.write(other, "other-device\n")
+        stub_file_identity(original, 43) { device + 1 }
+        stub_file_identity(other, 42) { device + 1 }
+        expected = %w[already-read other-device read-after-rename replacement]
+      end
+
+      d = create_driver(common_follow_inode_config, false)
+      d.run
+      assert_equal expected, d.events.map { |_, _, record| record['message'] }.sort
+    end
+
+    test 'resumes a missing legacy path by inode when only one candidate exists on another device' do
+      old_dir = File.join(@tmp_dir, 'old')
+      FileUtils.mkdir(old_dir)
+      old_path = File.join(old_dir, 'tail.txt')
+      path = File.join(@tmp_dir, 'tail.txt')
+      pos_file = File.join(@tmp_dir, 'tail.pos')
+      File.binwrite(path, "head\ntail\n")
+      File.binwrite(pos_file, "%s\t%016x\t%016x\n" % [old_path, "head\n".bytesize, 42])
+      device = File.stat(path).dev
+      stub_file_identity(path, 42) { device }
+      stub(Fluent::FileWrapper).stat(old_path) { raise Errno::ENOENT }
+      stub(File).stat(old_dir) { Struct.new(:dev).new(device + 1) }
+      stub(File).stat(path) { Struct.new(:dev).new(device) } if Fluent.windows?
+
+      d = create_driver(common_follow_inode_config, false)
+      d.run
+      assert_equal %w[tail], d.events.map { |_, _, record| record['message'] }
+    end
+
+    test 'resumes from a legacy position after the watched directory is renamed' do
+      old_dir = File.join(@tmp_dir, 'before')
+      new_dir = File.join(@tmp_dir, 'after')
+      FileUtils.mkdir(old_dir)
+      old_path = File.join(old_dir, 'app.log')
+      File.binwrite(old_path, "old\nnew\n")
+      inode = Fluent::FileWrapper.stat(old_path).ino
+      File.binwrite("#{@tmp_dir}/tail.pos", "%s\t%016x\t%016x\n" % [old_path, "old\n".bytesize, inode])
+      File.rename(old_dir, new_dir)
+
+      config = config_element('', '', {
+        'path' => "#{@tmp_dir}/*/app.log", 'read_from_head' => false,
+      }) + common_follow_inode_config
+      d = create_driver(config, false)
+      d.run
+
+      assert_equal %w[new], d.events.map { |_, _, record| record['message'] }
+    end
+
+    test 'resumes from a legacy position after a symlink to another device is renamed' do
+      omit 'creating a symlink requires extra permissions on Windows' if Fluent.windows?
+
+      source = "#{@tmp_dir}/source.log"
+      original = "#{@tmp_dir}/tail.txt"
+      renamed = "#{@tmp_dir}/tail.txt.1"
+      File.binwrite(source, "old\nnew\n")
+      File.symlink(File.expand_path(source), original)
+      inode = Fluent::FileWrapper.stat(original).ino
+      File.binwrite("#{@tmp_dir}/tail.pos", "%s\t%016x\t%016x\n" % [original, "old\n".bytesize, inode])
+      File.rename(original, renamed)
+      directory_stat = File.stat(@tmp_dir)
+      stub_file_identity(renamed, inode) { directory_stat.dev + 1 }
+      stub(File).stat(original) { raise Errno::ENOENT }
+      stub(File).stat(@tmp_dir) { directory_stat }
+
+      config = config_element('', '', {'read_from_head' => false}) + common_follow_inode_config
+      d = create_driver(config, false)
+      d.run
+
+      assert_equal %w[new], d.events.map { |_, _, record| record['message'] }
+    end
+
+    test 'preserves multiline order and rotation count on one device with open on every update' do
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, "s old1\ns old2\n")
+      config = config_element('', '', {'refresh_interval' => '1h'}) + MULTILINE_CONFIG +
+               common_follow_inode_config + CONFIG_OPEN_ON_EVERY_UPDATE + CONFIG_DISABLE_STAT_WATCHER
+      d = create_driver(config, false)
+      d.run do
+        plugin = d.instance
+        plugin.instance_variable_get(:@watcher_refresh_monitor).synchronize do
+          watcher = plugin.instance_variable_get(:@tails).fetch(path)
+          File.rename(path, "#{@tmp_dir}/archive.log")
+          File.binwrite(path, "s next1\ns next2\n")
+          watcher.on_notify
+        end
+        assert_equal 1, plugin.statistics.dig('input', 'rotated_file_count')
+      end
+
+      assert_equal %w[old1 old2 next1 next2], d.events.map { |_, _, record| record['message1'] }
+    end
+
+    test 'reads an appended line when a watched path switches back to a device before refresh' do
+      path = "#{@tmp_dir}/tail.txt"
+      original = "#{@tmp_dir}/original.log"
+      other = "#{@tmp_dir}/other.log"
+      File.binwrite(path, "a1\n")
+      File.binwrite(other, "b1\n")
+      inode, device = 42, 11
+      stat = Struct.new(:ino, :dev, :size)
+      stub(Fluent::FileWrapper).stat(path) { stat.new(inode, device, File.size(path)) }
+      config = config_element('', '', {'refresh_interval' => '1h'}) +
+               common_follow_inode_config + CONFIG_OPEN_ON_EVERY_UPDATE + CONFIG_DISABLE_STAT_WATCHER
+      d = create_driver(config, false)
+      d.run do
+        plugin = d.instance
+        tails = plugin.instance_variable_get(:@tails)
+        plugin.instance_variable_get(:@watcher_refresh_monitor).synchronize do
+          File.rename(path, original)
+          File.rename(other, path)
+          inode, device = 43, 22
+          tails.fetch(path).on_notify
+
+          Fluent::FileWrapper.open(original, 'ab') { |file| file.puts 'a2' }
+          File.rename(path, other)
+          File.rename(original, path)
+          inode, device = 42, 11
+          tails.fetch(path).on_notify
+
+          File.rename(path, original)
+          File.binwrite(path, "c1\n")
+          inode, device = 44, 22
+          tails.fetch(path).on_notify
+        end
+      end
+
+      assert_equal %w[a1 b1 a2 c1], d.events.map { |_, _, record| record['message'] }
+    end
+
+    test 'shutdown finishes when stat fails for a closed handler' do
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, "line\n")
+      config = common_follow_inode_config + CONFIG_OPEN_ON_EVERY_UPDATE + CONFIG_DISABLE_STAT_WATCHER
+      d = create_driver(config, false)
+      d.run(shutdown: false)
+      stat_error = defined?(Errno::ESTALE) ? Errno::ESTALE : Errno::EIO
+      stub(Fluent::FileWrapper).stat(path) { raise stat_error }
+
+      shutdown_log = StringIO.new
+      d.instance_shutdown(log: Logger.new(shutdown_log))
+      assert_not_match(/unexpected error while shutdown/, shutdown_log.string)
+      assert_predicate d.instance.instance_variable_get(:@pf_file), :closed?
+      assert_equal %w[line], d.events.map { |_, _, record| record['message'] }
+    end
+
+    test 'keeps the device on concurrent callbacks for the same rotation' do
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, "old\n")
+      device = 11
+      stub_file_identity(path, 42) { device }
+      config = config_element('', '', {'refresh_interval' => '1h', 'rotate_wait' => '1h'}) +
+               common_follow_inode_config + CONFIG_DISABLE_STAT_WATCHER
+      d = create_driver(config, false)
+      plugin = d.instance
+      started = Queue.new
+      resume = Queue.new
+      devices = []
+      plugin.define_singleton_method(:update_watcher) do |watcher, pe, inode, *args|
+        if Thread.current[:delay_rotation]
+          started << true
+          resume.pop
+        end
+        devices << args.first
+        super(watcher, pe, inode, *args)
+      end
+
+      d.run do
+        old = plugin.instance_variable_get(:@tails).fetch(path)
+        File.rename(path, "#{@tmp_dir}/archive.log")
+        File.binwrite(path, "new\n")
+        device = 22
+        stat = Fluent::FileWrapper.stat(path)
+        delayed = Thread.new do
+          Thread.current[:delay_rotation] = true
+          old.__send__(:notify_watcher_update, old.pe, stat)
+        end
+        waiting(5) { started.pop }
+        old.__send__(:notify_watcher_update, old.pe, stat)
+        resume << true
+        waiting(5) { delayed.value }
+        assert_equal [22, 22], devices
+        assert_equal [22, 42], plugin.instance_variable_get(:@tails).fetch(path).identity
+      ensure
+        resume << true
+        delayed&.join(5)
+      end
+
+      assert_equal %w[old new], d.events.map { |_, _, record| record['message'] }
+    end
+
+    data('stat notification with open file' => [false, true],
+         'stat notification with open on every update' => [true, true],
+         'refresh with open on every update' => [true, false])
+    test 'rotates to the same inode on another device while discovering a third device' do |(open_on_every_update, notify)|
+      path = "#{@tmp_dir}/tail.txt"
+      other = "#{@tmp_dir}/tail.txt.other"
+      archived = "#{@tmp_dir}/old.log"
+      File.write(path, "old\n")
+      device = 11
+      stub_file_identity(path, 42) { device }
+      stub_file_identity(other, 42) { 33 }
+
+      config = common_follow_inode_config + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", {
+        "refresh_interval" => "1h",
+        "rotate_wait" => "1h",
+        "open_on_every_update" => open_on_every_update,
+      })
+      d = create_driver(config, false)
+      d.run do
+        plugin = d.instance
+        plugin.instance_variable_get(:@watcher_refresh_monitor).synchronize do
+          old_watcher = plugin.instance_variable_get(:@tails).fetch(path)
+          File.rename(path, archived)
+          File.write(path, "replacement\n")
+          device = 22
+          old_watcher.on_notify if notify
+          File.write(other, "other\n")
+          plugin.refresh_watchers
+        end
+      end
+
+      assert_equal %w[old other replacement], d.events.map { |_, _, record| record['message'] }.sort
+    end
+
+    test 'resumes a rotated file when its former path becomes an alias for another device' do
+      path = "#{@tmp_dir}/tail.txt"
+      other = "#{@tmp_dir}/tail.txt.other"
+      archived = "#{@tmp_dir}/tail.txt.1"
+      File.write(path, "old\n")
+      File.write(other, "other\n")
+      device = 11
+      stub_file_identity(path, 42) { device }
+      stub_file_identity(archived, 42) { 11 }
+      stub_file_identity(other, 42) { 22 }
+
+      config = common_follow_inode_config + CONFIG_DISABLE_STAT_WATCHER + config_element("", "", {
+        "refresh_interval" => "1h",
+        "rotate_wait" => "0.1s",
+      })
+      d = create_driver(config, false)
+      d.run do
+        plugin = d.instance
+        old_watcher = plugin.instance_variable_get(:@tails).fetch(path)
+        plugin.instance_variable_get(:@watcher_refresh_monitor).synchronize do
+          File.rename(path, archived)
+          File.link(other, path)
+          device = 22
+          old_watcher.on_notify
+        end
+        waiting(5) { sleep 0.01 until old_watcher.instance_variable_get(:@io_handler).nil? }
+        Fluent::FileWrapper.open(archived, 'ab') { |file| file.puts 'after-rotation' }
+        plugin.refresh_watchers
+      end
+
+      assert_equal %w[after-rotation old other], d.events.map { |_, _, record| record['message'] }.sort
+    end
+  end
+
   sub_test_case 'inode_processing' do
     def test_should_delete_file_pos_entry_for_non_existing_file_with_follow_inodes
       config = common_follow_inode_config
@@ -2923,7 +3326,7 @@ class TailInputTest < Test::Unit::TestCase
         # inode is still in the position file, and the path is followed by a
         # new watcher which has a different inode.
         rotated_ino = 0xffffffffffffff01
-        rotated_target_info = Fluent::Plugin::TailInput::TargetInfo.new(path, rotated_ino)
+        rotated_target_info = Fluent::Plugin::TailInput::TargetInfo.new(path, rotated_ino, current_tw.dev)
         rotated_pe = pf[rotated_target_info]
         rotated_tw = Fluent::Plugin::TailInput::TailWatcher.new(
           rotated_target_info, rotated_pe, $log, true, true, nil, nil, nil, nil
@@ -2934,7 +3337,7 @@ class TailInputTest < Test::Unit::TestCase
 
         assert_equal(
           {
-            map_keys: [current_tw.ino],
+            map_keys: [current_tw.identity],
             unwatched_pe_pos: Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION,
           },
           {
@@ -2996,7 +3399,7 @@ class TailInputTest < Test::Unit::TestCase
         assert_true closed
         assert_true tw.eof?
         assert_equal Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION, pe.read_pos
-        assert_false pf.instance_variable_get(:@map).key?(ino)
+        assert_false pf.instance_variable_get(:@map).key?(target_info.identity)
       end
 
       d.instance_shutdown
@@ -4682,6 +5085,26 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'rotation during refresh' do
+    test 'a watcher draining after refresh still detects a replacement' do
+      path = "#{@tmp_dir}/tail.txt"
+      File.binwrite(path, "old\n")
+      config = config_element('', '', {'refresh_interval' => '1h', 'rotate_wait' => '1h'}) +
+               common_follow_inode_config + CONFIG_DISABLE_STAT_WATCHER
+      d = create_driver(config, false)
+      d.run do
+        plugin = d.instance
+        plugin.instance_variable_get(:@watcher_refresh_monitor).synchronize do
+          watcher = plugin.instance_variable_get(:@tails).fetch(path)
+          File.rename(path, "#{@tmp_dir}/archive.log")
+          plugin.refresh_watchers
+          File.binwrite(path, "new\n")
+          watcher.on_notify
+        end
+      end
+
+      assert_equal %w[old new], d.events.map { |_, _, record| record['message'] }
+    end
+
     data('follow_inodes false' => false, 'follow_inodes true' => true)
     test 'refresh handles a rotation noticed by its own notification' do |follow_inodes|
       path = "#{@tmp_dir}/tail.txt"

@@ -25,12 +25,13 @@ module Fluent::Plugin
       def initialize(target_info, pe, log, read_from_head, follow_inodes, update_watcher, file_feed, io_handler_build, metrics)
         @path = target_info.path
         @ino = target_info.ino
+        @dev = target_info.dev
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
         @follow_inodes = follow_inodes
         @update_watcher = update_watcher
         @log = log
-        @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
+        @rotate_handler = RotateHandler.new(log, follow_inodes, &method(:on_rotate))
         @file_feed = file_feed
         @io_handler = nil
         @io_handler_build = io_handler_build
@@ -40,7 +41,11 @@ module Fluent::Plugin
         @close_pending = false
       end
 
-      attr_reader :path, :ino
+      attr_reader :path, :ino, :dev
+
+      def identity
+        [@dev, @ino]
+      end
 
       def detached?
         @detached
@@ -63,7 +68,10 @@ module Fluent::Plugin
         @detached = true
         if @io_handler
           ready_to_shutdown(shutdown_start_time)
-          @io_handler.on_notify
+          # A closed handler must not apply its offset to a file on another device.
+          unless @follow_inodes && @dev && !@io_handler.opened? && path_on_another_device?
+            @io_handler.on_notify
+          end
         end
         @file_feed&.close(self)
       end
@@ -120,14 +128,7 @@ module Fluent::Plugin
           return
         end
 
-        begin
-          stat = Fluent::FileWrapper.stat(@path)
-        rescue Errno::ENOENT, Errno::EACCES
-          # moved or deleted
-          stat = nil
-        end
-
-        @rotate_handler.on_notify(stat) if @rotate_handler
+        @rotate_handler.on_notify(stat_path) if @rotate_handler
         read_more
       end
 
@@ -152,6 +153,12 @@ module Fluent::Plugin
       def on_rotate(stat)
         if @io_handler.nil?
           if stat
+            # Discovery and the first open can see different files.
+            if @follow_inodes && @dev && !same_file?(stat)
+              notify_watcher_update(@pe, stat)
+              return
+            end
+
             # first time
             fsize = stat.size
             inode = stat.ino
@@ -188,11 +195,17 @@ module Fluent::Plugin
 
           if stat
             inode = stat.ino
-            if inode == @pe.read_inode # truncated
+            if inode == @pe.read_inode && (!@follow_inodes || @dev == stat.dev) # truncated
               @pe.update_pos(0)
               @io_handler.close
             elsif !@io_handler.opened? # There is no previous file. Reuse TailWatcher
-              @pe.update(inode, 0)
+              if @follow_inodes
+                # A replacement on another device needs its own watcher and offset.
+                @io_handler = nil if @dev != stat.dev
+                watcher_needs_update = true
+              else
+                @pe.update(inode, 0)
+              end
             else # file is rotated and new file found
               watcher_needs_update = true
               # Handle the old log file before renewing TailWatcher [fluentd#1055]
@@ -213,14 +226,14 @@ module Fluent::Plugin
               #   If a notify comes before the new file for the path is created during rotation,
               #   then it appears as if the file was resurrected once it disappeared.
               # Don't want to swap state because we need latest read offset in pos file even after rotate_wait
-              @update_watcher.call(self, @pe, stat&.ino)
+              notify_watcher_update(@pe, stat)
             else
               # Permit to handle if stat is nil (file not present).
               # If a file is mv-ed and a new file is created during
               # calling `#refresh_watchers`s, and `#refresh_watchers` won't run `#start_watchers`
               # and `#stop_watchers()` for the path because `target_paths_hash`
               # always contains the path.
-              @update_watcher.call(self, swap_state(@pe), stat&.ino)
+              notify_watcher_update(swap_state(@pe), stat)
             end
           else
             @log.info "detected rotation of #{@path}"
@@ -228,6 +241,18 @@ module Fluent::Plugin
           end
           @metrics.rotated.inc
         end
+      end
+
+      def reuse_for_rotation(target_info, pe)
+        return false unless @io_handler && !@io_handler.opened? && @dev == target_info.dev
+
+        # Keep the multiline buffer until the first line from the new file.
+        pe.update(target_info.ino, 0)
+        @ino = target_info.ino
+        @pe = pe
+        @log.info "detected rotation of #{@path}"
+        @io_handler = io_handler
+        true
       end
 
       def io_handler
@@ -244,27 +269,52 @@ module Fluent::Plugin
         pe # This pe will be updated in on_rotate after TailWatcher is initialized
       end
 
+      def stat_path
+        Fluent::FileWrapper.stat(@path)
+      rescue Errno::ENOENT, Errno::EACCES
+        nil
+      end
+      private :stat_path
+
+      def same_file?(stat)
+        stat && @dev == stat.dev && @ino == stat.ino
+      end
+      private :same_file?
+
+      def path_on_another_device?
+        Fluent::FileWrapper.stat(@path).dev != @dev
+      rescue SystemCallError
+        false
+      end
+      private :path_on_another_device?
+
+      def notify_watcher_update(pe, stat)
+        @update_watcher.call(self, pe, stat&.ino, stat&.dev)
+      end
+      private :notify_watcher_update
+
       class RotateHandler
-        def initialize(log, &on_rotate)
+        def initialize(log, follow_inodes = false, &on_rotate)
           @log = log
-          @inode = nil
+          @identity = nil
+          @follow_inodes = follow_inodes
           @fsize = -1  # first
           @on_rotate = on_rotate
         end
 
         def on_notify(stat)
           if stat.nil?
-            inode = nil
+            identity = nil
             fsize = 0
           else
-            inode = stat.ino
+            identity = @follow_inodes ? [stat.dev, stat.ino] : stat.ino
             fsize = stat.size
           end
 
-          if @inode != inode || fsize < @fsize
+          if @identity != identity || fsize < @fsize
             @on_rotate.call(stat)
           end
-          @inode = inode
+          @identity = identity
           @fsize = fsize
         rescue
           @log.error $!.to_s
