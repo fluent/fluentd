@@ -211,9 +211,8 @@ module Fluent
       raise
     rescue JSON::ParserError
       raise unless opts[:secret]
-      # The parser's message contains part of the value. Not ConfigError, because
-      # SectionGenerator then dumps the section, and the dump shows secrets of child sections.
-      raise JSON::ParserError, "#{name}: invalid JSON #{kind}", cause: nil
+      # The parser's message contains part of the value.
+      raise ConfigError, "#{name}: invalid JSON #{kind}", cause: nil
     end
     private_class_method :parse_json
 

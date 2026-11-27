@@ -374,7 +374,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(nil, Config::HASH_TYPE.call(nil))
     end
 
-    data("invalid JSON" => [JSON::ParserError, "map: invalid JSON object", '{"a": SECRET}'],
+    data("invalid JSON" => [Fluent::ConfigError, "map: invalid JSON object", '{"a": SECRET}'],
          "not a hash" => [Fluent::ConfigError, "map: hash required but got Array", ["SECRET"]])
     test 'hash w/ secret hides the value in the error' do |(error_class, message, val)|
       error = assert_raise(error_class) do
@@ -440,7 +440,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(nil, Config::ARRAY_TYPE.call(nil))
     end
 
-    data("invalid JSON" => [JSON::ParserError, "keys: invalid JSON array", '["one", SECRET]'],
+    data("invalid JSON" => [Fluent::ConfigError, "keys: invalid JSON array", '["one", SECRET]'],
          "too deep JSON" => [JSON::NestingError, "nesting of 101 is too deep", "[" * 101 + "\"SECRET\"" + "]" * 101],
          "not an array" => [Fluent::ConfigError, "keys: array required but got Hash", {"k" => "SECRET"}])
     test 'array w/ secret hides the value in the error' do |(error_class, message, val)|
