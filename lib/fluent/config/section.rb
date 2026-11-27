@@ -261,7 +261,7 @@ module Fluent
             parent_name = if conf.arg.empty?
                             conf.name
                           else
-                            "#{conf.name} #{conf.arg}"
+                            "#{conf.name} #{conf.masked_arg}"
                           end
             e.unused_in = [parent_name, plugin_class]
           end

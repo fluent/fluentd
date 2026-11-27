@@ -459,7 +459,7 @@ module ConfigurableSpec
     attr_accessor :log
 
     config_section :auth, multi: false do
-      config_argument :token, :array, secret: true
+      config_argument :token, :array, secret: true, default: nil
     end
   end
 
@@ -1512,6 +1512,20 @@ module Fluent::Config
         assert_equal(["SECRET_ARG"], example.auth.token)
         assert_equal("<ROOT>\n  <auth xxxxxx>\n  </auth>\n</ROOT>\n", conf.to_s)
         assert_equal("xxxxxx", example.config.elements.first.arg)
+      end
+
+      test 'is masked in the unused section warning' do
+        conf = config_element('ROOT', '', {}, [config_element('auth', 'SECRET_ARG', {}, [config_element('unknown', '', {'k' => 'v'})])])
+        ConfigurableSpec::ExampleWithSecretArgument.new.configure(conf)
+        assert_equal(["auth xxxxxx", nil], conf.elements.first.elements.first.unused_in)
+      end
+
+      test 'is kept empty in the masked config when omitted' do
+        conf = config_element('ROOT', '', {}, [config_element('auth', '')])
+        example = ConfigurableSpec::ExampleWithSecretArgument.new
+        example.configure(conf)
+        assert_nil(example.auth.token)
+        assert_equal("", example.config.elements.first.arg)
       end
     end
 
