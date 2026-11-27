@@ -362,6 +362,55 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert{ logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
     end
 
+    test 'secondary plugin can roll back a chunk it wrote for delayed commit' do
+      chunks = []
+      priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'delayed_commit_timeout' => 30, 'retry_randomize' => false, 'queued_chunks_limit_size' => 10})
+      secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
+      @i.configure(config_element('ROOT','',{},[priconf,secconf]))
+      @i.register(:prefer_buffered_processing){ true }
+      @i.register(:prefer_delayed_commit){ false }
+      @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
+      @i.register(:write){|chunk| raise "yay, your #write must fail" }
+      @i.secondary.register(:prefer_delayed_commit){ true }
+      @i.secondary.register(:try_write){|chunk| chunks << chunk }
+      @i.secondary.register(:write){|chunk| raise "don't use this" }
+      @i.start
+      @i.after_start
+
+      @i.interrupt_flushes
+
+      now = Time.parse('2016-04-13 18:33:30 -0700')
+      Timecop.freeze( now )
+
+      @i.emit_events("test.tag.1", dummy_event_stream())
+
+      now = Time.parse('2016-04-13 18:33:31 -0700')
+      Timecop.freeze( now )
+      @i.enqueue_thread_wait
+      @i.flush_thread_wakeup
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
+
+      first_failure = @i.retry.start
+
+      # retry_timeout == 60(sec), retry_secondary_threshold == 0.8
+      now = first_failure + 60 * 0.8 + 1
+      Timecop.freeze( now )
+      @i.enqueue_thread_wait
+      @i.flush_thread_wakeup
+      now = first_failure + 60 * 0.8 + 2
+      Timecop.freeze( now )
+      @i.enqueue_thread_wait
+      @i.flush_thread_wakeup
+
+      waiting(4){ sleep 0.1 until chunks.size == 1 }
+
+      assert{ @i.buffer.dequeued.size == 1 }
+      chunk_id = chunks[0].unique_id
+      assert{ @i.secondary.rollback_write(chunk_id) }
+      assert{ @i.buffer.dequeued[chunk_id].nil? }
+      assert{ @i.buffer.queue.size == 1 }
+    end
+
     test 'secondary plugin can do delayed commit if primary do it' do
       written = []
       chunks = []
