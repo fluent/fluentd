@@ -178,6 +178,7 @@ module ConfigurableSpec
 
     config_param :normal_param, :string
     config_param :secret_param, :string, secret: true
+    config_param :secret_param3, :string, secret: true, alias: :legacy_secret_param, default: nil
 
     config_section :section  do
       config_param :normal_param2, :string
@@ -1370,7 +1371,8 @@ module Fluent::Config
         @conf = config_element('ROOT', '',
                                {
                                  'normal_param' => 'normal',
-                                 'secret_param' => 'secret'
+                                 'secret_param' => 'secret',
+                                 'legacy_secret_param' => 'secret'
                                },
                                [config_element('section', '', {'normal_param2' => 'normal', 'secret_param2' => 'secret'} )])
         @example = ConfigurableSpec::ExampleWithSecret.new
@@ -1400,7 +1402,7 @@ module Fluent::Config
         case key
         when 'normal_param', 'normal_param2'
           assert_equal 'normal', value
-        when 'secret_param', 'secret_param2'
+        when 'secret_param', 'secret_param2', 'legacy_secret_param'
           assert_equal 'xxxxxx', value
         end
       end
