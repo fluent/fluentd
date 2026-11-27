@@ -261,7 +261,6 @@ module Fluent
         end
         section.to_s
       end
-      private_class_method :dump_section
 
       def self.check_unused_section(proxy, conf, plugin_class)
         elems = conf.respond_to?(:elements) ? conf.elements : []
