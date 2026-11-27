@@ -201,8 +201,10 @@ module Fluent
       end
 
       def masked_arg
-        return @arg if @arg.nil? || @arg.empty?
-        secret_argument? ? 'xxxxxx' : @arg
+        return @arg unless secret_argument?
+        return @arg if @arg.nil? || (@arg.respond_to?(:empty?) && @arg.empty?)
+
+        'xxxxxx'
       end
 
       def param_type(key)

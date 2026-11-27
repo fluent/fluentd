@@ -1535,12 +1535,13 @@ module Fluent::Config
         assert_equal(["auth xxxxxx", nil], conf.elements.first.elements.first.unused_in)
       end
 
-      test 'is kept empty in the masked config when omitted' do
-        conf = config_element('ROOT', '', {}, [config_element('auth', '')])
+      data('empty string' => '', 'empty array' => [], 'empty hash' => {})
+      test 'is kept empty in the masked config when omitted' do |arg|
+        conf = config_element('ROOT', '', {}, [config_element('auth', arg)])
         example = ConfigurableSpec::ExampleWithSecretArgument.new
         example.configure(conf)
         assert_nil(example.auth.token)
-        assert_equal("", example.config.elements.first.arg)
+        assert_equal(arg, example.config.elements.first.arg)
       end
     end
 

@@ -395,6 +395,11 @@ CONF
         assert_equal 'yay', e2['unknown1']
         assert_equal 'boo', e2['unknown2']
       end
+
+      test 'keeps an argument that is not a string' do
+        e = element('ROOT', '', {}, [element('record', 7)])
+        assert_equal(7, e.to_masked_element.elements.first.arg)
+      end
     end
 
     sub_test_case '#secret_param?' do
